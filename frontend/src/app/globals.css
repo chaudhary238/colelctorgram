@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+/* ── CollectorHub design tokens ───────────────────────────────── */
+:root {
+  /* Palette */
+  --paper:             #F4EFE6;
+  --paper-soft:        #FAF6EE;
+  --bone:              #E8E1D2;
+  --bone-deep:         #D6CDB9;
+  --ink:               #14110F;
+  --ink-soft:          #2A2521;
+  --ink-mute:          #5C5650;
+  --ink-faint:         #8B847B;
+  --ink-ghost:         #B8AFA3;
+  --white:             #FFFFFF;
+
+  /* Brand */
+  --stamp-red:         #D93324;
+  --stamp-red-deep:    #B12618;
+  --stamp-red-soft:    #F5D9D5;
+  --grail-gold:        #E8A33D;
+  --grail-gold-deep:   #C48420;
+  --grail-gold-soft:   #F8E6C4;
+  --verified-teal:     #2D8F87;
+  --verified-teal-soft:#CFE6E2;
+  --forest:            #2D5F3F;
+  --forest-soft:       #D2E0D3;
+  --plum:              #6B3656;
+  --plum-soft:         #E4D2DE;
+
+  /* Semantic */
+  --bg:                var(--paper);
+  --surface:           var(--paper-soft);
+  --surface-sunken:    var(--bone);
+  --fg:                var(--ink);
+  --fg-secondary:      var(--ink-mute);
+  --fg-tertiary:       var(--ink-faint);
+  --border:            rgba(20, 17, 15, 0.10);
+  --border-strong:     rgba(20, 17, 15, 0.18);
+  --brand:             var(--stamp-red);
+
+  /* Type — bound to the next/font variables wired in layout.tsx */
+  --font-display: var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body:    var(--font-geist-sans), "Geist", system-ui, sans-serif;
+  --font-mono:    var(--font-jetbrains), "JetBrains Mono", ui-monospace, monospace;
+
+  /* Type scale (mobile-first) — mirrors colors_and_type.css */
+  --t-display-xl: 56px; --t-display-lg: 44px; --t-display-md: 34px; --t-display-sm: 28px;
+  --t-title: 22px; --t-headline: 18px; --t-body-lg: 17px; --t-body: 15px;
+  --t-caption: 13px; --t-micro: 11px;
+
+  /* Radii */
+  --r-xs: 4px; --r-sm: 8px; --r-md: 12px;
+  --r-lg: 18px; --r-xl: 28px; --r-pill: 999px;
+
+  /* Shadows */
+  --shadow-1: 0 1px 2px rgba(20,17,15,.06), 0 1px 1px rgba(20,17,15,.04);
+  --shadow-2: 0 2px 6px rgba(20,17,15,.08), 0 1px 2px rgba(20,17,15,.04);
+  --shadow-3: 0 8px 24px rgba(20,17,15,.10), 0 2px 6px rgba(20,17,15,.06);
+  --shadow-4: 0 20px 48px rgba(20,17,15,.16), 0 4px 12px rgba(20,17,15,.08);
+  --shadow-stamp: 2px 2px 0 var(--ink);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-fast: 120ms; --t-base: 200ms; --t-slow: 320ms;
+}
+
+/* ── Tailwind v4 theme mapping ────────────────────────────────── */
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-paper:      var(--paper);
+  --color-bone:       var(--bone);
+  --color-ink:        var(--ink);
+  --color-brand:      var(--stamp-red);
+  --color-gold:       var(--grail-gold);
+  --color-teal:       var(--verified-teal);
+  --color-forest:     var(--forest);
+  --color-plum:       var(--plum);
+  --color-border:     var(--border);
+  --font-display:     var(--font-display);
+  --font-body:        var(--font-body);
+  --font-mono:        var(--font-mono);
+}
+
+/* ── Base styles ─────────────────────────────────────────────── */
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin: 0;
+}
+
+* { box-sizing: border-box; }
+button { cursor: pointer; }
+
+/* Thin scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: var(--bone-deep); border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+::selection { background: var(--grail-gold); color: var(--ink); }
+
+/* ── Responsive sidebar (mirrors web.html) ────────────────────── */
+@media (max-width: 1280px) {
+  .ch-sidebar { width: 84px !important; align-items: center; padding-left: 10px; padding-right: 10px; }
+  .ch-nav-label { display: none !important; }
+}
+@media (max-width: 1240px) { .ch-rail { display: none !important; } }
+@media (max-width: 1100px) {
+  .ch-col { width: min(100%, 680px) !important; }
+}
+@media (max-width: 620px) {
+  .ch-sidebar { width: 66px !important; }
+  .ch-col { width: 100% !important; border-right: none !important; }
+}

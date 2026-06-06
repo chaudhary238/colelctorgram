@@ -1,0 +1,61 @@
+import uuid
+from datetime import datetime, timezone
+
+from sqlalchemy import (
+    UUID, Boolean, DateTime, Integer, String, Text,
+    ForeignKey, Index, ARRAY,
+)
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
+
+
+def _now():
+    return datetime.now(timezone.utc)
+
+
+class Listing(Base):
+    __tablename__ = "listings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("items.id"), nullable=False)
+    seller_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    sku: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    price: Mapped[int] = mapped_column(Integer, nullable=False)  # paise
+    retail_price: Mapped[int] = mapped_column(Integer, default=0)
+    condition: Mapped[str] = mapped_column(String(24), nullable=False)  # sealed_misb | mint | like_new | good | fair | for_parts
+    condition_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    qty: Mapped[int] = mapped_column(Integer, default=1)
+    trade_willing: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    ships_from_city: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ships_nationwide: Mapped[bool] = mapped_column(Boolean, default=True)
+    shipping_cost: Mapped[int] = mapped_column(Integer, default=0)
+
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    terms: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+
+    status: Mapped[str] = mapped_column(String(16), default="available", nullable=False)  # available | reserved | sold | closed
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    saves_count: Mapped[int] = mapped_column(Integer, default=0)
+    watching_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+    __table_args__ = (
+        Index("idx_listings_seller", "seller_id"),
+        Index("idx_listings_sku", "sku"),
+        Index("idx_listings_status", "status"),
+        Index("idx_listings_created", "created_at"),
+    )
+
+
+class ListingSave(Base):
+    __tablename__ = "listing_saves"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    listing_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("listings.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
