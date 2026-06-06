@@ -1,81 +1,90 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
-import { MOCK_SUGGESTED_USERS } from "@/lib/mock";
-import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
+import { useUser } from "@/lib/auth-context";
+import { Avatar } from "@/components/ui";
+
+interface SuggestedUser {
+  id: string;
+  handle: string;
+  name: string;
+  tier: string;
+  followers_count: number;
+  verified_items_count: number;
+}
+
+function RailFollow({ user }: { user: SuggestedUser }) {
+  const [following, setFollowing] = useState(false);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+      <Link href={`/profile/${user.handle}`} className="shrink-0">
+        <Avatar name={user.name} size={42} verified={user.verified_items_count > 10} />
+      </Link>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <Link href={`/profile/${user.handle}`} className="block truncate text-[13.5px] font-semibold text-[var(--ink)] hover:underline">
+          @{user.handle}
+        </Link>
+        <div className="truncate text-xs text-[var(--ink-faint)] capitalize">
+          {user.tier} · {user.followers_count.toLocaleString()} followers
+        </div>
+      </div>
+      <button
+        onClick={() => setFollowing((v) => !v)}
+        className="shrink-0 font-bold text-[12.5px]"
+        style={{ color: following ? "var(--ink-faint)" : "var(--stamp-red)" }}
+      >
+        {following ? "Following" : "Follow"}
+      </button>
+    </div>
+  );
+}
 
 export function RightRail() {
-  const [followed, setFollowed] = useState<Record<string, boolean>>({});
+  const { user } = useUser();
+  const [suggested, setSuggested] = useState<SuggestedUser[]>([]);
 
-  function toggle(handle: string) {
-    setFollowed((prev) => ({ ...prev, [handle]: !prev[handle] }));
-  }
+  useEffect(() => {
+    api.get<{ items: SuggestedUser[] }>("/users/me/suggested").catch(() => ({ items: [] })).then((d) => {
+      if (d && Array.isArray(d)) setSuggested(d.slice(0, 5));
+      else if (d && "items" in d) setSuggested(d.items.slice(0, 5));
+    });
+  }, []);
+
+  const displayName = user?.name ?? "You";
+  const displayHandle = user?.handle ?? "…";
 
   return (
-    <aside
-      className="ch-rail w-80 shrink-0 pt-7 hidden xl:block"
-      style={{ boxSizing: "border-box" }}
-    >
-      <div className="px-1.5">
-        <p className="text-sm font-semibold text-[var(--ink-mute)] mb-3">Suggested collectors</p>
-
-        <div className="space-y-3">
-          {MOCK_SUGGESTED_USERS.map((user) => {
-            const isFollowed = followed[user.handle];
-            const initials = user.name
-              .split(" ")
-              .map((w) => w[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase();
-
-            return (
-              <div key={user.handle} className="flex items-center gap-3">
-                <Link href={`/profile/${user.handle}`} className="shrink-0">
-                  <div className="w-10 h-10 rounded-full bg-[var(--stamp-red-soft)] flex items-center justify-center text-[var(--stamp-red)] font-bold text-sm select-none">
-                    {initials}
-                  </div>
-                </Link>
-
-                <div className="flex-1 min-w-0">
-                  <Link href={`/profile/${user.handle}`} className="flex items-center gap-1 hover:underline">
-                    <span className="text-sm font-semibold text-[var(--ink)] truncate">{user.name}</span>
-                    {user.verified_items_count > 0 && (
-                      <ShieldCheck size={13} className="text-[var(--verified-teal)] shrink-0" />
-                    )}
-                  </Link>
-                  <p className="text-xs text-[var(--ink-faint)] truncate">@{user.handle}</p>
-                </div>
-
-                <button
-                  onClick={() => toggle(user.handle)}
-                  className={cn(
-                    "shrink-0 px-3 py-1 rounded-full text-xs font-semibold border transition-colors",
-                    isFollowed
-                      ? "bg-[var(--bone)] border-[var(--border-strong)] text-[var(--ink)]"
-                      : "bg-[var(--stamp-red)] border-transparent text-white hover:bg-[var(--stamp-red-deep)]"
-                  )}
-                >
-                  {isFollowed ? "Following" : "Follow"}
-                </button>
-              </div>
-            );
-          })}
+    <aside className="w-80 shrink-0" style={{ paddingTop: 28, boxSizing: "border-box" }}>
+      <Link href="/profile" className="flex items-center gap-[13px] w-full px-1 pb-[22px]">
+        <Avatar name={displayName} color="var(--ink)" size={50} />
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-[var(--ink)] truncate">@{displayHandle}</div>
+          <div className="text-[13px] text-[var(--ink-faint)] truncate capitalize">
+            {displayName} · {user?.tier ?? "collector"}
+          </div>
         </div>
+      </Link>
 
-        <Link
-          href="/search"
-          className="mt-4 block text-xs text-[var(--stamp-red)] hover:underline font-medium"
-        >
-          Find more collectors →
-        </Link>
+      {suggested.length > 0 && (
+        <>
+          <div className="flex items-center justify-between px-1.5 pb-[14px]">
+            <span className="text-[13.5px] font-semibold text-[var(--ink-mute)]">Suggested collectors</span>
+            <Link href="/search" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink-mute)]">
+              See all
+            </Link>
+          </div>
+          <div className="flex flex-col gap-4 px-1.5">
+            {suggested.map((u) => <RailFollow key={u.handle} user={u} />)}
+          </div>
+        </>
+      )}
 
-        <p className="text-[11px] text-[var(--ink-ghost)] leading-6 mt-7">
-          About · Help · Privacy · Terms<br />
-          <span className="tracking-wide">© 2026 CollectorHub</span>
-        </p>
+      <div className="px-1.5 pt-7 text-[11.5px] text-[var(--ink-ghost)]" style={{ lineHeight: 1.7 }}>
+        About · Help · Press · API · Communities · Events · Privacy · Terms
+        <br />
+        <span style={{ letterSpacing: "0.04em" }}>© 2026 CollectorHub</span>
       </div>
     </aside>
   );

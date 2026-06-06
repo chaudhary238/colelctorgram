@@ -9,5 +9,11 @@ export default function OwnProfilePage() {
   if (loading) return null;
   if (!user) return null;
 
-  return <UserProfile handle={user.handle} isOwn={true} />;
+  return (
+    <div className="flex justify-start px-5">
+      <div className="w-full max-w-[760px] min-h-screen border-x border-[var(--border)]">
+        <UserProfile handle={user.handle} isOwn={true} />
+      </div>
+    </div>
+  );
 }

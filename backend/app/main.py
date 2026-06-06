@@ -10,6 +10,7 @@ from app.routers import (
     listings, deals, communities, events,
     threads, notifications, search, media, admin,
 )
+from app.routers.moderation import router as moderation_router
 from app.routers.posts import comments_router
 
 
@@ -43,6 +44,7 @@ app.include_router(notifications.router)
 app.include_router(search.router)
 app.include_router(media.router)
 app.include_router(admin.router)
+app.include_router(moderation_router)
 
 
 # ── WebSocket ─────────────────────────────────────────────────────

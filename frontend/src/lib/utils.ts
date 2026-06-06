@@ -9,6 +9,14 @@ export function formatPrice(paise: number): string {
   return `₹${(paise / 100).toLocaleString("en-IN")}`;
 }
 
+export function shortDate(iso: string): { day: string; month: string } {
+  const d = new Date(iso);
+  return {
+    day: d.getDate().toString(),
+    month: d.toLocaleString("en-IN", { month: "short" }).toUpperCase(),
+  };
+}
+
 export function timeAgo(iso: string): string {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
   if (diff < 60) return "just now";

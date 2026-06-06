@@ -5,12 +5,13 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select
 
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.listing import Listing, ListingSave
 from app.models.item import Item
+from app.models.catalogue import Catalogue
 from app.models.user import User
 from app.workers.tasks import dispatch_wishlist_notifications
 
@@ -106,11 +107,8 @@ async def browse_listings(
     result = await db.execute(stmt)
     listings = result.scalars().all()
 
-    return {
-        "page": page,
-        "limit": limit,
-        "items": [_listing_dict(l) for l in listings],
-    }
+    enriched = await _enrich_listings(listings, db)
+    return {"page": page, "limit": limit, "items": enriched}
 
 
 @router.get("/{listing_id}")
@@ -119,7 +117,8 @@ async def get_listing(listing_id: uuid.UUID, db: AsyncSession = Depends(get_db))
     listing = result.scalar_one_or_none()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
-    return _listing_dict(listing)
+    enriched = await _enrich_listings([listing], db)
+    return enriched[0]
 
 
 @router.patch("/{listing_id}")
@@ -137,7 +136,8 @@ async def update_listing(
         raise HTTPException(status_code=404, detail="Listing not found")
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(listing, field, value)
-    return _listing_dict(listing)
+    enriched = await _enrich_listings([listing], db)
+    return enriched[0]
 
 
 @router.post("/{listing_id}/save", status_code=204)
@@ -166,21 +166,61 @@ async def toggle_save(
         listing.saves_count += 1
 
 
-def _listing_dict(l: Listing) -> dict:
-    return {
-        "id": str(l.id),
-        "item_id": str(l.item_id),
-        "seller_id": str(l.seller_id),
-        "sku": l.sku,
-        "price": l.price,
-        "condition": l.condition,
-        "condition_notes": l.condition_notes,
-        "trade_willing": l.trade_willing,
-        "ships_from_city": l.ships_from_city,
-        "ships_nationwide": l.ships_nationwide,
-        "shipping_cost": l.shipping_cost,
-        "notes": l.notes,
-        "status": l.status,
-        "saves_count": l.saves_count,
-        "created_at": l.created_at.isoformat(),
-    }
+async def _enrich_listings(listings: list[Listing], db: AsyncSession) -> list[dict]:
+    if not listings:
+        return []
+
+    seller_ids = list({l.seller_id for l in listings})
+    item_ids = list({l.item_id for l in listings})
+    skus = list({l.sku for l in listings if l.sku})
+
+    sellers_result = await db.execute(select(User).where(User.id.in_(seller_ids)))
+    sellers = {u.id: u for u in sellers_result.scalars().all()}
+
+    items_result = await db.execute(select(Item).where(Item.id.in_(item_ids)))
+    items = {i.id: i for i in items_result.scalars().all()}
+
+    cats_result = await db.execute(select(Catalogue).where(Catalogue.sku.in_(skus))) if skus else None
+    cats = {c.sku: c for c in (cats_result.scalars().all() if cats_result else [])}
+
+    out = []
+    for l in listings:
+        seller = sellers.get(l.seller_id)
+        item = items.get(l.item_id)
+        cat = cats.get(l.sku) if l.sku else None
+
+        title = (cat.title if cat else None) or (item.custom_title if item else None) or l.sku or "Unknown item"
+        category = cat.category if cat else None
+        verify_tier = item.verify_tier if item else "claimed"
+
+        out.append({
+            "id": str(l.id),
+            "item_id": str(l.item_id),
+            "seller_id": str(l.seller_id),
+            "sku": l.sku,
+            "title": title,
+            "category": category,
+            "verify_tier": verify_tier,
+            # seller
+            "handle": seller.handle if seller else None,
+            "name": seller.name if seller else None,
+            "avatar_url": seller.avatar_url if seller else None,
+            "tier": seller.tier if seller else "verified",
+            "rating": float(seller.rating) if seller else 0,
+            "deals_count": seller.deals_count if seller else 0,
+            # listing
+            "price": l.price,
+            "condition": l.condition,
+            "condition_notes": l.condition_notes,
+            "trade_willing": l.trade_willing,
+            "ships_from_city": l.ships_from_city,
+            "ships_nationwide": l.ships_nationwide,
+            "shipping_cost": l.shipping_cost,
+            "notes": l.notes,
+            "terms": l.terms or [],
+            "status": l.status,
+            "saves_count": l.saves_count,
+            "watching_count": l.watching_count,
+            "created_at": l.created_at.isoformat(),
+        })
+    return out

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { X } from "lucide-react";
 import { api } from "@/lib/api";
 import Link from "next/link";
-import { MOCK_ENABLED, MOCK_FOLLOWERS, MOCK_FOLLOWING } from "@/lib/mock";
+
 
 interface FollowUser {
   handle: string;
@@ -25,11 +25,6 @@ export function FollowListModal({ handle, tab, onClose }: FollowListModalProps) 
   const [activeTab, setActiveTab] = useState(tab);
 
   const load = useCallback(async (t: "followers" | "following") => {
-    if (MOCK_ENABLED) {
-      setUsers(t === "followers" ? MOCK_FOLLOWERS : MOCK_FOLLOWING);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     try {
       const data = await api.get<FollowUser[]>(`/users/${handle}/${t}`);

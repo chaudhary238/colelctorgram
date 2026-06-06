@@ -1,187 +1,97 @@
 "use client";
 
-import { useState } from "react";
-import { MapPin, Monitor, Users, Plus } from "lucide-react";
-import { MOCK_EVENTS, shortDate } from "@/lib/mock";
-import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import { Calendar, PlusCircle } from "lucide-react";
+import { api } from "@/lib/api";
+import { ApiEvent } from "@/components/cards";
+import { Segmented, SectionLabel, EmptyNote, Tag, ProductPhoto } from "@/components/ui";
+import { EventCard } from "@/components/cards";
+import { shortDate } from "@/lib/utils";
 
-const MODE_TABS = [
+const MODES = [
   { id: "all", label: "All" },
-  { id: "in_person", label: "In-person" },
+  { id: "in_person", label: "In person" },
   { id: "online", label: "Online" },
-];
-
-const CATEGORY_FILTERS = [
-  { id: "all", label: "All" },
-  { id: "figures", label: "Figures" },
-  { id: "designer", label: "Designer" },
-  { id: "kits", label: "Kits" },
-  { id: "diecast", label: "Diecast" },
-];
-
-const CATEGORY_COLORS: Record<string, string> = {
-  figures: "bg-[var(--stamp-red-soft)] text-[var(--stamp-red-deep)]",
-  designer: "bg-[var(--plum-soft)] text-[var(--plum)]",
-  kits: "bg-[var(--verified-teal-soft)] text-[var(--verified-teal)]",
-  diecast: "bg-[var(--grail-gold-soft)] text-[var(--grail-gold-deep)]",
-};
+] as const;
 
 export default function EventsPage() {
-  const [modeTab, setModeTab] = useState("all");
-  const [catFilter, setCatFilter] = useState("all");
-  const [interests, setInterests] = useState<Record<string, boolean>>(
-    Object.fromEntries(MOCK_EVENTS.map((e) => [e.id, e.is_interested]))
-  );
+  const [scope, setScope] = useState<(typeof MODES)[number]["id"]>("all");
+  const [events, setEvents] = useState<ApiEvent[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const events = MOCK_EVENTS.filter((e) => {
-    if (modeTab !== "all" && e.mode !== modeTab) return false;
-    if (catFilter !== "all" && e.category !== catFilter) return false;
-    return true;
-  });
+  useEffect(() => {
+    const q = scope === "all" ? "" : `&mode=${scope}`;
+    api.get<ApiEvent[]>(`/events?limit=20${q}`)
+      .then((data) => setEvents(data ?? []))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [scope]);
 
-  function toggleInterest(id: string) {
-    setInterests((prev) => ({ ...prev, [id]: !prev[id] }));
-  }
+  useEffect(() => {
+    setLoading(true);
+  }, [scope]);
+
+  const list = events;
+  const featured = list[0];
 
   return (
-    <div>
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold" style={{ fontFamily: "var(--font-display)" }}>
-            Events
-          </h1>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--stamp-red)] text-white hover:bg-[var(--stamp-red-deep)] transition-colors">
-            <Plus size={13} strokeWidth={2.5} />
-            Submit
-          </button>
-        </div>
-
-        {/* Mode tabs */}
-        <div className="flex border-t border-[var(--border)]">
-          {MODE_TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setModeTab(t.id)}
-              className={cn(
-                "flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors",
-                modeTab === t.id
-                  ? "border-[var(--ink)] text-[var(--ink)]"
-                  : "border-transparent text-[var(--ink-faint)] hover:text-[var(--ink-mute)]"
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Category filter */}
-        <div className="flex gap-2 px-4 py-2.5 overflow-x-auto border-t border-[var(--border)]">
-          {CATEGORY_FILTERS.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setCatFilter(f.id)}
-              className={cn(
-                "px-3 py-1 rounded-full text-xs font-medium border shrink-0 transition-colors",
-                catFilter === f.id
-                  ? "bg-[var(--ink)] text-white border-transparent"
-                  : "bg-[var(--bone)] border-[var(--border-strong)] text-[var(--ink-mute)] hover:border-[var(--ink-ghost)]"
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+    <div className="w-full max-w-[760px] flex flex-col">
+      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
+        <Segmented options={MODES as unknown as { id: string; label: string }[]} value={scope} onChange={(v) => setScope(v as typeof scope)} />
       </div>
 
-      {/* Events list */}
-      <div className="p-4 space-y-3">
-        {events.length === 0 ? (
-          <p className="text-sm text-[var(--ink-faint)] text-center py-10">No events found.</p>
-        ) : (
-          events.map((event) => {
-            const { day, month } = shortDate(event.date);
-            const isInterested = interests[event.id];
-
-            return (
-              <div
-                key={event.id}
-                className="rounded-xl border border-[var(--border)] bg-[var(--paper)] p-4 hover:shadow-[var(--shadow-1)] transition-shadow cursor-pointer"
-              >
-                <div className="flex gap-4">
-                  {/* Date block */}
-                  <div className="w-12 shrink-0 rounded-xl bg-[var(--stamp-red-soft)] flex flex-col items-center justify-center py-2 border border-[var(--stamp-red-soft)]">
-                    <span className="text-[10px] font-bold text-[var(--stamp-red)] tracking-widest">{month}</span>
-                    <span className="text-xl font-extrabold text-[var(--stamp-red-deep)] leading-tight">{day}</span>
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm text-[var(--ink)] leading-snug line-clamp-2">
-                          {event.title}
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={() => toggleInterest(event.id)}
-                        className={cn(
-                          "shrink-0 px-3 py-1 rounded-full text-xs font-semibold border transition-colors mt-0.5",
-                          isInterested
-                            ? "bg-[var(--bone)] border-[var(--border-strong)] text-[var(--ink)]"
-                            : "bg-[var(--stamp-red)] border-transparent text-white hover:bg-[var(--stamp-red-deep)]"
-                        )}
-                      >
-                        {isInterested ? "Interested" : "Attend"}
-                      </button>
-                    </div>
-
-                    {/* Category */}
-                    {event.category && (
-                      <span className={cn(
-                        "inline-block mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full capitalize",
-                        CATEGORY_COLORS[event.category] ?? "bg-[var(--bone)] text-[var(--ink-mute)]"
-                      )}>
-                        {event.category}
-                      </span>
-                    )}
-
-                    {/* Location */}
-                    <div className="flex items-center gap-3 mt-2">
-                      {event.mode === "online" ? (
-                        <span className="flex items-center gap-1 text-xs text-[var(--ink-faint)]">
-                          <Monitor size={11} />
-                          Online
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-xs text-[var(--ink-faint)]">
-                          <MapPin size={11} />
-                          {event.venue ?? event.city}
-                        </span>
-                      )}
-
-                      <span className="flex items-center gap-1 text-xs text-[var(--ink-faint)]">
-                        <Users size={11} />
-                        {event.interest_count.toLocaleString()} interested
-                      </span>
-                    </div>
-
-                    {/* Host */}
-                    <p className="text-[10px] text-[var(--ink-ghost)] mt-1.5">
-                      by {event.host.name} · @{event.host.handle}
-                    </p>
+      {loading ? (
+        <div style={{ padding: "14px 20px", display: "flex", flexDirection: "column", gap: 11 }}>
+          <div style={{ height: 200, borderRadius: 16, background: "var(--bone)" }} />
+          {Array.from({ length: 2 }).map((_, i) => <div key={i} style={{ height: 96, borderRadius: 14, background: "var(--bone)" }} />)}
+        </div>
+      ) : (
+        <>
+          {featured && (
+            <div style={{ padding: "14px 20px 0" }}>
+              <SectionLabel>Next up</SectionLabel>
+              <div style={{ marginTop: 10, borderRadius: 16, overflow: "hidden", background: "var(--ink)", position: "relative" }}>
+                <ProductPhoto tone="plum" ratio="2/1" rounded={0} />
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 30%, rgba(20,17,15,0.88) 100%)" }} />
+                <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 6 }}>
+                  <Tag kind={featured.mode === "online" ? "vouch" : "event"}>{featured.mode === "online" ? "Online" : "In person"}</Tag>
+                </div>
+                <div style={{ position: "absolute", bottom: 12, left: 14, right: 14, color: "var(--paper)" }}>
+                  <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{featured.title}</div>
+                  <div style={{ fontSize: 13, color: "rgba(244,239,230,0.85)", marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                    <Calendar size={14} strokeWidth={2} />
+                    {new Date(featured.starts_at).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
                   </div>
                 </div>
-
-                {/* Description preview */}
-                <p className="text-xs text-[var(--ink-faint)] mt-3 line-clamp-2 leading-relaxed border-t border-[var(--border)] pt-2.5">
-                  {event.description}
-                </p>
               </div>
-            );
-          })
-        )}
+            </div>
+          )}
+
+          <div style={{ padding: "20px 20px 0" }}>
+            <SectionLabel>Upcoming</SectionLabel>
+            <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 10 }}>
+              {list.slice(1).map((ev) => <EventCard key={ev.id} event={ev} />)}
+              {list.length <= 1 && <EmptyNote>No more events in this view. Try &ldquo;All&rdquo;.</EmptyNote>}
+            </div>
+          </div>
+        </>
+      )}
+
+      <div style={{ padding: "20px 20px 28px" }}>
+        <button
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            width: "100%", height: 46, borderRadius: 12, border: "1px dashed var(--border-strong)",
+            background: "transparent", color: "var(--ink-mute)",
+            fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14,
+          }}
+        >
+          <PlusCircle size={18} />
+          Create an event
+        </button>
+        <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8 }}>
+          User events are reviewed before they go live.
+        </div>
       </div>
     </div>
   );

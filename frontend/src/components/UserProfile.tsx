@@ -8,15 +8,6 @@ import { cn } from "@/lib/utils";
 import { EditProfileSheet } from "@/components/EditProfileSheet";
 import { FollowListModal } from "@/components/FollowListModal";
 import { AddToCollectionSheet } from "@/components/AddToCollectionSheet";
-import {
-  MOCK_ENABLED,
-  MOCK_PROFILE,
-  MOCK_OWN_POSTS,
-  MOCK_COLLECTION,
-  MOCK_LISTINGS,
-  MOCK_FOLLOWERS,
-  MOCK_FOLLOWING,
-} from "@/lib/mock";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -116,11 +107,6 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   const [collectionFilter, setCollectionFilter] = useState<string>("all");
 
   const loadProfile = useCallback(async () => {
-    if (MOCK_ENABLED) {
-      setProfile(MOCK_PROFILE as ProfileUser);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     try {
       const data = await api.get<ProfileUser>(`/users/${handle}`);
@@ -137,14 +123,6 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   }, [loadProfile]);
 
   const loadTab = useCallback(async (t: Tab) => {
-    if (MOCK_ENABLED) {
-      if (t === "posts" && posts === null) setPosts(MOCK_OWN_POSTS as unknown as UserPost[]);
-      else if (t === "collection" && collection === null) setCollection(MOCK_COLLECTION as unknown as CollectionItem[]);
-      else if (t === "listings" && listings === null) setListings(
-        MOCK_LISTINGS.filter((l) => l.seller_id === MOCK_PROFILE.id) as unknown as UserListing[]
-      );
-      return;
-    }
     if (t === "posts" && posts === null) {
       const data = await api.get<{ items: UserPost[] }>(`/users/${handle}/posts`).catch(() => ({ items: [] }));
       setPosts(data.items);

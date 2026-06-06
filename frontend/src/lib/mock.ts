@@ -4,7 +4,7 @@
  * Set MOCK_ENABLED = true to bypass API calls and render with this data.
  * Flip to false when the backend is running.
  */
-export const MOCK_ENABLED = true;
+export const MOCK_ENABLED = false;
 
 // ── Auth user (own profile) ───────────────────────────────────────
 
@@ -94,6 +94,7 @@ export const MOCK_POSTS = [
       "https://images.unsplash.com/photo-1617788138017-80ad40651399?w=800&q=80",
     ],
     category: "diecast",
+    review_rating: 4,
     likes_count: 88,
     comments_count: 19,
     saves_count: 44,
@@ -115,6 +116,57 @@ export const MOCK_POSTS = [
     comments_count: 63,
     saves_count: 133,
     created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "post-006",
+    user_id: "00000000-0000-0000-0000-000000000006",
+    handle: "diecast_dreams",
+    name: "Diecast Dreams",
+    avatar_url: null,
+    type: "poll",
+    body: "Group order incoming — which Hot Wheels RLC case should we pull next? Vote and I'll lock it Friday.",
+    images: [],
+    category: "diecast",
+    poll: [
+      { label: "Porsche 993 GT2 (spectraflame)", votes: 41 },
+      { label: "Mazda RX-7 FD (Mazdaspeed)", votes: 33 },
+      { label: "Nissan Skyline R34 GT-R", votes: 18 },
+    ],
+    likes_count: 64,
+    comments_count: 12,
+    saves_count: 7,
+    created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
+// ── Author trust tiers (keyed by handle) — BRD §8.2 ───────────────
+
+export const MOCK_AUTHOR_TIERS: Record<string, string> = {
+  figurehead: "top_seller",
+  blindbox_queen: "verified",
+  brickmaster: "trusted",
+  diecast_dreams: "top_seller",
+  arjun_collects: "verified",
+};
+
+// ── Admin / release posts (return loop) — BRD §10 ─────────────────
+
+export const MOCK_ADMIN_POSTS = [
+  {
+    id: "admin-001",
+    time: "2h",
+    category: "kits",
+    title: "New release · MG 1/100 Gundam Barbatos Lupus Rex",
+    body: "Pre-orders open Friday 6pm IST. Limited to 1 per account at retail. Tap to set a wishlist alert.",
+    tone: "gold",
+  },
+  {
+    id: "admin-002",
+    time: "1d",
+    category: "designer",
+    title: "Restock · Popmart Dimoo Space Travel series",
+    body: "Back in stock at Indian distributors this week after a long gap.",
+    tone: "plum",
   },
 ];
 
@@ -495,6 +547,94 @@ export const MOCK_EVENTS = [
     is_interested: true,
     host: { name: "Kaws Collectors India", handle: "arjun_collects" },
   },
+];
+
+// ── Post comments ─────────────────────────────────────────────────
+
+export const MOCK_COMMENTS: Record<string, { id: string; handle: string; name: string; body: string; created_at: string }[]> = {
+  "post-001": [
+    { id: "c-001", handle: "blindbox_queen", name: "Blindbox Queen", body: "That paint work is insane 😭 which release is this, the 2024 reissue?", created_at: new Date(Date.now() - 90 * 60 * 1000).toISOString() },
+    { id: "c-002", handle: "brickmaster", name: "Brickmaster", body: "6 months of hunting is wild. Where did you finally find one?", created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString() },
+    { id: "c-003", handle: "arjun_collects", name: "Arjun Mehta", body: "The articulation on this is miles ahead of the older Alien figures. NECA really went all out.", created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString() },
+  ],
+  "post-002": [
+    { id: "c-004", handle: "figurehead", name: "Figurehead", body: "Secret edition 4th try is actually insane luck. I'm on my 12th box still no secret 😭", created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString() },
+    { id: "c-005", handle: "arjun_collects", name: "Arjun Mehta", body: "I have a spare astronaut if you want to trade for the astronaut!", created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() },
+  ],
+  "post-003": [
+    { id: "c-006", handle: "figurehead", name: "Figurehead", body: "Hard agree. RG Zeta V2 is up there too but Zaku ii Ver 2.0 is genuinely the best starter kit period.", created_at: new Date(Date.now() - 9 * 60 * 60 * 1000).toISOString() },
+    { id: "c-007", handle: "diecast_dreams", name: "Diecast Dreams", body: "Not a Gunpla person but I respect anyone with this level of conviction 😂", created_at: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString() },
+    { id: "c-008", handle: "blindbox_queen", name: "Blindbox Queen", body: "What about the HG Dom for absolute beginners?", created_at: new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString() },
+  ],
+  "post-004": [
+    { id: "c-009", handle: "brickmaster", name: "Brickmaster", body: "That 9/10 paint score is generous — mine had a small run on the roofline 🤔", created_at: new Date(Date.now() - 16 * 60 * 60 * 1000).toISOString() },
+    { id: "c-010", handle: "arjun_collects", name: "Arjun Mehta", body: "The rubber tyres are underrated — way better than the plastic ones on standard HW.", created_at: new Date(Date.now() - 14 * 60 * 60 * 1000).toISOString() },
+  ],
+  "post-005": [
+    { id: "c-011", handle: "blindbox_queen", name: "Blindbox Queen", body: "18 months!! That is dedication. The LED kit in the PG is something else.", created_at: new Date(Date.now() - 46 * 60 * 60 * 1000).toISOString() },
+    { id: "c-012", handle: "brickmaster", name: "Brickmaster", body: "Custom base is so clean — did you 3D print it or commission it?", created_at: new Date(Date.now() - 44 * 60 * 60 * 1000).toISOString() },
+    { id: "c-013", handle: "figurehead", name: "Figurehead", body: "The panel lining on the shoulder armour is immaculate bro 🔥", created_at: new Date(Date.now() - 40 * 60 * 60 * 1000).toISOString() },
+  ],
+};
+
+// ── Inbox threads ─────────────────────────────────────────────────
+
+export const MOCK_INBOX_THREADS = [
+  {
+    id: "thread-001",
+    other_user: { handle: "figurehead", name: "Figurehead", avatar_url: null, tier: "top_seller", rating: 4.9, deals_count: 68 },
+    listing: MOCK_LISTINGS[1],
+    last_message: "Sure it's available! Can you do ₹8,200 shipped?",
+    last_message_at: new Date(Date.now() - 18 * 60 * 1000).toISOString(),
+    unread_count: 2,
+    messages: [
+      { id: "m-001", from: "them", text: "Hi! Is the NECA Predator 2 still available?", created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
+      { id: "m-002", from: "me", text: "Hey! Yes still available. Looking for anything close to asking price.", created_at: new Date(Date.now() - 90 * 60 * 1000).toISOString() },
+      { id: "m-003", from: "them", text: "Sure it's available! Can you do ₹8,200 shipped?", created_at: new Date(Date.now() - 18 * 60 * 1000).toISOString() },
+    ],
+  },
+  {
+    id: "thread-002",
+    other_user: { handle: "blindbox_queen", name: "Blindbox Queen", avatar_url: null, tier: "verified", rating: 4.7, deals_count: 41 },
+    listing: MOCK_LISTINGS[2],
+    last_message: "I have an extra Labubu v1 I can trade 👀",
+    last_message_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    unread_count: 1,
+    messages: [
+      { id: "m-004", from: "me", text: "Hi! Would you consider a trade for the Kaws Dissected? I have some Labubu.", created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
+      { id: "m-005", from: "them", text: "Depends on which Labubu — which series?", created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString() },
+      { id: "m-006", from: "me", text: "Labubu v2 regular edition + v1 secret. Both sealed.", created_at: new Date(Date.now() - 3.5 * 60 * 60 * 1000).toISOString() },
+      { id: "m-007", from: "them", text: "I have an extra Labubu v1 I can trade 👀", created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() },
+    ],
+  },
+  {
+    id: "thread-003",
+    other_user: { handle: "brickmaster", name: "Brickmaster", avatar_url: null, tier: "trusted", rating: 4.6, deals_count: 22 },
+    listing: null,
+    last_message: "Yeah let's do it. Drop your UPI and I'll send now.",
+    last_message_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    unread_count: 0,
+    messages: [
+      { id: "m-008", from: "them", text: "Hey, interested in your RG Wing Gundam listing. Still available?", created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
+      { id: "m-009", from: "me", text: "Yes! Price is firm at ₹4,500 + ₹99 shipping.", created_at: new Date(Date.now() - 2.8 * 24 * 60 * 60 * 1000).toISOString() },
+      { id: "m-010", from: "them", text: "Done. Can you ship to Chennai?", created_at: new Date(Date.now() - 2.5 * 24 * 60 * 60 * 1000).toISOString() },
+      { id: "m-011", from: "me", text: "Yes, ships nationwide. Let's do it!", created_at: new Date(Date.now() - 2.2 * 24 * 60 * 60 * 1000).toISOString() },
+      { id: "m-012", from: "them", text: "Yeah let's do it. Drop your UPI and I'll send now.", created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
+    ],
+  },
+];
+
+// ── Notifications ─────────────────────────────────────────────────
+
+export const MOCK_NOTIFICATIONS = [
+  { id: "n-001", kind: "like", user: { handle: "figurehead", name: "Figurehead" }, text: "liked your PG Unicorn post", time: "2m", unread: true, ref: { type: "post", id: "post-005" } },
+  { id: "n-002", kind: "follow", user: { handle: "blindbox_queen", name: "Blindbox Queen" }, text: "started following you", time: "18m", unread: true, ref: { type: "profile", id: "blindbox_queen" } },
+  { id: "n-003", kind: "wishlist", user: null, text: "NECA Predator 2 Ultimate Figure is now listed — ₹8,900 · check it out", time: "1h", unread: true, ref: { type: "listing", id: "listing-002" } },
+  { id: "n-004", kind: "deal", user: { handle: "brickmaster", name: "Brickmaster" }, text: "confirmed your deal on RG Wing Gundam. Rate the trade!", time: "2d", unread: false, ref: { type: "chat", id: "thread-003" } },
+  { id: "n-005", kind: "vouch", user: { handle: "brickmaster", name: "Brickmaster" }, text: "left you a trade vouch — ⭐⭐⭐⭐⭐ “Super smooth, item was exactly as described.”", time: "2d", unread: false, ref: { type: "profile", id: "arjun_collects" } },
+  { id: "n-006", kind: "community", user: null, text: "Mumbai Gunpla Builders hosted a new event — Gunpla Open this Saturday", time: "3d", unread: false, ref: { type: "event", id: "event-002" } },
+  { id: "n-007", kind: "like", user: { handle: "diecast_dreams", name: "Diecast Dreams" }, text: "liked your Hot Wheels RLC review", time: "4d", unread: false, ref: { type: "post", id: "post-004" } },
+  { id: "n-008", kind: "preorder", user: null, text: "MG Gundam Barbatos pre-order ships in ~7 days — get ready!", time: "5d", unread: false, ref: { type: "item", id: "item-007" } },
 ];
 
 // ── Suggested collectors (right rail) ─────────────────────────────

@@ -1,4 +1,6 @@
-from fastapi import Depends, HTTPException, status
+from typing import Optional
+
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -7,6 +9,7 @@ from app.database import get_db
 from app.services.auth import decode_access_token
 
 bearer = HTTPBearer()
+optional_bearer = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
@@ -26,6 +29,23 @@ async def get_current_user(
     if not user or user.is_suspended:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
+
+
+async def get_optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_bearer),
+    db: AsyncSession = Depends(get_db),
+) -> Optional[object]:
+    from app.models.user import User
+
+    if not credentials:
+        return None
+    payload = decode_access_token(credentials.credentials)
+    if not payload:
+        return None
+    user_id = payload.get("sub")
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    return user if user and not user.is_suspended else None
 
 
 async def get_current_admin(current_user=Depends(get_current_user)):

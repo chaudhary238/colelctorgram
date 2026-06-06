@@ -1,126 +1,99 @@
 "use client";
 
-import { useState } from "react";
-import { Users, MessageSquare, Plus } from "lucide-react";
-import { MOCK_COMMUNITIES } from "@/lib/mock";
-import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Search, PlusCircle } from "lucide-react";
+import { api } from "@/lib/api";
+import { ApiCommunity } from "@/components/cards";
+import { CategoryChip, SectionLabel, EmptyNote } from "@/components/ui";
+import { CommunityCard } from "@/components/cards";
 
-const TABS = [
+const CATEGORIES = [
   { id: "all", label: "All" },
   { id: "figures", label: "Figures" },
   { id: "designer", label: "Designer" },
-  { id: "kits", label: "Kits" },
+  { id: "kits", label: "Kits & Lego" },
   { id: "diecast", label: "Diecast" },
 ];
 
 export default function CommunityPage() {
-  const [tab, setTab] = useState("all");
-  const [memberships, setMemberships] = useState<Record<string, boolean>>(
-    Object.fromEntries(MOCK_COMMUNITIES.map((c) => [c.id, c.is_member]))
-  );
+  const [cat, setCat] = useState("all");
+  const [communities, setCommunities] = useState<ApiCommunity[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const communities =
-    tab === "all"
-      ? MOCK_COMMUNITIES
-      : MOCK_COMMUNITIES.filter((c) => c.category === tab);
+  useEffect(() => {
+    api.get<ApiCommunity[]>("/communities?limit=50")
+      .then((data) => setCommunities(data ?? []))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
-  function toggleJoin(id: string) {
-    setMemberships((prev) => ({ ...prev, [id]: !prev[id] }));
-  }
+  const joined = communities.filter((c) => c.is_member);
+  const discover = communities.filter((c) => !c.is_member && (cat === "all" || c.category.toLowerCase().includes(cat)));
 
   return (
-    <div>
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold" style={{ fontFamily: "var(--font-display)" }}>
-            Communities
-          </h1>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--stamp-red)] text-white hover:bg-[var(--stamp-red-deep)] transition-colors">
-            <Plus size={13} strokeWidth={2.5} />
-            Create
-          </button>
-        </div>
-
-        {/* Category tabs */}
-        <div className="flex border-t border-[var(--border)] overflow-x-auto">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={cn(
-                "px-4 py-2.5 text-sm font-medium shrink-0 border-b-2 transition-colors",
-                tab === t.id
-                  ? "border-[var(--ink)] text-[var(--ink)]"
-                  : "border-transparent text-[var(--ink-faint)] hover:text-[var(--ink-mute)]"
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+    <div className="w-full max-w-[760px] flex flex-col pb-7">
+      <div style={{ padding: "14px 20px 0" }}>
+        <Link
+          href="/search"
+          style={{
+            display: "flex", alignItems: "center", gap: 9, width: "100%",
+            height: 40, padding: "0 14px", borderRadius: 11,
+            border: "1px solid var(--border-strong)", background: "var(--paper-soft)",
+            color: "var(--ink-faint)", fontSize: 14,
+          }}
+        >
+          <Search size={18} />
+          Find a community…
+        </Link>
       </div>
 
-      {/* List */}
-      <div className="p-4 space-y-3">
-        {communities.map((c) => {
-          const joined = memberships[c.id];
-          return (
-            <div
-              key={c.id}
-              className="rounded-xl border border-[var(--border)] bg-[var(--paper)] overflow-hidden hover:shadow-[var(--shadow-1)] transition-shadow cursor-pointer"
-            >
-              {/* Accent bar */}
-              <div className="h-1.5 w-full" style={{ background: c.accent }} />
-
-              <div className="p-4 flex items-start gap-4">
-                {/* Icon */}
-                <div
-                  className="w-12 h-12 rounded-xl shrink-0 flex items-center justify-center text-2xl"
-                  style={{ background: `color-mix(in srgb, ${c.accent} 12%, var(--bone))` }}
-                >
-                  {c.emoji}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-bold text-sm text-[var(--ink)] truncate">{c.name}</p>
-                      <p className="text-xs text-[var(--ink-faint)] mt-0.5 line-clamp-2 leading-relaxed">
-                        {c.description}
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={() => toggleJoin(c.id)}
-                      className={cn(
-                        "shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors",
-                        joined
-                          ? "bg-[var(--bone)] border-[var(--border-strong)] text-[var(--ink)]"
-                          : "bg-[var(--stamp-red)] border-transparent text-white hover:bg-[var(--stamp-red-deep)]"
-                      )}
-                    >
-                      {joined ? "Joined" : "Join"}
-                    </button>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="flex items-center gap-4 mt-2.5">
-                    <span className="flex items-center gap-1 text-xs text-[var(--ink-faint)]">
-                      <Users size={11} />
-                      {c.member_count.toLocaleString()} members
-                    </span>
-                    <span className="flex items-center gap-1 text-xs text-[var(--ink-faint)]">
-                      <MessageSquare size={11} />
-                      {c.post_count.toLocaleString()} posts
-                    </span>
-                  </div>
-                </div>
+      {loading ? (
+        <div style={{ padding: "24px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} style={{ height: 76, borderRadius: 14, background: "var(--bone)" }} />
+          ))}
+        </div>
+      ) : (
+        <>
+          {joined.length > 0 && (
+            <div style={{ padding: "18px 20px 0" }}>
+              <SectionLabel>Your communities</SectionLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+                {joined.map((c) => <CommunityCard key={c.id} community={c} />)}
               </div>
             </div>
-          );
-        })}
+          )}
+
+          <div style={{ padding: "20px 20px 0" }}>
+            <SectionLabel>Discover</SectionLabel>
+            <div style={{ display: "flex", gap: 7, margin: "10px 0", overflowX: "auto" }}>
+              {CATEGORIES.map((c) => (
+                <CategoryChip key={c.id} active={cat === c.id} onClick={() => setCat(c.id)}>
+                  {c.label}
+                </CategoryChip>
+              ))}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {discover.map((c) => <CommunityCard key={c.id} community={c} />)}
+              {discover.length === 0 && <EmptyNote>You&rsquo;ve joined everything in this category.</EmptyNote>}
+            </div>
+          </div>
+        </>
+      )}
+
+      <div style={{ padding: "20px 20px 0" }}>
+        <button
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            width: "100%", height: 46, borderRadius: 12, border: "1px dashed var(--border-strong)",
+            background: "transparent", color: "var(--ink-mute)",
+            fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14,
+          }}
+        >
+          <PlusCircle size={18} />
+          Request a new community
+        </button>
       </div>
     </div>
   );

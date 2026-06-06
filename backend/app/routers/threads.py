@@ -10,6 +10,9 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.thread import Thread, Message
 from app.models.user import User
+from app.models.listing import Listing
+from app.models.catalogue import Catalogue
+from app.models.item import Item
 
 router = APIRouter(prefix="/threads", tags=["messages"])
 
@@ -37,7 +40,57 @@ async def list_threads(
     ).order_by(Thread.last_message_at.desc())
     result = await db.execute(stmt)
     threads = result.scalars().all()
-    return [_thread_dict(t, current_user.id) for t in threads]
+
+    if not threads:
+        return []
+
+    # Batch-load other users and listings
+    other_user_ids = [
+        t.participant_b if t.participant_a == current_user.id else t.participant_a
+        for t in threads
+    ]
+    users_result = await db.execute(select(User).where(User.id.in_(other_user_ids)))
+    users = {u.id: u for u in users_result.scalars().all()}
+
+    listing_ids = [t.listing_id for t in threads if t.listing_id]
+    listings: dict = {}
+    if listing_ids:
+        lst_result = await db.execute(select(Listing).where(Listing.id.in_(listing_ids)))
+        raw_listings = {l.id: l for l in lst_result.scalars().all()}
+
+        skus = [l.sku for l in raw_listings.values() if l.sku]
+        cats: dict = {}
+        if skus:
+            cats_result = await db.execute(select(Catalogue).where(Catalogue.sku.in_(skus)))
+            cats = {c.sku: c for c in cats_result.scalars().all()}
+
+        item_ids = [l.item_id for l in raw_listings.values()]
+        items: dict = {}
+        if item_ids:
+            items_result = await db.execute(select(Item).where(Item.id.in_(item_ids)))
+            items = {i.id: i for i in items_result.scalars().all()}
+
+        for lid, l in raw_listings.items():
+            cat = cats.get(l.sku) if l.sku else None
+            item = items.get(l.item_id)
+            title = (cat.title if cat else None) or (item.custom_title if item else None) or l.sku or "Listing"
+            listings[lid] = {"id": str(l.id), "title": title, "price": l.price, "status": l.status}
+
+    # Batch-load last messages
+    thread_ids = [t.id for t in threads]
+    # Get last message per thread via subquery
+    msgs_result = await db.execute(
+        select(Message)
+        .where(Message.thread_id.in_(thread_ids))
+        .order_by(Message.created_at.desc())
+    )
+    all_msgs = msgs_result.scalars().all()
+    last_msgs: dict = {}
+    for m in all_msgs:
+        if m.thread_id not in last_msgs:
+            last_msgs[m.thread_id] = m
+
+    return [_thread_dict_full(t, current_user.id, users, listings, last_msgs) for t in threads]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -77,12 +130,47 @@ async def get_messages(
     current_user: User = Depends(get_current_user),
 ):
     thread = await _get_thread(thread_id, current_user.id, db)
+
+    # Load thread with other user and listing context
+    other_user_id = thread.participant_b if thread.participant_a == current_user.id else thread.participant_a
+    other_user_result = await db.execute(select(User).where(User.id == other_user_id))
+    other_user = other_user_result.scalar_one_or_none()
+
+    listing_context = None
+    if thread.listing_id:
+        lst_result = await db.execute(select(Listing).where(Listing.id == thread.listing_id))
+        lst = lst_result.scalar_one_or_none()
+        if lst:
+            cat, item = None, None
+            if lst.sku:
+                cat_r = await db.execute(select(Catalogue).where(Catalogue.sku == lst.sku))
+                cat = cat_r.scalar_one_or_none()
+            item_r = await db.execute(select(Item).where(Item.id == lst.item_id))
+            item = item_r.scalar_one_or_none()
+            title = (cat.title if cat else None) or (item.custom_title if item else None) or lst.sku or "Listing"
+            listing_context = {"id": str(lst.id), "title": title, "price": lst.price, "status": lst.status}
+
     stmt = select(Message).where(Message.thread_id == thread_id)\
         .order_by(Message.created_at.desc())\
         .offset((page - 1) * limit).limit(limit)
     result = await db.execute(stmt)
-    messages = result.scalars().all()
-    return [_msg_dict(m) for m in reversed(messages)]
+    messages = list(reversed(result.scalars().all()))
+
+    return {
+        "thread_id": str(thread.id),
+        "other_user": {
+            "id": str(other_user.id),
+            "handle": other_user.handle,
+            "name": other_user.name,
+            "avatar_url": other_user.avatar_url,
+            "tier": other_user.tier,
+            "rating": float(other_user.rating),
+            "deals_count": other_user.deals_count,
+        } if other_user else None,
+        "listing": listing_context,
+        "unread": thread.unread_a if thread.participant_a == current_user.id else thread.unread_b,
+        "messages": [_msg_dict(m) for m in messages],
+    }
 
 
 @router.post("/{thread_id}/messages", status_code=201)
@@ -130,6 +218,33 @@ def _thread_dict(t: Thread, me: uuid.UUID) -> dict:
         "id": str(t.id),
         "other_user_id": str(t.participant_b if t.participant_a == me else t.participant_a),
         "listing_id": str(t.listing_id) if t.listing_id else None,
+        "last_message_at": t.last_message_at.isoformat(),
+        "unread": t.unread_a if t.participant_a == me else t.unread_b,
+    }
+
+
+def _thread_dict_full(
+    t: Thread, me: uuid.UUID,
+    users: dict, listings: dict, last_msgs: dict,
+) -> dict:
+    other_id = t.participant_b if t.participant_a == me else t.participant_a
+    other = users.get(other_id)
+    listing = listings.get(t.listing_id) if t.listing_id else None
+    last = last_msgs.get(t.id)
+
+    return {
+        "id": str(t.id),
+        "other_user": {
+            "id": str(other.id),
+            "handle": other.handle,
+            "name": other.name,
+            "avatar_url": other.avatar_url,
+            "tier": other.tier,
+            "rating": float(other.rating),
+            "deals_count": other.deals_count,
+        } if other else None,
+        "listing": listing,
+        "last_message": last.body if last else None,
         "last_message_at": t.last_message_at.isoformat(),
         "unread": t.unread_a if t.participant_a == me else t.unread_b,
     }

@@ -13,5 +13,11 @@ export default function HandleProfilePage({ params }: PageProps) {
   const { user } = useUser();
   const isOwn = user?.handle.toLowerCase() === handle.toLowerCase();
 
-  return <UserProfile handle={handle} isOwn={isOwn} />;
+  return (
+    <div className="flex justify-start px-5">
+      <div className="w-full max-w-[760px] min-h-screen border-x border-[var(--border)]">
+        <UserProfile handle={handle} isOwn={isOwn} />
+      </div>
+    </div>
+  );
 }

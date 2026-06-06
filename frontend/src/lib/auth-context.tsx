@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { MOCK_ENABLED, MOCK_USER } from "@/lib/mock";
 
 export interface AuthUser {
   id: string;
@@ -39,11 +38,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (MOCK_ENABLED) {
-      setUser(MOCK_USER as AuthUser);
-      setLoading(false);
-      return;
-    }
     if (!localStorage.getItem("ch_access_token")) {
       setLoading(false);
       return;
