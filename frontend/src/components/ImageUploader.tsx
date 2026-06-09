@@ -1,0 +1,219 @@
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+import { Upload, X, ImageIcon } from "lucide-react";
+import { api } from "@/lib/api";
+
+interface ImageUploaderProps {
+  onUpload: (url: string) => void;
+  label?: string;
+  accept?: string;
+  /** Show current image */
+  previewUrl?: string;
+}
+
+interface UploadUrlResponse {
+  upload_url: string;
+  key: string;
+  public_url: string;
+}
+
+export function ImageUploader({ onUpload, label = "Upload image", accept = "image/*", previewUrl }: ImageUploaderProps) {
+  const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState<string | null>(previewUrl ?? null);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const upload = useCallback(async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      setError("Please select an image file.");
+      return;
+    }
+    setError(null);
+    setUploading(true);
+    try {
+      // 1. Get presigned URL
+      const meta = await api.get<UploadUrlResponse>(
+        `/media/upload-url?prefix=uploads&content_type=${encodeURIComponent(file.type)}`
+      );
+      // 2. PUT directly to R2
+      await fetch(meta.upload_url, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+      // 3. Show preview + call back
+      setPreview(meta.public_url);
+      onUpload(meta.public_url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }, [onUpload]);
+
+  const handleFiles = useCallback((files: FileList | null) => {
+    const file = files?.[0];
+    if (file) upload(file);
+  }, [upload]);
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    handleFiles(e.dataTransfer.files);
+  }, [handleFiles]);
+
+  const clear = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPreview(null);
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  return (
+    <div>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={label}
+        onClick={() => !uploading && inputRef.current?.click()}
+        onKeyDown={(e) => e.key === "Enter" && inputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+        style={{
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          minHeight: 100,
+          borderRadius: 12,
+          border: `2px dashed ${dragging ? "var(--stamp-red)" : "var(--border-strong)"}`,
+          background: dragging ? "color-mix(in srgb, var(--stamp-red) 6%, var(--paper))" : "var(--paper-soft)",
+          cursor: uploading ? "wait" : "pointer",
+          overflow: "hidden",
+          transition: "border-color 0.15s, background 0.15s",
+        }}
+      >
+        {preview ? (
+          <>
+            <img
+              src={preview}
+              alt="Upload preview"
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+            />
+            <div style={{ position: "absolute", inset: 0, background: "rgba(20,17,15,0.35)" }} />
+            <button
+              onClick={clear}
+              style={{
+                position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: "50%",
+                background: "var(--ink)", color: "var(--paper)", border: "none", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <X size={14} />
+            </button>
+            <div style={{ position: "relative", color: "var(--paper)", fontSize: 12.5, fontWeight: 600 }}>
+              Click to replace
+            </div>
+          </>
+        ) : (
+          <>
+            {uploading ? (
+              <div style={{ color: "var(--ink-faint)", fontSize: 13 }}>Uploading…</div>
+            ) : (
+              <>
+                <Upload size={22} style={{ color: "var(--ink-faint)" }} />
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink-mute)" }}>{label}</div>
+                  <div style={{ fontSize: 12, color: "var(--ink-ghost)", marginTop: 3 }}>
+                    Drag & drop or click to browse
+                  </div>
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
+      {error && (
+        <p style={{ fontSize: 12, color: "var(--stamp-red)", marginTop: 6 }}>{error}</p>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        style={{ display: "none" }}
+        onChange={(e) => handleFiles(e.target.files)}
+      />
+    </div>
+  );
+}
+
+/** Compact inline uploader for avatar — circular, 72px */
+export function AvatarUploader({ onUpload, previewUrl }: { onUpload: (url: string) => void; previewUrl?: string }) {
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState<string | null>(previewUrl ?? null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const upload = useCallback(async (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    setUploading(true);
+    try {
+      const meta = await api.get<UploadUrlResponse>(
+        `/media/upload-url?prefix=avatars&content_type=${encodeURIComponent(file.type)}`
+      );
+      await fetch(meta.upload_url, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+      setPreview(meta.public_url);
+      onUpload(meta.public_url);
+    } catch {
+      // silently fail — text fallback remains
+    } finally {
+      setUploading(false);
+    }
+  }, [onUpload]);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label="Change avatar"
+      onClick={() => !uploading && inputRef.current?.click()}
+      onKeyDown={(e) => e.key === "Enter" && inputRef.current?.click()}
+      style={{
+        width: 72, height: 72, borderRadius: "50%", overflow: "hidden", position: "relative",
+        background: preview ? "transparent" : "var(--bone)", flexShrink: 0,
+        cursor: uploading ? "wait" : "pointer",
+        border: "2px solid var(--border-strong)",
+      }}
+    >
+      {preview ? (
+        <img src={preview} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : (
+        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <ImageIcon size={22} style={{ color: "var(--ink-faint)" }} />
+        </div>
+      )}
+      <div style={{
+        position: "absolute", inset: 0, background: "rgba(20,17,15,0.45)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        opacity: 0, transition: "opacity 0.15s",
+      }}
+        className="hover:opacity-100"
+      >
+        <Upload size={16} style={{ color: "var(--paper)" }} />
+      </div>
+      {uploading && (
+        <div style={{ position: "absolute", inset: 0, background: "rgba(20,17,15,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid var(--paper)", borderTopColor: "transparent", animation: "spin 0.7s linear infinite" }} />
+        </div>
+      )}
+      <input ref={inputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); }} />
+    </div>
+  );
+}

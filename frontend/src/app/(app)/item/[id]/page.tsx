@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Camera, Bell, Tag, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, Camera, Bell, Smartphone, MoreHorizontal } from "lucide-react";
 import { api } from "@/lib/api";
 import { VerifyBadge, ProductPhoto, Money, SectionLabel } from "@/components/ui";
 
@@ -17,6 +17,8 @@ interface ApiItem {
   value: number;
   is_listed: boolean;
   photo_count: number;
+  preorder_ordered_at: string | null;
+  preorder_eta: string | null;
   privacy: string;
   created_at: string;
 }
@@ -34,6 +36,23 @@ export default function ItemDetailPage() {
   const [item, setItem] = useState<ApiItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [wishAlert, setWishAlert] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState(false);
+  const [photo, setPhoto] = useState(0);
+  const [verifyHint, setVerifyHint] = useState(false);
+
+  async function addToCollection() {
+    if (adding || added || !item) return;
+    setAdding(true);
+    try {
+      await api.post("/items", item.sku ? { sku: item.sku } : { custom_title: item.custom_title });
+      setAdded(true);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAdding(false);
+    }
+  }
 
   useEffect(() => {
     api.get<ApiItem>(`/items/${id}`)
@@ -71,12 +90,17 @@ export default function ItemDetailPage() {
         </div>
       </div>
 
-      <ProductPhoto tone={tone} ratio="1/1" rounded={0} label={item.photo_count > 0 ? `${item.photo_count} photos` : "catalogue reference"} />
+      <ProductPhoto tone={tone} ratio="1/1" rounded={0} label={item.photo_count > 0 ? `${Math.min(photo + 1, item.photo_count)} of ${item.photo_count}` : "catalogue reference"} />
 
-      {item.photo_count > 0 && (
+      {item.photo_count > 1 && (
         <div style={{ display: "flex", gap: 6, justifyContent: "center", padding: "12px 0 4px" }}>
           {Array.from({ length: Math.min(item.photo_count, 6) }).map((_, i) => (
-            <div key={i} style={{ width: i === 0 ? 18 : 7, height: 7, borderRadius: 999, background: i === 0 ? "var(--ink)" : "var(--bone-deep)" }} />
+            <button
+              key={i}
+              onClick={() => setPhoto(i)}
+              aria-label={`Photo ${i + 1}`}
+              style={{ width: i === photo ? 18 : 7, height: 7, borderRadius: 999, border: "none", cursor: "pointer", background: i === photo ? "var(--ink)" : "var(--bone-deep)", transition: "all 160ms" }}
+            />
           ))}
         </div>
       )}
@@ -127,20 +151,33 @@ export default function ItemDetailPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--grail-gold-deep)", fontWeight: 600, fontSize: 13.5 }}>
               Pre-order timeline
             </div>
-            <div style={{ fontSize: 13, color: "var(--ink-mute)", marginTop: 6 }}>Estimated shipping in a few weeks</div>
+            <div style={{ fontSize: 13, color: "var(--ink-mute)", marginTop: 6, fontFamily: "var(--font-mono)" }}>
+              {item.preorder_ordered_at
+                ? `Ordered ${new Date(item.preorder_ordered_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`
+                : "Ordered"}
+              {" · "}
+              {item.preorder_eta ? `ETA ${item.preorder_eta}` : "ETA TBD"}
+            </div>
           </div>
         )}
 
         {isOwned && item.verify_tier !== "verified" && (
-          <div style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", background: "var(--paper-soft)", border: "1px dashed var(--border-strong)", borderRadius: 13, padding: 13, marginBottom: 16, cursor: "pointer" }}>
+          <button
+            onClick={() => setVerifyHint((v) => !v)}
+            style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", textAlign: "left", background: "var(--paper-soft)", border: "1px dashed var(--border-strong)", borderRadius: 13, padding: 13, marginBottom: 16, cursor: "pointer" }}
+          >
             <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--verified-teal)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <Camera size={19} />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 600 }}>Verify ownership to list it</div>
-              <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>Capture an in-app photo + challenge shot. Listings need Verified.</div>
+              <div style={{ fontSize: 13.5, fontWeight: 600 }}>Verify ownership in the app to list it</div>
+              <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+                {verifyHint
+                  ? "Open CollectorHub on your phone → this item → Verify, then take a live photo plus the challenge shot. Verified items can be listed for sale."
+                  : "Ownership photos are captured live in the CollectorHub app — tap to learn how."}
+              </div>
             </div>
-          </div>
+          </button>
         )}
 
         <SectionLabel>About this item</SectionLabel>
@@ -160,8 +197,11 @@ export default function ItemDetailPage() {
               Manage listing
             </Link>
           ) : (
-            <button style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, borderRadius: 13, background: "var(--stamp-red)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
-              <Tag size={18} />Sell / Trade this item
+            <button
+              disabled
+              title="Selling is available in the CollectorHub app"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, borderRadius: 13, background: "var(--bone)", color: "var(--ink-mute)", border: "1px solid var(--border-strong)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "not-allowed" }}>
+              <Smartphone size={18} />Sell &amp; trade in the app
             </button>
           )
         ) : isWish ? (
@@ -170,8 +210,8 @@ export default function ItemDetailPage() {
             {wishAlert ? "Alert on" : "Notify when listed"}
           </button>
         ) : (
-          <button style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, borderRadius: 13, background: "var(--ink)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
-            Add to my collection
+          <button onClick={addToCollection} disabled={adding || added} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, borderRadius: 13, background: added ? "var(--bone)" : "var(--ink)", color: added ? "var(--ink)" : "var(--paper)", border: added ? "1px solid var(--border-strong)" : "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: adding || added ? "default" : "pointer" }}>
+            {added ? "Added to collection ✓" : adding ? "Adding…" : "Add to my collection"}
           </button>
         )}
       </div>

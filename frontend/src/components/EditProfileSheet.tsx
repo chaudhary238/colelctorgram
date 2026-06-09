@@ -5,6 +5,7 @@ import { X, Check } from "lucide-react";
 import { api } from "@/lib/api";
 import { AuthUser } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
+import { AvatarUploader } from "@/components/ImageUploader";
 
 const CATEGORIES = [
   { id: "figures", label: "Action Figures" },
@@ -83,11 +84,22 @@ export function EditProfileSheet({ user, onClose, onSaved }: EditProfileSheetPro
 
         {/* Form */}
         <form onSubmit={handleSave} className="overflow-y-auto flex-1 px-4 py-4 space-y-4">
+          {/* Avatar upload */}
+          <div className="flex items-center gap-4">
+            <AvatarUploader
+              previewUrl={form.avatar_url || undefined}
+              onUpload={(url) => setField("avatar_url", url)}
+            />
+            <div>
+              <div className="text-sm font-semibold text-[var(--ink)]">Profile photo</div>
+              <div className="text-xs text-[var(--ink-faint)] mt-0.5">Click to upload a new one</div>
+            </div>
+          </div>
+
           {[
             { key: "name", label: "Display name", placeholder: "Your name" },
             { key: "bio", label: "Bio", placeholder: "Tell collectors who you are…" },
             { key: "city", label: "City", placeholder: "Mumbai" },
-            { key: "avatar_url", label: "Avatar URL", placeholder: "https://…" },
           ].map(({ key, label, placeholder }) => (
             <div key={key}>
               <label className="block text-xs font-medium text-[var(--ink-mute)] mb-1.5">{label}</label>

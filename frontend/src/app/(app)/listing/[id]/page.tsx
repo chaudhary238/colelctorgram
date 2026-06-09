@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Heart, Share2, MessageCircle, Repeat2, Shield, Info, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
 import { timeAgo, formatPrice } from "@/lib/utils";
 import { ApiListing } from "@/components/cards";
-import { Avatar, VerifyBadge, Money, ProductPhoto, SectionLabel, TierChip, Stars, Tag } from "@/components/ui";
+import { Avatar, VerifyBadge, Money, ProductPhoto, SectionLabel, TierChip, TrustSignals } from "@/components/ui";
 
 const CONDITION_LABEL: Record<string, string> = {
   sealed_misb: "MISB · sealed",
@@ -45,20 +45,64 @@ function SpecRow({ label, value, last }: { label: string; value: string; last?: 
 
 export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [listing, setListing] = useState<ApiListing | null>(null);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [shared, setShared] = useState(false);
+  const [dmBusy, setDmBusy] = useState(false);
   const [tab, setTab] = useState<"details" | "terms">("details");
   const [fulfil, setFulfil] = useState<"ship" | "pickup">("ship");
   const [priceVote, setPriceVote] = useState<string | null>(null);
   const [photo, setPhoto] = useState(0);
+  const [qty, setQty] = useState(1);
 
   useEffect(() => {
     api.get<ApiListing>(`/listings/${id}`)
-      .then((l) => setListing(l))
+      .then((l) => { setListing(l); setSaved(l.is_saved ?? false); })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
+
+  async function toggleSave() {
+    if (saveBusy) return;
+    const next = !saved;
+    setSaved(next);
+    setSaveBusy(true);
+    try {
+      await api.post(`/listings/${id}/save`);
+    } catch {
+      setSaved(!next);
+    } finally {
+      setSaveBusy(false);
+    }
+  }
+
+  async function share() {
+    const url = `${window.location.origin}/listing/${id}`;
+    try {
+      if (navigator.share) await navigator.share({ title: listing?.title ?? "CollectorHub", url });
+      else { await navigator.clipboard.writeText(url); setShared(true); setTimeout(() => setShared(false), 1600); }
+    } catch { /* cancelled */ }
+  }
+
+  async function messageSeller(initialMessage?: string) {
+    if (!listing || dmBusy) return;
+    setDmBusy(true);
+    try {
+      const thread = await api.post<{ id: string }>("/threads", {
+        other_user_id: listing.seller_id,
+        listing_id: listing.id,
+        initial_message: initialMessage,
+      });
+      router.push(`/chat/${thread.id}`);
+    } catch {
+      router.push("/inbox");   // fall back to inbox if thread creation fails
+    } finally {
+      setDmBusy(false);
+    }
+  }
 
   if (loading || !listing) {
     return (
@@ -76,6 +120,9 @@ export default function ListingDetailPage() {
   const sellerTier = listing.deals_count >= 50 ? "top_seller" : listing.deals_count >= 20 ? "trusted" : "verified";
   const priceRupees = Math.round(listing.price / 100);
   const shippingRupees = Math.round(listing.shipping_cost / 100);
+  const retailRupees = listing.retail_price ? Math.round(listing.retail_price / 100) : 0;
+  const pctOff = retailRupees > priceRupees ? Math.round((1 - priceRupees / retailRupees) * 100) : 0;
+  const maxQty = Math.max(1, listing.qty ?? 1);
 
   const terms = listing.terms.length > 0 ? listing.terms : [
     "Item ships within 48 hours of payment confirmation.",
@@ -92,10 +139,10 @@ export default function ListingDetailPage() {
             <ArrowLeft size={18} />
           </Link>
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Listing</span>
-          <button onClick={() => setSaved((v) => !v)} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: saved ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
+          <button onClick={toggleSave} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: saved ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
             <Heart size={18} fill={saved ? "currentColor" : "none"} />
           </button>
-          <button style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "none", cursor: "pointer" }}>
+          <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: shared ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
             <Share2 size={17} />
           </button>
         </div>
@@ -132,8 +179,16 @@ export default function ListingDetailPage() {
         <div style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 12 }}>
           Listed {timeAgo(listing.created_at)} · {listing.ships_from_city}
         </div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
           <span style={{ fontSize: 28, color: "var(--stamp-red)" }}><Money value={priceRupees} /></span>
+          {pctOff > 0 && (
+            <>
+              <span style={{ fontSize: 15, color: "var(--ink-faint)" }}><Money value={retailRupees} strike /></span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--forest)", background: "var(--forest-soft)", borderRadius: 6, padding: "2px 7px", letterSpacing: "0.02em" }}>
+                {pctOff}% off retail
+              </span>
+            </>
+          )}
         </div>
 
         <div style={{ display: "flex", gap: 24, borderBottom: "1px solid var(--border)", marginBottom: 16 }}>
@@ -180,9 +235,19 @@ export default function ListingDetailPage() {
                     </button>
                   ))}
                 </div>
+                {maxQty > 1 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
+                    <span style={{ fontSize: 13, color: "var(--ink-faint)" }}>Quantity <span style={{ color: "var(--ink-ghost)" }}>· {maxQty} available</span></span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 0, border: "1px solid var(--border-strong)", borderRadius: 10, overflow: "hidden" }}>
+                      <button onClick={() => setQty((q) => Math.max(1, q - 1))} disabled={qty <= 1} style={{ width: 34, height: 34, border: "none", background: "var(--paper)", color: qty <= 1 ? "var(--ink-ghost)" : "var(--ink)", fontSize: 18, cursor: qty <= 1 ? "default" : "pointer", lineHeight: 1 }}>−</button>
+                      <span style={{ width: 34, textAlign: "center", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 14, fontFeatureSettings: '"tnum" 1' }}>{qty}</span>
+                      <button onClick={() => setQty((q) => Math.min(maxQty, q + 1))} disabled={qty >= maxQty} style={{ width: 34, height: 34, border: "none", background: "var(--paper)", color: qty >= maxQty ? "var(--ink-ghost)" : "var(--ink)", fontSize: 18, cursor: qty >= maxQty ? "default" : "pointer", lineHeight: 1 }}>+</button>
+                    </div>
+                  </div>
+                )}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
                   <span style={{ fontSize: 13, color: "var(--ink-faint)" }}>Est. total {fulfil === "ship" ? "(+ shipping)" : "(pickup)"}</span>
-                  <span style={{ fontSize: 18, color: "var(--stamp-red)" }}><Money value={priceRupees + (fulfil === "ship" ? shippingRupees : 0)} /></span>
+                  <span style={{ fontSize: 18, color: "var(--stamp-red)" }}><Money value={priceRupees * qty + (fulfil === "ship" ? shippingRupees : 0)} /></span>
                 </div>
               </div>
             )}
@@ -235,15 +300,13 @@ export default function ListingDetailPage() {
             </div>
             <ChevronRight size={18} style={{ color: "var(--ink-faint)" }} />
           </div>
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", gap: 20 }}>
-            <div>
-              <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15 }}>{listing.rating}★</div>
-              <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>rating</div>
-            </div>
-            <div>
-              <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15 }}>{listing.deals_count}</div>
-              <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>deals</div>
-            </div>
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+            <TrustSignals
+              compact
+              deals={listing.deals_count}
+              rating={listing.rating}
+              ratingCount={listing.deals_count}
+            />
           </div>
         </Link>
 
@@ -267,13 +330,13 @@ export default function ListingDetailPage() {
         ) : (
           <div style={{ display: "flex", gap: 10 }}>
             {listing.trade_willing && (
-              <Link href={`/inbox`} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, padding: "0 20px", borderRadius: 13, background: "var(--bone)", border: "1px solid var(--border-strong)", color: "var(--ink)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
+              <button onClick={() => messageSeller(`Hi! Would you consider a trade for "${listing.title}"?`)} disabled={dmBusy} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, padding: "0 20px", borderRadius: 13, background: "var(--bone)", border: "1px solid var(--border-strong)", color: "var(--ink)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14, cursor: dmBusy ? "default" : "pointer" }}>
                 <Repeat2 size={18} />Trade
-              </Link>
+              </button>
             )}
-            <Link href={`/inbox`} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
-              <MessageCircle size={18} />Message seller
-            </Link>
+            <button onClick={() => messageSeller()} disabled={dmBusy} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--stamp-red)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: dmBusy ? "default" : "pointer" }}>
+              <MessageCircle size={18} />{dmBusy ? "Opening…" : "Message seller"}
+            </button>
           </div>
         )}
       </div>

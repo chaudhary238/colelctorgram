@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.models.user import User
 from app.services.auth import (
     create_access_token, create_refresh_token,
@@ -74,6 +75,25 @@ async def login(body: LoginBody, db: AsyncSession = Depends(get_db)):
         access_token=create_access_token(str(user.id)),
         refresh_token=create_refresh_token(str(user.id)),
     )
+
+
+class ChangePasswordBody(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.post("/change-password", status_code=204)
+async def change_password(
+    body: ChangePasswordBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.password_hash or not verify_password(body.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
+    current_user.password_hash = hash_password(body.new_password)
+    db.add(current_user)
 
 
 @router.post("/refresh", response_model=TokenResponse)

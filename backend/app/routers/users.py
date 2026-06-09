@@ -7,11 +7,15 @@ from sqlalchemy import select, func
 from typing import Optional
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_optional_user
 from app.models.user import User, Follow
 from app.models.item import Item
 from app.models.listing import Listing
 from app.models.post import Post
+from app.models.deal import Deal
+from app.models.community import Community, CommunityMember
+from app.routers.communities import _community_dict
+from app.services.notifications import notify
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -32,6 +36,13 @@ class ProfileOut(BaseModel):
     following_count: int
     active_listings_count: int
     verified_items_count: int
+    portfolio_value: int = 0  # paise — sum of owned-item value
+    # follow state relative to the requesting user (false for self / anon)
+    is_following: bool = False
+    # private fields — only populated for /users/me
+    email: Optional[str] = None
+    privacy_portfolio: Optional[str] = None
+    privacy_value: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -46,9 +57,60 @@ class EditProfileBody(BaseModel):
     privacy_value: Optional[str] = None
 
 
+class SuggestedUserOut(BaseModel):
+    id: uuid.UUID
+    handle: str
+    name: str
+    tier: str
+    followers_count: int
+    verified_items_count: int
+
+    model_config = {"from_attributes": True}
+
+
 @router.get("/me", response_model=ProfileOut)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/me/suggested", response_model=list[SuggestedUserOut])
+async def get_suggested(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    limit: int = 8,
+):
+    """Return users with shared interests that the current user doesn't already follow."""
+    following_ids_q = await db.execute(
+        select(Follow.following_id).where(
+            Follow.follower_id == current_user.id,
+            Follow.following_type == "user",
+        )
+    )
+    following_ids = {row[0] for row in following_ids_q.all()}
+    following_ids.add(current_user.id)
+
+    stmt = (
+        select(User)
+        .where(User.id.not_in(following_ids))
+        .where(User.is_suspended == False)  # noqa: E712
+        .order_by(User.followers_count.desc(), User.verified_items_count.desc())
+        .limit(limit)
+    )
+    if current_user.interests:
+        stmt = stmt.where(User.interests.overlap(current_user.interests))
+
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    if not rows:
+        # Fallback: no interest overlap — return anyone not followed
+        result2 = await db.execute(
+            select(User)
+            .where(User.id.not_in(following_ids), User.is_suspended == False)  # noqa: E712
+            .order_by(User.followers_count.desc())
+            .limit(limit)
+        )
+        rows = result2.scalars().all()
+    return rows
 
 
 @router.patch("/me", response_model=ProfileOut)
@@ -64,12 +126,33 @@ async def edit_me(
 
 
 @router.get("/{handle}", response_model=ProfileOut)
-async def get_profile(handle: str, db: AsyncSession = Depends(get_db)):
+async def get_profile(
+    handle: str,
+    db: AsyncSession = Depends(get_db),
+    viewer: Optional[User] = Depends(get_optional_user),
+):
     result = await db.execute(select(User).where(User.handle == handle.lower()))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+
+    out = ProfileOut.model_validate(user)
+    is_self = bool(viewer and viewer.id == user.id)
+    if not is_self:
+        # private fields are only for the owner (see /users/me)
+        out.email = None
+        out.privacy_portfolio = None
+        out.privacy_value = None
+        if viewer:
+            follow = await db.execute(
+                select(Follow).where(
+                    Follow.follower_id == viewer.id,
+                    Follow.following_type == "user",
+                    Follow.following_id == user.id,
+                )
+            )
+            out.is_following = follow.scalar_one_or_none() is not None
+    return out
 
 
 @router.post("/{handle}/follow", status_code=204)
@@ -98,6 +181,15 @@ async def follow_user(
     db.add(Follow(follower_id=current_user.id, following_type="user", following_id=target_user.id))
     target_user.followers_count += 1
     current_user.following_count += 1
+    notify(
+        db,
+        user_id=target_user.id,
+        kind="follow",
+        title="New follower",
+        body=f"{current_user.name} (@{current_user.handle}) started following you.",
+        ref_type="profile",
+        ref_id=current_user.handle,
+    )
 
 
 class FollowUserOut(BaseModel):
@@ -268,6 +360,101 @@ async def get_user_listings(
             for l in listings
         ],
     }
+
+
+@router.get("/{handle}/communities")
+async def get_user_communities(
+    handle: str,
+    db: AsyncSession = Depends(get_db),
+    viewer: Optional[User] = Depends(get_optional_user),
+    page: int = Query(1, ge=1),
+    limit: int = Query(24, le=60),
+):
+    """Communities the user has joined — feeds the profile Communities tab."""
+    target = await db.execute(select(User).where(User.handle == handle.lower()))
+    target_user = target.scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    stmt = (
+        select(Community)
+        .join(CommunityMember, CommunityMember.community_id == Community.id)
+        .where(CommunityMember.user_id == target_user.id)
+        .order_by(CommunityMember.joined_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    communities = result.scalars().all()
+
+    # which of these does the viewer also belong to (drives the Join/Joined chip)
+    viewer_member_ids: set[str] = set()
+    if viewer:
+        vm = await db.execute(
+            select(CommunityMember.community_id).where(CommunityMember.user_id == viewer.id)
+        )
+        viewer_member_ids = set(vm.scalars().all())
+
+    return {
+        "page": page,
+        "items": [_community_dict(c, c.id in viewer_member_ids) for c in communities],
+    }
+
+
+@router.get("/{handle}/deals")
+async def get_user_deals(
+    handle: str,
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1),
+    limit: int = Query(24, le=60),
+):
+    """Confirmed trade history (from this user's perspective) — profile Trades tab."""
+    target = await db.execute(select(User).where(User.handle == handle.lower()))
+    target_user = target.scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    stmt = (
+        select(Deal, Item, User)
+        .join(Item, Deal.item_id == Item.id)
+        .join(
+            User,
+            User.id == func.coalesce(
+                func.nullif(Deal.seller_id, target_user.id),
+                Deal.buyer_id,
+            ),
+        )
+        .where(
+            Deal.status == "confirmed",
+            (Deal.seller_id == target_user.id) | (Deal.buyer_id == target_user.id),
+        )
+        .order_by(Deal.confirmed_at.desc().nullslast())
+        .offset((page - 1) * limit)
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+
+    items = []
+    for deal, item, other in result:
+        is_seller = deal.seller_id == target_user.id
+        # rating this user received, and whether the counterparty vouched for them
+        received_rating = deal.seller_rating if is_seller else deal.buyer_rating
+        vouched = deal.buyer_vouch_done if is_seller else deal.seller_vouch_done
+        items.append({
+            "id": str(deal.id),
+            "direction": "Sold" if is_seller else "Bought",
+            "deal_type": deal.deal_type,
+            "item": item.custom_title or item.sku or "Item",
+            "with": {
+                "handle": other.handle,
+                "name": other.name,
+                "avatar_url": other.avatar_url,
+            },
+            "when": deal.confirmed_at.isoformat() if deal.confirmed_at else None,
+            "rating": received_rating,
+            "vouched": vouched,
+        })
+    return {"page": page, "items": items}
 
 
 @router.delete("/{handle}/follow", status_code=204)

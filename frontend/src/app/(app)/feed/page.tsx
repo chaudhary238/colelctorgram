@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
+import { useUser } from "@/lib/auth-context";
 import { Segmented, CategoryChip } from "@/components/ui";
 import { PostCard, AdminCard, ListingFeedCard, FeedEventCard, ApiPost, ApiListing, ApiEvent } from "@/components/cards";
 import { RightRail } from "@/components/RightRail";
@@ -42,6 +43,7 @@ function FeedSkeleton() {
 }
 
 export default function FeedPage() {
+  const { user } = useUser();
   const [sort, setSort] = useState<(typeof SORTS)[number]["id"]>("foryou");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
   const [posts, setPosts] = useState<ApiPost[]>([]);
@@ -100,7 +102,7 @@ export default function FeedPage() {
     }
     if (filter === "hidelistings") s = s.filter((x) => x.t !== "listing");
     if (filter === "posts") s = s.filter((x) => x.t === "post" || x.t === "admin");
-    if (filter === "following") s = s.filter((x) => x.t === "post" || x.t === "listing");
+    if (filter === "following") s = s.filter((x) => (x.t === "post" || x.t === "admin") && x.data.is_following);
     return s;
   }, [stream, sort, filter, posts]);
 
@@ -133,6 +135,7 @@ export default function FeedPage() {
         {!loading && filtered.length > 0 && (
           <div style={{ padding: "24px 16px 32px", textAlign: "center", color: "var(--ink-ghost)", fontSize: 12.5 }}>
             You&rsquo;re all caught up
+            {user?.interests?.length ? ` · tuned to ${user.interests.length} interest${user.interests.length === 1 ? "" : "s"}` : ""}
           </div>
         )}
       </div>

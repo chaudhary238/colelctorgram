@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Calendar, PlusCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiEvent } from "@/components/cards";
@@ -50,7 +51,7 @@ export default function EventsPage() {
           {featured && (
             <div style={{ padding: "14px 20px 0" }}>
               <SectionLabel>Next up</SectionLabel>
-              <div style={{ marginTop: 10, borderRadius: 16, overflow: "hidden", background: "var(--ink)", position: "relative" }}>
+              <Link href={`/events/${featured.id}`} style={{ display: "block", textDecoration: "none", marginTop: 10, borderRadius: 16, overflow: "hidden", background: "var(--ink)", position: "relative" }}>
                 <ProductPhoto tone="plum" ratio="2/1" rounded={0} />
                 <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 30%, rgba(20,17,15,0.88) 100%)" }} />
                 <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 6 }}>
@@ -63,7 +64,7 @@ export default function EventsPage() {
                     {new Date(featured.starts_at).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
                   </div>
                 </div>
-              </div>
+              </Link>
             </div>
           )}
 

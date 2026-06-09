@@ -5,7 +5,17 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiListing } from "@/components/cards";
-import { CategoryChip, ProductPhoto, Money } from "@/components/ui";
+import { CategoryChip, ProductPhoto, Money, Avatar } from "@/components/ui";
+
+const CAT_TONE: Record<string, string> = { figures: "red", designer: "plum", kits: "forest", diecast: "teal" };
+function toneForCat(category: string | null): string {
+  return CAT_TONE[(category ?? "").toLowerCase()] ?? "ink";
+}
+function skuToneSearch(sku: string | null, category: string | null): string {
+  const m = (sku ?? "").match(/SKU-([A-Z]+)-/);
+  const byPrefix: Record<string, string> = { FIG: "red", DSN: "plum", KIT: "forest", DCS: "teal" };
+  return (m && byPrefix[m[1]]) || toneForCat(category);
+}
 
 const CATEGORIES = [
   { id: "all", label: "All" },
@@ -95,10 +105,8 @@ export default function SearchPage() {
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--ink-mute)", marginBottom: 8 }}>People</div>
                   {searchResults.users.map((u) => (
-                    <Link key={u.id} href={`/profile/${u.handle}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--border)", textDecoration: "none" }}>
-                      <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--bone)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700 }}>
-                        {(u.name ?? u.handle ?? "?")[0].toUpperCase()}
-                      </div>
+                    <Link key={u.id} href={`/profile/${u.handle}`} style={{ display: "flex", alignItems: "center", gap: 11, padding: "9px 0", borderBottom: "1px solid var(--border)", textDecoration: "none" }}>
+                      <Avatar name={u.name ?? u.handle} size={40} />
                       <div>
                         <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{u.name}</div>
                         <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{u.handle}</div>
@@ -112,10 +120,12 @@ export default function SearchPage() {
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--ink-mute)", marginBottom: 8 }}>Items</div>
                   {searchResults.catalogue.map((c) => (
                     <div key={c.sku} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--border)" }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 8, background: "var(--bone)", flexShrink: 0 }} />
-                      <div>
+                      <div style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
+                        <ProductPhoto tone={skuToneSearch(c.sku, c.category)} src={c.thumbnail_url} ratio="1/1" rounded={8} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{c.title}</div>
-                        <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{c.brand} · {c.category}</div>
+                        <div style={{ fontSize: 12, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>{c.sku} · {c.brand}</div>
                       </div>
                     </div>
                   ))}
@@ -126,10 +136,12 @@ export default function SearchPage() {
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--ink-mute)", marginBottom: 8 }}>Listings</div>
                   {searchResults.listings.map((l) => (
                     <Link key={l.id} href={`/listing/${l.id}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--border)", textDecoration: "none" }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 8, background: "var(--bone)", flexShrink: 0 }} />
-                      <div style={{ flex: 1 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
+                        <ProductPhoto tone={skuToneSearch(l.sku, null)} ratio="1/1" rounded={8} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{l.sku ?? "Listing"}</div>
-                        <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{l.condition} · {l.city}</div>
+                        <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{l.condition}{l.city ? ` · ${l.city}` : ""}</div>
                       </div>
                       <Money value={Math.round(l.price / 100)} size={13} />
                     </Link>
@@ -140,9 +152,33 @@ export default function SearchPage() {
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--ink-mute)", marginBottom: 8 }}>Communities</div>
                   {searchResults.communities.map((c) => (
-                    <Link key={c.id} href={`/community/${c.id}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--border)", textDecoration: "none" }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{c.name}</div>
-                      <div style={{ fontSize: 12, color: "var(--ink-faint)", marginLeft: 6 }}>{c.member_count} members</div>
+                    <Link key={c.id} href={`/community/${c.id}`} style={{ display: "flex", alignItems: "center", gap: 11, padding: "9px 0", borderBottom: "1px solid var(--border)", textDecoration: "none" }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 9, background: `var(--${toneForCat(c.category)})`, color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, textTransform: "uppercase" }}>
+                        {c.name.replace(/[^a-zA-Z]/g, "").slice(0, 2) || "C"}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{c.name}</div>
+                        <div style={{ fontSize: 12, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>{c.member_count.toLocaleString("en-IN")} members</div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {searchResults.events.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--ink-mute)", marginBottom: 8 }}>Events</div>
+                  {searchResults.events.map((e) => (
+                    <Link key={e.id} href={`/events/${e.id}`} style={{ display: "flex", alignItems: "center", gap: 11, padding: "9px 0", borderBottom: "1px solid var(--border)", textDecoration: "none" }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 9, background: "var(--plum-soft)", color: "var(--plum)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 1 }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{new Date(e.starts_at).toLocaleString("en-IN", { month: "short" })}</span>
+                        <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16 }}>{new Date(e.starts_at).getDate()}</span>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{e.title}</div>
+                        <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+                          {e.mode === "online" ? "Online" : e.city ?? "In person"} · {new Date(e.starts_at).toLocaleString("en-IN", { day: "numeric", month: "short" })}
+                        </div>
+                      </div>
                     </Link>
                   ))}
                 </div>

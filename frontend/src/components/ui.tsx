@@ -266,6 +266,95 @@ export function TierChip({ tier }: { tier: string }) {
   );
 }
 
+/* ── Trust signals row (deals / rating / response / joined) ──────
+   Ported from design/mobile/app/shared.jsx. Only renders the metrics
+   that are provided, so it degrades gracefully when the API lacks one. */
+export function TrustSignals({
+  deals,
+  rating,
+  ratingCount,
+  response,
+  joined,
+  compact = false,
+}: {
+  deals?: number | null;
+  rating?: number | null;
+  ratingCount?: number | null;
+  response?: string | null;
+  joined?: string | null;
+  compact?: boolean;
+}) {
+  const items: { v: string; l: string }[] = [];
+  if (deals != null) items.push({ v: String(deals), l: "deals" });
+  if (rating != null && (ratingCount ?? 0) > 0)
+    items.push({ v: `${rating.toFixed(1)}★`, l: `${ratingCount} ratings` });
+  if (response) items.push({ v: response, l: "replies" });
+  if (joined) items.push({ v: joined, l: "joined" });
+  if (items.length === 0) items.push({ v: "New", l: "no deals yet" });
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: compact ? 14 : 0,
+        justifyContent: compact ? "flex-start" : "space-between",
+      }}
+    >
+      {items.map((it, i) => (
+        <div key={i} style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: compact ? "auto" : 0 }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 14, color: "var(--ink)", fontFeatureSettings: '"tnum" 1' }}>
+            {it.v}
+          </span>
+          <span style={{ fontSize: 10.5, color: "var(--ink-faint)", letterSpacing: "0.02em" }}>{it.l}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── QR code (deterministic pseudo-QR, ported from shared.jsx) ──── */
+export function QRCode({ seed = "ch", size = 140, fg = "var(--ink)", bg = "var(--paper)" }: { seed?: string; size?: number; fg?: string; bg?: string }) {
+  const N = 21;
+  const cells = React.useMemo(() => {
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+    const out: number[] = [];
+    for (let i = 0; i < N * N; i++) {
+      h = (h * 1103515245 + 12345) >>> 0;
+      out.push((h >> 16) & 1);
+    }
+    return out;
+  }, [seed]);
+  const isFinder = (r: number, c: number) => {
+    const inBox = (br: number, bc: number) => r >= br && r < br + 7 && c >= bc && c < bc + 7;
+    return inBox(0, 0) || inBox(0, N - 7) || inBox(N - 7, 0);
+  };
+  const finderOn = (r: number, c: number) => {
+    const local = (br: number, bc: number) => {
+      const rr = r - br, cc = c - bc;
+      const edge = rr === 0 || rr === 6 || cc === 0 || cc === 6;
+      const core = rr >= 2 && rr <= 4 && cc >= 2 && cc <= 4;
+      return edge || core;
+    };
+    if (r < 7 && c < 7) return local(0, 0);
+    if (r < 7 && c >= N - 7) return local(0, N - 7);
+    if (r >= N - 7 && c < 7) return local(N - 7, 0);
+    return false;
+  };
+  const cell = size / N;
+  return (
+    <div style={{ width: size, height: size, background: bg, borderRadius: 8, position: "relative" }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} shapeRendering="crispEdges">
+        {Array.from({ length: N * N }).map((_, idx) => {
+          const r = Math.floor(idx / N), c = idx % N;
+          const on = isFinder(r, c) ? finderOn(r, c) : cells[idx] === 1;
+          if (!on) return null;
+          return <rect key={idx} x={c * cell} y={r * cell} width={cell} height={cell} fill={fg} />;
+        })}
+      </svg>
+    </div>
+  );
+}
+
 /* ── Stars ───────────────────────────────────────────────────── */
 export function Stars({ n = 0, size = 13, c = "var(--grail-gold-deep)" }: { n?: number; size?: number; c?: string }) {
   return (

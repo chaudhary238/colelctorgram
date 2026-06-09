@@ -19,6 +19,9 @@ export interface AuthUser {
   following_count: number;
   active_listings_count: number;
   verified_items_count: number;
+  email?: string | null;
+  privacy_portfolio?: string | null;
+  privacy_value?: string | null;
 }
 
 interface AuthContextValue {

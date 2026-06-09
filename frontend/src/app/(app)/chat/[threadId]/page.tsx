@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Plus, Send, Check, Clock, Shield, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Plus, Send, Check, Clock, Shield, Eye, EyeOff, Star } from "lucide-react";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
-import { Avatar, Stars, VerifyBadge, Money } from "@/components/ui";
+import { Avatar, VerifyBadge, Money } from "@/components/ui";
 
 interface ChatUser {
   id: string;
@@ -23,6 +23,19 @@ interface ChatListing {
   title: string;
   price: number;
   status: string;
+  seller_id: string;
+}
+
+interface ChatDeal {
+  id: string;
+  status: "pending" | "confirmed" | "cancelled";
+  deal_type: string;
+  agreed_price: number | null;
+  seller_id: string;
+  buyer_id: string;
+  initiated_by: string;
+  seller_vouch_done: boolean;
+  buyer_vouch_done: boolean;
 }
 
 interface Message {
@@ -37,20 +50,23 @@ interface Message {
 
 interface ThreadData {
   thread_id: string;
+  viewer_id: string;
   other_user: ChatUser | null;
   listing: ChatListing | null;
+  deal: ChatDeal | null;
   unread: number;
   messages: Message[];
 }
-
-type DealState = null | "requested" | "confirmed";
 
 export default function ChatPage() {
   const { threadId } = useParams<{ threadId: string }>();
   const [data, setData] = useState<ThreadData | null>(null);
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
-  const [dealState, setDealState] = useState<DealState>(null);
+  const [deal, setDeal] = useState<ChatDeal | null>(null);
+  const [dealBusy, setDealBusy] = useState(false);
+  const [ratingValue, setRatingValue] = useState(5);
+  const [vouchDone, setVouchDone] = useState(false);
   const [makePublic, setMakePublic] = useState(false);
   const [sending, setSending] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -60,13 +76,14 @@ export default function ChatPage() {
       .then((d) => {
         setData(d);
         setLocalMessages(d.messages ?? []);
+        setDeal(d.deal ?? null);
       })
       .catch(console.error);
   }, [threadId]);
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-  }, [localMessages, dealState]);
+  }, [localMessages, deal]);
 
   const send = async () => {
     if (!draft.trim() || sending) return;
@@ -84,10 +101,59 @@ export default function ChatPage() {
 
   const other = data?.other_user;
   const listing = data?.listing;
+  const viewerId = data?.viewer_id;
 
-  // Determine "my" messages: those not sent by other_user
-  const otherId = other?.id;
-  const isMe = (msg: Message) => msg.sender_id !== otherId;
+  const isMe = (msg: Message) => msg.sender_id === viewerId;
+
+  // Role: viewer is the seller if they own the listing (or are the deal's seller)
+  const viewerIsSeller = deal
+    ? deal.seller_id === viewerId
+    : listing?.seller_id === viewerId;
+  const viewerVouchDone = deal
+    ? (viewerIsSeller ? deal.seller_vouch_done : deal.buyer_vouch_done) || vouchDone
+    : false;
+
+  // Seller marks the listing sold/traded → creates a pending deal
+  const markSold = async () => {
+    if (dealBusy) return;
+    setDealBusy(true);
+    try {
+      const d = await api.post<ChatDeal>(`/threads/${threadId}/deal`);
+      setDeal(d);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDealBusy(false);
+    }
+  };
+
+  // Buyer confirms the pending deal
+  const confirmDeal = async () => {
+    if (dealBusy || !deal) return;
+    setDealBusy(true);
+    try {
+      await api.post(`/deals/${deal.id}/confirm`);
+      setDeal({ ...deal, status: "confirmed" });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDealBusy(false);
+    }
+  };
+
+  // Either party leaves a rating/vouch on a confirmed deal
+  const leaveVouch = async () => {
+    if (dealBusy || !deal) return;
+    setDealBusy(true);
+    try {
+      await api.post(`/deals/${deal.id}/rate`, { rating: ratingValue });
+      setVouchDone(true);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDealBusy(false);
+    }
+  };
 
   if (!data) {
     return (
@@ -162,7 +228,7 @@ export default function ChatPage() {
             </div>
           ))}
 
-          {dealState === "confirmed" && (
+          {deal?.status === "confirmed" && (
             <div style={{ alignSelf: "center", background: "var(--bone-deep)", color: "var(--ink-mute)", fontSize: 11.5, padding: "4px 12px", borderRadius: 999, margin: "6px 0" }}>
               Deal completed · recorded on both profiles
             </div>
@@ -176,37 +242,57 @@ export default function ChatPage() {
 
       {/* Footer */}
       <div style={{ flexShrink: 0, borderTop: "1px solid var(--border)", background: "var(--paper)", padding: "10px 20px 24px" }}>
-        {dealState !== "confirmed" && (
+        {/* Deal flow — only meaningful when the thread is about a listing */}
+        {listing && (!deal || deal.status === "pending") && (
           <div style={{ marginBottom: 10 }}>
-            {!dealState && (
-              <button onClick={() => setDealState("requested")} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 44, borderRadius: 12, border: "1px solid var(--ink)", background: "var(--ink)", color: "var(--paper)", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14 }}>
+            {/* No deal yet: only the seller can mark sold */}
+            {!deal && viewerIsSeller && (
+              <button onClick={markSold} disabled={dealBusy} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 44, borderRadius: 12, border: "1px solid var(--ink)", background: "var(--ink)", color: "var(--paper)", cursor: dealBusy ? "default" : "pointer", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14 }}>
                 <Check size={16} />Mark as sold / traded to @{other?.handle}
               </button>
             )}
-            {dealState === "requested" && (
+            {/* Pending — seller waits */}
+            {deal?.status === "pending" && viewerIsSeller && (
               <div style={{ background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 12, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
                 <Clock size={17} style={{ color: "var(--grail-gold-deep)", flexShrink: 0 }} />
                 <span style={{ flex: 1, fontSize: 12.5, color: "var(--ink-soft)" }}>Waiting for @{other?.handle} to confirm the deal.</span>
-                <button onClick={() => setDealState("confirmed")} style={{ height: 32, padding: "0 12px", borderRadius: 8, border: "none", background: "var(--grail-gold-deep)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
-                  Simulate confirm
+              </div>
+            )}
+            {/* Pending — buyer confirms */}
+            {deal?.status === "pending" && !viewerIsSeller && (
+              <div style={{ background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 12, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+                <Clock size={17} style={{ color: "var(--grail-gold-deep)", flexShrink: 0 }} />
+                <span style={{ flex: 1, fontSize: 12.5, color: "var(--ink-soft)" }}>@{other?.handle} marked this sold to you.</span>
+                <button onClick={confirmDeal} disabled={dealBusy} style={{ height: 32, padding: "0 12px", borderRadius: 8, border: "none", background: "var(--grail-gold-deep)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12, cursor: dealBusy ? "default" : "pointer" }}>
+                  Confirm deal
                 </button>
               </div>
             )}
           </div>
         )}
 
-        {dealState === "confirmed" && (
+        {deal?.status === "confirmed" && (
           <div style={{ marginBottom: 10, background: "var(--forest-soft)", border: "1px solid var(--forest)", borderRadius: 12, padding: "10px 12px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--forest)", fontWeight: 600, fontSize: 13 }}>
               <Shield size={16} />Deal confirmed
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
-              <span style={{ fontSize: 12.5, color: "var(--ink-mute)" }}>Rate this trade:</span>
-              <Stars n={5} size={18} />
-              <button style={{ marginLeft: "auto", height: 32, padding: "0 12px", borderRadius: 8, border: "none", background: "var(--verified-teal)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
-                Leave vouch
-              </button>
-            </div>
+            {viewerVouchDone ? (
+              <div style={{ fontSize: 12.5, color: "var(--ink-mute)", marginTop: 8 }}>Thanks for rating this trade.</div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+                <span style={{ fontSize: 12.5, color: "var(--ink-mute)" }}>Rate this trade:</span>
+                <span style={{ display: "inline-flex", gap: 2 }}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <button key={i} onClick={() => setRatingValue(i)} aria-label={`${i} star${i > 1 ? "s" : ""}`} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex" }}>
+                      <Star size={18} style={{ color: "var(--grail-gold-deep)" }} fill={i <= ratingValue ? "var(--grail-gold-deep)" : "none"} />
+                    </button>
+                  ))}
+                </span>
+                <button onClick={leaveVouch} disabled={dealBusy} style={{ marginLeft: "auto", height: 32, padding: "0 12px", borderRadius: 8, border: "none", background: "var(--verified-teal)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12, cursor: dealBusy ? "default" : "pointer" }}>
+                  Leave vouch
+                </button>
+              </div>
+            )}
           </div>
         )}
 

@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,6 +36,38 @@ class Settings(BaseSettings):
 
     # Expo Push
     expo_push_url: str = "https://exp.host/--/api/v2/push/send"
+
+    # Observability
+    sentry_dsn: str = ""
+
+    @property
+    def cors_origins(self) -> list[str]:
+        if self.app_env == "production":
+            return [self.frontend_url]
+        return [self.frontend_url, "http://localhost:3000", "http://127.0.0.1:3000"]
+
+    @model_validator(mode="after")
+    def _guard_production(self):
+        """Fail fast rather than boot a production process with insecure defaults."""
+        if self.app_env != "production":
+            return self
+        problems: list[str] = []
+        if self.secret_key in (
+            "",
+            "change-me-in-production",
+            "change-me-in-production-use-openssl-rand-hex-32",
+        ):
+            problems.append("SECRET_KEY must be a strong random value (openssl rand -hex 32)")
+        if "postgres:postgres@localhost" in self.database_url:
+            problems.append("DATABASE_URL still points at the local dev default")
+        if not (self.r2_account_id and self.r2_access_key_id and self.r2_secret_access_key):
+            problems.append("R2 credentials (account id, access key, secret) are required")
+        if problems:
+            raise ValueError(
+                "Refusing to start in production with invalid config:\n  - "
+                + "\n  - ".join(problems)
+            )
+        return self
 
 
 settings = Settings()

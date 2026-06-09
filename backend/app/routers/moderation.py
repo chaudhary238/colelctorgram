@@ -9,6 +9,7 @@ from sqlalchemy import select
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
+from app.models.trust import UserBlock, Report
 
 router = APIRouter(tags=["moderation"])
 
@@ -49,11 +50,19 @@ async def block_user(
 ):
     if target_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot block yourself")
-    # Block is stored as a follow-table tombstone in Phase 1 (no Block model yet).
-    # When a Block model is added, persist here. For now, just validate the target exists.
     result = await db.execute(select(User).where(User.id == target_id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="User not found")
+
+    existing = await db.execute(
+        select(UserBlock).where(
+            UserBlock.blocker_id == current_user.id,
+            UserBlock.blocked_id == target_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        return  # already blocked
+    db.add(UserBlock(blocker_id=current_user.id, blocked_id=target_id))
 
 
 @_blocks_router.delete("/{target_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -62,7 +71,15 @@ async def unblock_user(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    pass  # No-op until Block model added
+    result = await db.execute(
+        select(UserBlock).where(
+            UserBlock.blocker_id == current_user.id,
+            UserBlock.blocked_id == target_id,
+        )
+    )
+    block = result.scalar_one_or_none()
+    if block:
+        await db.delete(block)
 
 
 # ── Report endpoint (B-64) ────────────────────────────────────────
@@ -86,12 +103,14 @@ async def submit_report(
     VALID_REASONS = {"spam", "harassment", "counterfeit", "other"}
     if body.reason not in VALID_REASONS:
         raise HTTPException(status_code=422, detail=f"reason must be one of {VALID_REASONS}")
-    # In Phase 1 reports land in a log / admin queue. No Report model yet — write to stdout for admin review.
-    import logging
-    logging.getLogger("collectohub").warning(
-        "REPORT from=%s target_type=%s target_id=%s reason=%s detail=%s",
-        current_user.id, body.target_type, body.target_id, body.reason, body.detail,
-    )
+    # Persist to the reports table so the admin moderation queue (GET /admin/reports) sees it.
+    db.add(Report(
+        reporter_id=current_user.id,
+        target_type=body.target_type,
+        target_id=body.target_id,
+        reason=body.reason,
+        notes=body.detail,
+    ))
 
 
 router = APIRouter()

@@ -7,7 +7,7 @@ import { ArrowLeft, Share2, Calendar, MapPin, Globe, Ticket } from "lucide-react
 import { api } from "@/lib/api";
 import { shortDate } from "@/lib/utils";
 import { ApiEvent } from "@/components/cards";
-import { Avatar, ProductPhoto, SectionLabel, Tag } from "@/components/ui";
+import { Avatar, ProductPhoto, SectionLabel, QRCode } from "@/components/ui";
 
 function DetailRow({ icon: Icon, title, sub, last }: { icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>; title: string; sub?: string; last?: boolean }) {
   return (
@@ -28,17 +28,28 @@ export default function EventDetailPage() {
   const [event, setEvent] = useState<ApiEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [interested, setInterested] = useState(false);
-  const [hasTicket, setHasTicket] = useState(false);
+  const [interestCount, setInterestCount] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [shared, setShared] = useState(false);
 
   useEffect(() => {
     api.get<ApiEvent>(`/events/${id}`)
       .then((e) => {
         setEvent(e);
         setInterested(e.is_interested);
+        setInterestCount(e.interested_count);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
+
+  async function share() {
+    const url = `${window.location.origin}/events/${id}`;
+    try {
+      if (navigator.share) await navigator.share({ title: event?.title ?? "CollectorHub", url });
+      else { await navigator.clipboard.writeText(url); setShared(true); setTimeout(() => setShared(false), 1600); }
+    } catch { /* cancelled */ }
+  }
 
   if (loading || !event) {
     return (
@@ -56,10 +67,20 @@ export default function EventDetailPage() {
   const timeStr = eventDate.toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
   const TICKET_CODE = `CH-${event.id.slice(0, 8).toUpperCase()}-0142`;
 
-  const toggleInterest = () => {
-    api.post(`/events/${event.id}/interest`).catch(console.error);
-    setInterested((v) => !v);
-  };
+  async function setInterest(next: boolean) {
+    if (busy || next === interested) return;
+    setInterested(next);                                   // optimistic
+    setInterestCount((n) => n + (next ? 1 : -1));
+    setBusy(true);
+    try {
+      await api.post(`/events/${event!.id}/interest`);     // single toggle endpoint
+    } catch {
+      setInterested(!next);                                // revert
+      setInterestCount((n) => n + (next ? -1 : 1));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-24">
@@ -69,7 +90,7 @@ export default function EventDetailPage() {
             <ArrowLeft size={18} />
           </Link>
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Event</span>
-          <button style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "none", cursor: "pointer" }}>
+          <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: shared ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
             <Share2 size={17} />
           </button>
         </div>
@@ -95,8 +116,8 @@ export default function EventDetailPage() {
       </div>
 
       <div style={{ padding: "16px 20px" }}>
-        {/* Free ticket */}
-        {hasTicket && (
+        {/* Free ticket — shown once you're interested (RSVP'd) */}
+        {interested && (
           <div style={{ border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", marginBottom: 18, background: "var(--paper)", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
             <div style={{ background: "var(--ink)", color: "var(--paper)", padding: "11px 16px", display: "flex", alignItems: "center", gap: 9 }}>
               <Ticket size={17} />
@@ -104,8 +125,8 @@ export default function EventDetailPage() {
               <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: 11, opacity: 0.7 }}>× 1</span>
             </div>
             <div style={{ display: "flex", gap: 16, padding: 16, alignItems: "center" }}>
-              <div style={{ width: 118, height: 118, borderRadius: 8, background: "var(--bone)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: "1px solid var(--border)" }}>
-                <div style={{ fontSize: 10, color: "var(--ink-faint)", textAlign: "center", fontFamily: "var(--font-mono)" }}>QR code</div>
+              <div style={{ flexShrink: 0, border: "1px solid var(--border)", borderRadius: 8, padding: 4, background: "var(--paper)" }}>
+                <QRCode seed={TICKET_CODE} size={110} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em", lineHeight: 1.15 }}>{event.title}</div>
@@ -144,17 +165,22 @@ export default function EventDetailPage() {
       {/* Sticky footer */}
       <div style={{ position: "fixed", bottom: 0, left: 245, right: 0, maxWidth: 680, borderTop: "1px solid var(--border)", background: "var(--paper)", padding: "12px 20px 20px", display: "flex", gap: 10, alignItems: "center", zIndex: 20 }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 15 }}>{event.interested_count + (interested && !event.is_interested ? 1 : 0)}</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 15 }}>{interestCount}</div>
           <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>interested</div>
         </div>
-        {hasTicket ? (
-          <button style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--verified-teal)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
-            <Ticket size={18} />View ticket
+        {interested ? (
+          <button
+            onClick={() => setInterest(false)}
+            disabled={busy}
+            style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--verified-teal)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: busy ? "default" : "pointer" }}
+          >
+            <Ticket size={18} />Going · tap to cancel
           </button>
         ) : (
           <button
-            onClick={() => { setHasTicket(true); toggleInterest(); }}
-            style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: interested ? "var(--stamp-red)" : "var(--bone)", color: interested ? "var(--paper)" : "var(--ink)", border: interested ? "none" : "1px solid var(--border-strong)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
+            onClick={() => setInterest(true)}
+            disabled={busy}
+            style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--bone)", color: "var(--ink)", border: "1px solid var(--border-strong)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: busy ? "default" : "pointer" }}
           >
             <Ticket size={18} />Get free ticket
           </button>

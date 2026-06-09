@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_optional_user
 from app.models.listing import Listing, ListingSave
 from app.models.item import Item
 from app.models.catalogue import Catalogue
@@ -90,6 +90,7 @@ async def browse_listings(
     city: Optional[str] = None,
     trade: Optional[bool] = None,
     db: AsyncSession = Depends(get_db),
+    viewer: Optional[User] = Depends(get_optional_user),
 ):
     stmt = select(Listing).where(Listing.status == "available")
     if condition:
@@ -107,17 +108,21 @@ async def browse_listings(
     result = await db.execute(stmt)
     listings = result.scalars().all()
 
-    enriched = await _enrich_listings(listings, db)
+    enriched = await _enrich_listings(listings, db, viewer)
     return {"page": page, "limit": limit, "items": enriched}
 
 
 @router.get("/{listing_id}")
-async def get_listing(listing_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_listing(
+    listing_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    viewer: Optional[User] = Depends(get_optional_user),
+):
     result = await db.execute(select(Listing).where(Listing.id == listing_id))
     listing = result.scalar_one_or_none()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
-    enriched = await _enrich_listings([listing], db)
+    enriched = await _enrich_listings([listing], db, viewer)
     return enriched[0]
 
 
@@ -166,7 +171,7 @@ async def toggle_save(
         listing.saves_count += 1
 
 
-async def _enrich_listings(listings: list[Listing], db: AsyncSession) -> list[dict]:
+async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Optional[User] = None) -> list[dict]:
     if not listings:
         return []
 
@@ -182,6 +187,18 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession) -> list[di
 
     cats_result = await db.execute(select(Catalogue).where(Catalogue.sku.in_(skus))) if skus else None
     cats = {c.sku: c for c in (cats_result.scalars().all() if cats_result else [])}
+
+    # Which of these listings has the viewer saved?
+    saved_ids: set = set()
+    if viewer:
+        listing_ids = [l.id for l in listings]
+        saves_result = await db.execute(
+            select(ListingSave.listing_id).where(
+                ListingSave.user_id == viewer.id,
+                ListingSave.listing_id.in_(listing_ids),
+            )
+        )
+        saved_ids = set(saves_result.scalars().all())
 
     out = []
     for l in listings:
@@ -210,6 +227,8 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession) -> list[di
             "deals_count": seller.deals_count if seller else 0,
             # listing
             "price": l.price,
+            "retail_price": l.retail_price,
+            "qty": l.qty,
             "condition": l.condition,
             "condition_notes": l.condition_notes,
             "trade_willing": l.trade_willing,
@@ -221,6 +240,7 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession) -> list[di
             "status": l.status,
             "saves_count": l.saves_count,
             "watching_count": l.watching_count,
+            "is_saved": l.id in saved_ids,
             "created_at": l.created_at.isoformat(),
         })
     return out

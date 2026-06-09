@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, Share2, Shield, CheckCircle2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiPost } from "@/components/cards";
-import { Avatar, Segmented, SectionLabel, EmptyNote, TierChip } from "@/components/ui";
+import { Avatar, Segmented, SectionLabel, EmptyNote } from "@/components/ui";
 import { PostCard } from "@/components/cards";
 
 interface CommunityAdmin {
@@ -40,8 +40,35 @@ export default function CommunityDetailPage() {
   const [posts, setPosts] = useState<ApiPost[]>([]);
   const [tab, setTab] = useState<"posts" | "about">("posts");
   const [joined, setJoined] = useState(false);
+  const [joinBusy, setJoinBusy] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  const [shared, setShared] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  async function toggleJoin() {
+    if (!community || joinBusy) return;
+    const next = !joined;
+    setJoined(next);             // optimistic
+    setJoinBusy(true);
+    setCommunity((c) => c ? { ...c, member_count: c.member_count + (next ? 1 : -1) } : c);
+    try {
+      if (next) await api.post(`/communities/${community.id}/join`);
+      else await api.delete(`/communities/${community.id}/join`);
+    } catch {
+      setJoined(!next);          // revert
+      setCommunity((c) => c ? { ...c, member_count: c.member_count + (next ? -1 : 1) } : c);
+    } finally {
+      setJoinBusy(false);
+    }
+  }
+
+  async function share() {
+    const url = `${window.location.origin}/community/${id}`;
+    try {
+      if (navigator.share) await navigator.share({ title: community?.name ?? "CollectorHub", url });
+      else { await navigator.clipboard.writeText(url); setShared(true); setTimeout(() => setShared(false), 1600); }
+    } catch { /* cancelled */ }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -70,6 +97,8 @@ export default function CommunityDetailPage() {
 
   const rawTone = community.tone || "plum";
   const tone = rawTone.startsWith("var(--") ? rawTone : `var(--${rawTone})`;
+  const approval = community.post_mode === "approval";
+  const founder = community.admins.find((a) => a.role === "founder");
 
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-8">
@@ -79,7 +108,7 @@ export default function CommunityDetailPage() {
             <ArrowLeft size={18} />
           </Link>
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Community</span>
-          <button style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "none", cursor: "pointer" }}>
+          <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: shared ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
             <Share2 size={17} />
           </button>
         </div>
@@ -100,7 +129,7 @@ export default function CommunityDetailPage() {
             {community.tag ?? "🏷"}
           </div>
           <div style={{ flex: 1, paddingBottom: 4, display: "flex", justifyContent: "flex-end" }}>
-            <button onClick={() => setJoined((v) => !v)} style={{ height: 36, padding: "0 18px", borderRadius: 10, border: `1px solid ${joined ? "var(--border-strong)" : "var(--ink)"}`, background: joined ? "var(--bone)" : "var(--ink)", color: joined ? "var(--ink)" : "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+            <button onClick={toggleJoin} disabled={joinBusy} style={{ height: 36, padding: "0 18px", borderRadius: 10, border: `1px solid ${joined ? "var(--border-strong)" : "var(--ink)"}`, background: joined ? "var(--bone)" : "var(--ink)", color: joined ? "var(--ink)" : "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13, cursor: joinBusy ? "default" : "pointer" }}>
               {joined ? "Joined" : "Join"}
             </button>
           </div>
@@ -108,14 +137,28 @@ export default function CommunityDetailPage() {
 
         <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 23, letterSpacing: "-0.025em", margin: "12px 0 4px" }}>{community.name}</h1>
         <div style={{ fontSize: 14, color: "var(--ink-mute)", lineHeight: 1.5 }}>{community.description}</div>
-        <div style={{ display: "flex", gap: 16, marginTop: 10, fontSize: 12.5, color: "var(--ink-faint)" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 10, fontSize: 12.5, color: "var(--ink-faint)" }}>
           <span><b style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}>{community.member_count.toLocaleString("en-IN")}</b> members</span>
           <span><b style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}>{community.post_count.toLocaleString("en-IN")}</b> posts</span>
+          {founder && (
+            <span>
+              founded by{" "}
+              <Link href={`/profile/${founder.handle}`} style={{ color: "var(--ink)", fontWeight: 600, textDecoration: "none" }}>
+                @{founder.handle}
+              </Link>
+            </span>
+          )}
         </div>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 12, padding: "5px 10px", borderRadius: 999, background: "var(--forest-soft)", border: "1px solid var(--forest)" }}>
-          <CheckCircle2 size={13} style={{ color: "var(--forest)" }} />
-          <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--forest)" }}>
-            {community.post_mode === "open" ? "Open posting" : community.post_mode === "moderated" ? "Moderated" : "Admin only"}
+        <div
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6, marginTop: 12, padding: "5px 10px", borderRadius: 999,
+            background: approval ? "var(--grail-gold-soft)" : "var(--forest-soft)",
+            border: `1px solid ${approval ? "var(--grail-gold)" : "var(--forest)"}`,
+          }}
+        >
+          {approval ? <Shield size={13} style={{ color: "var(--grail-gold-deep)" }} /> : <CheckCircle2 size={13} style={{ color: "var(--forest)" }} />}
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: approval ? "var(--grail-gold-deep)" : "var(--forest)" }}>
+            {approval ? "Approval to post" : "Open posting"}
           </span>
         </div>
       </div>
@@ -147,10 +190,12 @@ export default function CommunityDetailPage() {
             </div>
           )}
           {joined && accepted && (
-            <button style={{ display: "flex", alignItems: "center", gap: 10, width: "calc(100% - 40px)", margin: "14px 20px 4px", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 12, padding: "11px 14px", cursor: "pointer", textAlign: "left" }}>
+            <Link href={`/compose?community=${community.id}`} style={{ display: "flex", alignItems: "center", gap: 10, width: "calc(100% - 40px)", margin: "14px 20px 4px", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 12, padding: "11px 14px", cursor: "pointer", textAlign: "left", textDecoration: "none" }}>
               <Avatar name="You" size={30} />
-              <span style={{ fontSize: 14, color: "var(--ink-faint)" }}>Share something with {community.name}…</span>
-            </button>
+              <span style={{ fontSize: 14, color: "var(--ink-faint)" }}>
+                {approval ? `Suggest a post to ${community.name} — mods review first` : `Share something with ${community.name}…`}
+              </span>
+            </Link>
           )}
           <div style={{ marginTop: 8 }}>
             {posts.length > 0
@@ -190,7 +235,7 @@ export default function CommunityDetailPage() {
                   <div style={{ fontWeight: 600, fontSize: 14, color: "var(--ink)" }}>{a.name}</div>
                   <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>@{a.handle}</div>
                 </div>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", padding: "4px 9px", borderRadius: 7, background: a.role === "admin" ? "var(--ink)" : "var(--bone-deep)", color: a.role === "admin" ? "var(--paper)" : "var(--ink-mute)", fontWeight: 700 }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", padding: "4px 9px", borderRadius: 7, background: a.role === "founder" ? "var(--ink)" : "var(--bone-deep)", color: a.role === "founder" ? "var(--paper)" : "var(--ink-mute)", fontWeight: 700 }}>
                   {a.role}
                 </span>
               </Link>

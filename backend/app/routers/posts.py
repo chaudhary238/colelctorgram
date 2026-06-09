@@ -10,6 +10,9 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.post import Post, PostLike, PostSave, Comment
 from app.models.user import User
+from app.models.item import Item
+from app.models.listing import Listing
+from app.services.notifications import notify
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 comments_router = APIRouter(prefix="/comments", tags=["posts"])
@@ -69,9 +72,44 @@ async def get_post(
     )
     comments = comments_result.scalars().all()
 
+    # Batch-load comment authors so the UI can show handle / name / avatar
+    commenter_ids = list({c.user_id for c in comments})
+    authors_by_id: dict = {}
+    if commenter_ids:
+        authors_result = await db.execute(select(User).where(User.id.in_(commenter_ids)))
+        authors_by_id = {u.id: u for u in authors_result.scalars().all()}
+
+    # Post author (the detail endpoint must carry the byline, not just comments)
+    author = (await db.execute(select(User).where(User.id == post.user_id))).scalar_one_or_none()
+
+    # Viewer's like / save state
+    liked = (await db.execute(
+        select(PostLike).where(PostLike.post_id == post_id, PostLike.user_id == current_user.id)
+    )).scalar_one_or_none() is not None
+    saved = (await db.execute(
+        select(PostSave).where(PostSave.post_id == post_id, PostSave.user_id == current_user.id)
+    )).scalar_one_or_none() is not None
+
+    # Referenced item / listing (the "showcasing" chip)
+    ref = None
+    if post.ref_item_id:
+        ri = (await db.execute(select(Item).where(Item.id == post.ref_item_id))).scalar_one_or_none()
+        if ri:
+            ref = {"kind": "item", "id": str(ri.id), "sku": ri.sku,
+                   "title": ri.custom_title or ri.sku or "Item"}
+    elif post.ref_listing_id:
+        rl = (await db.execute(select(Listing).where(Listing.id == post.ref_listing_id))).scalar_one_or_none()
+        if rl:
+            ref = {"kind": "listing", "id": str(rl.id), "sku": rl.sku,
+                   "title": rl.sku or "Listing", "price": rl.price}
+
     return {
         "id": str(post.id),
         "user_id": str(post.user_id),
+        "handle": author.handle if author else None,
+        "name": author.name if author else None,
+        "avatar_url": author.avatar_url if author else None,
+        "tier": author.tier if author else "verified",
         "type": post.type,
         "body": post.body,
         "images": post.images,
@@ -81,11 +119,17 @@ async def get_post(
         "comments_count": post.comments_count,
         "saves_count": post.saves_count,
         "review_rating": post.review_rating,
+        "is_liked": liked,
+        "is_saved": saved,
+        "ref": ref,
         "created_at": post.created_at.isoformat(),
         "comments": [
             {
                 "id": str(c.id),
                 "user_id": str(c.user_id),
+                "handle": authors_by_id[c.user_id].handle if c.user_id in authors_by_id else None,
+                "name": authors_by_id[c.user_id].name if c.user_id in authors_by_id else None,
+                "avatar_url": authors_by_id[c.user_id].avatar_url if c.user_id in authors_by_id else None,
                 "parent_id": str(c.parent_id) if c.parent_id else None,
                 "body": c.body,
                 "likes_count": c.likes_count,
@@ -132,6 +176,16 @@ async def toggle_like(
     else:
         db.add(PostLike(user_id=current_user.id, post_id=post_id))
         post.likes_count += 1
+        if post.user_id != current_user.id:
+            notify(
+                db,
+                user_id=post.user_id,
+                kind="like",
+                title="New like",
+                body=f"{current_user.name} liked your post.",
+                ref_type="post",
+                ref_id=str(post.id),
+            )
 
 
 @router.post("/{post_id}/save", status_code=204)
@@ -177,8 +231,29 @@ async def add_comment(
     )
     db.add(comment)
     post.comments_count += 1
+    if post.user_id != current_user.id:
+        snippet = body.body if len(body.body) <= 80 else body.body[:80] + "…"
+        notify(
+            db,
+            user_id=post.user_id,
+            kind="comment",
+            title="New comment",
+            body=f"{current_user.name}: {snippet}",
+            ref_type="post",
+            ref_id=str(post.id),
+        )
     await db.flush()
-    return {"id": str(comment.id)}
+    return {
+        "id": str(comment.id),
+        "user_id": str(comment.user_id),
+        "handle": current_user.handle,
+        "name": current_user.name,
+        "avatar_url": current_user.avatar_url,
+        "parent_id": str(comment.parent_id) if comment.parent_id else None,
+        "body": comment.body,
+        "likes_count": 0,
+        "created_at": comment.created_at.isoformat(),
+    }
 
 
 @comments_router.delete("/{comment_id}", status_code=204)

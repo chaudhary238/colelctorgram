@@ -403,6 +403,35 @@ async def run():
             WHERE is_seed_account = true
         """))
 
+        # ── Confirmed deals (trade history for the profile Trades tab) ────
+        d1, d2, d3 = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+        await db.execute(text("""
+            INSERT INTO deals (id, listing_id, item_id, seller_id, buyer_id, agreed_price,
+                deal_type, status, initiated_by, confirmed_at,
+                seller_rating, buyer_rating, seller_vouch_done, buyer_vouch_done,
+                created_at, updated_at)
+            VALUES
+              (:d1, :l1, :i2, :fig,   :bbq, 850000, 'sale',  'confirmed', 'buyer',
+               NOW() - INTERVAL '9 days',  5, 5, true,  true,  NOW() - INTERVAL '12 days', NOW()),
+              (:d2, :l2, :i4, :brick, :die, 280000, 'sale',  'confirmed', 'seller',
+               NOW() - INTERVAL '4 days',  5, 4, true,  false, NOW() - INTERVAL '6 days',  NOW()),
+              (:d3, :l3, :i5, :bbq,   :fig, 95000,  'trade', 'confirmed', 'buyer',
+               NOW() - INTERVAL '2 days',  4, 5, false, true,  NOW() - INTERVAL '3 days',  NOW())
+        """), {
+            "d1": d1, "d2": d2, "d3": d3,
+            "l1": l1, "l2": l2, "l3": l3,
+            "i2": item2, "i4": item4, "i5": item5,
+            "fig": FIG, "bbq": BBQ, "brick": BRICK, "die": DIE,
+        })
+
+        # ── Portfolio value = sum of owned-item value (paise) ─────────────
+        await db.execute(text("""
+            UPDATE users SET portfolio_value = COALESCE((
+                SELECT SUM(value) FROM items
+                WHERE items.user_id = users.id AND items.status = 'owned'
+            ), 0)
+        """))
+
         await db.commit()
         print("✓ Communities (4)")
         print("✓ Events (3)")
@@ -410,7 +439,8 @@ async def run():
         print("✓ Listings (4)")
         print("✓ Posts (11)")
         print("✓ Threads + Messages (2 threads, 9 messages)")
-        print("✓ Trust signals updated")
+        print("✓ Deals (3 confirmed)")
+        print("✓ Trust signals + portfolio value updated")
         print("\nDone! Login: figurehead@collectohub.app / seed_pass_1!")
 
 if __name__ == "__main__":

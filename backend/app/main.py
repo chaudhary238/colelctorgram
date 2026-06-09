@@ -1,9 +1,15 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import select, text
 
 from app.config import settings
-from app.dependencies import get_current_user
+from app.database import AsyncSessionLocal, engine
+from app.services.auth import decode_access_token
 from app.ws.manager import manager
+from app.workers.tasks import schedule_background_workers
 
 from app.routers import (
     auth, users, feed, catalogue, items, posts,
@@ -14,14 +20,30 @@ from app.routers.moderation import router as moderation_router
 from app.routers.posts import comments_router
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    schedule_background_workers()
+    yield
+
+
+if settings.sentry_dsn:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.app_env,
+        traces_sample_rate=0.1,
+    )
+
 app = FastAPI(
     title="CollectorHub API",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:3000"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -49,16 +71,38 @@ app.include_router(moderation_router)
 
 # ── WebSocket ─────────────────────────────────────────────────────
 @app.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket, current_user=Depends(get_current_user)):
-    await manager.connect(str(current_user.id), ws)
+async def websocket_endpoint(ws: WebSocket, token: str | None = Query(default=None)):
+    # Browsers can't set an Authorization header on a WebSocket, so the access
+    # token is passed as ?token=… and validated here (not via the HTTP bearer dep).
+    payload = decode_access_token(token) if token else None
+    if not payload:
+        await ws.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    from app.models.user import User
+
+    user_id = payload.get("sub")
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+    if not user or user.is_suspended:
+        await ws.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    await manager.connect(user_id, ws)
     try:
         while True:
-            data = await ws.receive_text()
-            # Clients can send presence pings; nothing else for now
+            await ws.receive_text()  # presence pings; nothing else for now
     except WebSocketDisconnect:
-        manager.disconnect(str(current_user.id))
+        manager.disconnect(user_id)
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    """Deep check — Railway/uptime probes need DB reachability, not just 'process up'."""
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "degraded", "db": "down"})
+    return {"status": "ok", "db": "ok"}

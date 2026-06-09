@@ -1,0 +1,18 @@
+# Railway deploy config.
+# Set the service region to Singapore in the dashboard (closest Railway region to
+# India-first users) and keep the Postgres plugin in the SAME region — an API call
+# makes several DB round-trips, so backend and DB must be co-located.
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Run migrations, then start the server. Safe with a single replica.
+startCommand = "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+# Keep at 1: in-process WebSocket manager + asyncio periodic workers assume a single
+# instance. Going to 2+ needs Redis pub/sub (Phase 3) or workers will double-fire.
+numReplicas = 1

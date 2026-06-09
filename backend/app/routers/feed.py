@@ -89,12 +89,20 @@ async def get_feed(
     return {
         "page": page,
         "limit": limit,
-        "items": [_post_dict(p, users_by_id.get(p.user_id), p.id in liked_ids, p.id in saved_ids)
-                  for p in page_posts],
+        "items": [
+            _post_dict(
+                p,
+                users_by_id.get(p.user_id),
+                p.id in liked_ids,
+                p.id in saved_ids,
+                str(p.user_id) in followed_ids,
+            )
+            for p in page_posts
+        ],
     }
 
 
-def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool) -> dict:
+def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, is_following: bool = False) -> dict:
     return {
         "id": str(p.id),
         "user_id": str(p.user_id),
@@ -115,5 +123,6 @@ def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool) 
         "saves_count": p.saves_count,
         "is_liked": is_liked,
         "is_saved": is_saved,
+        "is_following": is_following,
         "created_at": p.created_at.isoformat(),
     }

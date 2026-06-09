@@ -1,4 +1,8 @@
 """Background task helpers — plain asyncio, no Redis/ARQ required."""
+import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 async def phash_and_watermark(item_photo_id: str):
@@ -57,3 +61,112 @@ async def cancel_expired_deals():
             .values(status="cancelled")
         )
         await db.commit()
+
+
+async def send_preorder_reminders():
+    """B-65: Notify users 7d and 1d before their preorder ETA."""
+    from datetime import datetime, timezone, timedelta
+    from app.database import AsyncSessionLocal
+    from app.models.item import Item
+    from app.models.notification import Notification
+    from sqlalchemy import select, and_
+
+    now = datetime.now(timezone.utc)
+    windows = [
+        (timedelta(days=7), timedelta(hours=12), "7 days", "7d"),
+        (timedelta(days=1), timedelta(hours=6), "tomorrow", "1d"),
+    ]
+
+    async with AsyncSessionLocal() as db:
+        for target_delta, tolerance, label, tag in windows:
+            lo = now + target_delta - tolerance
+            hi = now + target_delta + tolerance
+            result = await db.execute(
+                select(Item).where(
+                    and_(
+                        Item.status == "preorder",
+                        Item.preorder_eta >= lo,
+                        Item.preorder_eta <= hi,
+                        # Only notify if we haven't sent this tag recently
+                        # We encode this in the notification body to keep it simple
+                    )
+                )
+            )
+            items = result.scalars().all()
+            for item in items:
+                # De-duplicate: check if a reminder was already sent
+                existing = await db.execute(
+                    select(Notification).where(
+                        Notification.user_id == item.user_id,
+                        Notification.ref_type == "item",
+                        Notification.ref_id == str(item.id),
+                        Notification.kind == f"preorder_reminder_{tag}",
+                    )
+                )
+                if existing.scalar_one_or_none():
+                    continue
+                title_str = item.custom_title or item.sku or "Your pre-order"
+                db.add(Notification(
+                    user_id=item.user_id,
+                    kind=f"preorder_reminder_{tag}",
+                    title=f"Pre-order arriving {label}",
+                    body=f"{title_str} is expected to arrive in {label}.",
+                    ref_type="item",
+                    ref_id=str(item.id),
+                ))
+        await db.commit()
+    logger.info("send_preorder_reminders: done")
+
+
+async def reconcile_counters():
+    """B-67: Recount likes, comments, saves on posts; member counts on communities."""
+    from app.database import AsyncSessionLocal
+    from sqlalchemy import text
+
+    async with AsyncSessionLocal() as db:
+        # comments_count counts every comment (incl. replies) to match the live
+        # increment in posts.add_comment — the UI shows a flat thread.
+        await db.execute(text("""
+            UPDATE posts p
+            SET
+              likes_count    = (SELECT COUNT(*) FROM post_likes    WHERE post_id = p.id),
+              comments_count = (SELECT COUNT(*) FROM comments      WHERE post_id = p.id),
+              saves_count    = (SELECT COUNT(*) FROM post_saves    WHERE post_id = p.id)
+            WHERE p.id IN (
+                SELECT DISTINCT post_id FROM post_likes
+                UNION SELECT DISTINCT post_id FROM comments
+                UNION SELECT DISTINCT post_id FROM post_saves
+            )
+        """))
+        # community_members has no status column — every row is an active member.
+        await db.execute(text("""
+            UPDATE communities c
+            SET member_count = (
+                SELECT COUNT(*) FROM community_members
+                WHERE community_id = c.id
+            )
+        """))
+        await db.commit()
+    logger.info("reconcile_counters: done")
+
+
+async def _run_periodic(coro_factory, interval_seconds: int, name: str):
+    """Run a coroutine factory on a fixed interval, logging exceptions without crashing."""
+    while True:
+        await asyncio.sleep(interval_seconds)
+        try:
+            await coro_factory()
+        except Exception as exc:
+            logger.exception("Periodic task %s failed: %s", name, exc)
+
+
+def schedule_background_workers(app_state: dict | None = None):
+    """
+    Register periodic background tasks on the running asyncio loop.
+    Call from FastAPI lifespan after the app starts.
+    """
+    loop = asyncio.get_event_loop()
+    loop.create_task(_run_periodic(cancel_expired_deals,   interval_seconds=3600,       name="cancel_expired_deals"))
+    loop.create_task(_run_periodic(send_preorder_reminders, interval_seconds=3600 * 6,  name="send_preorder_reminders"))
+    loop.create_task(_run_periodic(reconcile_counters,      interval_seconds=3600 * 12, name="reconcile_counters"))
+    logger.info("Background workers scheduled.")

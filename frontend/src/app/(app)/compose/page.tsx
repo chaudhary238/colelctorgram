@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { X, Camera, Image, Tag, ChevronRight, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiCommunity } from "@/components/cards";
-import { Avatar, PostTypeTag, CategoryChip, SectionLabel, ProductPhoto } from "@/components/ui";
+import { Avatar, PostTypeTag, CategoryChip, SectionLabel } from "@/components/ui";
 
 const POST_TYPES = [
   { id: "showcase", label: "Showcase", desc: "Show off a piece from your collection.", color: "var(--verified-teal)", icon: Camera },
@@ -17,6 +17,8 @@ const POST_TYPES = [
 
 type PostType = (typeof POST_TYPES)[number]["id"];
 
+interface UploadUrlResponse { upload_url: string; key: string; public_url: string; }
+
 export default function ComposePage() {
   const router = useRouter();
   const [type, setType] = useState<PostType | null>(null);
@@ -25,6 +27,23 @@ export default function ComposePage() {
   const [choices, setChoices] = useState(["", ""]);
   const [communities, setCommunities] = useState<ApiCommunity[]>([]);
   const [publishing, setPublishing] = useState(false);
+  const [images, setImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  async function handlePhotoFile(file: File) {
+    if (!file.type.startsWith("image/")) return;
+    setUploading(true);
+    try {
+      const meta = await api.get<UploadUrlResponse>(
+        `/media/upload-url?prefix=posts&content_type=${encodeURIComponent(file.type)}`
+      );
+      await fetch(meta.upload_url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      setImages((prev) => [...prev, meta.public_url]);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   useEffect(() => {
     api.get<ApiCommunity[]>("/communities?limit=50")
@@ -47,7 +66,7 @@ export default function ComposePage() {
         body,
         community_id: community || null,
         poll_options: pollOptions,
-        images: [],
+        images,
       });
       router.push("/feed");
     } catch (e) {
@@ -158,12 +177,43 @@ export default function ComposePage() {
         )}
 
         {type !== "poll" && (
-          <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-            {([{ icon: Image, label: "Photo" }, { icon: Camera, label: "Camera" }, { icon: Tag, label: "Tag" }] as const).map(({ icon: Icon, label }) => (
-              <button key={label} style={{ display: "flex", alignItems: "center", gap: 7, height: 38, padding: "0 14px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", color: "var(--ink)", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13 }}>
-                <Icon size={17} />{label}
+          <div style={{ marginTop: 18 }}>
+            {/* Image previews */}
+            {images.length > 0 && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                {images.map((url, i) => (
+                  <div key={i} style={{ position: "relative", width: 80, height: 80, borderRadius: 10, overflow: "hidden", flexShrink: 0 }}>
+                    <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <button
+                      onClick={() => setImages((p) => p.filter((_, j) => j !== i))}
+                      style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", background: "rgba(20,17,15,0.7)", border: "none", color: "var(--paper)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => photoInputRef.current?.click()}
+                disabled={uploading || images.length >= 5}
+                style={{ display: "flex", alignItems: "center", gap: 7, height: 38, padding: "0 14px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", color: uploading ? "var(--ink-faint)" : "var(--ink)", cursor: uploading ? "wait" : "pointer", fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13 }}
+              >
+                <Image size={17} />{uploading ? "Uploading…" : "Photo"}
               </button>
-            ))}
+              <button style={{ display: "flex", alignItems: "center", gap: 7, height: 38, padding: "0 14px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", color: "var(--ink)", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13 }}>
+                <Tag size={17} />Tag
+              </button>
+            </div>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: "none" }}
+              onChange={(e) => { Array.from(e.target.files ?? []).forEach(handlePhotoFile); e.target.value = ""; }}
+            />
           </div>
         )}
 

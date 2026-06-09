@@ -14,12 +14,29 @@ interface Comment {
   user_id: string;
   handle: string | null;
   name: string | null;
+  avatar_url?: string | null;
   body: string;
   created_at: string;
 }
 
+interface PostRef {
+  kind: "item" | "listing";
+  id: string;
+  sku: string | null;
+  title: string;
+  price?: number;
+}
+
 interface PostDetail extends ApiPost {
   comments?: Comment[];
+  ref?: PostRef | null;
+}
+
+// SKU prefix → ProductPhoto tone (no catalogue join on web yet)
+const REF_TONE: Record<string, string> = { FIG: "red", KIT: "forest", DSN: "plum", DCS: "teal" };
+function refTone(sku: string | null): string {
+  const m = (sku ?? "").match(/SKU-([A-Z]+)-/);
+  return (m && REF_TONE[m[1]]) || "ink";
 }
 
 export default function PostDetailPage() {
@@ -28,7 +45,12 @@ export default function PostDetailPage() {
   const [loading, setLoading] = useState(true);
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [likes, setLikes] = useState(0);
+  const [likeBusy, setLikeBusy] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
   const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [shared, setShared] = useState(false);
   const [extra, setExtra] = useState<{ name: string; body: string; time: string }[]>([]);
 
   useEffect(() => {
@@ -37,15 +59,69 @@ export default function PostDetailPage() {
         setPost(p);
         setLiked(p.is_liked ?? false);
         setSaved(p.is_saved ?? false);
+        setLikes(p.likes_count ?? 0);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
 
-  const send = () => {
-    if (draft.trim()) {
-      setExtra((x) => [...x, { name: "You", body: draft.trim(), time: "just now" }]);
+  async function toggleLike() {
+    if (likeBusy) return;
+    const next = !liked;
+    setLiked(next);
+    setLikes((n) => n + (next ? 1 : -1));
+    setLikeBusy(true);
+    try {
+      await api.post(`/posts/${id}/like`);
+    } catch {
+      setLiked(!next);
+      setLikes((n) => n + (next ? -1 : 1));
+    } finally {
+      setLikeBusy(false);
+    }
+  }
+
+  async function toggleSave() {
+    if (saveBusy) return;
+    const next = !saved;
+    setSaved(next);
+    setSaveBusy(true);
+    try {
+      await api.post(`/posts/${id}/save`);
+    } catch {
+      setSaved(!next);
+    } finally {
+      setSaveBusy(false);
+    }
+  }
+
+  async function sharePost() {
+    const url = `${window.location.origin}/post/${id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "CollectorHub", url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setShared(true);
+        setTimeout(() => setShared(false), 1600);
+      }
+    } catch {
+      /* cancelled */
+    }
+  }
+
+  const send = async () => {
+    const text = draft.trim();
+    if (!text || sending) return;
+    setSending(true);
+    try {
+      await api.post(`/posts/${id}/comments`, { body: text });
+      setExtra((x) => [...x, { name: "You", body: text, time: "just now" }]);
       setDraft("");
+    } catch {
+      /* keep draft for retry */
+    } finally {
+      setSending(false);
     }
   };
 
@@ -112,22 +188,40 @@ export default function PostDetailPage() {
             <ProductPhoto tone="teal" ratio="3/2" />
           </div>
         )}
+
+        {post.ref && (
+          <Link
+            href={post.ref.kind === "listing" ? `/listing/${post.ref.id}` : `/item/${post.ref.id}`}
+            style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textDecoration: "none", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 12, padding: 10, marginBottom: 14 }}
+          >
+            <div style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
+              <ProductPhoto tone={refTone(post.ref.sku)} ratio="1/1" rounded={8} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.ref.title}</div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>
+                {post.ref.sku ? `${post.ref.sku} · ` : ""}{post.ref.kind === "listing" ? "view listing" : "view item"}
+              </div>
+            </div>
+          </Link>
+        )}
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "12px 20px", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
-        <button onClick={() => setLiked((v) => !v)} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: liked ? "var(--stamp-red)" : "var(--ink-mute)" }}>
+        <button onClick={toggleLike} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: liked ? "var(--stamp-red)" : "var(--ink-mute)" }}>
           <Heart size={21} fill={liked ? "currentColor" : "none"} />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{post.likes_count + (liked ? 1 : 0)}</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{likes}</span>
         </button>
         <button style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: "var(--ink-mute)" }}>
           <MessageCircle size={21} />
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{totalComments}</span>
         </button>
-        <button style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: "var(--ink-mute)" }}>
+        <button onClick={sharePost} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: shared ? "var(--ink)" : "var(--ink-mute)" }}>
           <Share2 size={20} />
+          {shared && <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>Copied</span>}
         </button>
         <div style={{ flex: 1 }} />
-        <button onClick={() => setSaved((v) => !v)} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: saved ? "var(--ink)" : "var(--ink-mute)" }}>
+        <button onClick={toggleSave} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: saved ? "var(--ink)" : "var(--ink-mute)" }}>
           <Bookmark size={21} fill={saved ? "currentColor" : "none"} />
         </button>
       </div>

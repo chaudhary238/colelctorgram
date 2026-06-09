@@ -17,6 +17,23 @@ interface SuggestedUser {
 
 function RailFollow({ user }: { user: SuggestedUser }) {
   const [following, setFollowing] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function toggleFollow() {
+    if (busy) return;
+    const next = !following;
+    setFollowing(next);          // optimistic
+    setBusy(true);
+    try {
+      if (next) await api.post(`/users/${user.handle}/follow`);
+      else await api.delete(`/users/${user.handle}/follow`);
+    } catch {
+      setFollowing(!next);       // revert
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
       <Link href={`/profile/${user.handle}`} className="shrink-0">
@@ -31,9 +48,10 @@ function RailFollow({ user }: { user: SuggestedUser }) {
         </div>
       </div>
       <button
-        onClick={() => setFollowing((v) => !v)}
+        onClick={toggleFollow}
+        disabled={busy}
         className="shrink-0 font-bold text-[12.5px]"
-        style={{ color: following ? "var(--ink-faint)" : "var(--stamp-red)" }}
+        style={{ color: following ? "var(--ink-faint)" : "var(--stamp-red)", cursor: busy ? "default" : "pointer" }}
       >
         {following ? "Following" : "Follow"}
       </button>

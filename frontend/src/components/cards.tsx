@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Heart, MessageCircle, Share2, Bookmark, Send, Calendar, MapPin, Clock, Users, MessageSquare, Bell } from "lucide-react";
+import { api } from "@/lib/api";
 import { timeAgo, shortDate } from "@/lib/utils";
 import {
   Avatar, Tag, TierChip, PostTypeTag, VerifyBadge, Stars,
@@ -31,6 +32,7 @@ export interface ApiPost {
   saves_count: number;
   is_liked?: boolean;
   is_saved?: boolean;
+  is_following?: boolean;
   created_at: string;
   // admin post extras
   title?: string;
@@ -53,6 +55,8 @@ export interface ApiListing {
   rating: number;
   deals_count: number;
   price: number;
+  retail_price: number | null;
+  qty: number;
   condition: string;
   condition_notes: string | null;
   trade_willing: boolean;
@@ -64,6 +68,7 @@ export interface ApiListing {
   status: string;
   saves_count: number;
   watching_count: number;
+  is_saved?: boolean;
   created_at: string;
 }
 
@@ -142,8 +147,24 @@ function ActionBtn({
 
 /* ── Author line ─────────────────────────────────────────────────── */
 function AuthorLine({ post, showFollow }: { post: ApiPost; showFollow?: boolean }) {
-  const [following, setFollowing] = useState(false);
+  const [following, setFollowing] = useState(post.is_following ?? false);
+  const [busy, setBusy] = useState(false);
   const tier = post.tier;
+
+  async function toggleFollow() {
+    if (busy || !post.handle) return;
+    const next = !following;
+    setFollowing(next);          // optimistic
+    setBusy(true);
+    try {
+      if (next) await api.post(`/users/${post.handle}/follow`);
+      else await api.delete(`/users/${post.handle}/follow`);
+    } catch {
+      setFollowing(!next);       // revert on error
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
       <Link href={`/profile/${post.handle ?? "unknown"}`} className="shrink-0">
@@ -155,9 +176,10 @@ function AuthorLine({ post, showFollow }: { post: ApiPost; showFollow?: boolean 
           {tier && <TierChip tier={tier} />}
           {showFollow && (
             <button
-              onClick={() => setFollowing((v) => !v)}
+              onClick={toggleFollow}
+              disabled={busy}
               style={{
-                marginLeft: 2, padding: "3px 9px", borderRadius: 999, cursor: "pointer",
+                marginLeft: 2, padding: "3px 9px", borderRadius: 999, cursor: busy ? "default" : "pointer",
                 lineHeight: 1, fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 11, whiteSpace: "nowrap",
                 background: following ? "transparent" : "var(--stamp-red-soft)",
                 color: following ? "var(--ink-faint)" : "var(--stamp-red)",
@@ -222,27 +244,100 @@ export function PostCard({ post, showFollow = false }: { post: ApiPost; showFoll
   const [liked, setLiked] = useState(post.is_liked ?? false);
   const [saved, setSaved] = useState(post.is_saved ?? false);
   const [likes, setLikes] = useState(post.likes_count);
+  const [likeBusy, setLikeBusy] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [shared, setShared] = useState(false);
   const [extra, setExtra] = useState<{ name: string; body: string }[]>([]);
+  const [comments, setComments] = useState<{ id: string; name: string | null; body: string; created_at: string }[]>([]);
+  const [commentsLoaded, setCommentsLoaded] = useState(false);
+  const [commentsLoading, setCommentsLoading] = useState(false);
   const commentCount = post.comments_count + extra.length;
 
-  function addComment() {
-    if (draft.trim()) {
-      setExtra((x) => [...x, { name: "You", body: draft.trim() }]);
+  // Lazy-load existing comments the first time the drawer opens. The feed
+  // payload doesn't include comment bodies, so without this the count would
+  // show e.g. "1" with nothing beneath it.
+  useEffect(() => {
+    if (!showComments || commentsLoaded || commentsLoading) return;
+    setCommentsLoading(true);
+    api.get<{ comments?: { id: string; name: string | null; body: string; created_at: string }[] }>(`/posts/${post.id}`)
+      .then((p) => setComments(p.comments ?? []))
+      .catch(() => { /* leave empty — composer still works */ })
+      .finally(() => { setCommentsLoaded(true); setCommentsLoading(false); });
+  }, [showComments, commentsLoaded, commentsLoading, post.id]);
+
+  async function toggleLike() {
+    if (likeBusy) return;
+    const next = !liked;
+    setLiked(next);
+    setLikes((n) => n + (next ? 1 : -1));   // optimistic
+    setLikeBusy(true);
+    try {
+      await api.post(`/posts/${post.id}/like`);
+    } catch {
+      setLiked(!next);
+      setLikes((n) => n + (next ? -1 : 1));  // revert
+    } finally {
+      setLikeBusy(false);
+    }
+  }
+
+  async function toggleSave() {
+    if (saveBusy) return;
+    const next = !saved;
+    setSaved(next);                          // optimistic
+    setSaveBusy(true);
+    try {
+      await api.post(`/posts/${post.id}/save`);
+    } catch {
+      setSaved(!next);                       // revert
+    } finally {
+      setSaveBusy(false);
+    }
+  }
+
+  async function addComment() {
+    const text = draft.trim();
+    if (!text || sending) return;
+    setSending(true);
+    try {
+      await api.post(`/posts/${post.id}/comments`, { body: text });
+      setExtra((x) => [...x, { name: "You", body: text }]);
       setDraft("");
+    } catch {
+      // leave the draft in place so the user can retry
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function sharePost() {
+    const url = `${window.location.origin}/post/${post.id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "CollectorHub", text: post.body.slice(0, 80), url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setShared(true);
+        setTimeout(() => setShared(false), 1600);
+      }
+    } catch {
+      /* user cancelled share — no-op */
     }
   }
 
   return (
     <div style={{ background: "var(--paper)", borderBottom: "8px solid var(--bone)" }}>
-      <Link href={`/post/${post.id}`} style={{ display: "block", padding: "14px 16px 0", textDecoration: "none", color: "inherit" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <AuthorLine post={post} showFollow={showFollow} />
-          <PostTypeTag type={post.type} />
-        </div>
+      {/* Author row lives outside the post link to avoid nested <a> */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "14px 16px 0" }}>
+        <AuthorLine post={post} showFollow={showFollow} />
+        <PostTypeTag type={post.type} />
+      </div>
 
-        <div style={{ marginTop: 11 }}>
+      <Link href={`/post/${post.id}`} style={{ display: "block", padding: "10px 16px 0", textDecoration: "none", color: "inherit" }}>
+        <div>
           {post.type === "review" && post.review_rating && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <Stars n={post.review_rating} />
@@ -268,7 +363,7 @@ export function PostCard({ post, showFollow = false }: { post: ApiPost; showFoll
           icon={<Heart size={20} strokeWidth={1.8} fill={liked ? "var(--stamp-red)" : "none"} />}
           label={likes.toLocaleString()}
           active={liked}
-          onClick={() => { setLiked((v) => !v); setLikes((n) => n + (liked ? -1 : 1)); }}
+          onClick={toggleLike}
         />
         <ActionBtn
           icon={<MessageCircle size={20} strokeWidth={1.8} />}
@@ -277,20 +372,41 @@ export function PostCard({ post, showFollow = false }: { post: ApiPost; showFoll
           activeColor="var(--ink)"
           onClick={() => setShowComments((v) => !v)}
         />
-        <ActionBtn icon={<Share2 size={19} strokeWidth={1.8} />} />
+        <ActionBtn
+          icon={<Share2 size={19} strokeWidth={1.8} />}
+          label={shared ? "Copied" : undefined}
+          active={shared}
+          activeColor="var(--ink)"
+          onClick={sharePost}
+        />
         <div style={{ flex: 1 }} />
         <ActionBtn
           icon={<Bookmark size={20} strokeWidth={1.8} fill={saved ? "var(--ink)" : "none"} />}
           active={saved}
           activeColor="var(--ink)"
-          onClick={() => setSaved((v) => !v)}
+          onClick={toggleSave}
         />
       </div>
 
       {showComments && (
         <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px 14px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
-            {extra.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-faint)" }}>No comments yet — say something.</div>}
+            {commentsLoading && <div style={{ fontSize: 13, color: "var(--ink-faint)" }}>Loading comments…</div>}
+            {commentsLoaded && comments.length === 0 && extra.length === 0 && (
+              <div style={{ fontSize: 13, color: "var(--ink-faint)" }}>No comments yet — say something.</div>
+            )}
+            {comments.map((cm) => (
+              <div key={cm.id} style={{ display: "flex", gap: 9 }}>
+                <Avatar name={cm.name ?? "?"} color="var(--ink)" size={30} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{cm.name ?? "Unknown"}</span>
+                    <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>{timeAgo(cm.created_at)}</span>
+                  </div>
+                  <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.45, marginTop: 1 }}>{cm.body}</div>
+                </div>
+              </div>
+            ))}
             {extra.map((cm, i) => (
               <div key={i} style={{ display: "flex", gap: 9 }}>
                 <Avatar name={cm.name} color="var(--ink)" size={30} />
@@ -421,7 +537,24 @@ export function ListingFeedCard({ listing }: { listing: ApiListing }) {
 
 /* ── Marketplace grid card ───────────────────────────────────────── */
 export function MarketCard({ listing }: { listing: ApiListing }) {
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(listing.is_saved ?? false);
+  const [busy, setBusy] = useState(false);
+
+  async function toggleSave(e: React.MouseEvent) {
+    e.preventDefault();
+    if (busy) return;
+    const next = !saved;
+    setSaved(next);              // optimistic
+    setBusy(true);
+    try {
+      await api.post(`/listings/${listing.id}/save`);
+    } catch {
+      setSaved(!next);           // revert
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Link
       href={`/listing/${listing.id}`}
@@ -434,12 +567,13 @@ export function MarketCard({ listing }: { listing: ApiListing }) {
       <div style={{ position: "relative" }}>
         <ProductPhoto tone="ink" ratio="1/1" rounded={0} />
         <div
-          onClick={(e) => { e.preventDefault(); setSaved((v) => !v); }}
+          onClick={toggleSave}
           style={{
             position: "absolute", top: 8, right: 8, width: 30, height: 30,
             borderRadius: "50%", background: "rgba(244,239,230,0.9)",
             display: "flex", alignItems: "center", justifyContent: "center",
             color: saved ? "var(--stamp-red)" : "var(--ink-mute)",
+            cursor: busy ? "default" : "pointer",
           }}
         >
           <Heart size={16} fill={saved ? "var(--stamp-red)" : "none"} />
@@ -485,6 +619,23 @@ export function EventCard({ event }: { event: ApiEvent }) {
   const { day, month } = shortDate(event.starts_at);
   const weekday = new Date(event.starts_at).toLocaleString("en-IN", { weekday: "short" });
   const [going, setGoing] = useState(event.is_interested);
+  const [busy, setBusy] = useState(false);
+
+  async function toggleGoing() {
+    if (busy) return;
+    const next = !going;
+    setGoing(next);              // optimistic
+    setBusy(true);
+    try {
+      // single endpoint toggles RSVP server-side
+      await api.post(`/events/${event.id}/interest`);
+    } catch {
+      setGoing(!next);           // revert
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div style={{
       display: "flex", gap: 12, width: "100%", textAlign: "left",
@@ -500,7 +651,7 @@ export function EventCard({ event }: { event: ApiEvent }) {
         <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 26, lineHeight: 1 }}>{day}</span>
         <span style={{ fontSize: 10, color: "var(--ink-ghost)", marginTop: 2 }}>{weekday}</span>
       </div>
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+      <Link href={`/events/${event.id}`} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", textDecoration: "none", color: "inherit" }}>
         <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 4 }}>
           <Tag kind={event.mode === "online" ? "vouch" : "event"}>{event.mode === "online" ? "Online" : event.mode === "hybrid" ? "Hybrid" : "In person"}</Tag>
           {going && <Tag kind="sold">Going</Tag>}
@@ -514,9 +665,10 @@ export function EventCard({ event }: { event: ApiEvent }) {
           <Clock size={14} strokeWidth={2} />
           {new Date(event.starts_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} · {event.interested_count} interested
         </div>
-      </div>
+      </Link>
       <button
-        onClick={() => setGoing((v) => !v)}
+        onClick={toggleGoing}
+        disabled={busy}
         className="self-start shrink-0"
         style={{
           padding: "6px 12px", borderRadius: 999,
@@ -547,33 +699,61 @@ export function FeedEventCard({ event }: { event: ApiEvent }) {
 /* ── Community card ──────────────────────────────────────────────── */
 export function CommunityCard({ community }: { community: ApiCommunity }) {
   const [joined, setJoined] = useState(community.is_member);
+  const [busy, setBusy] = useState(false);
+
+  async function toggleJoin() {
+    if (busy) return;
+    const next = !joined;
+    setJoined(next);             // optimistic
+    setBusy(true);
+    try {
+      if (next) await api.post(`/communities/${community.id}/join`);
+      else await api.delete(`/communities/${community.id}/join`);
+    } catch {
+      setJoined(!next);          // revert
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const tone = community.tone || "plum";
+  const toneVar = tone.startsWith("var(--") ? tone : `var(--${tone})`;
+
   return (
     <div style={{ display: "flex", gap: 12, alignItems: "center", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 14, padding: 12 }}>
-      <div style={{
-        width: 50, height: 50, borderRadius: 12, flexShrink: 0,
-        background: "var(--bone)", display: "flex", alignItems: "center",
-        justifyContent: "center", fontSize: 24,
-      }}>
-        {community.tag ?? "🏷️"}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontWeight: 600, fontSize: 14.5, color: "var(--ink)" }}>{community.name}</span>
+      {/* icon + text open the detail page (Join stays a separate control) */}
+      <Link
+        href={`/community/${community.id}`}
+        style={{ display: "flex", gap: 12, alignItems: "center", flex: 1, minWidth: 0, textDecoration: "none" }}
+      >
+        <div style={{
+          width: 50, height: 50, borderRadius: 12, flexShrink: 0,
+          background: toneVar, color: "var(--paper)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 19, letterSpacing: "-0.02em",
+        }}>
+          {community.tag ?? "🏷️"}
         </div>
-        <div style={{ fontSize: 12.5, color: "var(--ink-mute)", margin: "2px 0 4px", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-          {community.short_desc ?? community.description}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontWeight: 600, fontSize: 14.5, color: "var(--ink)" }}>{community.name}</span>
+          </div>
+          <div style={{ fontSize: 12.5, color: "var(--ink-mute)", margin: "2px 0 4px", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            {community.short_desc ?? community.description}
+          </div>
+          <div style={{ display: "flex", gap: 14, fontSize: 11.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <Users size={11} />{community.member_count.toLocaleString()}
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <MessageSquare size={11} />{community.post_count.toLocaleString()}
+            </span>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 14, fontSize: 11.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-            <Users size={11} />{community.member_count.toLocaleString()}
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-            <MessageSquare size={11} />{community.post_count.toLocaleString()}
-          </span>
-        </div>
-      </div>
+      </Link>
       <button
-        onClick={() => setJoined((v) => !v)}
+        onClick={toggleJoin}
+        disabled={busy}
         className="shrink-0"
         style={{
           height: 32, padding: "0 14px", borderRadius: 8,

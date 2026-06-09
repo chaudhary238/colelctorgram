@@ -23,16 +23,27 @@ interface Thread {
   unread: number;
 }
 
-const KIND_META: Record<string, { icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>; color: string }> = {
-  wishlist:  { icon: Bell,         color: "var(--verified-teal)" },
-  deal:      { icon: Repeat2,      color: "var(--stamp-red)" },
-  vouch:     { icon: Shield,       color: "var(--forest)" },
-  follow:    { icon: UserPlus,     color: "var(--plum)" },
-  like:      { icon: Heart,        color: "var(--stamp-red)" },
-  community: { icon: Bell,         color: "var(--ink-mute)" },
-  event:     { icon: Calendar,     color: "var(--plum)" },
-  preorder:  { icon: Clock,        color: "var(--grail-gold-deep)" },
+type NotifMeta = { icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>; color: string };
+
+const KIND_META: Record<string, NotifMeta> = {
+  wishlist:  { icon: Bell,           color: "var(--verified-teal)" },
+  deal:      { icon: Repeat2,        color: "var(--stamp-red)" },
+  vouch:     { icon: Shield,         color: "var(--forest)" },
+  follow:    { icon: UserPlus,       color: "var(--plum)" },
+  like:      { icon: Heart,          color: "var(--stamp-red)" },
+  comment:   { icon: MessageCircle,  color: "var(--plum)" },
+  community: { icon: Bell,           color: "var(--ink-mute)" },
+  event:     { icon: Calendar,       color: "var(--plum)" },
+  preorder:  { icon: Clock,          color: "var(--grail-gold-deep)" },
 };
+
+// Backend kinds carry suffixes (wishlist_match, preorder_reminder_7d, …) —
+// match on the leading token so the icon/colour resolve correctly.
+function metaFor(kind: string): NotifMeta {
+  if (kind.startsWith("wishlist")) return KIND_META.wishlist;
+  if (kind.startsWith("preorder")) return KIND_META.preorder;
+  return KIND_META[kind] ?? KIND_META.community;
+}
 
 function refHref(refType: string | null, refId: string | null): string {
   if (!refType || !refId) return "#";
@@ -120,7 +131,7 @@ export default function NotificationsPage() {
           : notifications.length === 0
             ? <div style={{ padding: "32px 0", textAlign: "center", color: "var(--ink-faint)" }}>No notifications yet.</div>
             : notifications.map((n) => {
-                const m = KIND_META[n.kind] ?? KIND_META.community;
+                const m = metaFor(n.kind);
                 return (
                   <Link
                     key={n.id}

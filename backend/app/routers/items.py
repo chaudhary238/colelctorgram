@@ -165,6 +165,8 @@ def _item_out(item: Item) -> dict:
         "value": item.value,
         "is_listed": item.is_listed,
         "photo_count": item.photo_count,
+        "preorder_ordered_at": item.preorder_ordered_at.isoformat() if item.preorder_ordered_at else None,
+        "preorder_eta": item.preorder_eta,
         "privacy": item.privacy,
         "created_at": item.created_at.isoformat(),
     }
