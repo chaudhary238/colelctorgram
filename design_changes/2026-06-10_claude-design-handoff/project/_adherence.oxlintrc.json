@@ -1,0 +1,223 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "app/**",
+              "web/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Bricolage Grotesque|Geist|JetBrains Mono))/i]",
+        "message": "Font not provided by the design system. Available: Bricolage Grotesque, Geist, JetBrains Mono."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {},
+    "tokens": [
+      "--bg",
+      "--bone",
+      "--bone-deep",
+      "--border",
+      "--border-faint",
+      "--border-strong",
+      "--brand",
+      "--brand-fg",
+      "--danger",
+      "--ease-out",
+      "--ease-spring",
+      "--fg",
+      "--fg-on-brand",
+      "--fg-secondary",
+      "--fg-tertiary",
+      "--font-body",
+      "--font-display",
+      "--font-mono",
+      "--forest",
+      "--forest-soft",
+      "--grail-gold",
+      "--grail-gold-deep",
+      "--grail-gold-soft",
+      "--info",
+      "--ink",
+      "--ink-faint",
+      "--ink-ghost",
+      "--ink-mute",
+      "--ink-soft",
+      "--paper",
+      "--paper-soft",
+      "--plum",
+      "--plum-soft",
+      "--r-lg",
+      "--r-md",
+      "--r-pill",
+      "--r-sm",
+      "--r-xl",
+      "--r-xs",
+      "--s-0",
+      "--s-1",
+      "--s-10",
+      "--s-12",
+      "--s-16",
+      "--s-2",
+      "--s-3",
+      "--s-4",
+      "--s-5",
+      "--s-6",
+      "--s-8",
+      "--shadow-1",
+      "--shadow-2",
+      "--shadow-3",
+      "--shadow-4",
+      "--shadow-inset",
+      "--shadow-stamp",
+      "--stamp-red",
+      "--stamp-red-deep",
+      "--stamp-red-soft",
+      "--success",
+      "--surface",
+      "--surface-sunken",
+      "--t-base",
+      "--t-body",
+      "--t-body-lg",
+      "--t-caption",
+      "--t-display-lg",
+      "--t-display-md",
+      "--t-display-sm",
+      "--t-display-xl",
+      "--t-fast",
+      "--t-headline",
+      "--t-micro",
+      "--t-slow",
+      "--t-title",
+      "--verified-teal",
+      "--verified-teal-soft",
+      "--warning",
+      "--white"
+    ],
+    "tokenKinds": {
+      "--paper": "color",
+      "--paper-soft": "color",
+      "--bone": "color",
+      "--bone-deep": "color",
+      "--ink": "color",
+      "--ink-soft": "color",
+      "--ink-mute": "color",
+      "--ink-faint": "color",
+      "--ink-ghost": "color",
+      "--white": "color",
+      "--stamp-red": "color",
+      "--stamp-red-deep": "color",
+      "--stamp-red-soft": "color",
+      "--grail-gold": "color",
+      "--grail-gold-deep": "color",
+      "--grail-gold-soft": "color",
+      "--verified-teal": "color",
+      "--verified-teal-soft": "color",
+      "--forest": "color",
+      "--forest-soft": "color",
+      "--plum": "color",
+      "--plum-soft": "color",
+      "--bg": "color",
+      "--surface": "color",
+      "--surface-sunken": "color",
+      "--fg": "color",
+      "--fg-secondary": "color",
+      "--fg-tertiary": "color",
+      "--fg-on-brand": "color",
+      "--border": "color",
+      "--border-strong": "color",
+      "--border-faint": "color",
+      "--brand": "color",
+      "--brand-fg": "color",
+      "--success": "color",
+      "--warning": "color",
+      "--danger": "color",
+      "--info": "color",
+      "--font-display": "font",
+      "--font-body": "font",
+      "--font-mono": "font",
+      "--t-display-xl": "spacing",
+      "--t-display-lg": "spacing",
+      "--t-display-md": "spacing",
+      "--t-display-sm": "spacing",
+      "--t-title": "spacing",
+      "--t-headline": "spacing",
+      "--t-body": "spacing",
+      "--t-body-lg": "spacing",
+      "--t-caption": "spacing",
+      "--t-micro": "spacing",
+      "--s-0": "spacing",
+      "--s-1": "spacing",
+      "--s-2": "spacing",
+      "--s-3": "spacing",
+      "--s-4": "spacing",
+      "--s-5": "spacing",
+      "--s-6": "spacing",
+      "--s-8": "spacing",
+      "--s-10": "spacing",
+      "--s-12": "spacing",
+      "--s-16": "spacing",
+      "--r-xs": "spacing",
+      "--r-sm": "spacing",
+      "--r-md": "spacing",
+      "--r-lg": "spacing",
+      "--r-xl": "spacing",
+      "--r-pill": "spacing",
+      "--shadow-1": "shadow",
+      "--shadow-2": "shadow",
+      "--shadow-3": "shadow",
+      "--shadow-4": "shadow",
+      "--shadow-inset": "shadow",
+      "--shadow-stamp": "shadow",
+      "--ease-out": "other",
+      "--ease-spring": "other",
+      "--t-fast": "other",
+      "--t-base": "other",
+      "--t-slow": "other"
+    },
+    "fontFamilies": [
+      "Bricolage Grotesque",
+      "Geist",
+      "JetBrains Mono"
+    ]
+  }
+}

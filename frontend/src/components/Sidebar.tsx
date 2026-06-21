@@ -4,20 +4,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Home, Search, ShoppingBag, Users, Calendar,
-  Bell, PlusCircle, Settings, User, MessageSquare,
+  Bell, PlusCircle, Settings, User, MessageSquare, Bookmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SealMark } from "@/components/ui";
 
+// Order mirrors the DF-12 header: create+search cluster up top (mobile top-left),
+// Messages paired directly with Notifications (mobile top-right: message btn + bell).
 const NAV = [
   { href: "/feed",          label: "Home",          icon: Home,       badge: 0 },
   { href: "/search",        label: "Search",        icon: Search,     badge: 0 },
+  { href: "/compose",       label: "Create",        icon: PlusCircle, badge: 0 },
   { href: "/market",        label: "Market",        icon: ShoppingBag, badge: 0 },
   { href: "/community",     label: "Community",     icon: Users,      badge: 0 },
   { href: "/events",        label: "Events",        icon: Calendar,   badge: 0 },
-  { href: "/notifications", label: "Notifications", icon: Bell,       badge: 3 },
-  { href: "/compose",       label: "Create",        icon: PlusCircle, badge: 0 },
   { href: "/inbox",         label: "Messages",      icon: MessageSquare, badge: 3 },
+  { href: "/notifications", label: "Notifications", icon: Bell,       badge: 3 },
+  { href: "/saved",         label: "Saved",         icon: Bookmark,   badge: 0 },
   { href: "/profile",       label: "Profile",       icon: User,       badge: 0 },
 ];
 

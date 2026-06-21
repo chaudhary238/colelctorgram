@@ -83,7 +83,8 @@ export default function CommunityPage() {
       )}
 
       <div style={{ padding: "20px 20px 0" }}>
-        <button
+        <Link
+          href="/community/new"
           style={{
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
             width: "100%", height: 46, borderRadius: 12, border: "1px dashed var(--border-strong)",
@@ -92,8 +93,8 @@ export default function CommunityPage() {
           }}
         >
           <PlusCircle size={18} />
-          Request a new community
-        </button>
+          Create a new community
+        </Link>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import math
+import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -12,6 +13,19 @@ from app.models.user import User, Follow
 from app.models.post import Post, PostLike, PostSave
 
 router = APIRouter(prefix="/feed", tags=["feed"])
+
+# DF-10 — admin-curated popular hashtags for the feed filter slider.
+# Static config for Phase 1; revisit (derive from post tags) when UGC volume justifies it.
+CURATED_TAGS = [
+    "#NewDrops", "#Grails", "#Sealed", "#Restock", "#Meetups",
+    "#HotToys", "#Gunpla", "#PopMart", "#Diecast", "#Lego", "#Marvel",
+]
+
+
+@router.get("/tags")
+async def get_popular_tags():
+    """Popular hashtags for the feed filter slider (curated, Phase 1)."""
+    return {"tags": CURATED_TAGS}
 
 
 def _recency_decay(created_at: datetime) -> float:
@@ -33,10 +47,18 @@ async def get_feed(
     limit: int = Query(20, le=50),
     category: Optional[str] = None,
     type: Optional[str] = None,
+    tag: Optional[str] = None,
+    sort: str = Query("foryou", pattern="^(foryou|latest|top)$"),
+    following_only: bool = False,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     interests = set(current_user.interests or [])
+
+    # DF-08/DF-11 — "Customize feed" prefs tune the For You tab server-side.
+    # {"categories": [...]} narrows category-tagged posts; untagged posts always pass.
+    prefs = current_user.feed_prefs or {}
+    pref_cats = set(prefs.get("categories") or [])
 
     follows = await db.execute(
         select(Follow.following_id).where(
@@ -47,16 +69,37 @@ async def get_feed(
     followed_ids = {str(r) for r in follows.scalars().all()}
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
-    stmt = select(Post).where(Post.created_at >= cutoff)
+    # DF-27 — pending (awaiting-mod-review) community posts never appear in the feed.
+    stmt = select(Post).where(Post.created_at >= cutoff, Post.status == "published")
     if category:
         stmt = stmt.where(Post.category == category)
     if type:
         stmt = stmt.where(Post.type == type)
+    if tag:
+        # hashtag slider filter (DF-09/DF-10) — tags stored with leading '#'
+        stmt = stmt.where(Post.tags.contains([tag]))
+    if following_only:
+        # only posts authored by users the viewer follows
+        stmt = stmt.where(Post.user_id.in_([uuid.UUID(fid) for fid in followed_ids] or [None]))
 
     result = await db.execute(stmt.order_by(Post.created_at.desc()).limit(500))
     posts = result.scalars().all()
 
-    scored = sorted(posts, key=lambda p: _score(p, interests, followed_ids), reverse=True)
+    # For You honours Customize-feed categories: category-tagged posts outside the
+    # selection drop; untagged posts (and a no-op full selection) pass through (DF-11)
+    if sort == "foryou" and pref_cats:
+        posts = [p for p in posts if not p.category or p.category in pref_cats]
+
+    if sort == "latest":
+        scored = sorted(posts, key=lambda p: p.created_at, reverse=True)
+    elif sort == "top":
+        scored = sorted(
+            posts,
+            key=lambda p: p.likes_count + p.comments_count * 2 + p.saves_count * 3,
+            reverse=True,
+        )
+    else:
+        scored = sorted(posts, key=lambda p: _score(p, interests, followed_ids), reverse=True)
     start = (page - 1) * limit
     page_posts = scored[start: start + limit]
 
@@ -114,10 +157,12 @@ def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, 
         "body": p.body,
         "images": p.images or [],
         "category": p.category,
+        "tags": p.tags or [],
         "community_id": p.community_id,
         "review_rating": p.review_rating,
         "poll_options": p.poll_options,
         "is_admin_post": p.is_admin_post,
+        "status": p.status,
         "likes_count": p.likes_count,
         "comments_count": p.comments_count,
         "saves_count": p.saves_count,

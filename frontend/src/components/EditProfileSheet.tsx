@@ -21,10 +21,10 @@ interface EditProfileSheetProps {
 }
 
 export function EditProfileSheet({ user, onClose, onSaved }: EditProfileSheetProps) {
+  // city removed from edit (DF-05) — location will be collected separately later
   const [form, setForm] = useState({
     name: user.name ?? "",
     bio: user.bio ?? "",
-    city: user.city ?? "",
     avatar_url: user.avatar_url ?? "",
     interests: user.interests ?? [],
   });
@@ -52,7 +52,6 @@ export function EditProfileSheet({ user, onClose, onSaved }: EditProfileSheetPro
       const updated = await api.patch<AuthUser>("/users/me", {
         name: form.name || undefined,
         bio: form.bio || undefined,
-        city: form.city || undefined,
         avatar_url: form.avatar_url || undefined,
         interests: form.interests,
       });
@@ -99,7 +98,6 @@ export function EditProfileSheet({ user, onClose, onSaved }: EditProfileSheetPro
           {[
             { key: "name", label: "Display name", placeholder: "Your name" },
             { key: "bio", label: "Bio", placeholder: "Tell collectors who you are…" },
-            { key: "city", label: "City", placeholder: "Mumbai" },
           ].map(({ key, label, placeholder }) => (
             <div key={key}>
               <label className="block text-xs font-medium text-[var(--ink-mute)] mb-1.5">{label}</label>

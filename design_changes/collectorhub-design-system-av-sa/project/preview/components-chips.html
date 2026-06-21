@@ -1,0 +1,28 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 24px 28px; background: var(--paper);
+         font-family: var(--font-body); color: var(--ink); }
+  .label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+           letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 14px; }
+  .label b { color: var(--ink); font-weight: 600; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { padding: 7px 14px; border-radius: 999px;
+          background: var(--paper-soft); color: var(--ink);
+          border: 1px solid var(--border-strong);
+          font-family: var(--font-body); font-weight: 500; font-size: 13px;
+          line-height: 1; cursor: pointer; white-space: nowrap; }
+  .active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+</style></head>
+<body>
+  <div class="label"><b>Category chips</b> · single-select filter strip · live above feed / browse</div>
+  <div class="row">
+    <button class="chip active">All</button>
+    <button class="chip">Action Figures</button>
+    <button class="chip">Designer Toys</button>
+    <button class="chip">Model Kits &amp; Lego</button>
+    <button class="chip">Diecast</button>
+    <button class="chip">Grails</button>
+  </div>
+</body></html>

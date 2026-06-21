@@ -11,7 +11,7 @@ from app.dependencies import get_current_user, get_optional_user
 from app.models.user import User, Follow
 from app.models.item import Item
 from app.models.listing import Listing
-from app.models.post import Post
+from app.models.post import Post, PostLike, PostSave
 from app.models.deal import Deal
 from app.models.community import Community, CommunityMember
 from app.routers.communities import _community_dict
@@ -43,6 +43,10 @@ class ProfileOut(BaseModel):
     email: Optional[str] = None
     privacy_portfolio: Optional[str] = None
     privacy_value: Optional[str] = None
+    gender: Optional[str] = None
+    birth_year: Optional[int] = None
+    feed_prefs: Optional[dict] = None
+    email_verified: Optional[bool] = None
 
     model_config = {"from_attributes": True}
 
@@ -55,6 +59,9 @@ class EditProfileBody(BaseModel):
     interests: Optional[list[str]] = None
     privacy_portfolio: Optional[str] = None
     privacy_value: Optional[str] = None
+    gender: Optional[str] = None        # 'f' | 'm' (DF-01)
+    birth_year: Optional[int] = None    # DF-05
+    feed_prefs: Optional[dict] = None   # {"categories": [...], "hide_listings": bool} (DF-08)
 
 
 class SuggestedUserOut(BaseModel):
@@ -113,6 +120,68 @@ async def get_suggested(
     return rows
 
 
+@router.get("/me/saved")
+async def get_saved_posts(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, le=50),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Posts the current user has bookmarked, newest-saved first (paginated)."""
+    from app.routers.feed import _post_dict
+
+    saves_q = await db.execute(
+        select(PostSave.post_id)
+        .where(PostSave.user_id == current_user.id)
+        .order_by(PostSave.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+    )
+    saved_post_ids = list(saves_q.scalars().all())
+    if not saved_post_ids:
+        return {"page": page, "limit": limit, "items": []}
+
+    posts_result = await db.execute(select(Post).where(Post.id.in_(saved_post_ids)))
+    posts_by_id = {p.id: p for p in posts_result.scalars().all()}
+    # Preserve save-order (newest saved first)
+    ordered = [posts_by_id[pid] for pid in saved_post_ids if pid in posts_by_id]
+
+    author_ids = list({p.user_id for p in ordered})
+    users_result = await db.execute(select(User).where(User.id.in_(author_ids)))
+    users_by_id = {u.id: u for u in users_result.scalars().all()}
+
+    liked_q = await db.execute(
+        select(PostLike.post_id).where(
+            PostLike.user_id == current_user.id,
+            PostLike.post_id.in_(saved_post_ids),
+        )
+    )
+    liked_ids = set(liked_q.scalars().all())
+
+    follows_q = await db.execute(
+        select(Follow.following_id).where(
+            Follow.follower_id == current_user.id,
+            Follow.following_type == "user",
+        )
+    )
+    followed_ids = {str(r) for r in follows_q.scalars().all()}
+
+    return {
+        "page": page,
+        "limit": limit,
+        "items": [
+            _post_dict(
+                p,
+                users_by_id.get(p.user_id),
+                p.id in liked_ids,
+                True,  # every post here is saved by definition
+                str(p.user_id) in followed_ids,
+            )
+            for p in ordered
+        ],
+    }
+
+
 @router.patch("/me", response_model=ProfileOut)
 async def edit_me(
     body: EditProfileBody,
@@ -143,6 +212,10 @@ async def get_profile(
         out.email = None
         out.privacy_portfolio = None
         out.privacy_value = None
+        out.gender = None
+        out.birth_year = None
+        out.feed_prefs = None
+        out.email_verified = None
         if viewer:
             follow = await db.execute(
                 select(Follow).where(

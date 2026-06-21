@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { api, storeTokens } from "@/lib/api";
 
 export default function SignInPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -22,7 +20,8 @@ export default function SignInPage() {
         refresh_token: string;
       }>("/auth/login", { email, password });
       storeTokens(access_token, refresh_token);
-      router.push("/feed");
+      // Full page load so AuthProvider refetches the user for the new session
+      window.location.assign("/feed");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Sign in failed");
     } finally {

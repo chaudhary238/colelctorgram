@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+// Notifications — design feedback round 1 (DF-13):
+// Messages moved out (header/sidebar Messages entry). 5 category cards —
+// Likes · Follows · Replies · Vouch (renamed from Trust) · Other (catch-all) —
+// tapping one filters the activity list below; Clear resets.
+
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Bell, MessageCircle, Repeat2, Shield, UserPlus, Heart, Calendar, Clock } from "lucide-react";
+import {
+  Bell, MessageCircle, Repeat2, Shield, UserPlus, Heart,
+  Calendar, Clock, LayoutGrid,
+} from "lucide-react";
 import { api } from "@/lib/api";
-import { timeAgo } from "@/lib/utils";
-import { Avatar } from "@/components/ui";
+import { timeAgo, cn } from "@/lib/utils";
 
 interface ApiNotification {
   id: string;
@@ -16,11 +23,6 @@ interface ApiNotification {
   ref_id: string | null;
   is_read: boolean;
   created_at: string;
-}
-
-interface Thread {
-  id: string;
-  unread: number;
 }
 
 type NotifMeta = { icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>; color: string };
@@ -45,6 +47,25 @@ function metaFor(kind: string): NotifMeta {
   return KIND_META[kind] ?? KIND_META.community;
 }
 
+// 5 categories (DF-13): 4 typed + "Other" catch-all so nothing falls through.
+const CATEGORIES = [
+  { id: "likes",   label: "Likes",   icon: Heart,         color: "var(--stamp-red)" },
+  { id: "follows", label: "Follows", icon: UserPlus,      color: "var(--plum)" },
+  { id: "replies", label: "Replies", icon: MessageCircle, color: "var(--plum)" },
+  { id: "vouch",   label: "Vouch",   icon: Shield,        color: "var(--forest)" },
+  { id: "other",   label: "Other",   icon: LayoutGrid,    color: "var(--ink-mute)" },
+] as const;
+
+type CategoryId = (typeof CATEGORIES)[number]["id"];
+
+function categoryOf(kind: string): CategoryId {
+  if (kind === "like") return "likes";
+  if (kind === "follow") return "follows";
+  if (kind === "comment") return "replies";
+  if (kind === "vouch") return "vouch";
+  return "other"; // deal, wishlist*, event, preorder*, community, …
+}
+
 function refHref(refType: string | null, refId: string | null): string {
   if (!refType || !refId) return "#";
   switch (refType) {
@@ -60,24 +81,30 @@ function refHref(refType: string | null, refId: string | null): string {
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<ApiNotification[]>([]);
-  const [threads, setThreads] = useState<Thread[]>([]);
+  const [selected, setSelected] = useState<CategoryId | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      api.get<ApiNotification[]>("/notifications?limit=50"),
-      api.get<Thread[]>("/threads"),
-    ])
-      .then(([n, t]) => {
-        setNotifications(n ?? []);
-        setThreads(t ?? []);
-      })
+    api.get<ApiNotification[]>("/notifications?limit=50")
+      .then((n) => setNotifications(n ?? []))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
-  const totalUnread = threads.reduce((s, t) => s + t.unread, 0);
+
+  const unreadByCategory = useMemo(() => {
+    const counts: Record<CategoryId, number> = { likes: 0, follows: 0, replies: 0, vouch: 0, other: 0 };
+    for (const n of notifications) {
+      if (!n.is_read) counts[categoryOf(n.kind)]++;
+    }
+    return counts;
+  }, [notifications]);
+
+  const visible = useMemo(
+    () => selected ? notifications.filter((n) => categoryOf(n.kind) === selected) : notifications,
+    [notifications, selected]
+  );
 
   const markAllRead = () => {
     api.patch("/notifications/read-all").catch(console.error);
@@ -102,20 +129,54 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      <Link href="/inbox" style={{ display: "flex", alignItems: "center", gap: 12, margin: "14px 20px 4px", background: "var(--ink)", color: "var(--paper)", borderRadius: 13, padding: "12px 14px", textDecoration: "none" }}>
-        <div style={{ width: 34, height: 34, borderRadius: 9, background: "rgba(244,239,230,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <MessageCircle size={18} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>Messages</div>
-          <div style={{ fontSize: 12, color: "rgba(244,239,230,0.65)" }}>{threads.length} conversations · {totalUnread} unread</div>
-        </div>
-        {totalUnread > 0 && (
-          <span style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 999, background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {totalUnread}
+      {/* category cards (DF-13) */}
+      <div className="grid grid-cols-5 gap-2" style={{ padding: "14px 20px 4px" }}>
+        {CATEGORIES.map((c) => {
+          const on = selected === c.id;
+          const count = unreadByCategory[c.id];
+          const Icon = c.icon;
+          return (
+            <button
+              key={c.id}
+              onClick={() => setSelected(on ? null : c.id)}
+              className={cn(
+                "relative flex flex-col items-center gap-1.5 rounded-[13px] border py-3 px-1 cursor-pointer transition-colors",
+                on
+                  ? "border-[var(--ink)] bg-[var(--bone)]"
+                  : "border-[var(--border)] bg-[var(--paper-soft)] hover:border-[var(--ink-ghost)]"
+              )}
+            >
+              <span
+                className="w-9 h-9 rounded-full flex items-center justify-center"
+                style={{ background: "var(--bone)", color: c.color }}
+              >
+                <Icon size={18} />
+              </span>
+              <span className="text-[11.5px] font-semibold text-[var(--ink)]">{c.label}</span>
+              {count > 0 && (
+                <span className="absolute top-1.5 right-1.5 min-w-[17px] h-[17px] px-1 rounded-full bg-[var(--stamp-red)] text-white text-[10px] font-bold font-mono flex items-center justify-center">
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* filter state row */}
+      {selected && (
+        <div className="flex items-center justify-between" style={{ padding: "10px 20px 0" }}>
+          <span className="text-[12px] font-semibold uppercase tracking-wide text-[var(--ink-faint)]">
+            {CATEGORIES.find((c) => c.id === selected)?.label}
           </span>
-        )}
-      </Link>
+          <button
+            onClick={() => setSelected(null)}
+            className="text-[12.5px] font-semibold text-[var(--stamp-red)] bg-transparent border-none cursor-pointer"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       <div style={{ padding: "10px 20px 24px" }}>
         {loading
@@ -128,9 +189,11 @@ export default function NotificationsPage() {
                 </div>
               </div>
             ))
-          : notifications.length === 0
-            ? <div style={{ padding: "32px 0", textAlign: "center", color: "var(--ink-faint)" }}>No notifications yet.</div>
-            : notifications.map((n) => {
+          : visible.length === 0
+            ? <div style={{ padding: "32px 0", textAlign: "center", color: "var(--ink-faint)" }}>
+                {selected ? `No ${CATEGORIES.find((c) => c.id === selected)?.label.toLowerCase()} notifications yet.` : "No notifications yet."}
+              </div>
+            : visible.map((n) => {
                 const m = metaFor(n.kind);
                 return (
                   <Link

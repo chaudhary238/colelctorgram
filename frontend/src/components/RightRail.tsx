@@ -62,13 +62,16 @@ function RailFollow({ user }: { user: SuggestedUser }) {
 export function RightRail() {
   const { user } = useUser();
   const [suggested, setSuggested] = useState<SuggestedUser[]>([]);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    api.get<{ items: SuggestedUser[] }>("/users/me/suggested").catch(() => ({ items: [] })).then((d) => {
-      if (d && Array.isArray(d)) setSuggested(d.slice(0, 5));
-      else if (d && "items" in d) setSuggested(d.items.slice(0, 5));
+    api.get<{ items: SuggestedUser[] }>("/users/me/suggested?limit=12").catch(() => ({ items: [] })).then((d) => {
+      if (d && Array.isArray(d)) setSuggested(d);
+      else if (d && "items" in d) setSuggested(d.items);
     });
   }, []);
+
+  const shown = expanded ? suggested : suggested.slice(0, 5);
 
   const displayName = user?.name ?? "You";
   const displayHandle = user?.handle ?? "…";
@@ -89,12 +92,17 @@ export function RightRail() {
         <>
           <div className="flex items-center justify-between px-1.5 pb-[14px]">
             <span className="text-[13.5px] font-semibold text-[var(--ink-mute)]">Suggested collectors</span>
-            <Link href="/search" className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink-mute)]">
-              See all
-            </Link>
+            {suggested.length > 5 && (
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="text-xs text-[var(--ink-faint)] hover:text-[var(--ink-mute)]"
+              >
+                {expanded ? "Show less" : "See all"}
+              </button>
+            )}
           </div>
           <div className="flex flex-col gap-4 px-1.5">
-            {suggested.map((u) => <RailFollow key={u.handle} user={u} />)}
+            {shown.map((u) => <RailFollow key={u.handle} user={u} />)}
           </div>
         </>
       )}

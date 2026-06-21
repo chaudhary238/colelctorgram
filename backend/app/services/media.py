@@ -1,8 +1,13 @@
 import uuid
+from pathlib import Path
+
 import boto3
 from botocore.config import Config
 
 from app.config import settings
+
+# Where the local-disk fallback stores uploads (served via a static mount).
+MEDIA_LOCAL_DIR = Path(__file__).resolve().parents[2] / "media_uploads"
 
 
 def _r2_client():
@@ -18,6 +23,17 @@ def _r2_client():
 
 def generate_upload_url(prefix: str, content_type: str = "image/jpeg") -> dict:
     key = f"{prefix}/{uuid.uuid4()}.jpg"
+
+    # Local-disk fallback for dev (no R2 creds): the browser PUTs to our own
+    # backend endpoint, and the file is served back over a static mount.
+    if not settings.r2_configured:
+        base = settings.media_local_base_url.rstrip("/")
+        return {
+            "upload_url": f"{base}/media/local/{key}",
+            "key": key,
+            "public_url": f"{base}/media-files/{key}",
+        }
+
     client = _r2_client()
     presigned = client.generate_presigned_url(
         "put_object",

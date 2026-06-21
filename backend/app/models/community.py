@@ -31,6 +31,7 @@ class Community(Base):
     rules: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     is_invite_only: Mapped[bool] = mapped_column(Boolean, default=False)
     is_admin_created: Mapped[bool] = mapped_column(Boolean, default=True)
+    status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | approved | rejected
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 

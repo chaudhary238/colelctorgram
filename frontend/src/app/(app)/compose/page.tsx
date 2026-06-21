@@ -35,7 +35,7 @@ export default function ComposePage() {
     if (!file.type.startsWith("image/")) return;
     setUploading(true);
     try {
-      const meta = await api.get<UploadUrlResponse>(
+      const meta = await api.post<UploadUrlResponse>(
         `/media/upload-url?prefix=posts&content_type=${encodeURIComponent(file.type)}`
       );
       await fetch(meta.upload_url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
@@ -61,14 +61,20 @@ export default function ComposePage() {
       const pollOptions = type === "poll"
         ? Object.fromEntries(choices.filter((c) => c.trim()).map((c) => [c.trim(), 0]))
         : null;
-      await api.post("/posts", {
+      const res = await api.post<{ id: string; status?: string }>("/posts", {
         type,
         body,
         community_id: community || null,
         poll_options: pollOptions,
         images,
       });
-      router.push("/feed");
+      // DF-27 — posts into an approval-mode community wait for a mod; send the
+      // author back to the community rather than the feed (it won't show there yet).
+      if (res?.status === "pending") {
+        router.push(`/community/${community}`);
+      } else {
+        router.push("/feed");
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -226,6 +232,11 @@ export default function ComposePage() {
             </CategoryChip>
           ))}
         </div>
+        {community && communities.find((c) => c.id === community)?.post_mode === "approval" && (
+          <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--ink-faint)", lineHeight: 1.5 }}>
+            Posts here are reviewed by a mod before they appear.
+          </div>
+        )}
       </div>
     </div>
   );

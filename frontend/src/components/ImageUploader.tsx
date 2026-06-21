@@ -34,7 +34,7 @@ export function ImageUploader({ onUpload, label = "Upload image", accept = "imag
     setUploading(true);
     try {
       // 1. Get presigned URL
-      const meta = await api.get<UploadUrlResponse>(
+      const meta = await api.post<UploadUrlResponse>(
         `/media/upload-url?prefix=uploads&content_type=${encodeURIComponent(file.type)}`
       );
       // 2. PUT directly to R2
@@ -161,7 +161,7 @@ export function AvatarUploader({ onUpload, previewUrl }: { onUpload: (url: strin
     if (!file.type.startsWith("image/")) return;
     setUploading(true);
     try {
-      const meta = await api.get<UploadUrlResponse>(
+      const meta = await api.post<UploadUrlResponse>(
         `/media/upload-url?prefix=avatars&content_type=${encodeURIComponent(file.type)}`
       );
       await fetch(meta.upload_url, {

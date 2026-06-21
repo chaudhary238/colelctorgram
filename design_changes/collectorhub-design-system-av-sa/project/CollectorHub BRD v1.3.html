@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CollectorHub — BRD v1.3</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1a1a1a;
+    --ink-soft: #3d3d3d;
+    --ink-faint: #888;
+    --border: #e5e5e5;
+    --border-strong: #ccc;
+    --paper: #fff;
+    --bone: #f5f3ef;
+    --red: #c02d28;
+    --red-soft: #fdf1f0;
+    --teal: #1a7a6e;
+    --teal-soft: #edf7f6;
+    --amber: #b45309;
+    --amber-soft: #fef3e2;
+    --blue: #1e4db7;
+    --blue-soft: #eef2fd;
+    --new-bg: #f0fdf4;
+    --new-border: #bbf7d0;
+    --new-text: #166534;
+    --changed-bg: #fffbeb;
+    --changed-border: #fde68a;
+    --changed-text: #92400e;
+    --removed-bg: #fef2f2;
+    --removed-border: #fecaca;
+    --removed-text: #991b1b;
+  }
+
+  html { font-size: 15px; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    color: var(--ink);
+    background: var(--bone);
+    line-height: 1.65;
+    padding: 0;
+  }
+
+  /* ── Cover ── */
+  .cover {
+    background: var(--ink);
+    color: #fff;
+    padding: 72px 64px 56px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 80% 20%, rgba(192,45,40,0.25) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .cover-eyebrow {
+    font-family: 'Inter Tight', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 16px;
+  }
+  .cover-title {
+    font-family: 'Inter Tight', sans-serif;
+    font-size: 48px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 10px;
+  }
+  .cover-subtitle {
+    font-size: 17px;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 48px;
+    font-weight: 400;
+  }
+  .cover-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    padding-top: 28px;
+  }
+  .cover-meta-item { padding: 0 32px 0 0; }
+  .cover-meta-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 4px; }
+  .cover-meta-value { font-size: 13.5px; font-weight: 500; color: rgba(255,255,255,0.85); }
+  .version-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--red); color: #fff;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+    padding: 4px 10px; border-radius: 20px;
+    text-transform: uppercase; margin-bottom: 20px;
+  }
+
+  /* ── Layout ── */
+  .doc-wrap { max-width: 860px; margin: 0 auto; padding: 0 32px 80px; }
+
+  /* ── TOC ── */
+  .toc {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px 36px;
+    margin: 40px 0;
+  }
+  .toc-title { font-family: 'Inter Tight', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 20px; }
+  .toc-list { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+  .toc-list li a {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+    color: var(--ink-soft); text-decoration: none; font-size: 14px; padding: 5px 0;
+    border-bottom: 1px solid transparent;
+  }
+  .toc-list li a:hover { color: var(--red); }
+  .toc-list li a .toc-dots { flex: 1; border-bottom: 1px dotted var(--border-strong); height: 1px; transform: translateY(-4px); }
+  .toc-list li a .toc-num { font-variant-numeric: tabular-nums; color: var(--ink-faint); font-size: 13px; }
+  .toc-group { margin-top: 10px; padding-left: 16px; }
+  .toc-group li a { font-size: 13px; }
+
+  /* ── Sections ── */
+  .section { margin-top: 52px; }
+  .section-num {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 8px;
+  }
+  h1.sec { font-family: 'Inter Tight', sans-serif; font-size: 28px; font-weight: 800; line-height: 1.15; margin-bottom: 20px; }
+  h2.sec { font-family: 'Inter Tight', sans-serif; font-size: 20px; font-weight: 700; margin: 36px 0 14px; }
+  h3.sec { font-size: 15px; font-weight: 700; margin: 28px 0 10px; color: var(--ink); }
+
+  p { margin-bottom: 14px; font-size: 14.5px; color: var(--ink-soft); }
+  p:last-child { margin-bottom: 0; }
+
+  /* ── Change callouts ── */
+  .callout {
+    border-radius: 10px; padding: 13px 16px; margin: 16px 0; font-size: 13.5px; line-height: 1.55;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .callout.new { background: var(--new-bg); border: 1px solid var(--new-border); color: var(--new-text); }
+  .callout.changed { background: var(--changed-bg); border: 1px solid var(--changed-border); color: var(--changed-text); }
+  .callout.removed { background: var(--removed-bg); border: 1px solid var(--removed-border); color: var(--removed-text); }
+  .callout-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .callout strong { font-weight: 700; }
+
+  /* ── Tables ── */
+  .tbl-wrap { overflow-x: auto; margin: 18px 0; border-radius: 12px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { background: var(--bone); text-align: left; font-weight: 600; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint); padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--ink-soft); line-height: 1.5; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bone); }
+  td.pri { font-weight: 700; font-size: 12px; white-space: nowrap; }
+  td.pri.m { color: var(--red); }
+  td.pri.s { color: var(--blue); }
+  td.pri.c { color: var(--teal); }
+  td.pri.w { color: var(--ink-faint); }
+  td.new-row { background: var(--new-bg); }
+  td.changed-row { background: var(--changed-bg); }
+  td.removed-row { background: var(--removed-bg); text-decoration: line-through; color: var(--ink-faint); }
+  .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; letter-spacing: 0.05em; text-transform: uppercase; vertical-align: middle; margin-left: 4px; }
+  .badge.new { background: var(--new-bg); color: var(--new-text); border: 1px solid var(--new-border); }
+  .badge.changed { background: var(--changed-bg); color: var(--changed-text); border: 1px solid var(--changed-border); }
+  .badge.removed { background: var(--removed-bg); color: var(--removed-text); border: 1px solid var(--removed-border); }
+
+  /* ── Req list ── */
+  .req-list { display: flex; flex-direction: column; gap: 0; margin: 16px 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .req-row { display: grid; grid-template-columns: 80px 1fr 52px; gap: 0; border-bottom: 1px solid var(--border); }
+  .req-row:last-child { border-bottom: none; }
+  .req-id { padding: 11px 14px; font-size: 12px; font-weight: 700; color: var(--ink-faint); font-variant-numeric: tabular-nums; background: var(--bone); display: flex; align-items: flex-start; }
+  .req-text { padding: 11px 14px; font-size: 13.5px; color: var(--ink-soft); }
+  .req-pri { padding: 11px 8px; display: flex; align-items: flex-start; justify-content: center; }
+  .req-row.is-new { background: var(--new-bg); }
+  .req-row.is-new .req-id { background: rgba(187,247,208,0.4); }
+  .req-row.is-changed { background: var(--changed-bg); }
+  .req-row.is-changed .req-id { background: rgba(253,230,138,0.4); }
+  .req-row.is-removed .req-text { text-decoration: line-through; color: var(--ink-faint); }
+  .req-row.is-removed { background: var(--removed-bg); }
+  .req-row.is-removed .req-id { background: rgba(254,202,202,0.4); }
+
+  /* ── Divider ── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+
+  /* ── Change legend ── */
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 24px 0; }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-soft); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .legend-dot.new { background: var(--new-text); }
+  .legend-dot.changed { background: var(--amber); }
+  .legend-dot.removed { background: var(--red); }
+
+  /* ── Summary box ── */
+  .summary-box {
+    background: var(--paper); border: 1px solid var(--border); border-radius: 16px;
+    padding: 28px 32px; margin: 32px 0;
+  }
+  .summary-box h3 { font-family: 'Inter Tight', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+  .summary-box ul { list-style: none; display: flex; flex-direction: column; gap: 8px; padding: 0; }
+  .summary-box li { font-size: 13.5px; color: var(--ink-soft); display: flex; gap: 10px; align-items: flex-start; line-height: 1.5; }
+  .summary-box li::before { content: '→'; color: var(--red); font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+
+  @media print {
+    body { background: white; }
+    .doc-wrap { padding: 0 0 40px; }
+    .cover { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    .callout { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Cover -->
+<div class="cover">
+  <div class="cover-eyebrow">Business Requirements Document</div>
+  <div class="version-pill">Draft v1.3</div>
+  <div class="cover-title">CollectorHub</div>
+  <div class="cover-subtitle">A community-first social platform for collectors — showcase, discover, connect, and trade.</div>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Document</div>
+      <div class="cover-meta-value">BRD — Phase 1 &amp; Phase 2</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Version</div>
+      <div class="cover-meta-value">Draft v1.3</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Date</div>
+      <div class="cover-meta-value">21 June 2026</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Owners</div>
+      <div class="cover-meta-value">Product (RC) · Content &amp; Marketing (SA, AV)</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Status</div>
+      <div class="cover-meta-value">Updated after design build review</div>
+    </div>
+  </div>
+</div>
+
+<div class="doc-wrap">
+
+  <!-- TOC -->
+  <nav class="toc">
+    <div class="toc-title">Table of Contents</div>
+    <ul class="toc-list">
+      <li><a href="#s1"><span>1. Document Control &amp; Purpose</span><span class="toc-dots"></span><span class="toc-num">2</span></a></li>
+      <li><a href="#s2"><span>2. Executive Summary</span><span class="toc-dots"></span><span class="toc-num">4</span></a></li>
+      <li><a href="#s3"><span>3. Product Vision &amp; Objectives</span><span class="toc-dots"></span><span class="toc-num">5</span></a></li>
+      <li><a href="#s4"><span>4. Market Context &amp; Opportunity</span><span class="toc-dots"></span><span class="toc-num">6</span></a></li>
+      <li><a href="#s5"><span>5. Competitive Landscape</span><span class="toc-dots"></span><span class="toc-num">7</span></a></li>
+      <li><a href="#s6"><span>6. Scope &amp; Category Strategy</span><span class="toc-dots"></span><span class="toc-num">8</span></a></li>
+      <li><a href="#s7"><span>7. Phasing Overview</span><span class="toc-dots"></span><span class="toc-num">9</span></a></li>
+      <li><a href="#s8"><span>8. Functional Requirements</span><span class="toc-dots"></span><span class="toc-num">10</span></a>
+        <ul class="toc-group">
+          <li><a href="#s8-5"><span>8.5 Posting &amp; Content Creation <span class="badge changed">Updated</span></span><span class="toc-dots"></span><span class="toc-num">13</span></a></li>
+          <li><a href="#s8-7"><span>8.7 Direct Messaging <span class="badge changed">Updated</span></span><span class="toc-dots"></span><span class="toc-num">15</span></a></li>
+        </ul>
+      </li>
+      <li><a href="#s9"><span>9. Screen-by-Screen Functional Specification</span><span class="toc-dots"></span><span class="toc-num">17</span></a>
+        <ul class="toc-group">
+          <li><a href="#s9-3"><span>9.3 Master Feed <span class="badge changed">Updated</span></span><span class="toc-dots"></span><span class="toc-num">19</span></a></li>
+          <li><a href="#s9-6"><span>9.6 Post Composer <span class="badge changed">Updated</span></span><span class="toc-dots"></span><span class="toc-num">21</span></a></li>
+          <li><a href="#s9-8"><span>9.8 Marketplace <span class="badge changed">Updated</span></span><span class="toc-dots"></span><span class="toc-num">22</span></a></li>
+          <li><a href="#s9-9"><span>9.9 Listing Detail <span class="badge changed">Updated</span></span><span class="toc-dots"></span><span class="toc-num">23</span></a></li>
+          <li><a href="#s9-10"><span>9.10 Direct Messages <span class="badge changed">Updated</span></span><span class="toc-dots"></span><span class="toc-num">24</span></a></li>
+          <li><a href="#s9-15"><span>9.15 Search <span class="badge changed">Updated</span></span><span class="toc-dots"></span><span class="toc-num">28</span></a></li>
+        </ul>
+      </li>
+      <li><a href="#s10"><span>10–18. Return Loop, Seeding, NFRs, Trust, KPIs, Risks, Roadmap</span><span class="toc-dots"></span><span class="toc-num">29</span></a></li>
+      <li><a href="#s19"><span>19. Reasoning for v1.3 Changes <span class="badge new">New</span></span><span class="toc-dots"></span><span class="toc-num">40</span></a></li>
+    </ul>
+  </nav>
+
+  <!-- Change legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot new"></div> New in v1.3</div>
+    <div class="legend-item"><div class="legend-dot changed"></div> Changed from v1.2</div>
+    <div class="legend-item"><div class="legend-dot removed"></div> Removed from v1.2</div>
+  </div>
+
+  <!-- §1 -->
+  <div class="section" id="s1">
+    <div class="section-num">Section 1</div>
+    <h1 class="sec">Document Control &amp; Purpose</h1>
+    <p>This Business Requirements Document (BRD) defines the product vision, scope, functional requirements, and phased delivery plan for CollectorHub — a community-oriented social platform for hobby collectors. It is intended to align the product, engineering, content, and marketing workstreams on what we are building, for whom, in what order, and how success will be measured.</p>
+    <p>The document is deliberately phased. Phase 1 targets an initial community of 10,000 engaged users across four collectible categories; Phase 2 expands categories, monetisation, and platform depth once retention and liquidity are proven.</p>
+
+    <h2 class="sec">1.1 Intended Audience</h2>
+    <p>Engineering / build team (RC) — to scope and sequence the application build.<br>
+    Content &amp; Marketing (SA, AV) — to plan seeding, content calendars, and go-to-market.<br>
+    Founders / stakeholders — to confirm scope, priorities, and the phasing decision.</p>
+
+    <h2 class="sec">1.2 Revision History</h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Version</th><th>Date</th><th>Author</th><th>Summary of changes</th></tr></thead>
+        <tbody>
+          <tr><td>v1.0</td><td>31 May 2026</td><td>Product</td><td>Initial BRD: vision, market, competitive analysis, features, screen specs, phasing, KPIs.</td></tr>
+          <tr><td>v1.1</td><td>31 May 2026</td><td>Product</td><td>Design review revisions: introduced Item / Listing / Post / Deal data model (§8.1); collection-first selling; Deal completion + transaction-linked trust; catalogue + tiered ownership verification (§8.3); wishlist-to-marketplace matching; follow as a first-class action; simplified post types; updated screens; added §18 Reasoning for Changes.</td></tr>
+          <tr><td>v1.2</td><td>4 Jun 2026</td><td>Product (per AV &amp; SA)</td><td>Stakeholder screen review incorporated: profile-first onboarding with Scale/Universe sub-interests &amp; 'Others' feedback (9.2); in-feed follow, hide-listings filter, inline comments (9.3); mandatory add-to-collection fields (9.4); chart/calendar/collage portfolio views (9.5); post-type-first composer + poll (9.6); condition list, seller terms, optional purchase date/price, anonymous price feedback, safe-trade disclaimer (9.9); opt-in public DM threads (9.10); follow counts, online status, ownership stats (9.11); guidelines-accept gate, open/approval posting, member count, visible admin (9.12); free QR-code event tickets (9.13).</td></tr>
+          <tr class="is-new"><td><strong>v1.3</strong></td><td><strong>21 Jun 2026</strong></td><td><strong>Product (build review)</strong></td><td><strong>Design build review incorporated: ISO added as a feed post type (8.5, 9.3, 9.6); ISO board removed from Marketplace — ISO lives in the Feed only (9.8); opt-in public DM threads removed from messaging on privacy and implementation grounds, replaced by a dedicated public Q&amp;A block on Listing Detail (9.9, 9.10); DM attachment sheet specified — photo, share listing, make offer (9.10); @mentions in comments are tappable and navigate to the tagged profile (9.3, 9.7); ISO posts support reference images; search covers ISO posts and isoItem field (9.15); UI alignment rules codified (§19).</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 class="sec">1.3 How to Read This Document</h2>
+    <p>Sections 2–5 set strategic context (vision, market, competitors, users). Section 6 resolves the open category question. Section 7 gives the phase-by-phase feature matrix. Section 8 holds the core requirements — opening with §8.1, the data model — followed by Section 9, the screen-by-screen specification. Sections 10–18 cover the engagement loop, content seeding, NFRs, trust &amp; safety, KPIs, risks, roadmap, glossary, and reasoning for prior changes. <strong>Section 19 is new in v1.3</strong> and documents the reasoning for this version's changes.</p>
+    <p>Sections and requirements not listed as updated are unchanged from v1.2. Change callouts within sections use coloured labels: <span class="badge new">New</span> <span class="badge changed">Changed</span> <span class="badge removed">Removed</span>.</p>
+  </div>
+
+  <hr>
+
+  <!-- §2 Executive Summary (unchanged) -->
+  <div class="section" id="s2">
+    <div class="section-num">Section 2</div>
+    <h1 class="sec">Executive Summary</h1>
+    <p>Collecting is a large, fast-growing, and deeply social hobby — yet collectors today are scattered across general-purpose tools: Instagram for showcasing, WhatsApp and Facebook Groups for community and buy/sell/trade, eBay and marketplace apps for transactions, and Discord/Reddit for discussion. No single product combines identity, community, discovery, and trusted peer-to-peer trading in one place tuned to a collector's specific interests.</p>
+    <p>CollectorHub closes that gap. A collector creates a profile, selects their interests, and builds a collection portfolio — adding items quickly from a built-in catalogue (search or barcode scan) and confirming what they actually own with an in-app photo. Any owned item can be listed for sale or trade in a tap; pre-orders carry a value and timeline. A personalised master feed surfaces new releases, community discussions, marketplace listings, events, and ISO (In Search Of) posts relevant to them. They join communities, message other collectors directly to transact, confirm completed deals, and build reputation through transaction-linked trust signals.</p>
+    <p>Phase 1 launches with four categories — Action Figures, Designer Toys &amp; Blind Boxes, Model Kits &amp; Lego, and Diecast — and a target of 10,000 engaged users.</p>
+    <div class="callout changed"><div class="callout-icon">✏️</div><div><strong>v1.3 update:</strong> ISO (In Search Of) posts are now called out explicitly as a first-class content type in the feed, alongside Showcase / Discussion / Review. The feed and composer have been updated accordingly; the Marketplace no longer carries a separate ISO board.</div></div>
+  </div>
+
+  <hr>
+
+  <!-- §3–7 — unchanged, abbreviated for brevity with note -->
+  <div class="section" id="s3">
+    <div class="section-num">Sections 3–7</div>
+    <h1 class="sec">Product Vision, Market, Competitive Landscape, Scope &amp; Phasing</h1>
+    <p><em>Sections 3 through 7 are unchanged from v1.2. They cover: Product Vision &amp; Objectives (§3), Market Context &amp; Opportunity (§4), Competitive Landscape (§5), Scope &amp; Category Strategy (§6), and the Phasing Overview feature matrix (§7). Refer to v1.2 for the full text of these sections.</em></p>
+  </div>
+
+  <hr>
+
+  <!-- §8 Functional Requirements -->
+  <div class="section" id="s8">
+    <div class="section-num">Section 8</div>
+    <h1 class="sec">Functional Requirements</h1>
+    <p>Each requirement carries a priority: <strong>M</strong> (Must — Phase 1), <strong>S</strong> (Should — strongly desired P1), <strong>C</strong> (Could — P1 if capacity allows), <strong>W</strong> (Won't-now — Phase 2). Sections 8.1–8.4 and 8.6, 8.8–8.11 are unchanged from v1.2; only changed sections are shown below.</p>
+
+    <h2 class="sec" id="s8-5">8.5 Posting &amp; Content Creation <span class="badge changed">Updated</span></h2>
+
+    <div class="callout changed"><div class="callout-icon">✏️</div><div><strong>Change from v1.2:</strong> ISO (In Search Of) added as a post type in the composer and feed. The composer's post-type selector now includes ISO alongside Showcase / Discussion / Review / Poll. ISO posts surface in the master feed alongside all other post types — they are not a separate board in the Marketplace.</div></div>
+
+    <div class="req-list">
+      <div class="req-row">
+        <div class="req-id">PO-01</div>
+        <div class="req-text">User can create a text post or a post with one or more images.</div>
+        <div class="req-pri"><span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid #fca5a5">M</span></div>
+      </div>
+      <div class="req-row is-changed">
+        <div class="req-id">PO-02</div>
+        <div class="req-text">Post type is one of: <strong>Showcase, Discussion/Question, Review, or ISO (In Search Of)</strong>. <span class="badge changed">Changed</span> ISO is now a first-class post type. An ISO post captures the item the user is hunting, their budget, preferred condition, and optionally a reference image. (Selling remains an action on a collection Item — §8.6 — not a post type.)</div>
+        <div class="req-pri"><span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid #fca5a5">M</span></div>
+      </div>
+      <div class="req-row is-new">
+        <div class="req-id">PO-02a</div>
+        <div class="req-text"><strong>New.</strong> An ISO post may include one or more reference images (e.g. a photo of the exact colourway/variant the user is hunting). Reference images use standard gallery-upload (in-app camera capture is not required for ISO reference photos, as these are not ownership-verification photos).</div>
+        <div class="req-pri"><span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid #fca5a5">M</span></div>
+      </div>
+      <div class="req-row is-new">
+        <div class="req-id">PO-02b</div>
+        <div class="req-text"><strong>New.</strong> ISO posts surface in the master feed (§9.3) and are discoverable via global search (§9.15). They are NOT surfaced as a separate tab or board in the Marketplace (§9.8). A viewer who has the sought item can tap "I have this" to open a DM to the ISO poster.</div>
+        <div class="req-pri"><span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid #fca5a5">M</span></div>
+      </div>
+      <div class="req-row">
+        <div class="req-id">PO-03</div>
+        <div class="req-text">A post may reference an Item from the user's collection (e.g. to showcase it) or a Listing (to announce it); a listing announcement is auto-offered when a Listing is created.</div>
+        <div class="req-pri"><span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid #fca5a5">M</span></div>
+      </div>
+      <div class="req-row">
+        <div class="req-id">PO-04</div>
+        <div class="req-text">Review posts capture the referenced item and a written review (and, Phase 1.x, a rating).</div>
+        <div class="req-pri"><span class="badge" style="background:var(--blue-soft);color:var(--blue);border:1px solid #bfdbfe">S</span></div>
+      </div>
+      <div class="req-row">
+        <div class="req-id">PO-05</div>
+        <div class="req-text">Posts can be tagged to relevant interests/categories and optionally posted into a community the user belongs to.</div>
+        <div class="req-pri"><span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid #fca5a5">M</span></div>
+      </div>
+      <div class="req-row">
+        <div class="req-id">PO-06</div>
+        <div class="req-text">User can edit or delete their own posts; deleting a post does not delete the underlying Item or Listing.</div>
+        <div class="req-pri"><span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid #fca5a5">M</span></div>
+      </div>
+      <div class="req-row">
+        <div class="req-id">PO-07</div>
+        <div class="req-text">Posting supports image upload, basic crop, and capture from camera; client-side validation of size/format.</div>
+        <div class="req-pri"><span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid #fca5a5">M</span></div>
+      </div>
+      <div class="req-row">
+        <div class="req-id">PO-08</div>
+        <div class="req-text">Multi-image carousels, video, and draft/scheduled posts.</div>
+        <div class="req-pri"><span class="badge" style="background:var(--ink-faint);color:white;border:1px solid #ccc">W</span></div>
+      </div>
+    </div>
+
+    <h2 class="sec" id="s8-7">8.7 Direct Messaging <span class="badge changed">Updated</span></h2>
+
+    <div class="callout changed"><div class="callout-icon">✏️</div><div><strong>Change from v1.2:</strong> DM-03 (item-offer attach) is now more specifically defined to include a functional attachment sheet. DM-09 (opt-in public threads) is removed — see §9.10 and §19 for rationale.</div></div>
+
+    <div class="req-list">
+      <div class="req-row">
+        <div class="req-id">DM-01</div>
+        <div class="req-text">1:1 direct messaging between users, primarily to negotiate buying, selling, and trading.</div>
+        <div class="req-pri"><span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid #fca5a5">M</span></div>
+      </div>
+      <div class="req-row">
+        <div class="req-id">DM-02</div>
+        <div class="req-text">A DM can be started from a Listing or a profile, carrying listing context into the conversation.</div>
+        <div class="req-pri"><span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid #fca5a5">M</span></div>
+      </div>
+      <div class="req-row is-changed">
+        <div class="req-id">DM-03</div>
+        <div class="req-text"><strong>Updated.</strong> A user can attach content to a message via an attachment sheet (tap +). The sheet offers three options: (a) <strong>Photo</strong> — send an image from the camera or gallery; (b) <strong>Share listing</strong> — attach a listing from the current thread context; (c) <strong>Make offer</strong> — open an offer sheet pre-filled with the listing price (editable), sending the offer amount as a structured message. <span class="badge changed">Changed</span></div>
+        <div class="req-pri"><span class="badge" style="background:var(--blue-soft);color:var(--blue);border:1px solid #bfdbfe">S</span></div>
+      </div>
+      <div class="req-row">
+        <div class="req-id">DM-04</div>
+        <div class="req-text">Mark-as-sold / confirm-deal controls are available in-thread, creating the Deal (§8.6 MK-08).</div>
+        <div class="req-pri"><span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid #fca5a5">M</span></div>
+      </div>
+      <div class="req-row">
+        <div class="req-id">DM-05</div>
+        <div class="req-text">Inbox lists conversations with unread indicators; messages support text and images.</div>
+        <div class="req-pri"><span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid #fca5a5">M</span></div>
+      </div>
+      <div class="req-row">
+        <div class="req-id">DM-06</div>
+        <div class="req-text">Push + in-app notifications for new messages.</div>
+        <div class="req-pri"><span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid #fca5a5">M</span></div>
+      </div>
+      <div class="req-row">
+        <div class="req-id">DM-07</div>
+        <div class="req-text">Block &amp; report a user from within a conversation.</div>
+        <div class="req-pri"><span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid #fca5a5">M</span></div>
+      </div>
+      <div class="req-row is-removed">
+        <div class="req-id">DM-09</div>
+        <div class="req-text">~~Opt-in public thread: when both parties opt in, the conversation is published on the listing post.~~ <span class="badge removed">Removed</span> See §9.10 and §19.4 for rationale. Public Q&amp;A on listings is handled via the dedicated Listing Q&amp;A block (§9.9, LD-10).</div>
+        <div class="req-pri"><span class="badge" style="background:var(--ink-faint);color:white;border:1px solid #ccc">—</span></div>
+      </div>
+      <div class="req-row">
+        <div class="req-id">DM-08</div>
+        <div class="req-text">Group DM, message requests/filtering, and a fully structured trade-proposal object.</div>
+        <div class="req-pri"><span class="badge" style="background:var(--ink-faint);color:white;border:1px solid #ccc">W</span></div>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- §9 Screen Specs -->
+  <div class="section" id="s9">
+    <div class="section-num">Section 9</div>
+    <h1 class="sec">Screen-by-Screen Functional Specification</h1>
+    <p>Screens are written for a mobile-first app. Only screens with changes are reproduced in full below; all others are unchanged from v1.2.</p>
+
+    <!-- 9.3 -->
+    <h2 class="sec" id="s9-3">9.3 Master Feed (Home) <span class="badge changed">Updated</span></h2>
+    <p><strong>Purpose.</strong> The daily destination: a personalised stream that gives every user a reason to return multiple times a day.</p>
+
+    <div class="callout changed"><div class="callout-icon">✏️</div><div><strong>Changes from v1.2:</strong> (1) ISO posts are now a card type in the feed. (2) @mentions in comments are tappable and navigate to the tagged user's profile. (3) The ISO Board is removed from Marketplace — ISO surfaces here only.</div></div>
+
+    <h3 class="sec">Key components &amp; features</h3>
+    <p>Ranked 'For You' feed from interests + follows + behaviour. Sort control (For You / Latest / Top). Filter control (category/interest, post type, source). Decision: listings appear in the feed by default; a 'hide listings' filter lets users opt out.</p>
+    <p>Mixed cards: user posts (Showcase / Discussion / Review / <strong>ISO</strong>), admin news/releases, joined-community posts, listing announcement cards, event cards.</p>
+    <p>Per-card author with a Follow button; trust indicator, post-type tag. Quick actions (like, comment, save, share, message). For ISO cards, an additional <strong>"I have this"</strong> CTA opens a DM to the poster. Comments expand inline within the feed. Pull-to-refresh; infinite scroll.</p>
+
+    <div class="callout new"><div class="callout-icon">✨</div><div><strong>New — ISO feed card:</strong> Displays item name, budget, condition, optional reference images, and "I have this" button. Like, comment, bookmark, and share actions are on the left — consistent with all other card types. The "I have this" button sits on the right as the primary CTA.</div></div>
+
+    <div class="callout new"><div class="callout-icon">✨</div><div><strong>New — @mention navigation:</strong> @handles in comment bodies are rendered as tappable links. Tapping an @mention navigates to that user's profile. This applies to all post types and their comment threads.</div></div>
+
+    <h3 class="sec">Action alignment rule</h3>
+    <p>All post card action rows (like, comment, bookmark, share) are left-aligned across every post type — Showcase, Discussion, Review, and ISO. Secondary CTAs (e.g. "I have this" on ISO) are right-aligned in the same row. This is a hard UI rule; no card type may deviate.</p>
+
+    <h3 class="sec">Phase</h3>
+    <p>P1: interest + behaviour ranking, sort/filter, in-feed follow, inline comments, hide-listings filter, ISO feed cards, @mention navigation. P2: ML ranking, trending, digests.</p>
+
+    <!-- 9.6 -->
+    <h2 class="sec" id="s9-6">9.6 Post Composer <span class="badge changed">Updated</span></h2>
+    <p><strong>Purpose.</strong> Let users contribute social content quickly. (Selling is NOT here — it is an action on a collection item, §9.5.)</p>
+
+    <div class="callout changed"><div class="callout-icon">✏️</div><div><strong>Change from v1.2:</strong> ISO added as a post type in the composer's post-type selector. The ISO compose surface adds specific fields: item name/description, budget (optional), condition preference (optional), and reference image upload (gallery or camera, no in-app-live-capture requirement).</div></div>
+
+    <h3 class="sec">Key components &amp; features</h3>
+    <p>Post-type selector is the first action when the user taps 'New post': <strong>Showcase / Discussion (Question) / Review / ISO / Poll</strong>. Single compose surface — text with optional image(s). ISO-specific fields: item being hunted, budget, preferred condition. Poll option: question + multiple answer choices. Optional 'reference an item/listing' picker. Interest/category tags; optional community selector. Image picker/camera with crop.</p>
+
+    <h3 class="sec">States &amp; edge cases</h3>
+    <p>ISO post with no item name → block publish. Oversized/invalid image → client-side check. Poll with fewer than two choices → block publish. Deleting a post does not delete the referenced item/listing. Draft loss on exit → confirm prompt.</p>
+
+    <h3 class="sec">Phase</h3>
+    <p>P1: post-type-first composer (Showcase / Discussion / Review / ISO / Poll) + optional reference images + item reference. P2: carousels, video, drafts/scheduling, ratings.</p>
+
+    <!-- 9.8 -->
+    <h2 class="sec" id="s9-8">9.8 Marketplace (Browse) <span class="badge changed">Updated</span></h2>
+    <p><strong>Purpose.</strong> A trusted place to discover items for sale or trade, tuned to the user's interests.</p>
+
+    <div class="callout removed"><div class="callout-icon">🗑️</div><div><strong>Removed from v1.2:</strong> The ISO Board tab has been removed from the Marketplace screen. ISO posts are not a marketplace construct — they are social content expressing demand, not supply. Surfacing them in a supply-side marketplace created a category mismatch and a confusing IA. ISO posts live in the Feed only (§9.3, §8.5 PO-02b). See §19.1 for full reasoning.</div></div>
+
+    <h3 class="sec">Key components &amp; features</h3>
+    <p>Listing grid/list (Listings created from collection items, §9.5). Search bar; filters: category, price range, condition, location, trade-only. Sort: newest, price, relevance. Listing cards: image, title, price, condition, seller trust signal. Saved searches / watchlist; wishlist-match entry point.</p>
+
+    <h3 class="sec">Primary user actions</h3>
+    <p>Search, filter, sort. Open listing detail. Save/watch a listing or save a search. Jump to seller profile.</p>
+
+    <h3 class="sec">States &amp; edge cases</h3>
+    <p>No results → suggest broader filters. Sold/closed listing → hidden/labelled. Location not set → prompt or default region.</p>
+
+    <h3 class="sec">Phase</h3>
+    <p>P1: browse, search, filter, save + wishlist match. P2: offers/bidding, condition standards, in-app checkout.</p>
+
+    <!-- 9.9 -->
+    <h2 class="sec" id="s9-9">9.9 Listing Detail <span class="badge changed">Updated</span></h2>
+    <p><strong>Purpose.</strong> Give buyers everything needed to assess the item and the seller, then start a conversation.</p>
+
+    <div class="callout changed"><div class="callout-icon">✏️</div><div><strong>Change from v1.2:</strong> A public <strong>Listing Q&amp;A block</strong> has been added to the listing detail page (LD-10, new). This replaces the opt-in public DM thread feature that was in v1.2 §9.10. See §19.4 for the full rationale.</div></div>
+
+    <h3 class="sec">Key components &amp; features</h3>
+    <p>Image gallery (verified ownership photos); item info (title, category, qty); verification-tier badge. Condition from a predefined list (Mint, Back in box, Loose, Minor defects). Price and trade-willingness. Optional purchase date and purchase price fields. Seller's Terms tab. Seller card: trust signals — completed deals, rating, response time, account age (§8.2). Anonymous price-feedback mechanism. 'Message seller' and 'Propose trade' actions with safe-trade disclaimer. Status badge: Available / Reserved / Sold. Save/watch; report listing.</p>
+
+    <div class="callout new" style="margin-top:16px"><div class="callout-icon">✨</div><div><strong>New — Listing Q&amp;A block (LD-10):</strong> A dedicated public Q&amp;A section sits on the listing detail page, above the seller card. Any logged-in user can post a question; only the seller can post answers, clearly labelled as "Seller · verified answer". Questions and answers are visible to all viewers. A disclaimer ("Questions are public — don't share personal info here") is shown above the input. Users can view all questions with a Show more / Show less toggle.</div></div>
+
+    <div class="req-list" style="margin-top:20px">
+      <div class="req-row is-new">
+        <div class="req-id">LD-10</div>
+        <div class="req-text"><strong>New.</strong> Listing detail includes a public Q&amp;A block. Any viewer can submit a question (text only, no images). Only the seller can respond; their answer is labelled and visually distinct. Questions and answers are always public — no privacy option. The Q&amp;A block is separate from DMs; personal or negotiation details should be handled in DMs. Reporting applies to individual Q&amp;A entries.</div>
+        <div class="req-pri"><span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid #fca5a5">M</span></div>
+      </div>
+      <div class="req-row is-new">
+        <div class="req-id">LD-11</div>
+        <div class="req-text"><strong>New.</strong> The Q&amp;A block is shown on all listings except those owned by the viewing user (own-listing view shows manage controls, not the Q&amp;A ask input). The seller sees the aggregated Q&amp;A alongside their existing anonymous price-feedback view.</div>
+        <div class="req-pri"><span class="badge" style="background:var(--blue-soft);color:var(--blue);border:1px solid #bfdbfe">S</span></div>
+      </div>
+    </div>
+
+    <h3 class="sec">Phase</h3>
+    <p>P1: full detail + condition list + seller terms + anonymous price feedback + safe-trade disclaimer + DM to transact + public Listing Q&amp;A block. P2: in-app payment/escrow, offers, shipping.</p>
+
+    <!-- 9.10 -->
+    <h2 class="sec" id="s9-10">9.10 Direct Messages (Inbox &amp; Thread) <span class="badge changed">Updated</span></h2>
+    <p><strong>Purpose.</strong> Enable the conversations that close buys, sells, and trades — and record the outcome. DMs are always private.</p>
+
+    <div class="callout removed"><div class="callout-icon">🗑️</div><div><strong>Removed from v1.2:</strong> The "Make thread public" opt-in toggle has been removed from DM threads. DMs are private by default and will always remain so. The feature created unresolved UX, privacy, and consent problems — see §19.4 for full reasoning. Public Q&amp;A on listings is now handled by the Listing Q&amp;A block (§9.9, LD-10).</div></div>
+
+    <div class="callout changed"><div class="callout-icon">✏️</div><div><strong>Change from v1.2:</strong> The + (attachment) button is now fully functional, opening a bottom sheet with three options: Photo, Share listing, and Make offer. See DM-03 for the full spec.</div></div>
+
+    <h3 class="sec">Key components &amp; features</h3>
+    <p>Inbox: conversation list with unread badges, last-message preview. Thread: text + image messages, listing context header when started from a listing. Attachment sheet (tap +): Photo / Share listing / Make offer. Deal controls in-thread: 'Mark sold/traded to @user' → counterpart confirms → Deal recorded, rating/vouch prompt. Block &amp; report from thread.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Attachment option</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td><strong>📷 Photo</strong></td><td>Opens camera or gallery; selected image is sent as a message bubble.</td></tr>
+          <tr><td><strong>📦 Share listing</strong></td><td>Attaches the listing from the current thread's context into the message. No-op if the thread has no listing context (toast shown).</td></tr>
+          <tr><td><strong>💰 Make offer</strong></td><td>Opens an offer sheet with the listing price pre-populated (editable). Submitting sends a structured offer message: "Offer: ₹X for [item name]".</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sec">Primary user actions</h3>
+    <p>Start a DM from listing/profile. Send text/images; use attachment sheet for photo, listing, or offer. Mark sold / confirm deal; leave rating &amp; trade vouch. Block/report.</p>
+
+    <h3 class="sec">States &amp; edge cases</h3>
+    <p>First message from stranger → safety guidance. Deal confirmation declined/ignored → listing stays open. Image-only message; failed send/retry. Blocked user → no delivery. Make offer with no amount entered → disabled send. Share listing with no listing context → toast notification, no action.</p>
+
+    <h3 class="sec">Phase</h3>
+    <p>P1: 1:1 DM + functional attachment sheet (photo/listing/offer) + Deal completion. P2: group DM, message requests, structured trade proposals.</p>
+
+    <!-- 9.11–9.14 unchanged -->
+    <h2 class="sec">9.11–9.14 (Unchanged)</h2>
+    <p><em>Profile (9.11), Communities (9.12), Events (9.13), and Notifications Centre (9.14) are unchanged from v1.2.</em></p>
+
+    <!-- 9.15 -->
+    <h2 class="sec" id="s9-15">9.15 Search (Global) <span class="badge changed">Updated</span></h2>
+    <p><strong>Purpose.</strong> Help users find items, people, communities, events, and ISO requests fast.</p>
+
+    <div class="callout changed"><div class="callout-icon">✏️</div><div><strong>Change from v1.2:</strong> ISO posts are now included in the search pool. The search engine matches against the <code>isoItem</code> field (item being sought) in addition to post body, username, and community. Search result snippets for ISO posts display the item name rather than the post body. Saved searches can be used to monitor for new ISO posts matching a keyword.</div></div>
+
+    <h3 class="sec">Key components &amp; features</h3>
+    <p>Unified search across catalogue items, listings, profiles, communities, events, and <strong>posts (including ISO posts)</strong>. Recent &amp; suggested searches; filter by type. Result tabs by entity type; 'add to collection' from a catalogue result. ISO post results show item name + budget in the snippet.</p>
+
+    <h3 class="sec">Primary user actions</h3>
+    <p>Search and filter by type. Open any result; add a catalogue item to collection. Save a search (marketplace/wishlist/ISO monitoring).</p>
+
+    <h3 class="sec">States &amp; edge cases</h3>
+    <p>No results → suggestions / submit-to-catalogue. Ambiguous query → tabbed results. ISO-specific result tab may be filtered independently of other post types.</p>
+
+    <h3 class="sec">Phase</h3>
+    <p>P1: keyword search across entities incl. catalogue and ISO posts; snippet shows isoItem for ISO results. P2: barcode/image recognition, semantic search.</p>
+
+    <h2 class="sec">9.16 Admin Console (Unchanged)</h2>
+    <p><em>Unchanged from v1.2.</em></p>
+  </div>
+
+  <hr>
+
+  <!-- §10–18 unchanged -->
+  <div class="section" id="s10">
+    <div class="section-num">Sections 10–18</div>
+    <h1 class="sec">Return Loop, Seeding, NFRs, Trust, KPIs, Risks, Roadmap &amp; Glossary</h1>
+    <p><em>Sections 10 through 18 are unchanged from v1.2 except for the glossary additions below. They cover: The Return Loop (§10), Content &amp; Community Seeding Strategy (§11), Non-Functional Requirements (§12), Trust &amp; Safety (§13), Success Metrics &amp; KPIs (§14), Risks, Assumptions &amp; Mitigations (§15), Roadmap &amp; Next Steps (§16), Appendix — Glossary (§17), and Reasoning for v1.1 Changes (§18).</em></p>
+
+    <h2 class="sec">17. Appendix — Glossary (Additions in v1.3)</h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Term</th><th>Definition</th><th></th></tr></thead>
+        <tbody>
+          <tr class="is-new"><td><strong>ISO post</strong></td><td>An "In Search Of" post — a feed post type where a user publicly states they are hunting a specific item, with optional budget, condition preference, and reference images. Viewers who have the item can tap "I have this" to DM the poster.</td><td><span class="badge new">New</span></td></tr>
+          <tr class="is-new"><td><strong>Listing Q&amp;A</strong></td><td>A public question-and-answer block on a Listing Detail page. Any viewer can ask a question; only the seller may respond. Always public; distinct from DMs.</td><td><span class="badge new">New</span></td></tr>
+          <tr class="is-new"><td><strong>Attachment sheet</strong></td><td>A bottom sheet in the DM thread triggered by the + button, offering Photo, Share listing, and Make offer as quick-send options.</td><td><span class="badge new">New</span></td></tr>
+          <tr class="is-new"><td><strong>@mention navigation</strong></td><td>When a @handle appears in a comment or post body, it is rendered as a tappable link that navigates to that user's profile.</td><td><span class="badge new">New</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- §19 — New reasoning section -->
+  <div class="section" id="s19">
+    <div class="section-num">Section 19 — New in v1.3</div>
+    <h1 class="sec">Reasoning for v1.3 Changes</h1>
+    <p>This section documents why v1.3 departs from v1.2. Each change is stated as <strong>Problem → Change → Why</strong>, following the pattern established in §18.</p>
+
+    <h2 class="sec">19.1 ISO moved from Marketplace board to Feed post type</h2>
+    <p><strong>Problem.</strong> v1.2 added an "ISO Board" tab inside the Marketplace screen. ISO posts are an expression of demand (I am looking for X), not a supply listing (I am selling X). Placing demand-side content inside a supply-side screen (the Marketplace) created a category mismatch, confused the information architecture, and split ISO post visibility away from the main feed where most engagement happens.</p>
+    <p><strong>Change.</strong> ISO is now a post type in the composer (alongside Showcase / Discussion / Review / Poll) and surfaces as a card type in the master feed. The Marketplace ISO Board tab has been removed entirely. See §8.5, §9.3, §9.6, §9.8.</p>
+    <p><strong>Why.</strong> Feed placement gives ISO posts the same organic reach as any other post type — followers see them, they appear in filtered views, and they are discoverable via search. The "I have this" CTA on ISO cards directly routes supply (a holder) to demand (the poster) via DM, which is the correct transaction path. Keeping it in the feed avoids a second IA destination for what is fundamentally social content expressing intent.</p>
+
+    <h2 class="sec">19.2 DM attachment sheet made functional</h2>
+    <p><strong>Problem.</strong> The + (attach) button in DM threads existed in the design but showed only a toast with no action. This was a gap between the specified capability (DM-03: attach items as trade offers) and the built state.</p>
+    <p><strong>Change.</strong> The + button now opens a bottom sheet with three concrete options: Photo, Share listing, and Make offer. See §8.7 DM-03 and §9.10.</p>
+    <p><strong>Why.</strong> The Make offer flow — with the listing price pre-filled and editable — is a direct enabler of the DM-to-Deal conversion funnel (§14). Photo and Share listing cover the two most common supplementary needs in a buy/sell negotiation. Defining these as discrete options (rather than a freeform attachment picker) keeps the action surface simple and intent-clear.</p>
+
+    <h2 class="sec">19.3 @mention navigation in comments</h2>
+    <p><strong>Problem.</strong> @handles in comment bodies were rendered as styled text but were not interactive. Users expected tapping a mention to navigate to that profile — a near-universal convention — and the missing behaviour was a noticeable friction point.</p>
+    <p><strong>Change.</strong> @mentions in all comment bodies are now tappable and navigate to the mentioned user's profile. See §9.3.</p>
+    <p><strong>Why.</strong> This is table-stakes social UX. It also increases profile discovery and follow rates, feeding the follow graph that drives feed personalisation (§8.4 FE-02).</p>
+
+    <h2 class="sec">19.4 Opt-in public DM threads removed; replaced by Listing Q&amp;A</h2>
+    <p><strong>Problem.</strong> v1.2 §9.10 specified that both parties in a DM thread could opt in to make the conversation public on the listing post. This feature had four unresolved problems:</p>
+    <ol style="margin: 12px 0 12px 24px; font-size: 14px; color: var(--ink-soft); line-height: 1.75;">
+      <li><strong>No defined display surface.</strong> Where would the public thread appear? The listing page? A community feed? The screen spec did not resolve this, making implementation undefined.</li>
+      <li><strong>Unilateral consent risk.</strong> The toggle was surfaced only on the buyer's side. The seller had no prior opt-in; only the mutual-opt-in state was safe, but the UX made the first opt-in feel like it worked immediately — a potential privacy leak.</li>
+      <li><strong>Content contamination.</strong> A DM thread initiated for price negotiation might contain personal details, lowball offers, or location information that should not become public. The only safeguard was user discipline, which is not a safeguard.</li>
+      <li><strong>Storage and moderation complexity.</strong> Public threads derived from private DMs require a separate public content store, moderation hooks, and a display surface — a non-trivial scope addition relative to the value delivered.</li>
+    </ol>
+    <p><strong>Change.</strong> The "Make thread public" toggle is removed from DM threads entirely. DMs are always private. A new <strong>Listing Q&amp;A block</strong> (§9.9, LD-10) is added to the Listing Detail page: any viewer can ask a question; only the seller can answer; all content is always public. See §9.9 and §9.10.</p>
+    <p><strong>Why.</strong> The Listing Q&amp;A block delivers the legitimate value of public DMs (other buyers see common questions answered, reducing repeat DMs to the seller) without the privacy, consent, and implementation problems. It is structured from the start as public content — there is no leakage from private to public because the channel is separate and opt-in is not required (questions are always public by design, which users understand before typing).</p>
+
+    <h2 class="sec">19.5 UI alignment rules codified</h2>
+    <p><strong>Problem.</strong> During build review, several screens showed text wrapping or overflow when user names, tier badges, follower counts, or timestamps appeared together in constrained flex rows — causing misalignment (e.g. a name badge pushing onto a second line).</p>
+    <p><strong>Change.</strong> A set of layout rules is now codified for all name/badge/count/timestamp rows throughout the app: (a) name spans get <code>whiteSpace: nowrap; overflow: hidden; textOverflow: ellipsis; minWidth: 0; flexShrink: 1</code>; (b) tier chips and timestamps get <code>flexShrink: 0; whiteSpace: nowrap</code>; (c) the containing flex row gets <code>overflow: hidden</code>. These rules apply in AuthorLine, CommentRow, ChatInboxRow, ListingSellerCard, and any future name-badge-time pattern.</p>
+    <p><strong>Why.</strong> Overflow and wrapping bugs appear only at edge cases (long names, many badges, small viewports) and are easy to miss during primary-path testing. Codifying the pattern as a rule — rather than fixing each instance individually — prevents recurrence as new screens are built.</p>
+
+    <div class="summary-box" style="margin-top:32px">
+      <h3>v1.3 Change Summary</h3>
+      <ul>
+        <li>ISO is a feed post type (Showcase / Discussion / Review / <strong>ISO</strong> / Poll) — not a Marketplace board.</li>
+        <li>ISO posts support reference images; surface in feed, search, and via "I have this" DM CTA.</li>
+        <li>Marketplace ISO Board tab removed.</li>
+        <li>DM + attachment sheet specified: Photo / Share listing / Make offer.</li>
+        <li>"Make thread public" DM toggle removed; DMs are always private.</li>
+        <li>Listing Q&amp;A block added to Listing Detail (LD-10, LD-11): public, seller-answered, separate from DMs.</li>
+        <li>@mentions in comments are tappable → navigate to profile.</li>
+        <li>Search covers ISO posts; snippets show <code>isoItem</code> field.</li>
+        <li>UI alignment rules codified for all name/badge/timestamp rows.</li>
+        <li>Glossary updated: ISO post, Listing Q&amp;A, Attachment sheet, @mention navigation.</li>
+      </ul>
+    </div>
+  </div>
+
+</div><!-- /doc-wrap -->
+</body>
+</html>

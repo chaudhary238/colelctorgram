@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Eye, EyeOff, Lock } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, clearTokens } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { AvatarUploader } from "@/components/ImageUploader";
 import { Avatar } from "@/components/ui";
@@ -58,7 +58,6 @@ export default function SettingsPage() {
   // Profile fields
   const [name, setName] = useState(user?.name ?? "");
   const [bio, setBio] = useState(user?.bio ?? "");
-  const [city, setCity] = useState(user?.city ?? "");
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url ?? "");
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState("");
@@ -85,7 +84,6 @@ export default function SettingsPage() {
     if (user) {
       setName(user.name ?? "");
       setBio(user.bio ?? "");
-      setCity(user.city ?? "");
       setAvatarUrl(user.avatar_url ?? "");
     }
   }, [user]);
@@ -97,7 +95,6 @@ export default function SettingsPage() {
       const updated = await api.patch<typeof user>("/users/me", {
         name: name || undefined,
         bio: bio || undefined,
-        city: city || undefined,
         avatar_url: avatarUrl || undefined,
       });
       if (updated && setUser) setUser(updated as Parameters<typeof setUser>[0]);
@@ -189,10 +186,7 @@ export default function SettingsPage() {
             style={{ ...inputStyle, height: "auto", padding: "10px 13px", resize: "none" }}
           />
         </div>
-        <div>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--ink-mute)", marginBottom: 6 }}>City</label>
-          <input style={inputStyle} value={city} onChange={(e) => setCity(e.target.value)} placeholder="Mumbai" />
-        </div>
+        {/* City field removed (DF-05) — location collected separately later */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 4 }}>
           <button
             onClick={saveProfile}
@@ -303,9 +297,11 @@ export default function SettingsPage() {
       <SettingRow label="Sign out">
         <button
           onClick={() => {
-            document.cookie = "ch_refresh_token=; Max-Age=0; path=/";
-            localStorage.removeItem("ch_access");
-            router.push("/auth/signin");
+            // clearTokens removes BOTH localStorage tokens + the cookie (the old inline
+            // version removed a wrong key, leaving the refresh token able to resurrect
+            // the session). Full page load wipes the AuthProvider user from context.
+            clearTokens();
+            window.location.assign("/auth/signin");
           }}
           style={{ height: 34, padding: "0 16px", borderRadius: 9, border: "1px solid var(--border-strong)", background: "transparent", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
         >

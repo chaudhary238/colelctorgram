@@ -1,0 +1,37 @@
+<!-- @dsCard group="Colors" -->
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 28px 32px; background: var(--paper);
+         font-family: var(--font-body); color: var(--ink); }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .sw { background: var(--swatch); border: 1px solid var(--border);
+        border-radius: var(--r-md); padding: 14px 14px 12px; height: 110px;
+        display: flex; flex-direction: column; justify-content: space-between;
+        color: var(--swatch-fg); }
+  .name { font-family: var(--font-display); font-weight: 700; font-size: 16px;
+          letter-spacing: -0.01em; }
+  .hex  { font-family: var(--font-mono); font-size: 11px; opacity: 0.7;
+          letter-spacing: 0.04em; }
+  .tok  { font-family: var(--font-mono); font-size: 10px; opacity: 0.55;
+          letter-spacing: 0.04em; }
+</style></head>
+<body>
+  <div class="grid">
+    <div class="sw" style="--swatch:#14110F;--swatch-fg:#F4EFE6">
+      <div><div class="name">Ink</div><div class="tok">--ink</div></div>
+      <div class="hex">#14110F</div></div>
+    <div class="sw" style="--swatch:#2A2521;--swatch-fg:#F4EFE6">
+      <div><div class="name">Ink Soft</div><div class="tok">--ink-soft</div></div>
+      <div class="hex">#2A2521</div></div>
+    <div class="sw" style="--swatch:#5C5650;--swatch-fg:#F4EFE6">
+      <div><div class="name">Ink Mute</div><div class="tok">--ink-mute</div></div>
+      <div class="hex">#5C5650</div></div>
+    <div class="sw" style="--swatch:#8B847B;--swatch-fg:#F4EFE6">
+      <div><div class="name">Ink Faint</div><div class="tok">--ink-faint</div></div>
+      <div class="hex">#8B847B</div></div>
+    <div class="sw" style="--swatch:#B8AFA3;--swatch-fg:#14110F">
+      <div><div class="name">Ink Ghost</div><div class="tok">--ink-ghost</div></div>
+      <div class="hex">#B8AFA3</div></div>
+  </div>
+</body></html>

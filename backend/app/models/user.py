@@ -5,6 +5,7 @@ from sqlalchemy import (
     UUID, Boolean, DateTime, Integer, Numeric, String, Text,
     UniqueConstraint, Index, ARRAY,
 )
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY as PG_ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -24,8 +25,13 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
-    city: Mapped[str | None] = mapped_column(Text, nullable=True)
-    interests: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    city: Mapped[str | None] = mapped_column(Text, nullable=True)  # kept; field hidden in UI (DF-05 — location collected separately later)
+    gender: Mapped[str | None] = mapped_column(String(8), nullable=True)  # 'f' | 'm' (DF-01)
+    birth_year: Mapped[int | None] = mapped_column(Integer, nullable=True)  # from onboarding age slider (DF-05)
+    # pg ARRAY (not generic sa.ARRAY) so .overlap() works in /users/me/suggested
+    interests: Mapped[list[str]] = mapped_column(PG_ARRAY(Text), default=list)
+    # Feed customisation (DF-08): {"categories": [...], "hide_listings": bool}
+    feed_prefs: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     tier: Mapped[str] = mapped_column(String(32), default="verified")
 
@@ -51,6 +57,9 @@ class User(Base):
 
     # Auth
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Email OTP confirmation (DF-06 / B-72) — sha256 of the 6-digit code
+    email_otp_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    email_otp_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     last_active_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

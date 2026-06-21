@@ -106,6 +106,7 @@ export interface ApiCommunity {
   rules: string[];
   is_invite_only: boolean;
   is_member: boolean;
+  status?: string; // pending | approved | rejected (founder sees own pending)
   created_at: string;
 }
 
@@ -496,9 +497,13 @@ export function ListingFeedCard({ listing }: { listing: ApiListing }) {
   return (
     <div style={{ background: "var(--paper)", borderBottom: "8px solid var(--bone)", padding: "14px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-        <Avatar name={listing.name ?? "?"} size={34} />
+        <Link href={`/profile/${listing.handle ?? "unknown"}`} className="shrink-0">
+          <Avatar name={listing.name ?? "?"} size={34} />
+        </Link>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>@{listing.handle} listed an item</div>
+          <Link href={`/profile/${listing.handle ?? "unknown"}`} style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }} className="hover:underline">
+            @{listing.handle} listed an item
+          </Link>
           <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>
             {listing.ships_from_city} · {timeAgo(listing.created_at)}
           </div>
@@ -737,6 +742,15 @@ export function CommunityCard({ community }: { community: ApiCommunity }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontWeight: 600, fontSize: 14.5, color: "var(--ink)" }}>{community.name}</span>
+            {community.status === "pending" && (
+              <span style={{
+                fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em",
+                color: "var(--grail-gold-deep)", background: "var(--grail-gold-soft)",
+                padding: "2px 6px", borderRadius: 999, fontFamily: "var(--font-body)",
+              }}>
+                Under review
+              </span>
+            )}
           </div>
           <div style={{ fontSize: 12.5, color: "var(--ink-mute)", margin: "2px 0 4px", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             {community.short_desc ?? community.description}

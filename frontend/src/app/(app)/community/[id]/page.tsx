@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Share2, Shield, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Share2, Shield, CheckCircle2, Settings2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiPost } from "@/components/cards";
 import { Avatar, Segmented, SectionLabel, EmptyNote } from "@/components/ui";
@@ -31,6 +31,7 @@ interface CommunityDetail {
   is_invite_only: boolean;
   is_member: boolean;
   member_role: string | null;
+  join_state: string; // member | requested | none
   admins: CommunityAdmin[];
 }
 
@@ -39,24 +40,36 @@ export default function CommunityDetailPage() {
   const [community, setCommunity] = useState<CommunityDetail | null>(null);
   const [posts, setPosts] = useState<ApiPost[]>([]);
   const [tab, setTab] = useState<"posts" | "about">("posts");
-  const [joined, setJoined] = useState(false);
+  const [joinState, setJoinState] = useState<string>("none"); // member | requested | none
+  const joined = joinState === "member";
   const [joinBusy, setJoinBusy] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [shared, setShared] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function toggleJoin() {
-    if (!community || joinBusy) return;
-    const next = !joined;
-    setJoined(next);             // optimistic
+    if (!community || joinBusy || joinState === "requested") return;
     setJoinBusy(true);
-    setCommunity((c) => c ? { ...c, member_count: c.member_count + (next ? 1 : -1) } : c);
+    if (joined) {
+      // leave
+      setJoinState("none");
+      setCommunity((c) => c ? { ...c, member_count: Math.max(0, c.member_count - 1) } : c);
+      try {
+        await api.delete(`/communities/${community.id}/join`);
+      } catch {
+        setJoinState("member");
+        setCommunity((c) => c ? { ...c, member_count: c.member_count + 1 } : c);
+      } finally {
+        setJoinBusy(false);
+      }
+      return;
+    }
+    // join (or request, for invite-only)
     try {
-      if (next) await api.post(`/communities/${community.id}/join`);
-      else await api.delete(`/communities/${community.id}/join`);
-    } catch {
-      setJoined(!next);          // revert
-      setCommunity((c) => c ? { ...c, member_count: c.member_count + (next ? -1 : 1) } : c);
+      const res = await api.post<{ join_state?: string }>(`/communities/${community.id}/join`);
+      const next = res?.join_state ?? (community.is_invite_only ? "requested" : "member");
+      setJoinState(next);
+      if (next === "member") setCommunity((c) => c ? { ...c, member_count: c.member_count + 1 } : c);
     } finally {
       setJoinBusy(false);
     }
@@ -77,7 +90,7 @@ export default function CommunityDetailPage() {
     ])
       .then(([c, p]) => {
         setCommunity(c);
-        setJoined(c.is_member);
+        setJoinState(c.join_state ?? (c.is_member ? "member" : "none"));
         setAccepted(c.is_member);
         setPosts(p ?? []);
       })
@@ -108,6 +121,11 @@ export default function CommunityDetailPage() {
             <ArrowLeft size={18} />
           </Link>
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Community</span>
+          {(community.member_role === "founder" || community.member_role === "mod") && (
+            <Link href={`/community/${id}/manage`} title="Manage" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)" }}>
+              <Settings2 size={17} />
+            </Link>
+          )}
           <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: shared ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
             <Share2 size={17} />
           </button>
@@ -129,8 +147,8 @@ export default function CommunityDetailPage() {
             {community.tag ?? "🏷"}
           </div>
           <div style={{ flex: 1, paddingBottom: 4, display: "flex", justifyContent: "flex-end" }}>
-            <button onClick={toggleJoin} disabled={joinBusy} style={{ height: 36, padding: "0 18px", borderRadius: 10, border: `1px solid ${joined ? "var(--border-strong)" : "var(--ink)"}`, background: joined ? "var(--bone)" : "var(--ink)", color: joined ? "var(--ink)" : "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13, cursor: joinBusy ? "default" : "pointer" }}>
-              {joined ? "Joined" : "Join"}
+            <button onClick={toggleJoin} disabled={joinBusy || joinState === "requested"} style={{ height: 36, padding: "0 18px", borderRadius: 10, border: `1px solid ${joined || joinState === "requested" ? "var(--border-strong)" : "var(--ink)"}`, background: joined || joinState === "requested" ? "var(--bone)" : "var(--ink)", color: joined || joinState === "requested" ? "var(--ink)" : "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13, cursor: joinBusy || joinState === "requested" ? "default" : "pointer" }}>
+              {joined ? "Joined" : joinState === "requested" ? "Requested" : community.is_invite_only ? "Request to join" : "Join"}
             </button>
           </div>
         </div>

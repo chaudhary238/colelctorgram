@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { api, storeTokens } from "@/lib/api";
 
 export default function SignUpPage() {
-  const router = useRouter();
   const [form, setForm] = useState({ handle: "", name: "", email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,12 +19,18 @@ export default function SignUpPage() {
     setError("");
     setLoading(true);
     try {
-      const { access_token, refresh_token } = await api.post<{
+      const { access_token, refresh_token, debug_otp } = await api.post<{
         access_token: string;
         refresh_token: string;
+        debug_otp?: string | null;
       }>("/auth/signup", form);
       storeTokens(access_token, refresh_token);
-      router.push("/onboarding");
+      // DF-06 — confirm email via OTP before onboarding.
+      // Full page load (not router.push): AuthProvider must refetch /users/me with the
+      // NEW token, otherwise the previous account's user object stays in context.
+      // dev_otp: backend echoes the code in local debug only (no email domain yet).
+      const devOtp = debug_otp ? `&dev_otp=${debug_otp}` : "";
+      window.location.assign(`/auth/verify?email=${encodeURIComponent(form.email)}${devOtp}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Sign up failed");
     } finally {

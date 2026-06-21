@@ -34,6 +34,20 @@ class Settings(BaseSettings):
     r2_bucket: str = "collectohub-media"
     r2_public_url: str = "https://cdn.collectohub.com"
 
+    # Local media fallback (used when R2 is not configured, e.g. local dev).
+    # Absolute base URL the browser can reach this backend at, for upload + serving.
+    media_local_base_url: str = "http://localhost:8000"
+
+    @property
+    def r2_configured(self) -> bool:
+        return bool(self.r2_account_id and self.r2_access_key_id and self.r2_secret_access_key)
+
+    # Email (Resend — B-71). Unset key = emails are logged, not sent (local dev).
+    resend_api_key: str = ""
+    # Until a domain is verified in Resend, only `onboarding@resend.dev` works as
+    # sender and it only delivers to the Resend account owner's email.
+    email_from: str = "CollectorHub <onboarding@resend.dev>"
+
     # Expo Push
     expo_push_url: str = "https://exp.host/--/api/v2/push/send"
 

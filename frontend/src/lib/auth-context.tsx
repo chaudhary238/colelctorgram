@@ -22,6 +22,10 @@ export interface AuthUser {
   email?: string | null;
   privacy_portfolio?: string | null;
   privacy_value?: string | null;
+  gender?: string | null; // 'f' | 'm'
+  birth_year?: number | null;
+  feed_prefs?: { categories?: string[]; hide_listings?: boolean } | null;
+  email_verified?: boolean | null;
 }
 
 interface AuthContextValue {

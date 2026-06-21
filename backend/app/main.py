@@ -68,6 +68,14 @@ app.include_router(media.router)
 app.include_router(admin.router)
 app.include_router(moderation_router)
 
+# Serve locally-stored uploads when R2 is not configured (dev fallback).
+if not settings.r2_configured:
+    from fastapi.staticfiles import StaticFiles
+    from app.services.media import MEDIA_LOCAL_DIR
+
+    MEDIA_LOCAL_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/media-files", StaticFiles(directory=MEDIA_LOCAL_DIR), name="media-files")
+
 
 # ── WebSocket ─────────────────────────────────────────────────────
 @app.websocket("/ws")

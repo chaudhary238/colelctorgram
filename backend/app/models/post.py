@@ -5,7 +5,7 @@ from sqlalchemy import (
     UUID, Boolean, DateTime, Integer, SmallInteger, String, Text,
     ForeignKey, Index, ARRAY,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY as PG_ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -28,6 +28,8 @@ class Post(Base):
     ref_listing_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("listings.id"), nullable=True)
     community_id: Mapped[str | None] = mapped_column(Text, ForeignKey("communities.id"), nullable=True)
     category: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # hashtag filter (DF-10), e.g. ["#NewDrops"] — pg ARRAY so .contains() works (GIN-indexed)
+    tags: Mapped[list[str]] = mapped_column(PG_ARRAY(Text), default=list)
 
     likes_count: Mapped[int] = mapped_column(Integer, default=0)
     comments_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -38,6 +40,8 @@ class Post(Base):
 
     is_admin_post: Mapped[bool] = mapped_column(Boolean, default=False)
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    # DF-27 — community post approval: published | pending (awaiting mod review)
+    status: Mapped[str] = mapped_column(String(16), default="published")
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)

@@ -12,6 +12,7 @@ from app.models.post import Post, PostLike, PostSave, Comment
 from app.models.user import User
 from app.models.item import Item
 from app.models.listing import Listing
+from app.models.community import Community, CommunityMember
 from app.services.notifications import notify
 
 router = APIRouter(prefix="/posts", tags=["posts"])
@@ -22,6 +23,7 @@ class CreatePostBody(BaseModel):
     type: str  # showcase | discussion | review
     body: str
     images: list[str] = []
+    tags: list[str] = []  # hashtags, e.g. ["#NewDrops"] (DF-10)
     category: Optional[str] = None
     community_id: Optional[str] = None
     ref_item_id: Optional[uuid.UUID] = None
@@ -40,20 +42,42 @@ async def create_post(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # DF-27 — posts into an approval-mode community await mod review, unless the
+    # author is the founder/mod of that community.
+    post_status = "published"
+    if body.community_id:
+        community = (
+            await db.execute(select(Community).where(Community.id == body.community_id))
+        ).scalar_one_or_none()
+        if community and community.post_mode == "approval":
+            is_mod = (
+                await db.execute(
+                    select(CommunityMember).where(
+                        CommunityMember.community_id == body.community_id,
+                        CommunityMember.user_id == current_user.id,
+                        CommunityMember.role.in_(["founder", "mod"]),
+                    )
+                )
+            ).scalar_one_or_none() is not None
+            if not is_mod:
+                post_status = "pending"
+
     post = Post(
         user_id=current_user.id,
         type=body.type,
         body=body.body,
         images=body.images,
         category=body.category,
+        tags=[t if t.startswith("#") else f"#{t}" for t in body.tags],
         community_id=body.community_id,
         ref_item_id=body.ref_item_id,
         ref_listing_id=body.ref_listing_id,
         review_rating=body.review_rating,
+        status=post_status,
     )
     db.add(post)
     await db.flush()
-    return {"id": str(post.id)}
+    return {"id": str(post.id), "status": post_status}
 
 
 @router.get("/{post_id}")

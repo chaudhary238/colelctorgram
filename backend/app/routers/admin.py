@@ -9,6 +9,7 @@ from app.models.post import Post
 from app.models.catalogue import Catalogue
 from app.models.trust import Report
 from app.models.event import Event
+from app.models.community import Community
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -83,3 +84,56 @@ async def approve_event(
     event = result.scalar_one_or_none()
     if event:
         event.status = "active"
+
+
+@router.get("/communities/pending")
+async def pending_communities(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    result = await db.execute(
+        select(Community, User)
+        .join(User, Community.founder_id == User.id)
+        .where(Community.status == "pending")
+        .order_by(Community.created_at.desc())
+    )
+    return [
+        {
+            "id": c.id,
+            "name": c.name,
+            "category": c.category,
+            "short_desc": c.short_desc,
+            "description": c.description,
+            "rules": c.rules or [],
+            "post_mode": c.post_mode,
+            "is_invite_only": c.is_invite_only,
+            "founder_handle": u.handle,
+            "founder_name": u.name,
+            "created_at": c.created_at.isoformat(),
+        }
+        for c, u in result
+    ]
+
+
+@router.patch("/communities/{community_id}/approve", status_code=204)
+async def approve_community(
+    community_id: str,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    result = await db.execute(select(Community).where(Community.id == community_id))
+    community = result.scalar_one_or_none()
+    if community:
+        community.status = "approved"
+
+
+@router.patch("/communities/{community_id}/reject", status_code=204)
+async def reject_community(
+    community_id: str,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    result = await db.execute(select(Community).where(Community.id == community_id))
+    community = result.scalar_one_or_none()
+    if community:
+        community.status = "rejected"
