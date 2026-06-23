@@ -42,6 +42,31 @@ def check_rate_limit(key: str, kind: str) -> bool:
 _blocks_router = APIRouter(prefix="/blocks")
 
 
+class BlockedUserOut(BaseModel):
+    id: uuid.UUID
+    handle: str
+    name: str
+    avatar_url: Optional[str] = None
+
+
+@_blocks_router.get("", response_model=list[BlockedUserOut])
+async def list_blocked(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Users the caller has blocked — powers the Settings → Blocked users screen (DF-23 / W-48)."""
+    result = await db.execute(
+        select(User)
+        .join(UserBlock, UserBlock.blocked_id == User.id)
+        .where(UserBlock.blocker_id == current_user.id)
+        .order_by(UserBlock.created_at.desc())
+    )
+    return [
+        BlockedUserOut(id=u.id, handle=u.handle, name=u.name, avatar_url=u.avatar_url)
+        for u in result.scalars().all()
+    ]
+
+
 @_blocks_router.post("", status_code=status.HTTP_204_NO_CONTENT)
 async def block_user(
     target_id: uuid.UUID,

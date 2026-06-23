@@ -27,9 +27,13 @@ class Event(Base):
     city: Mapped[str | None] = mapped_column(Text, nullable=True)
     venue: Mapped[str | None] = mapped_column(Text, nullable=True)
     online_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cover_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    bring: Mapped[str | None] = mapped_column(Text, nullable=True)  # "what to bring" note
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    going_count: Mapped[int] = mapped_column(Integer, default=0)
     interested_count: Mapped[int] = mapped_column(Integer, default=0)
-    status: Mapped[str] = mapped_column(String(24), default="active")  # pending_approval | active | cancelled | past
+    status: Mapped[str] = mapped_column(String(24), default="active")  # pending_approval | active | rejected | cancelled | past
     is_admin_created: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
@@ -45,4 +49,5 @@ class EventInterest(Base):
 
     event_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("events.id", ondelete="CASCADE"), primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    status: Mapped[str] = mapped_column(String(16), default="going", nullable=False)  # going | interested
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

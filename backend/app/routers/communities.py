@@ -63,11 +63,36 @@ async def _require_mod(db: AsyncSession, community_id: str, user: User):
 @router.get("")
 async def list_communities(
     category: Optional[str] = None,
+    scope: Optional[str] = None,  # "moderating" → communities the caller founds/mods
     page: int = Query(1, ge=1),
     limit: int = Query(20, le=50),
     db: AsyncSession = Depends(get_db),
     current_user: Optional[User] = Depends(get_optional_user),
 ):
+    if scope == "moderating":
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Login required")
+        # Communities the caller can host an event under (founder/mod), excluding
+        # rejected/archived. Powers the EventCreate "use a community I run" picker.
+        stmt = (
+            select(Community)
+            .join(CommunityMember, CommunityMember.community_id == Community.id)
+            .where(
+                CommunityMember.user_id == current_user.id,
+                CommunityMember.role.in_(("founder", "mod")),
+                Community.status.in_(("approved", "pending")),
+            )
+            .order_by(Community.name)
+            .offset((page - 1) * limit)
+            .limit(limit)
+        )
+        communities = (await db.execute(stmt)).scalars().all()
+        return [
+            {**_community_dict(c, True),
+             "member_role": "founder" if c.founder_id == current_user.id else "mod"}
+            for c in communities
+        ]
+
     stmt = select(Community)
     if category:
         stmt = stmt.where(Community.category == category)

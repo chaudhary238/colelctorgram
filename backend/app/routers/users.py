@@ -46,9 +46,31 @@ class ProfileOut(BaseModel):
     gender: Optional[str] = None
     birth_year: Optional[int] = None
     feed_prefs: Optional[dict] = None
+    notif_prefs: Optional[dict] = None
+    privacy_prefs: Optional[dict] = None
     email_verified: Optional[bool] = None
 
     model_config = {"from_attributes": True}
+
+
+# Defaults for the settings prefs (DF-23) so the client always gets a full object,
+# even for users created before the columns existed (seed rows have NULL).
+DEFAULT_NOTIF_PREFS = {
+    "followers": True, "messages": True, "listing_activity": True,
+    "trade_requests": True, "event_reminders": True, "community_activity": False,
+    "price_drops": True, "new_listings": False,
+}
+DEFAULT_PRIVACY_PREFS = {
+    "messaging": "everyone",   # everyone | followers | none
+    "wishlist": "followers",   # public | followers | private
+    "show_online": True,
+}
+
+
+def _fill_pref_defaults(out: "ProfileOut") -> "ProfileOut":
+    out.notif_prefs = {**DEFAULT_NOTIF_PREFS, **(out.notif_prefs or {})}
+    out.privacy_prefs = {**DEFAULT_PRIVACY_PREFS, **(out.privacy_prefs or {})}
+    return out
 
 
 class EditProfileBody(BaseModel):
@@ -59,9 +81,11 @@ class EditProfileBody(BaseModel):
     interests: Optional[list[str]] = None
     privacy_portfolio: Optional[str] = None
     privacy_value: Optional[str] = None
-    gender: Optional[str] = None        # 'f' | 'm' (DF-01)
+    gender: Optional[str] = None        # 'f' | 'm' | 'x' (DF-01 / DF-22)
     birth_year: Optional[int] = None    # DF-05
     feed_prefs: Optional[dict] = None   # {"categories": [...], "hide_listings": bool} (DF-08)
+    notif_prefs: Optional[dict] = None  # per-type notification toggles (DF-23)
+    privacy_prefs: Optional[dict] = None  # messaging / wishlist visibility / show-online (DF-23)
 
 
 class SuggestedUserOut(BaseModel):
@@ -77,7 +101,7 @@ class SuggestedUserOut(BaseModel):
 
 @router.get("/me", response_model=ProfileOut)
 async def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+    return _fill_pref_defaults(ProfileOut.model_validate(current_user))
 
 
 @router.get("/me/suggested", response_model=list[SuggestedUserOut])
@@ -191,7 +215,8 @@ async def edit_me(
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(current_user, field, value)
     db.add(current_user)
-    return current_user
+    await db.flush()
+    return _fill_pref_defaults(ProfileOut.model_validate(current_user))
 
 
 @router.get("/{handle}", response_model=ProfileOut)
@@ -207,7 +232,9 @@ async def get_profile(
 
     out = ProfileOut.model_validate(user)
     is_self = bool(viewer and viewer.id == user.id)
-    if not is_self:
+    if is_self:
+        _fill_pref_defaults(out)
+    else:
         # private fields are only for the owner (see /users/me)
         out.email = None
         out.privacy_portfolio = None
@@ -215,6 +242,8 @@ async def get_profile(
         out.gender = None
         out.birth_year = None
         out.feed_prefs = None
+        out.notif_prefs = None
+        out.privacy_prefs = None
         out.email_verified = None
         if viewer:
             follow = await db.execute(
@@ -362,6 +391,7 @@ async def get_user_posts(
 async def get_collection(
     handle: str,
     db: AsyncSession = Depends(get_db),
+    viewer: Optional[User] = Depends(get_optional_user),
     status: Optional[str] = None,
     page: int = Query(1, ge=1),
     limit: int = Query(24, le=60),
@@ -377,6 +407,30 @@ async def get_collection(
     stmt = stmt.order_by(Item.created_at.desc()).offset((page - 1) * limit).limit(limit)
     result = await db.execute(stmt)
     items = result.scalars().all()
+
+    # When a logged-in viewer looks at someone else's collection, flag which items
+    # they've already wishlisted (powers the ProfileCollection bookmark button, DF-24).
+    wl_skus: set[str] = set()
+    wl_titles: set[str] = set()
+    if viewer and viewer.id != target_user.id:
+        wl = await db.execute(
+            select(Item.sku, Item.custom_title).where(
+                Item.user_id == viewer.id, Item.status == "wishlist"
+            )
+        )
+        for sku, title in wl.all():
+            if sku:
+                wl_skus.add(sku)
+            if title:
+                wl_titles.add(title.strip().lower())
+
+    def _wishlisted(i: Item) -> bool:
+        if i.sku and i.sku in wl_skus:
+            return True
+        if i.custom_title and i.custom_title.strip().lower() in wl_titles:
+            return True
+        return False
+
     return {
         "page": page,
         "items": [
@@ -389,6 +443,8 @@ async def get_collection(
                 "value": i.value,
                 "is_listed": i.is_listed,
                 "photo_count": i.photo_count,
+                "preorder_eta": i.preorder_eta,
+                "is_wishlisted": _wishlisted(i),
                 "created_at": i.created_at.isoformat(),
             }
             for i in items

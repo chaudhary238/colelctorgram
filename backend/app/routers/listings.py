@@ -1,16 +1,17 @@
 import asyncio
 import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 
 from app.database import get_db
 from app.dependencies import get_current_user, get_optional_user
-from app.models.listing import Listing, ListingSave
-from app.models.item import Item
+from app.models.listing import Listing, ListingSave, ListingQuestion, ListingPriceVote
+from app.models.item import Item, ItemPhoto
 from app.models.catalogue import Catalogue
 from app.models.user import User
 from app.workers.tasks import dispatch_wishlist_notifications
@@ -38,6 +39,7 @@ class UpdateListingBody(BaseModel):
     price: Optional[int] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+    condition_notes: Optional[str] = None
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -52,8 +54,8 @@ async def create_listing(
     item = item_result.scalar_one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    if item.verify_tier == "claimed":
-        raise HTTPException(status_code=400, detail="Item must be 'shown' or 'verified' to list for sale")
+    # DF-17: web Sell is allowed (founder decision) — verified is now an optional
+    # badge a seller can earn later (live in-app photo), not a precondition to list.
 
     listing = Listing(
         item_id=item.id,
@@ -84,32 +86,72 @@ async def create_listing(
 async def browse_listings(
     page: int = Query(1, ge=1),
     limit: int = Query(24, le=60),
-    condition: Optional[str] = None,
+    q: Optional[str] = None,
+    category: Optional[list[str]] = Query(None),
+    condition: Optional[list[str]] = Query(None),
     min_price: Optional[int] = None,
     max_price: Optional[int] = None,
-    city: Optional[str] = None,
     trade: Optional[bool] = None,
+    ship: Optional[bool] = None,
+    saved: bool = False,
+    sort: str = "new",
     db: AsyncSession = Depends(get_db),
     viewer: Optional[User] = Depends(get_optional_user),
 ):
-    stmt = select(Listing).where(Listing.status == "available")
-    if condition:
-        stmt = stmt.where(Listing.condition == condition)
-    if min_price is not None:
-        stmt = stmt.where(Listing.price >= min_price)
-    if max_price is not None:
-        stmt = stmt.where(Listing.price <= max_price)
-    if city:
-        stmt = stmt.where(Listing.ships_from_city == city)
-    if trade is not None:
-        stmt = stmt.where(Listing.trade_willing == trade)
+    # Joins let us search/filter on the item + catalogue + seller (one row per listing).
+    category_expr = func.coalesce(Catalogue.category, Item.category)
+    title_expr = func.coalesce(Catalogue.title, Item.custom_title, Listing.sku)
+    base = (
+        select(Listing)
+        .join(Item, Listing.item_id == Item.id)
+        .outerjoin(Catalogue, Listing.sku == Catalogue.sku)
+        .join(User, Listing.seller_id == User.id)
+        .where(Listing.status == "available")
+    )
 
-    stmt = stmt.order_by(Listing.created_at.desc()).offset((page - 1) * limit).limit(limit)
+    if q:
+        like = f"%{q.strip()}%"
+        base = base.where(or_(
+            title_expr.ilike(like),
+            Item.brand.ilike(like),
+            User.handle.ilike(like),
+            User.name.ilike(like),
+        ))
+    if category:
+        base = base.where(or_(*[category_expr.ilike(f"%{c}%") for c in category]))
+    if condition:
+        base = base.where(Listing.condition.in_(condition))
+    if min_price is not None:
+        base = base.where(Listing.price >= min_price)
+    if max_price is not None:
+        base = base.where(Listing.price <= max_price)
+    if trade is not None:
+        base = base.where(Listing.trade_willing == trade)
+    if ship:
+        base = base.where(Listing.terms.any("Shipping included"))
+    if saved:
+        if not viewer:
+            return {"page": page, "limit": limit, "total": 0, "has_more": False, "items": []}
+        base = base.where(Listing.id.in_(
+            select(ListingSave.listing_id).where(ListingSave.user_id == viewer.id)
+        ))
+
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
+
+    order = {
+        "low": Listing.price.asc(),
+        "high": Listing.price.desc(),
+        "saved": Listing.saves_count.desc(),
+        "watched": Listing.watching_count.desc(),
+    }.get(sort, Listing.created_at.desc())
+
+    stmt = base.order_by(order).offset((page - 1) * limit).limit(limit)
     result = await db.execute(stmt)
     listings = result.scalars().all()
 
     enriched = await _enrich_listings(listings, db, viewer)
-    return {"page": page, "limit": limit, "items": enriched}
+    has_more = (page - 1) * limit + len(listings) < total
+    return {"page": page, "limit": limit, "total": total, "has_more": has_more, "items": enriched}
 
 
 @router.get("/{listing_id}")
@@ -123,6 +165,7 @@ async def get_listing(
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
     enriched = await _enrich_listings([listing], db, viewer)
+    enriched[0]["price_votes"] = await _price_vote_summary(listing_id, db, viewer)
     return enriched[0]
 
 
@@ -141,7 +184,7 @@ async def update_listing(
         raise HTTPException(status_code=404, detail="Listing not found")
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(listing, field, value)
-    enriched = await _enrich_listings([listing], db)
+    enriched = await _enrich_listings([listing], db, current_user)
     return enriched[0]
 
 
@@ -171,6 +214,167 @@ async def toggle_save(
         listing.saves_count += 1
 
 
+class AskQuestionBody(BaseModel):
+    body: str
+
+
+class AnswerQuestionBody(BaseModel):
+    answer: str
+
+
+@router.get("/{listing_id}/questions")
+async def list_questions(
+    listing_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    viewer: Optional[User] = Depends(get_optional_user),
+):
+    result = await db.execute(
+        select(ListingQuestion)
+        .where(ListingQuestion.listing_id == listing_id)
+        .order_by(ListingQuestion.created_at.desc())
+    )
+    questions = result.scalars().all()
+    if not questions:
+        return {"questions": []}
+
+    asker_ids = list({q.asker_id for q in questions})
+    askers_result = await db.execute(select(User).where(User.id.in_(asker_ids)))
+    askers = {u.id: u for u in askers_result.scalars().all()}
+
+    out = []
+    for q in questions:
+        asker = askers.get(q.asker_id)
+        out.append({
+            "id": str(q.id),
+            "body": q.body,
+            "answer": q.answer,
+            "answered_at": q.answered_at.isoformat() if q.answered_at else None,
+            "asker_handle": asker.handle if asker else None,
+            "asker_name": asker.name if asker else None,
+            "asker_avatar_url": asker.avatar_url if asker else None,
+            "is_mine": bool(viewer and asker and viewer.id == asker.id),
+            "created_at": q.created_at.isoformat(),
+        })
+    return {"questions": out}
+
+
+@router.post("/{listing_id}/questions", status_code=status.HTTP_201_CREATED)
+async def ask_question(
+    listing_id: uuid.UUID,
+    body: AskQuestionBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    text = body.body.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Question cannot be empty")
+    listing_result = await db.execute(select(Listing).where(Listing.id == listing_id))
+    listing = listing_result.scalar_one_or_none()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    question = ListingQuestion(listing_id=listing_id, asker_id=current_user.id, body=text)
+    db.add(question)
+    await db.flush()
+    return {
+        "id": str(question.id),
+        "body": question.body,
+        "answer": None,
+        "answered_at": None,
+        "asker_handle": current_user.handle,
+        "asker_name": current_user.name,
+        "asker_avatar_url": current_user.avatar_url,
+        "is_mine": True,
+        "created_at": question.created_at.isoformat(),
+    }
+
+
+@router.post("/{listing_id}/questions/{question_id}/answer")
+async def answer_question(
+    listing_id: uuid.UUID,
+    question_id: uuid.UUID,
+    body: AnswerQuestionBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    text = body.answer.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Answer cannot be empty")
+    listing_result = await db.execute(select(Listing).where(Listing.id == listing_id))
+    listing = listing_result.scalar_one_or_none()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if listing.seller_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the seller can answer")
+
+    q_result = await db.execute(
+        select(ListingQuestion).where(
+            ListingQuestion.id == question_id, ListingQuestion.listing_id == listing_id
+        )
+    )
+    question = q_result.scalar_one_or_none()
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    question.answer = text
+    question.answered_at = datetime.now(timezone.utc)
+    return {"id": str(question.id), "answer": question.answer, "answered_at": question.answered_at.isoformat()}
+
+
+class PriceVoteBody(BaseModel):
+    vote: str  # low | fair | high
+
+
+async def _price_vote_summary(listing_id: uuid.UUID, db: AsyncSession, viewer: Optional[User]) -> dict:
+    rows = await db.execute(
+        select(ListingPriceVote.vote, func.count())
+        .where(ListingPriceVote.listing_id == listing_id)
+        .group_by(ListingPriceVote.vote)
+    )
+    counts = {"low": 0, "fair": 0, "high": 0}
+    for vote, n in rows.all():
+        if vote in counts:
+            counts[vote] = n
+    my_vote = None
+    if viewer:
+        mine = await db.execute(
+            select(ListingPriceVote.vote).where(
+                ListingPriceVote.listing_id == listing_id, ListingPriceVote.user_id == viewer.id
+            )
+        )
+        my_vote = mine.scalar_one_or_none()
+    return {**counts, "total": sum(counts.values()), "my_vote": my_vote}
+
+
+@router.post("/{listing_id}/price-vote")
+async def price_vote(
+    listing_id: uuid.UUID,
+    body: PriceVoteBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if body.vote not in ("low", "fair", "high"):
+        raise HTTPException(status_code=400, detail="vote must be low|fair|high")
+    listing_result = await db.execute(select(Listing).where(Listing.id == listing_id))
+    listing = listing_result.scalar_one_or_none()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if listing.seller_id == current_user.id:
+        raise HTTPException(status_code=400, detail="You can't vote on your own listing")
+
+    existing = await db.execute(
+        select(ListingPriceVote).where(
+            ListingPriceVote.listing_id == listing_id, ListingPriceVote.user_id == current_user.id
+        )
+    )
+    vote = existing.scalar_one_or_none()
+    if vote:
+        vote.vote = body.vote
+    else:
+        db.add(ListingPriceVote(user_id=current_user.id, listing_id=listing_id, vote=body.vote))
+    await db.flush()
+    return await _price_vote_summary(listing_id, db, current_user)
+
+
 async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Optional[User] = None) -> list[dict]:
     if not listings:
         return []
@@ -184,6 +388,15 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
 
     items_result = await db.execute(select(Item).where(Item.id.in_(item_ids)))
     items = {i.id: i for i in items_result.scalars().all()}
+
+    # Real uploaded photos (DF-17) — grouped by item, ordered oldest→newest so the
+    # first photo the seller added is the cover.
+    photos_result = await db.execute(
+        select(ItemPhoto).where(ItemPhoto.item_id.in_(item_ids)).order_by(ItemPhoto.uploaded_at)
+    )
+    photos_by_item: dict = {}
+    for p in photos_result.scalars().all():
+        photos_by_item.setdefault(p.item_id, []).append(p.url)
 
     cats_result = await db.execute(select(Catalogue).where(Catalogue.sku.in_(skus))) if skus else None
     cats = {c.sku: c for c in (cats_result.scalars().all() if cats_result else [])}
@@ -207,8 +420,9 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
         cat = cats.get(l.sku) if l.sku else None
 
         title = (cat.title if cat else None) or (item.custom_title if item else None) or l.sku or "Unknown item"
-        category = cat.category if cat else None
+        category = (cat.category if cat else None) or (item.category if item else None)
         verify_tier = item.verify_tier if item else "claimed"
+        item_photos = photos_by_item.get(l.item_id, [])
 
         out.append({
             "id": str(l.id),
@@ -218,6 +432,13 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
             "title": title,
             "category": category,
             "verify_tier": verify_tier,
+            # item specs + real uploaded photos (DF-17)
+            "brand": item.brand if item else None,
+            "scale": item.scale if item else None,
+            "release_year": item.release_year if item else None,
+            "description": item.description if item else None,
+            "photos": item_photos,
+            "cover_url": item_photos[0] if item_photos else None,
             # seller
             "handle": seller.handle if seller else None,
             "name": seller.name if seller else None,
@@ -241,6 +462,7 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
             "saves_count": l.saves_count,
             "watching_count": l.watching_count,
             "is_saved": l.id in saved_ids,
+            "is_mine": bool(viewer and viewer.id == l.seller_id),
             "created_at": l.created_at.isoformat(),
         })
     return out

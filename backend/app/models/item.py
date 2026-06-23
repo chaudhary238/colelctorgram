@@ -22,6 +22,13 @@ class Item(Base):
     sku: Mapped[str | None] = mapped_column(String(64), ForeignKey("catalogue.sku"), nullable=True)
     custom_title: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # DF-17: free-form item details captured by the AddListing form (no catalogue match).
+    brand: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scale: Mapped[str | None] = mapped_column(Text, nullable=True)        # scale (figures/diecast/kits) or size text (designer)
+    release_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    category: Mapped[str | None] = mapped_column(Text, nullable=True)     # figures | diecast | kits | designer (custom items)
+
     status: Mapped[str] = mapped_column(String(16), default="owned", nullable=False)  # owned | wishlist | preorder
     verify_tier: Mapped[str] = mapped_column(String(16), default="claimed", nullable=False)  # claimed | shown | verified
     value: Mapped[int] = mapped_column(Integer, default=0)  # paise

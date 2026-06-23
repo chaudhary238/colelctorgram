@@ -17,13 +17,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # DF-27 — posts in approval-mode communities await mod review.
-    # Existing posts are grandfathered to 'published'.
+    # server_default 'published' covers raw/seed inserts + existing rows; the ORM
+    # create_post path sets 'pending' explicitly when approval is required.
     op.add_column(
         "posts",
         sa.Column("status", sa.String(16), nullable=False, server_default="published"),
     )
-    op.execute("UPDATE posts SET status = 'published'")
-    op.alter_column("posts", "status", server_default=None)
 
 
 def downgrade() -> None:

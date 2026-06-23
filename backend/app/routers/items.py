@@ -18,6 +18,11 @@ router = APIRouter(prefix="/items", tags=["items"])
 class AddItemBody(BaseModel):
     sku: Optional[str] = None
     custom_title: Optional[str] = None
+    brand: Optional[str] = None
+    scale: Optional[str] = None
+    release_year: Optional[int] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
     status: str = "owned"
     value: int = 0
     privacy: str = "public"
@@ -38,6 +43,11 @@ class ItemOut(BaseModel):
     user_id: uuid.UUID
     sku: Optional[str]
     custom_title: Optional[str]
+    brand: Optional[str] = None
+    scale: Optional[str] = None
+    release_year: Optional[int] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
     status: str
     verify_tier: str
     value: int
@@ -61,6 +71,11 @@ async def add_item(
         user_id=current_user.id,
         sku=body.sku,
         custom_title=body.custom_title,
+        brand=body.brand,
+        scale=body.scale,
+        release_year=body.release_year,
+        description=body.description,
+        category=body.category,
         status=body.status,
         value=body.value,
         privacy=body.privacy,
@@ -70,6 +85,59 @@ async def add_item(
     db.add(item)
     await db.flush()
     return _item_out(item)
+
+
+class WishlistToggleOut(BaseModel):
+    wishlisted: bool
+
+
+@router.post("/{item_id}/wishlist", response_model=WishlistToggleOut)
+async def toggle_wishlist(
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Toggle a wishlist copy of another collector's item for the caller (DF-24).
+
+    Wishlisting clones the source item's identity (sku/title + spec) into a
+    `status="wishlist"` Item owned by the caller; toggling again removes it.
+    Matched by sku when present, else by custom_title.
+    """
+    src = await db.execute(select(Item).where(Item.id == item_id))
+    src_item = src.scalar_one_or_none()
+    if not src_item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if src_item.user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot wishlist your own item")
+
+    existing_q = select(Item).where(
+        Item.user_id == current_user.id, Item.status == "wishlist"
+    )
+    if src_item.sku:
+        existing_q = existing_q.where(Item.sku == src_item.sku)
+    else:
+        existing_q = existing_q.where(Item.custom_title == src_item.custom_title)
+    existing = (await db.execute(existing_q)).scalars().first()
+
+    if existing:
+        await db.delete(existing)
+        return WishlistToggleOut(wishlisted=False)
+
+    db.add(Item(
+        user_id=current_user.id,
+        sku=src_item.sku,
+        custom_title=src_item.custom_title,
+        brand=src_item.brand,
+        scale=src_item.scale,
+        release_year=src_item.release_year,
+        category=src_item.category,
+        status="wishlist",
+        verify_tier="claimed",
+        value=src_item.value,
+        privacy="public",
+        wishlist_alert_enabled=True,
+    ))
+    return WishlistToggleOut(wishlisted=True)
 
 
 @router.get("/{item_id}", response_model=ItemOut)
@@ -151,6 +219,7 @@ async def add_photo(
     if is_verify_photo and item.verify_tier == "claimed":
         item.verify_tier = "shown"
 
+    await db.flush()  # assign photo.id before returning it
     return {"id": str(photo.id), "url": url, "verify_tier": item.verify_tier}
 
 
@@ -160,6 +229,11 @@ def _item_out(item: Item) -> dict:
         "user_id": str(item.user_id),
         "sku": item.sku,
         "custom_title": item.custom_title,
+        "brand": item.brand,
+        "scale": item.scale,
+        "release_year": item.release_year,
+        "description": item.description,
+        "category": item.category,
         "status": item.status,
         "verify_tier": item.verify_tier,
         "value": item.value,

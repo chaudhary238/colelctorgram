@@ -17,15 +17,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # DF-18 — user-created communities go through admin review.
-    # New rows default to 'pending'; existing communities are grandfathered to
-    # 'approved' so the seeded directory stays visible. Drop the server_default
-    # afterwards so the value is set explicitly by application code on create.
+    # The DB server_default is 'approved' so raw/seed inserts (which omit the
+    # column) and any pre-existing rows stay visible; the ORM create path
+    # (create_community) sets status explicitly to 'pending' for user-created
+    # communities, so the review queue still works.
     op.add_column(
         "communities",
-        sa.Column("status", sa.String(16), nullable=False, server_default="pending"),
+        sa.Column("status", sa.String(16), nullable=False, server_default="approved"),
     )
-    op.execute("UPDATE communities SET status = 'approved'")
-    op.alter_column("communities", "status", server_default=None)
 
 
 def downgrade() -> None:

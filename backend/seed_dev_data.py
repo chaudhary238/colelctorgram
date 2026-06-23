@@ -117,22 +117,22 @@ async def run():
         e1 = uuid.uuid4(); e2 = uuid.uuid4(); e3 = uuid.uuid4()
         await db.execute(text("""
             INSERT INTO events (id, title, description, host_id, community_id, category,
-                mode, city, venue, starts_at, interested_count, is_admin_created, status, created_at, updated_at)
+                mode, city, venue, starts_at, going_count, interested_count, is_admin_created, status, created_at, updated_at)
             VALUES
               (:e1, 'Gunpla Open Build — Mumbai 2026',
                'Monthly open build session for Gunpla builders of all skill levels. Bring your kits, share tips, and display your completed builds. Beginners welcome — mentors available.',
                :admin, 'gunpla-india', 'kits', 'in_person', 'Mumbai',
-               'Maker''s Asylum, Lower Parel', :starts1, 47, true, 'active', NOW(), NOW()),
+               'Maker''s Asylum, Lower Parel', :starts1, 38, 9, true, 'active', NOW(), NOW()),
 
               (:e2, 'Collector''s Swap Meet — Bangalore',
                'Quarterly toy and collectible swap meet. Bring your duplicates, trade or sell to fellow collectors. Categories: Action Figures, Designer Toys, Diecast, Kits.',
                :admin, 'figures-india', 'figures', 'in_person', 'Bangalore',
-               'UB City Mall Atrium', :starts2, 112, true, 'active', NOW(), NOW()),
+               'UB City Mall Atrium', :starts2, 86, 26, true, 'active', NOW(), NOW()),
 
               (:e3, 'Popmart India Drop Watch Party',
                'Live unboxing and reaction stream for the upcoming Popmart Labubu Series 3 India drop. Join online or at the venue.',
                :admin, 'designer-toys-india', 'designer', 'hybrid', 'Delhi',
-               'Hauz Khas Social', :starts3, 89, true, 'active', NOW(), NOW())
+               'Hauz Khas Social', :starts3, 64, 25, true, 'active', NOW(), NOW())
         """), {
             "e1": e1, "e2": e2, "e3": e3,
             "admin": ADMIN,
@@ -140,6 +140,15 @@ async def run():
             "starts2": _now(-72 * 12),
             "starts3": _now(-72 * 3),
         })
+
+        # Real RSVP rows so the Going/Interested guest lists aren't empty (the counts above
+        # stay a touch higher — Facebook-style "+N more"). Each row: (event, user, status).
+        await db.execute(text("""
+            INSERT INTO event_interests (event_id, user_id, status, created_at) VALUES
+              (:e1, :fig, 'going', NOW()), (:e1, :brick, 'going', NOW()), (:e1, :die, 'interested', NOW()),
+              (:e2, :bbq, 'going', NOW()), (:e2, :die, 'going', NOW()), (:e2, :fig, 'interested', NOW()),
+              (:e3, :fig, 'going', NOW()), (:e3, :bbq, 'going', NOW()), (:e3, :brick, 'interested', NOW())
+        """), {"e1": e1, "e2": e2, "e3": e3, "fig": FIG, "bbq": BBQ, "brick": BRICK, "die": DIE})
 
         # Fix: events should be in the future
         await db.execute(text("""

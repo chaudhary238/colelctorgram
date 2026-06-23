@@ -32,6 +32,12 @@ class User(Base):
     interests: Mapped[list[str]] = mapped_column(PG_ARRAY(Text), default=list)
     # Feed customisation (DF-08): {"categories": [...], "hide_listings": bool}
     feed_prefs: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Per-type notification toggles (DF-23): {followers, messages, listing_activity,
+    #   trade_requests, event_reminders, community_activity, price_drops, new_listings}
+    notif_prefs: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Extra privacy/safety settings (DF-23): {messaging: everyone|followers|none,
+    #   wishlist: public|followers|private, show_online: bool}
+    privacy_prefs: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     tier: Mapped[str] = mapped_column(String(32), default="verified")
 

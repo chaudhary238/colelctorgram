@@ -74,6 +74,38 @@ async def approve_catalogue(
         item.is_approved = True
 
 
+@router.get("/events/pending")
+async def pending_events(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    # User-submitted events awaiting review (admin-created ones go live immediately).
+    result = await db.execute(
+        select(Event, User)
+        .join(User, Event.host_id == User.id)
+        .where(Event.status == "pending_approval")
+        .order_by(Event.created_at.desc())
+    )
+    return [
+        {
+            "id": str(e.id),
+            "title": e.title,
+            "description": e.description,
+            "category": e.category,
+            "mode": e.mode,
+            "city": e.city,
+            "venue": e.venue,
+            "cover_image_url": e.cover_image_url,
+            "starts_at": e.starts_at.isoformat(),
+            "host_handle": u.handle,
+            "host_name": u.name,
+            "interested_count": e.interested_count,
+            "created_at": e.created_at.isoformat(),
+        }
+        for e, u in result
+    ]
+
+
 @router.patch("/events/{event_id}/approve", status_code=204)
 async def approve_event(
     event_id: str,
@@ -84,6 +116,18 @@ async def approve_event(
     event = result.scalar_one_or_none()
     if event:
         event.status = "active"
+
+
+@router.patch("/events/{event_id}/reject", status_code=204)
+async def reject_event(
+    event_id: str,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    result = await db.execute(select(Event).where(Event.id == event_id))
+    event = result.scalar_one_or_none()
+    if event:
+        event.status = "rejected"
 
 
 @router.get("/communities/pending")
