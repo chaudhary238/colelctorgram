@@ -10,7 +10,8 @@ from sqlalchemy import select, and_
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User, Follow
-from app.models.post import Post, PostLike, PostSave
+from app.models.post import Post, PostLike, PostSave, PostCommunity
+from app.routers.posts import _iso_fields
 
 router = APIRouter(prefix="/feed", tags=["feed"])
 
@@ -70,7 +71,10 @@ async def get_feed(
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
     # DF-27 — pending (awaiting-mod-review) community posts never appear in the feed.
-    stmt = select(Post).where(Post.created_at >= cutoff, Post.status == "published")
+    # DF-30h — to_feed gates posts the author chose to keep community-only.
+    stmt = select(Post).where(
+        Post.created_at >= cutoff, Post.status == "published", Post.to_feed.is_(True)
+    )
     if category:
         stmt = stmt.where(Post.category == category)
     if type:
@@ -129,6 +133,16 @@ async def get_feed(
     )
     saved_ids = set(saves_result.scalars().all())
 
+    # DF-30h — batch the published community memberships for this page
+    pc_result = await db.execute(
+        select(PostCommunity.post_id, PostCommunity.community_id).where(
+            PostCommunity.post_id.in_(post_ids), PostCommunity.status == "published"
+        )
+    )
+    communities_by_post: dict = {}
+    for pid, cid in pc_result.all():
+        communities_by_post.setdefault(pid, []).append(cid)
+
     return {
         "page": page,
         "limit": limit,
@@ -139,13 +153,14 @@ async def get_feed(
                 p.id in liked_ids,
                 p.id in saved_ids,
                 str(p.user_id) in followed_ids,
+                communities_by_post.get(p.id, []),
             )
             for p in page_posts
         ],
     }
 
 
-def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, is_following: bool = False) -> dict:
+def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, is_following: bool = False, community_ids: Optional[list] = None) -> dict:
     return {
         "id": str(p.id),
         "user_id": str(p.user_id),
@@ -154,11 +169,14 @@ def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, 
         "avatar_url": author.avatar_url if author else None,
         "tier": author.tier if author else "verified",
         "type": p.type,
+        "title": p.title,
         "body": p.body,
         "images": p.images or [],
         "category": p.category,
         "tags": p.tags or [],
         "community_id": p.community_id,
+        "community_ids": community_ids or [],
+        **_iso_fields(p),
         "review_rating": p.review_rating,
         "poll_options": p.poll_options,
         "is_admin_post": p.is_admin_post,

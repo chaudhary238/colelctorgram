@@ -20,7 +20,8 @@ class Post(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    type: Mapped[str] = mapped_column(String(16), nullable=False)  # showcase | discussion | review
+    type: Mapped[str] = mapped_column(String(16), nullable=False)  # showcase | discussion | review | poll | iso
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)  # DF-30d optional display title
     body: Mapped[str] = mapped_column(Text, nullable=False)
     images: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
 
@@ -38,6 +39,15 @@ class Post(Base):
     review_rating: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     poll_options: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
+    # DF-30c — ISO ("In Search Of" / Wanted) post type. Set only when type='iso'.
+    iso_item: Mapped[str | None] = mapped_column(Text, nullable=True)
+    iso_budget: Mapped[int | None] = mapped_column(Integer, nullable=True)  # max budget, paise
+    iso_conditions: Mapped[list[str] | None] = mapped_column(PG_ARRAY(Text), nullable=True)
+
+    # DF-30h — multi-community posting. community_id stays the PRIMARY community;
+    # post_communities holds every target. to_feed gates the global feed.
+    to_feed: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+
     is_admin_post: Mapped[bool] = mapped_column(Boolean, default=False)
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False)
     # DF-27 — community post approval: published | pending (awaiting mod review)
@@ -54,6 +64,24 @@ class Post(Base):
         Index("idx_posts_category", "category"),
         Index("idx_posts_created", "created_at"),
         Index("idx_posts_type", "type"),
+    )
+
+
+class PostCommunity(Base):
+    """DF-30h — a post's target communities (one row per community it's posted to).
+
+    status mirrors the per-community mod-approval gate (published | pending), so a
+    post can be live in one community while awaiting review in another.
+    """
+    __tablename__ = "post_communities"
+
+    post_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("posts.id", ondelete="CASCADE"), primary_key=True)
+    community_id: Mapped[str] = mapped_column(Text, ForeignKey("communities.id", ondelete="CASCADE"), primary_key=True)
+    status: Mapped[str] = mapped_column(String(16), default="published", server_default="published")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    __table_args__ = (
+        Index("idx_post_communities_community", "community_id", "status"),
     )
 
 
@@ -91,3 +119,11 @@ class Comment(Base):
         Index("idx_comments_post", "post_id", "created_at"),
         Index("idx_comments_parent", "parent_id"),
     )
+
+
+class CommentLike(Base):
+    __tablename__ = "comment_likes"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    comment_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("comments.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

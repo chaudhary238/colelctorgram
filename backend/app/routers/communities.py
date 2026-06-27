@@ -282,19 +282,28 @@ async def get_community_posts(
     db: AsyncSession = Depends(get_db),
     current_user: Optional[User] = Depends(get_optional_user),
 ):
-    from app.models.post import Post
-    # DF-27 — pending (awaiting-review) posts are hidden, except to their own author.
-    stmt = select(Post).where(Post.community_id == community_id)
+    from app.models.post import Post, PostCommunity
+    from app.routers.posts import _iso_fields
+    # DF-30h — posts now reach a community via the post_communities join (a post
+    # can target several). DF-27 — pending posts hidden except to their own author;
+    # the gate is the per-community join status.
+    stmt = (
+        select(Post, PostCommunity.status)
+        .join(PostCommunity, PostCommunity.post_id == Post.id)
+        .where(PostCommunity.community_id == community_id)
+    )
     if current_user:
         stmt = stmt.where(
-            (Post.status == "published") | (Post.user_id == current_user.id)
+            (PostCommunity.status == "published") | (Post.user_id == current_user.id)
         )
     else:
-        stmt = stmt.where(Post.status == "published")
+        stmt = stmt.where(PostCommunity.status == "published")
     result = await db.execute(
         stmt.order_by(Post.created_at.desc()).offset((page - 1) * limit).limit(limit)
     )
-    posts = result.scalars().all()
+    rows = result.all()
+    posts = [r[0] for r in rows]
+    status_by_post = {r[0].id: r[1] for r in rows}
 
     author_ids = list({p.user_id for p in posts})
     users_result = await db.execute(select(User).where(User.id.in_(author_ids))) if author_ids else None
@@ -309,11 +318,15 @@ async def get_community_posts(
             "avatar_url": users_by_id.get(p.user_id, User()).avatar_url if p.user_id in users_by_id else None,
             "tier": users_by_id.get(p.user_id, User()).tier if p.user_id in users_by_id else "verified",
             "type": p.type,
+            "title": p.title,
             "body": p.body,
             "images": p.images or [],
+            **_iso_fields(p),
             "category": p.category,
             "community_id": p.community_id,
-            "status": p.status,
+            "status": status_by_post.get(p.id, p.status),
+            "review_rating": p.review_rating,
+            "poll_options": p.poll_options,
             "likes_count": p.likes_count,
             "comments_count": p.comments_count,
             "saves_count": p.saves_count,
@@ -502,12 +515,13 @@ async def list_pending_posts(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    from app.models.post import Post
+    from app.models.post import Post, PostCommunity
     await _require_mod(db, community_id, current_user)
     rows = await db.execute(
         select(Post, User)
         .join(User, Post.user_id == User.id)
-        .where(Post.community_id == community_id, Post.status == "pending")
+        .join(PostCommunity, PostCommunity.post_id == Post.id)
+        .where(PostCommunity.community_id == community_id, PostCommunity.status == "pending")
         .order_by(Post.created_at.desc())
     )
     return [
@@ -526,15 +540,21 @@ async def list_pending_posts(
 
 
 async def _resolve_pending_post(db: AsyncSession, community_id: str, post_id: str):
-    from app.models.post import Post
-    post = (
+    """Return (post, post_community_row) for a post pending in this community."""
+    from app.models.post import Post, PostCommunity
+    pc = (
         await db.execute(
-            select(Post).where(Post.id == post_id, Post.community_id == community_id)
+            select(PostCommunity).where(
+                PostCommunity.post_id == post_id, PostCommunity.community_id == community_id
+            )
         )
     ).scalar_one_or_none()
+    if not pc:
+        raise HTTPException(status_code=404, detail="Post not found")
+    post = (await db.execute(select(Post).where(Post.id == post_id))).scalar_one_or_none()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-    return post
+    return post, pc
 
 
 @router.post("/{community_id}/posts/{post_id}/approve", status_code=204)
@@ -545,9 +565,12 @@ async def approve_post(
     current_user: User = Depends(get_current_user),
 ):
     community, _ = await _require_mod(db, community_id, current_user)
-    post = await _resolve_pending_post(db, community_id, post_id)
-    if post.status == "pending":
-        post.status = "published"
+    post, pc = await _resolve_pending_post(db, community_id, post_id)
+    if pc.status == "pending":
+        pc.status = "published"
+        # Release the global hold too (only relevant for community-only posts).
+        if post.status == "pending":
+            post.status = "published"
         community.post_count += 1
 
 
@@ -558,9 +581,18 @@ async def reject_post(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    from app.models.post import Post, PostCommunity
     await _require_mod(db, community_id, current_user)
-    post = await _resolve_pending_post(db, community_id, post_id)
-    await db.delete(post)
+    post, pc = await _resolve_pending_post(db, community_id, post_id)
+    # DF-30h — rejecting only removes the post from THIS community. If that leaves
+    # the post with no communities and off the feed, it's orphaned → delete it.
+    await db.delete(pc)
+    await db.flush()
+    remaining = (
+        await db.execute(select(PostCommunity).where(PostCommunity.post_id == post.id))
+    ).scalars().all()
+    if not remaining and not post.to_feed:
+        await db.delete(post)
 
 
 def _community_dict(c: Community, is_member: bool = False) -> dict:

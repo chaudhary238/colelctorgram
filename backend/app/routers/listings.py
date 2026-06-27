@@ -14,6 +14,7 @@ from app.models.listing import Listing, ListingSave, ListingQuestion, ListingPri
 from app.models.item import Item, ItemPhoto
 from app.models.catalogue import Catalogue
 from app.models.user import User
+from app.models.deal import Vouch
 from app.workers.tasks import dispatch_wishlist_notifications
 
 _bg_tasks: set = set()
@@ -386,6 +387,16 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
     sellers_result = await db.execute(select(User).where(User.id.in_(seller_ids)))
     sellers = {u.id: u for u in sellers_result.scalars().all()}
 
+    # Vouches received per seller (DF-29b "Vouched by N" on the market card).
+    # Read-only count over the existing vouches table — the give/request flow
+    # stays decision-gated (DF-36a).
+    vouch_rows = await db.execute(
+        select(Vouch.to_user_id, func.count(Vouch.id))
+        .where(Vouch.to_user_id.in_(seller_ids))
+        .group_by(Vouch.to_user_id)
+    )
+    vouches_by_seller = dict(vouch_rows.all())
+
     items_result = await db.execute(select(Item).where(Item.id.in_(item_ids)))
     items = {i.id: i for i in items_result.scalars().all()}
 
@@ -413,10 +424,34 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
         )
         saved_ids = set(saves_result.scalars().all())
 
+    # Which of these listings' underlying item the viewer has wishlisted (DF-24):
+    # a status="wishlist" Item the viewer owns, matched by sku when present else
+    # custom_title — the same rule as POST /items/{id}/wishlist. Powers the
+    # MarketCard wishlist bookmark (distinct from the per-listing save heart).
+    wl_skus: set = set()
+    wl_titles: set = set()
+    if viewer:
+        wl_result = await db.execute(
+            select(Item.sku, Item.custom_title).where(
+                Item.user_id == viewer.id, Item.status == "wishlist"
+            )
+        )
+        for sku, title in wl_result.all():
+            if sku:
+                wl_skus.add(sku)
+            elif title:
+                wl_titles.add(title)
+
     out = []
     for l in listings:
         seller = sellers.get(l.seller_id)
         item = items.get(l.item_id)
+        if l.sku:
+            is_wishlisted = l.sku in wl_skus
+        elif item and item.custom_title:
+            is_wishlisted = item.custom_title in wl_titles
+        else:
+            is_wishlisted = False
         cat = cats.get(l.sku) if l.sku else None
 
         title = (cat.title if cat else None) or (item.custom_title if item else None) or l.sku or "Unknown item"
@@ -446,6 +481,7 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
             "tier": seller.tier if seller else "verified",
             "rating": float(seller.rating) if seller else 0,
             "deals_count": seller.deals_count if seller else 0,
+            "vouches_count": vouches_by_seller.get(l.seller_id, 0),
             # listing
             "price": l.price,
             "retail_price": l.retail_price,
@@ -462,6 +498,7 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
             "saves_count": l.saves_count,
             "watching_count": l.watching_count,
             "is_saved": l.id in saved_ids,
+            "is_wishlisted": is_wishlisted,
             "is_mine": bool(viewer and viewer.id == l.seller_id),
             "created_at": l.created_at.isoformat(),
         })

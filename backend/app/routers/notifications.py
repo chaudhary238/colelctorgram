@@ -53,11 +53,17 @@ async def mark_all_read(
 
 
 def _notif_dict(n: Notification) -> dict:
+    actor = n.actor
     return {
         "id": str(n.id),
         "kind": n.kind,
         "title": n.title,
         "body": n.body,
+        "actor": {
+            "handle": actor.handle,
+            "name": actor.name,
+            "avatar_url": actor.avatar_url,
+        } if actor else None,
         "ref_type": n.ref_type,
         "ref_id": n.ref_id,
         "is_read": n.is_read,

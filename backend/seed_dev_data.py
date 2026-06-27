@@ -5,6 +5,7 @@ Creates communities, events, items, listings, posts, threads, messages.
 Idempotent: skips if data already present.
 """
 import asyncio
+import json
 import uuid
 from datetime import datetime, timezone, timedelta
 
@@ -23,6 +24,10 @@ DIE    = uuid.UUID("00000000-0000-0000-0000-000000000005")   # diecast_dreams
 
 def _now(delta_hours=0):
     return datetime.now(timezone.utc) - timedelta(hours=delta_hours)
+
+def _imgs(*seeds):
+    # Stable placeholder photos so the feed image gallery (DF-29b) has content.
+    return [f"https://picsum.photos/seed/{s}/900/700" for s in seeds]
 
 async def run():
     engine = create_async_engine(DATABASE_URL, echo=False)
@@ -243,73 +248,175 @@ async def run():
         """))
 
         # ── Posts ─────────────────────────────────────────────────────────
+        # Each post carries: tags (drive the feed hashtag slider DF-09/10),
+        # likes/saves (real engagement + social-proof strip), and one of every
+        # post TYPE the feed renders — showcase, review (review_rating → Stars),
+        # discussion, and poll (poll_options → PollBlock, DF-30). Stable ids so
+        # comments can attach below. (ISO type is decision-gated — not seeded.)
+        p_iron, p_mafex, p_fig_disc, p_fig_poll = (uuid.uuid4() for _ in range(4))
+        p_pop, p_kaws, p_bb_disc, p_bb_poll = (uuid.uuid4() for _ in range(4))
+        p_eiffel, p_wing = uuid.uuid4(), uuid.uuid4()
+        p_camaro, p_die_disc, p_die_poll = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+        p_welcome, p_restock = uuid.uuid4(), uuid.uuid4()
+        p_iso, p_cross = uuid.uuid4(), uuid.uuid4()
+
         posts_data = [
-            # figurehead posts
-            (uuid.uuid4(), FIG, "showcase",
-             "Finally got my Hot Toys Iron Man Mark LXXXV in hand! The detail on the nano tech gauntlet is insane. Took me 3 weeks of waiting but absolutely worth it. Has to be the best Marvel figure in my collection. 🔴⚡",
-             [], "figures", "figures-india", None, _now(48)),
-            (uuid.uuid4(), FIG, "review",
-             "Review: MAFEX No.147 Spider-Man Comic Ver.\n\nAfter a month of display I can give a proper verdict.\n\n✅ Articulation is top-tier — full web-swinging poses with no stress marks\n✅ Two head sculpts both look amazing\n✅ Accessories: 3 pairs of hands, web effects, stand\n\n❌ Hip joints are a bit loose out of the box\n❌ Red is slightly darker than expected\n\nOverall: 8.5/10. Highly recommended for any Spider-Man fan.",
-             [], "figures", "figures-india", 4, _now(24)),
-            (uuid.uuid4(), FIG, "discussion",
-             "Hot take: S.H.Figuarts is now more consistent than MAFEX for 1:12 scale Marvel figures. MAFEX has better sculpts but QC has been rough lately. Agree or disagree? Drop your takes below 👇",
-             [], "figures", "figures-india", None, _now(6)),
+            # ── figurehead — figures ──
+            dict(id=p_iron, user=FIG, type="showcase", category="figures", community="figures-india",
+                 tags=["#HotToys", "#Marvel", "#NewDrops"], images=_imgs("ch-iron1", "ch-iron2", "ch-iron3"),
+                 likes=342, saves=89, age=48,
+                 body="Finally got my Hot Toys Iron Man Mark LXXXV in hand! The detail on the nano tech gauntlet is insane. Took me 3 weeks of waiting but absolutely worth it. Has to be the best Marvel figure in my collection. 🔴⚡"),
+            dict(id=p_mafex, user=FIG, type="review", category="figures", community="figures-india",
+                 tags=["#HotToys", "#Marvel", "#Grails"], images=_imgs("ch-mafex1"), rating=4,
+                 likes=218, saves=54, age=24,
+                 body="Review: MAFEX No.147 Spider-Man Comic Ver.\n\nAfter a month of display I can give a proper verdict.\n\n✅ Articulation is top-tier — full web-swinging poses with no stress marks\n✅ Two head sculpts both look amazing\n✅ Accessories: 3 pairs of hands, web effects, stand\n\n❌ Hip joints are a bit loose out of the box\n❌ Red is slightly darker than expected\n\nOverall: 8.5/10. Highly recommended for any Spider-Man fan."),
+            dict(id=p_fig_disc, user=FIG, type="discussion", category="figures", community="figures-india",
+                 tags=["#HotToys", "#Marvel"], likes=96, saves=12, age=6,
+                 body="Hot take: S.H.Figuarts is now more consistent than MAFEX for 1:12 scale Marvel figures. MAFEX has better sculpts but QC has been rough lately. Agree or disagree? Drop your takes below 👇"),
+            dict(id=p_fig_poll, user=FIG, type="poll", category="figures", community="figures-india",
+                 tags=["#HotToys", "#Marvel"], likes=58, saves=7, age=10,
+                 poll_options={"S.H.Figuarts": 142, "MAFEX": 98, "Both equally": 64},
+                 body="Settling the debate once and for all — which 1:12 Marvel line gives the best bang for buck right now? Vote 👇"),
 
-            # blindbox_queen posts
-            (uuid.uuid4(), BBQ, "showcase",
-             "My Popmart wall is getting out of control 😅 Currently at 47 figures across 8 series. The Labubu Macarons series might be my favourite of the year. That pastel colourway is just *chef's kiss*. Anyone else building a dedicated shelf for their Popmarts?",
-             [], "designer", "designer-toys-india", None, _now(36)),
-            (uuid.uuid4(), BBQ, "showcase",
-             "KAWS Companion in hand 🖤 This is the open edition vinyl but the build quality is genuinely premium. Been sitting in my cart for 6 months — finally pulled the trigger. No regrets. Pairs perfectly with my Bearbrick 1000%.",
-             [], "designer", "designer-toys-india", None, _now(12)),
-            (uuid.uuid4(), BBQ, "discussion",
-             "For blind box collectors — what's your pull rate strategy?\n\nA) Buy individual boxes and hope for luck\nB) Buy full boxes (12 pieces) for better odds\nC) Buy directly from resellers for the one you want\nD) Trade within community\n\nI've been doing (B) for Popmart and (D) for everything else.",
-             [], "designer", "designer-toys-india", None, _now(3)),
+            # ── blindbox_queen — designer ──
+            dict(id=p_pop, user=BBQ, type="showcase", category="designer", community="designer-toys-india",
+                 tags=["#PopMart", "#NewDrops"], images=_imgs("ch-pop1", "ch-pop2", "ch-pop3", "ch-pop4"),
+                 likes=511, saves=130, age=36,
+                 body="My Popmart wall is getting out of control 😅 Currently at 47 figures across 8 series. The Labubu Macarons series might be my favourite of the year. That pastel colourway is just *chef's kiss*. Anyone else building a dedicated shelf for their Popmarts?"),
+            dict(id=p_kaws, user=BBQ, type="showcase", category="designer", community="designer-toys-india",
+                 tags=["#PopMart", "#Grails"], images=_imgs("ch-kaws1", "ch-kaws2"),
+                 likes=288, saves=61, age=12,
+                 body="KAWS Companion in hand 🖤 This is the open edition vinyl but the build quality is genuinely premium. Been sitting in my cart for 6 months — finally pulled the trigger. No regrets. Pairs perfectly with my Bearbrick 1000%."),
+            dict(id=p_bb_disc, user=BBQ, type="discussion", category="designer", community="designer-toys-india",
+                 tags=["#PopMart"], likes=73, saves=9, age=3,
+                 body="For blind box collectors — what's your pull rate strategy?\n\nA) Buy individual boxes and hope for luck\nB) Buy full boxes (12 pieces) for better odds\nC) Buy directly from resellers for the one you want\nD) Trade within community\n\nI've been doing (B) for Popmart and (D) for everything else."),
+            dict(id=p_bb_poll, user=BBQ, type="poll", category="designer", community="designer-toys-india",
+                 tags=["#PopMart", "#NewDrops"], likes=64, saves=5, age=7,
+                 poll_options={"Individual boxes": 88, "Full case (12)": 156, "Buy from resellers": 42, "Trade in community": 95},
+                 body="Blind box strategy check — how do you actually chase the figure you want? Pick your main move 👇"),
 
-            # brickmaster posts
-            (uuid.uuid4(), BRICK, "showcase",
-             "LEGO Icons Eiffel Tower (10307) — COMPLETE! 10,001 pieces, approximately 14 hours of build time across 4 weekends. This is genuinely the most satisfying LEGO build I've ever done. The engineering for the tapering structure is brilliant.",
-             [], "kits", "gunpla-india", None, _now(72)),
-            (uuid.uuid4(), BRICK, "review",
-             "MG 1/100 Wing Gundam EW Ver. — Build Review\n\n🔧 Build difficulty: 7/10 (wing deployment mechanism is tricky)\n⏱ Build time: ~6 hours\n🎨 Panel line suggestion: 0.3mm black for white parts, gray for dark parts\n\nThe beam sabers have great translucent effect and the inner frame is beautifully detailed for an MG. Wing buster rifle is satisfying to pose.\n\n9/10 — My favourite MG kit to date.",
-             [], "kits", "gunpla-india", 5, _now(18)),
+            # ── brickmaster — kits ──
+            dict(id=p_eiffel, user=BRICK, type="showcase", category="kits", community="gunpla-india",
+                 tags=["#Lego", "#NewDrops"], images=_imgs("ch-eiffel1", "ch-eiffel2", "ch-eiffel3"),
+                 likes=423, saves=77, age=72,
+                 body="LEGO Icons Eiffel Tower (10307) — COMPLETE! 10,001 pieces, approximately 14 hours of build time across 4 weekends. This is genuinely the most satisfying LEGO build I've ever done. The engineering for the tapering structure is brilliant."),
+            dict(id=p_wing, user=BRICK, type="review", category="kits", community="gunpla-india",
+                 tags=["#Gunpla", "#Sealed"], images=_imgs("ch-wing1", "ch-wing2"), rating=5,
+                 likes=196, saves=48, age=18,
+                 body="MG 1/100 Wing Gundam EW Ver. — Build Review\n\n🔧 Build difficulty: 7/10 (wing deployment mechanism is tricky)\n⏱ Build time: ~6 hours\n🎨 Panel line suggestion: 0.3mm black for white parts, gray for dark parts\n\nThe beam sabers have great translucent effect and the inner frame is beautifully detailed for an MG. Wing buster rifle is satisfying to pose.\n\n9/10 — My favourite MG kit to date."),
 
-            # diecast_dreams posts
-            (uuid.uuid4(), DIE, "showcase",
-             "Hot Wheels RLC Red Edition '69 COPO Camaro — this is why I get up in the morning 🔥 Mint in sealed blister, not planning to open this one. The metal base and Spectraflame finish are just different from mainline. Anyone else doing RLC this year?",
-             [], "diecast", "diecast-india", None, _now(60)),
-            (uuid.uuid4(), DIE, "discussion",
-             "The great 1:64 debate — Hot Wheels RLC vs Tomica Limited Vintage.\n\nHW RLC: better special editions, Spectraflame paint, stronger collector community\nTLV: more accurate castings, better metal content, incredible Japanese detail\n\nI collect both but I'm slowly leaning TLV for quality. Where do you stand?",
-             [], "diecast", "diecast-india", None, _now(8)),
+            # ── diecast_dreams — diecast ──
+            dict(id=p_camaro, user=DIE, type="showcase", category="diecast", community="diecast-india",
+                 tags=["#Diecast", "#NewDrops", "#Restock"], images=_imgs("ch-camaro1", "ch-camaro2"),
+                 likes=154, saves=33, age=60,
+                 body="Hot Wheels RLC Red Edition '69 COPO Camaro — this is why I get up in the morning 🔥 Mint in sealed blister, not planning to open this one. The metal base and Spectraflame finish are just different from mainline. Anyone else doing RLC this year?"),
+            dict(id=p_die_disc, user=DIE, type="discussion", category="diecast", community="diecast-india",
+                 tags=["#Diecast"], likes=88, saves=14, age=8,
+                 body="The great 1:64 debate — Hot Wheels RLC vs Tomica Limited Vintage.\n\nHW RLC: better special editions, Spectraflame paint, stronger collector community\nTLV: more accurate castings, better metal content, incredible Japanese detail\n\nI collect both but I'm slowly leaning TLV for quality. Where do you stand?"),
+            dict(id=p_die_poll, user=DIE, type="poll", category="diecast", community="diecast-india",
+                 tags=["#Diecast"], likes=52, saves=6, age=14,
+                 poll_options={"Hot Wheels RLC": 120, "Tomica Limited Vintage": 134, "Mini GT": 78},
+                 body="Best 1:64 brand for a serious collector starting out today? Settle it 👇"),
 
-            # admin posts
-            (uuid.uuid4(), ADMIN, "showcase",
-             "Welcome to CollectorHub 🎉\n\nWe're live! CollectorHub is your home for showcasing your collection, connecting with fellow collectors, and trading trusted P2P.\n\nPhase 1 categories: Action Figures, Designer Toys & Blind Boxes, Gunpla & Model Kits, Diecast.\n\nSay hi in the comments and tell us what you collect 👇",
-             [], "figures", None, None, _now(96)),
+            # ── ISO ("In Search Of") — DF-30c ──
+            dict(id=p_iso, user=FIG, type="iso", category="figures", community="figures-india",
+                 tags=["#Grails", "#HotToys", "#Marvel"], likes=12, saves=3, age=20,
+                 iso_item="Hot Toys Iron Man Mark III (MMS256)", iso_budget=4500000,
+                 iso_conditions=["Sealed", "MIB"],
+                 body="Chasing the Mark III to complete my MCU Phase 1 shelf. Sealed preferred but a clean MIB works — can pay a fair premium for mint packaging. DM me if you're letting one go."),
+
+            # ── multi-community cross-post — DF-30h ──
+            dict(id=p_cross, user=BRICK, type="discussion", category="kits", community="gunpla-india",
+                 communities=["gunpla-india", "figures-india"], title="Combined Mumbai meetup?",
+                 tags=["#Meetups", "#Gunpla", "#NewDrops"], likes=64, saves=8, age=5,
+                 body="Cross-posting to both communities for reach — anyone in Mumbai up for a combined Gunpla + figures meetup next month? Trying to gauge interest across both before I book a venue."),
+
+            # ── admin / releases ──
+            dict(id=p_welcome, user=ADMIN, type="showcase", category="figures", community=None,
+                 tags=["#NewDrops"], likes=1024, saves=40, age=96,
+                 body="Welcome to CollectorHub 🎉\n\nWe're live! CollectorHub is your home for showcasing your collection, connecting with fellow collectors, and trading trusted P2P.\n\nPhase 1 categories: Action Figures, Designer Toys & Blind Boxes, Gunpla & Model Kits, Diecast.\n\nSay hi in the comments and tell us what you collect 👇"),
+            dict(id=p_restock, user=ADMIN, type="showcase", category="designer", community=None,
+                 tags=["#Restock", "#PopMart", "#NewDrops"], images=_imgs("ch-restock1"),
+                 likes=389, saves=120, age=30,
+                 body="📦 RESTOCK ALERT — Popmart Labubu Macarons series is back in stock at the official store from 6 PM today. Limited quantities, one case per customer. Set your reminders, collectors. 🔔"),
         ]
 
-        for post_id, user_id, ptype, body, images, category, community_id, rating, created_at in posts_data:
+        for p in posts_data:
             await db.execute(text("""
-                INSERT INTO posts (id, user_id, type, body, images, category, community_id,
-                    review_rating, likes_count, comments_count, saves_count,
-                    is_admin_post, is_pinned, created_at, updated_at)
-                VALUES (:id, :user_id, :type, :body, :images, :category, :community_id,
-                    :rating, :likes, :comments, :saves, :is_admin, false, :created_at, :created_at)
+                INSERT INTO posts (id, user_id, type, title, body, images, category, community_id,
+                    to_feed, review_rating, poll_options, tags,
+                    iso_item, iso_budget, iso_conditions,
+                    likes_count, comments_count, saves_count,
+                    is_admin_post, is_pinned, status, created_at, updated_at)
+                VALUES (:id, :user_id, :type, :title, :body, :images, :category, :community_id,
+                    true, :rating, CAST(:poll AS JSONB), :tags,
+                    :iso_item, :iso_budget, :iso_conditions,
+                    :likes, 0, :saves,
+                    :is_admin, false, 'published', :created_at, :created_at)
             """), {
-                "id": post_id,
-                "user_id": user_id,
-                "type": ptype,
-                "body": body,
-                "images": images,
-                "category": category,
-                "community_id": community_id,
-                "rating": rating,
-                "likes": 0,
-                "comments": 0,
-                "saves": 0,
-                "is_admin": user_id == ADMIN,
-                "created_at": created_at,
+                "id": p["id"],
+                "user_id": p["user"],
+                "type": p["type"],
+                "title": p.get("title"),
+                "body": p["body"],
+                "images": p.get("images", []),
+                "category": p["category"],
+                "community_id": p.get("community"),
+                "rating": p.get("rating"),
+                "poll": json.dumps(p["poll_options"]) if p.get("poll_options") else None,
+                "tags": p.get("tags", []),
+                "iso_item": p.get("iso_item"),
+                "iso_budget": p.get("iso_budget"),
+                "iso_conditions": p.get("iso_conditions"),
+                "likes": p.get("likes", 0),
+                "saves": p.get("saves", 0),
+                "is_admin": p["user"] == ADMIN,
+                "created_at": _now(p["age"]),
             })
+
+            # DF-30h — one post_communities row per target community (defaults to the
+            # single primary). Drives the join-based community feed.
+            targets = p.get("communities") or ([p["community"]] if p.get("community") else [])
+            for cid in targets:
+                await db.execute(text("""
+                    INSERT INTO post_communities (post_id, community_id, status, created_at)
+                    VALUES (:pid, :cid, 'published', :created_at)
+                    ON CONFLICT DO NOTHING
+                """), {"pid": p["id"], "cid": cid, "created_at": _now(p["age"])})
+
+        # ── Comments — a few real threads so comments_count is truthful and the
+        #    rich CommentThread (DF-29b) has content to render.
+        comments_data = [
+            (p_iron, BBQ, "That nano gauntlet detail is unreal 🔥 huge congrats!"),
+            (p_iron, BRICK, "Mark LXXXV is peak Hot Toys. Display it proud."),
+            (p_iron, DIE, "Worth every week of the wait. Stunning shelf piece."),
+            (p_mafex, DIE, "Loose hips are a known QC thing — a drop of clear nail polish on the joint fixes it."),
+            (p_mafex, BRICK, "Great honest review, the darker red actually photographs better imo."),
+            (p_fig_disc, BBQ, "Hard agree. Figuarts QC has been way more consistent lately."),
+            (p_fig_disc, BRICK, "Sculpts still go to MAFEX for me, but can't argue the QC point."),
+            (p_pop, FIG, "47 is wild 😅 the Macarons pastel set is unbeatable."),
+            (p_pop, DIE, "Shelf goals. That lighting setup really sells it."),
+            (p_bb_disc, DIE, "Full case every time. The per-box math just works out cheaper."),
+            (p_eiffel, FIG, "14 hours well spent — that taper engineering is genius."),
+            (p_wing, DIE, "Best MG build review I've read. Saving this for my own build."),
+            (p_camaro, BRICK, "RLC Spectraflame hits different. Keep it sealed!"),
+            (p_die_disc, FIG, "TLV for accuracy, RLC for the chase. Both camps eating good."),
+            (p_welcome, BBQ, "Hi all! Designer toys + blind boxes here 👋"),
+            (p_welcome, BRICK, "LEGO & Gunpla. Excited for this 🎉"),
+            (p_welcome, DIE, "Diecast diehard checking in 🚗"),
+        ]
+        for post_id, uid, body in comments_data:
+            await db.execute(text("""
+                INSERT INTO comments (id, post_id, user_id, body, likes_count, created_at, updated_at)
+                VALUES (:id, :post_id, :uid, :body, 0, NOW(), NOW())
+            """), {"id": uuid.uuid4(), "post_id": post_id, "uid": uid, "body": body})
+
+        # comments_count mirrors the real comment rows above
+        await db.execute(text("""
+            UPDATE posts SET comments_count = (
+                SELECT COUNT(*) FROM comments c WHERE c.post_id = posts.id
+            )
+        """))
 
         # Update community post counts
         await db.execute(text("""

@@ -286,9 +286,10 @@ async def follow_user(
     notify(
         db,
         user_id=target_user.id,
+        actor_id=current_user.id,
         kind="follow",
         title="New follower",
-        body=f"{current_user.name} (@{current_user.handle}) started following you.",
+        body="started following you.",
         ref_type="profile",
         ref_id=current_user.handle,
     )

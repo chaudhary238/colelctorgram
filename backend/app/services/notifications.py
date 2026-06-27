@@ -18,6 +18,7 @@ def notify(
     kind: str,
     title: str,
     body: str,
+    actor_id: Optional[uuid.UUID] = None,
     ref_type: Optional[str] = None,
     ref_id: Optional[str] = None,
 ) -> None:
@@ -25,9 +26,12 @@ def notify(
 
     No-op safety is the caller's job (e.g. don't notify a user about their own
     action). Body is NOT NULL in the schema, so an empty string is coerced in.
+    Pass `actor_id` for user-triggered notifications (like/follow/comment/…) so
+    the UI can show the actor's avatar; leave it None for system notifications.
     """
     db.add(Notification(
         user_id=user_id,
+        actor_id=actor_id,
         kind=kind,
         title=title,
         body=body or "",

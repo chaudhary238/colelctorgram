@@ -95,9 +95,10 @@ async def confirm_deal(
     notify(
         db,
         user_id=deal.seller_id,
+        actor_id=current_user.id,
         kind="deal",
         title="Deal confirmed",
-        body=f"{current_user.name} confirmed the deal. Leave a vouch to build trust.",
+        body="confirmed the deal. Leave a vouch to build trust.",
         ref_type="listing",
         ref_id=str(deal.listing_id) if deal.listing_id else None,
     )
@@ -160,9 +161,10 @@ async def rate_deal(
     notify(
         db,
         user_id=target_id,
+        actor_id=current_user.id,
         kind="vouch",
         title="New vouch",
-        body=f"{current_user.name} rated you {body.rating}★ on a completed deal.",
+        body=f"rated you {body.rating}★ on a completed deal.",
         ref_type="profile",
         ref_id=current_user.handle,
     )
