@@ -93,6 +93,25 @@ async def run():
                false, true, NOW(), NOW())
         """), {"admin": ADMIN})
 
+        # An invite-only community (founder = brickmaster) so the private flows are
+        # exercisable end-to-end: locked preview, request-to-join / withdraw, the admin
+        # Manage requests queue, and the "Posts reviewed" badge (post_mode = approval).
+        await db.execute(text("""
+            INSERT INTO communities (id, name, description, short_desc, tag, category, tone,
+                founder_id, member_count, post_count, post_mode, rules,
+                is_invite_only, is_admin_created, status, created_at, updated_at)
+            VALUES
+              ('grail-vault-india', 'The Grail Vault',
+               'An invite-only circle for serious grail hunters — high-end, rare and chase pieces only. Request to join; admins review every member.',
+               'Invite-only · high-end grails & chase pieces',
+               '💎', 'figures', 'teal',
+               :brick, 2, 0, 'approval',
+               ARRAY['Grails only — no mainline or common pieces.',
+                     'Proof of ownership required for showcase posts.',
+                     'Trades are off-platform; always vouch after a deal.'],
+               true, false, 'approved', NOW(), NOW())
+        """), {"brick": BRICK})
+
         # ── Community memberships ─────────────────────────────────────────
         await db.execute(text("""
             INSERT INTO community_members (community_id, user_id, role, joined_at)
@@ -107,9 +126,20 @@ async def run():
               ('diecast-india', :die,   'mod',     NOW()),
               ('figures-india', :brick, 'member',  NOW()),
               ('gunpla-india',  :fig,   'member',  NOW()),
-              ('designer-toys-india', :die, 'member', NOW())
+              ('designer-toys-india', :die, 'member', NOW()),
+              ('grail-vault-india', :brick, 'founder', NOW()),
+              ('grail-vault-india', :die,   'member',  NOW())
             ON CONFLICT DO NOTHING
         """), {"admin": ADMIN, "fig": FIG, "bbq": BBQ, "brick": BRICK, "die": DIE})
+
+        # A pending join request (figurehead → The Grail Vault) so the default login sees the
+        # "Request pending — tap to withdraw" locked state and brickmaster's Manage > Requests
+        # queue has a row to approve/decline.
+        await db.execute(text("""
+            INSERT INTO community_join_requests (id, community_id, user_id, status, created_at)
+            VALUES (:id, 'grail-vault-india', :fig, 'pending', NOW())
+            ON CONFLICT DO NOTHING
+        """), {"id": uuid.uuid4(), "fig": FIG})
 
         # Update member counts
         await db.execute(text("""
@@ -121,22 +151,22 @@ async def run():
         # ── Events ────────────────────────────────────────────────────────
         e1 = uuid.uuid4(); e2 = uuid.uuid4(); e3 = uuid.uuid4()
         await db.execute(text("""
-            INSERT INTO events (id, title, description, host_id, community_id, category,
+            INSERT INTO events (id, title, description, host_id, community_id, categories,
                 mode, city, venue, starts_at, going_count, interested_count, is_admin_created, status, created_at, updated_at)
             VALUES
               (:e1, 'Gunpla Open Build — Mumbai 2026',
                'Monthly open build session for Gunpla builders of all skill levels. Bring your kits, share tips, and display your completed builds. Beginners welcome — mentors available.',
-               :admin, 'gunpla-india', 'kits', 'in_person', 'Mumbai',
+               :admin, 'gunpla-india', ARRAY['kits'], 'in_person', 'Mumbai',
                'Maker''s Asylum, Lower Parel', :starts1, 38, 9, true, 'active', NOW(), NOW()),
 
               (:e2, 'Collector''s Swap Meet — Bangalore',
                'Quarterly toy and collectible swap meet. Bring your duplicates, trade or sell to fellow collectors. Categories: Action Figures, Designer Toys, Diecast, Kits.',
-               :admin, 'figures-india', 'figures', 'in_person', 'Bangalore',
+               :admin, 'figures-india', ARRAY['figures','designer','diecast','kits'], 'in_person', 'Bangalore',
                'UB City Mall Atrium', :starts2, 86, 26, true, 'active', NOW(), NOW()),
 
               (:e3, 'Popmart India Drop Watch Party',
                'Live unboxing and reaction stream for the upcoming Popmart Labubu Series 3 India drop. Join online or at the venue.',
-               :admin, 'designer-toys-india', 'designer', 'hybrid', 'Delhi',
+               :admin, 'designer-toys-india', ARRAY['designer'], 'online', 'Delhi',
                'Hauz Khas Social', :starts3, 64, 25, true, 'active', NOW(), NOW())
         """), {
             "e1": e1, "e2": e2, "e3": e3,
@@ -549,7 +579,7 @@ async def run():
         """))
 
         await db.commit()
-        print("✓ Communities (4)")
+        print("✓ Communities (5 — incl. invite-only 'The Grail Vault')")
         print("✓ Events (3)")
         print("✓ Items (8)")
         print("✓ Listings (4)")
@@ -558,6 +588,11 @@ async def run():
         print("✓ Deals (3 confirmed)")
         print("✓ Trust signals + portfolio value updated")
         print("\nDone! Login: figurehead@collectohub.app / seed_pass_1!")
+        print("Private-community demo (grail-vault-india 'The Grail Vault'):")
+        print("  • figurehead (seed_pass_1!)  → non-member w/ a pending request: locked preview + withdraw")
+        print("  • blindbox  (seed_pass_2!)   → non-member, no request: locked preview + 'Request to join'")
+        print("  • brickmaster (seed_pass_3!) → founder: Manage > Requests (approve/decline figurehead)")
+        print("  • diecast_dreams (seed_pass_4!) → member: Posts/Members tabs visible")
 
 if __name__ == "__main__":
     asyncio.run(run())

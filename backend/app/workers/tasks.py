@@ -150,6 +150,59 @@ async def reconcile_counters():
     logger.info("reconcile_counters: done")
 
 
+async def send_event_reminders():
+    """BL-10: Notify users who tapped the event bell, before the event starts.
+
+    Per-event opt-in lives in event_reminders (v3 EventDetail bell). Fires once
+    per (event, user) for events starting within the next 24h; deduped by
+    Notification.kind so a missed tick just delivers on the next hourly run.
+    Respects the user's global event_reminders notif pref (defaults on)."""
+    from datetime import datetime, timezone, timedelta
+    from app.database import AsyncSessionLocal
+    from app.models.event import Event, EventReminder
+    from app.models.user import User
+    from app.models.notification import Notification
+    from sqlalchemy import select, and_
+
+    now = datetime.now(timezone.utc)
+    horizon = now + timedelta(hours=24)
+
+    async with AsyncSessionLocal() as db:
+        rows = await db.execute(
+            select(Event, User)
+            .join(EventReminder, EventReminder.event_id == Event.id)
+            .join(User, User.id == EventReminder.user_id)
+            .where(and_(
+                Event.status == "active",
+                Event.starts_at > now,
+                Event.starts_at <= horizon,
+            ))
+        )
+        for event, user in rows.all():
+            prefs = user.notif_prefs or {}
+            if prefs.get("event_reminders", True) is False:
+                continue
+            existing = await db.execute(
+                select(Notification).where(
+                    Notification.user_id == user.id,
+                    Notification.kind == "event_reminder",
+                    Notification.ref_id == str(event.id),
+                )
+            )
+            if existing.scalar_one_or_none():
+                continue
+            db.add(Notification(
+                user_id=user.id,
+                kind="event_reminder",
+                title="Event starting soon",
+                body=f"{event.title} starts soon — see you there.",
+                ref_type="event",
+                ref_id=str(event.id),
+            ))
+        await db.commit()
+    logger.info("send_event_reminders: done")
+
+
 async def _run_periodic(coro_factory, interval_seconds: int, name: str):
     """Run a coroutine factory on a fixed interval, logging exceptions without crashing."""
     while True:
@@ -168,5 +221,6 @@ def schedule_background_workers(app_state: dict | None = None):
     loop = asyncio.get_event_loop()
     loop.create_task(_run_periodic(cancel_expired_deals,   interval_seconds=3600,       name="cancel_expired_deals"))
     loop.create_task(_run_periodic(send_preorder_reminders, interval_seconds=3600 * 6,  name="send_preorder_reminders"))
+    loop.create_task(_run_periodic(send_event_reminders,    interval_seconds=3600,       name="send_event_reminders"))
     loop.create_task(_run_periodic(reconcile_counters,      interval_seconds=3600 * 12, name="reconcile_counters"))
     logger.info("Background workers scheduled.")

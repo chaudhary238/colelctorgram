@@ -3,12 +3,16 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, case
 
 from app.database import get_db
 from app.dependencies import get_current_user, get_optional_user
 from app.models.community import Community, CommunityMember, CommunityJoinRequest
+from app.models.deal import Vouch
 from app.models.user import User
+
+# Founder first, then mods, then members — shared ordering for roster/member lists.
+_ROLE_ORDER = case((CommunityMember.role == "founder", 0), (CommunityMember.role == "mod", 1), else_=2)
 
 router = APIRouter(prefix="/communities", tags=["communities"])
 
@@ -171,12 +175,14 @@ async def get_community(
             CommunityMember.community_id == community_id,
             CommunityMember.role.in_(["founder", "mod"]),
         )
+        .order_by(_ROLE_ORDER, CommunityMember.joined_at.asc())
     )
     for mem_row, user_row in mods_result:
         admins.append({
             "handle": user_row.handle,
             "name": user_row.name,
             "avatar_url": user_row.avatar_url,
+            "tier": user_row.tier,
             "role": mem_row.role,
         })
 
@@ -272,6 +278,20 @@ async def leave_community(
         community = (await db.execute(select(Community).where(Community.id == community_id))).scalar_one_or_none()
         if community:
             community.member_count = max(0, community.member_count - 1)
+        return
+
+    # Not a member — withdraw a pending join request if one exists (invite-only "Requested" → undo).
+    req = (
+        await db.execute(
+            select(CommunityJoinRequest).where(
+                CommunityJoinRequest.community_id == community_id,
+                CommunityJoinRequest.user_id == current_user.id,
+                CommunityJoinRequest.status == "pending",
+            )
+        )
+    ).scalar_one_or_none()
+    if req:
+        await db.delete(req)
 
 
 @router.get("/{community_id}/posts")
@@ -389,6 +409,45 @@ async def list_members(
     ]
 
 
+@router.get("/{community_id}/roster")
+async def community_roster(
+    community_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
+    """Public member roster powering the Community-detail Members tab. Visible to
+    anyone on a public community; members/admins only on a private (invite-only) one."""
+    community = (
+        await db.execute(select(Community).where(Community.id == community_id))
+    ).scalar_one_or_none()
+    if not community or community.status != "approved":
+        # founders/admins can still see their own pending community's roster
+        if not (community and current_user and (current_user.id == community.founder_id or current_user.is_admin)):
+            raise HTTPException(status_code=404, detail=NOT_FOUND)
+
+    if community.is_invite_only:
+        member = await _get_member(db, community_id, current_user.id) if current_user else None
+        if not (current_user and (member or current_user.is_admin)):
+            raise HTTPException(status_code=403, detail="This community is private")
+
+    rows = await db.execute(
+        select(CommunityMember, User)
+        .join(User, CommunityMember.user_id == User.id)
+        .where(CommunityMember.community_id == community_id)
+        .order_by(_ROLE_ORDER, CommunityMember.joined_at.asc())
+    )
+    return [
+        {
+            "handle": u.handle,
+            "name": u.name,
+            "avatar_url": u.avatar_url,
+            "tier": u.tier,
+            "role": m.role,
+        }
+        for m, u in rows
+    ]
+
+
 @router.patch("/{community_id}/members/{handle}/role", status_code=204)
 async def set_member_role(
     community_id: str,
@@ -440,9 +499,16 @@ async def list_join_requests(
     current_user: User = Depends(get_current_user),
 ):
     await _require_mod(db, community_id, current_user)
+    # vouches received per user — so request rows can show "N deals · N vouches" (v3 parity)
+    vouch_sq = (
+        select(Vouch.to_user_id, func.count().label("vouches"))
+        .group_by(Vouch.to_user_id)
+        .subquery()
+    )
     rows = await db.execute(
-        select(CommunityJoinRequest, User)
+        select(CommunityJoinRequest, User, func.coalesce(vouch_sq.c.vouches, 0).label("vouches"))
         .join(User, CommunityJoinRequest.user_id == User.id)
+        .outerjoin(vouch_sq, vouch_sq.c.to_user_id == User.id)
         .where(
             CommunityJoinRequest.community_id == community_id,
             CommunityJoinRequest.status == "pending",
@@ -456,9 +522,10 @@ async def list_join_requests(
             "avatar_url": u.avatar_url,
             "tier": u.tier,
             "deals": getattr(u, "deals_count", 0),
+            "vouches": vouches,
             "created_at": r.created_at.isoformat(),
         }
-        for r, u in rows
+        for r, u, vouches in rows
     ]
 
 

@@ -477,6 +477,7 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
             # seller
             "handle": seller.handle if seller else None,
             "name": seller.name if seller else None,
+            "seller_city": seller.city if seller else None,
             "avatar_url": seller.avatar_url if seller else None,
             "tier": seller.tier if seller else "verified",
             "rating": float(seller.rating) if seller else 0,

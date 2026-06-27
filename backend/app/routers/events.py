@@ -9,7 +9,8 @@ from sqlalchemy import select
 
 from app.database import get_db
 from app.dependencies import get_current_user, get_optional_user
-from app.models.event import Event, EventInterest
+from app.models.event import Event, EventInterest, EventReminder
+from app.models.community import Community
 from app.models.user import User
 
 router = APIRouter(prefix="/events", tags=["events"])
@@ -19,7 +20,7 @@ class CreateEventBody(BaseModel):
     title: str
     description: Optional[str] = None
     community_id: Optional[str] = None
-    category: Optional[str] = None
+    categories: list[str] = []
     mode: str = "in_person"
     city: Optional[str] = None
     venue: Optional[str] = None
@@ -34,7 +35,7 @@ class UpdateEventBody(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     community_id: Optional[str] = None
-    category: Optional[str] = None
+    categories: Optional[list[str]] = None
     mode: Optional[str] = None
     city: Optional[str] = None
     venue: Optional[str] = None
@@ -76,7 +77,7 @@ async def list_events(
     else:
         stmt = select(Event).where(Event.status == "active")
     if category:
-        stmt = stmt.where(Event.category == category)
+        stmt = stmt.where(Event.categories.contains([category]))
     if city:
         stmt = stmt.where(Event.city == city)
     if mode:
@@ -98,8 +99,12 @@ async def list_events(
     hosts_result = await db.execute(select(User).where(User.id.in_(host_ids))) if host_ids else None
     hosts = {u.id: u for u in (hosts_result.scalars().all() if hosts_result else [])}
 
+    com_ids = list({e.community_id for e in events if e.community_id})
+    coms_result = await db.execute(select(Community).where(Community.id.in_(com_ids))) if com_ids else None
+    coms = {c.id: c for c in (coms_result.scalars().all() if coms_result else [])}
+
     return [
-        _event_dict(e, hosts.get(e.host_id), my_rsvps.get(e.id), current_user)
+        _event_dict(e, hosts.get(e.host_id), my_rsvps.get(e.id), current_user, coms.get(e.community_id))
         for e in events
     ]
 
@@ -123,7 +128,14 @@ async def get_event(
     host_result = await db.execute(select(User).where(User.id == event.host_id))
     host = host_result.scalar_one_or_none()
 
+    com = None
+    if event.community_id:
+        com = (
+            await db.execute(select(Community).where(Community.id == event.community_id))
+        ).scalar_one_or_none()
+
     my_rsvp: Optional[str] = None
+    my_reminder = False
     if current_user:
         my_rsvp = (
             await db.execute(
@@ -133,8 +145,16 @@ async def get_event(
                 )
             )
         ).scalar_one_or_none()
+        my_reminder = (
+            await db.execute(
+                select(EventReminder).where(
+                    EventReminder.event_id == event_id,
+                    EventReminder.user_id == current_user.id,
+                )
+            )
+        ).scalar_one_or_none() is not None
 
-    return _event_dict(event, host, my_rsvp, current_user)
+    return _event_dict(event, host, my_rsvp, current_user, com, my_reminder)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -148,7 +168,7 @@ async def create_event(
         description=body.description,
         host_id=current_user.id,
         community_id=body.community_id,
-        category=body.category,
+        categories=body.categories,
         mode=body.mode,
         city=body.city,
         venue=body.venue,
@@ -180,7 +200,12 @@ async def update_event(
     host = (
         await db.execute(select(User).where(User.id == event.host_id))
     ).scalar_one_or_none()
-    return _event_dict(event, host, None, current_user)
+    com = None
+    if event.community_id:
+        com = (
+            await db.execute(select(Community).where(Community.id == event.community_id))
+        ).scalar_one_or_none()
+    return _event_dict(event, host, None, current_user, com)
 
 
 @router.post("/{event_id}/cancel", status_code=204)
@@ -269,11 +294,55 @@ async def set_rsvp(
         interest.status = rsvp
 
 
+@router.post("/{event_id}/reminder", status_code=204)
+async def set_reminder(
+    event_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Opt into a pre-start reminder for this event (v3 bell). Idempotent — a
+    repeat tap is a no-op. The send_event_reminders worker delivers it."""
+    event = (await db.execute(select(Event).where(Event.id == event_id))).scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    existing = (
+        await db.execute(
+            select(EventReminder).where(
+                EventReminder.event_id == event_id,
+                EventReminder.user_id == current_user.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is None:
+        db.add(EventReminder(event_id=event_id, user_id=current_user.id))
+
+
+@router.delete("/{event_id}/reminder", status_code=204)
+async def clear_reminder(
+    event_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Turn the pre-start reminder off."""
+    existing = (
+        await db.execute(
+            select(EventReminder).where(
+                EventReminder.event_id == event_id,
+                EventReminder.user_id == current_user.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        await db.delete(existing)
+
+
 def _event_dict(
     e: Event,
     host: Optional[User],
     my_rsvp: Optional[str] = None,   # "going" | "interested" | None
     viewer: Optional[User] = None,
+    community: Optional[Community] = None,
+    my_reminder: bool = False,
 ) -> dict:
     is_host = bool(viewer) and (viewer.is_admin or e.host_id == viewer.id)
     return {
@@ -284,8 +353,15 @@ def _event_dict(
         "host_handle": host.handle if host else None,
         "host_name": host.name if host else None,
         "host_avatar_url": host.avatar_url if host else None,
+        "host_tier": host.tier if host else None,
+        "host_city": host.city if host else None,
         "community_id": e.community_id,
-        "category": e.category,
+        "community": (
+            {"id": community.id, "name": community.name, "tag": community.tag,
+             "tone": community.tone, "member_count": community.member_count}
+            if community else None
+        ),
+        "categories": e.categories or [],
         "mode": e.mode,
         "city": e.city,
         "venue": e.venue,
@@ -297,6 +373,7 @@ def _event_dict(
         "going_count": e.going_count,
         "interested_count": e.interested_count,
         "my_rsvp": my_rsvp,
+        "my_reminder": my_reminder,
         "is_host": is_host,
         "status": e.status,
         "created_at": e.created_at.isoformat(),

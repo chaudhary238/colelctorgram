@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     # OAuth
     google_client_id: str = ""
     google_client_secret: str = ""
+    apple_client_id: str = ""  # Apple "Services ID" (DF-37a); social buttons stay hidden until set
     oauth_redirect_uri: str = "http://localhost:8000/auth/google/callback"
 
     # R2

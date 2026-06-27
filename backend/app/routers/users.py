@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -12,7 +13,7 @@ from app.models.user import User, Follow
 from app.models.item import Item
 from app.models.listing import Listing
 from app.models.post import Post, PostLike, PostSave
-from app.models.deal import Deal
+from app.models.deal import Deal, Vouch, VouchRequest
 from app.models.community import Community, CommunityMember
 from app.routers.communities import _community_dict
 from app.services.notifications import notify
@@ -37,6 +38,16 @@ class ProfileOut(BaseModel):
     active_listings_count: int
     verified_items_count: int
     portfolio_value: int = 0  # paise — sum of owned-item value
+    # Vouches (DF-36a) — peer endorsements, independent of deals
+    vouches_received_count: int = 0
+    vouches_given_count: int = 0
+    # the viewer's own social endorsement of this profile, if any: {relation, note}
+    my_vouch: Optional[dict] = None
+    # the viewer has already asked this profile to vouch for them
+    vouch_requested: bool = False
+    # Presence (DF-36a) — last_active_at, nulled when the profile hides it
+    # (privacy_prefs.show_online) and they aren't the viewer. Client derives the label.
+    last_active_at: Optional[datetime] = None
     # follow state relative to the requesting user (false for self / anon)
     is_following: bool = False
     # private fields — only populated for /users/me
@@ -232,6 +243,15 @@ async def get_profile(
 
     out = ProfileOut.model_validate(user)
     is_self = bool(viewer and viewer.id == user.id)
+
+    # Vouch counts (social endorsements + trade vouches both count toward trust).
+    out.vouches_received_count = await db.scalar(
+        select(func.count()).select_from(Vouch).where(Vouch.to_user_id == user.id)
+    ) or 0
+    out.vouches_given_count = await db.scalar(
+        select(func.count()).select_from(Vouch).where(Vouch.from_user_id == user.id)
+    ) or 0
+
     if is_self:
         _fill_pref_defaults(out)
     else:
@@ -245,6 +265,10 @@ async def get_profile(
         out.notif_prefs = None
         out.privacy_prefs = None
         out.email_verified = None
+        # Presence is opt-out via privacy_prefs.show_online (default on).
+        show_online = (user.privacy_prefs or {}).get("show_online", DEFAULT_PRIVACY_PREFS["show_online"])
+        if not show_online:
+            out.last_active_at = None
         if viewer:
             follow = await db.execute(
                 select(Follow).where(
@@ -254,6 +278,25 @@ async def get_profile(
                 )
             )
             out.is_following = follow.scalar_one_or_none() is not None
+            # the viewer's own endorsement of this profile (powers "Vouched · Edit")
+            mine = await db.execute(
+                select(Vouch).where(
+                    Vouch.from_user_id == viewer.id,
+                    Vouch.to_user_id == user.id,
+                    Vouch.kind == "social_endorsement",
+                )
+            )
+            mv = mine.scalar_one_or_none()
+            if mv:
+                out.my_vouch = {"relation": mv.relation, "note": mv.body}
+            req = await db.execute(
+                select(VouchRequest).where(
+                    VouchRequest.requester_id == viewer.id,
+                    VouchRequest.target_id == user.id,
+                    VouchRequest.status == "pending",
+                )
+            )
+            out.vouch_requested = req.scalar_one_or_none() is not None
     return out
 
 
@@ -346,6 +389,184 @@ async def list_following(
         .offset(offset)
     )
     return result.scalars().all()
+
+
+# ── Vouches (DF-36a): peer endorsements, independent of any deal ─────────────
+VOUCH_RELATIONS = {"app", "offapp", "person", "community", "friend", "request"}
+
+
+class VouchBody(BaseModel):
+    relation: str            # app | offapp | person | community | friend
+    note: Optional[str] = None
+
+
+class VouchOut(BaseModel):
+    handle: str
+    name: str
+    avatar_url: Optional[str]
+    tier: str
+    relation: Optional[str]
+    note: Optional[str]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+async def _resolve_user(db: AsyncSession, handle: str) -> User:
+    result = await db.execute(select(User).where(User.handle == handle.lower()))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@router.post("/{handle}/vouch", status_code=204)
+async def give_vouch(
+    handle: str,
+    body: VouchBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Give (or update) a social endorsement for @handle — no deal required."""
+    if body.relation not in VOUCH_RELATIONS:
+        raise HTTPException(status_code=400, detail="Invalid relation")
+    target = await _resolve_user(db, handle)
+    if target.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot vouch for yourself")
+
+    existing = await db.execute(
+        select(Vouch).where(
+            Vouch.from_user_id == current_user.id,
+            Vouch.to_user_id == target.id,
+            Vouch.kind == "social_endorsement",
+        )
+    )
+    vouch = existing.scalar_one_or_none()
+    is_new = vouch is None
+    if vouch:
+        vouch.relation = body.relation
+        vouch.body = body.note
+    else:
+        db.add(Vouch(
+            from_user_id=current_user.id,
+            to_user_id=target.id,
+            deal_id=None,
+            kind="social_endorsement",
+            relation=body.relation,
+            body=body.note,
+        ))
+        # Fulfil any pending request the target sent the current user.
+        pending = await db.execute(
+            select(VouchRequest).where(
+                VouchRequest.requester_id == target.id,
+                VouchRequest.target_id == current_user.id,
+                VouchRequest.status == "pending",
+            )
+        )
+        pr = pending.scalar_one_or_none()
+        if pr:
+            pr.status = "fulfilled"
+
+    if is_new:
+        notify(
+            db,
+            user_id=target.id,
+            actor_id=current_user.id,
+            kind="vouch",
+            title="New vouch",
+            body="vouched for you.",
+            ref_type="profile",
+            ref_id=current_user.handle,
+        )
+
+
+@router.delete("/{handle}/vouch", status_code=204)
+async def remove_vouch(
+    handle: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    target = await _resolve_user(db, handle)
+    existing = await db.execute(
+        select(Vouch).where(
+            Vouch.from_user_id == current_user.id,
+            Vouch.to_user_id == target.id,
+            Vouch.kind == "social_endorsement",
+        )
+    )
+    vouch = existing.scalar_one_or_none()
+    if vouch:
+        await db.delete(vouch)
+
+
+@router.get("/{handle}/vouches", response_model=list[VouchOut])
+async def list_vouches(
+    handle: str,
+    mode: str = Query("received", pattern="^(received|given)$"),
+    db: AsyncSession = Depends(get_db),
+    limit: int = 40,
+    offset: int = 0,
+):
+    """Vouches received by / given by @handle (the other party + relation + note)."""
+    subject = await _resolve_user(db, handle)
+    if mode == "received":
+        join_cond = Vouch.from_user_id == User.id
+        scope = Vouch.to_user_id == subject.id
+    else:
+        join_cond = Vouch.to_user_id == User.id
+        scope = Vouch.from_user_id == subject.id
+
+    result = await db.execute(
+        select(User, Vouch)
+        .join(Vouch, join_cond)
+        .where(scope)
+        .order_by(Vouch.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = result.all()
+    return [
+        VouchOut(
+            handle=u.handle, name=u.name, avatar_url=u.avatar_url, tier=u.tier,
+            relation=v.relation, note=v.body, created_at=v.created_at,
+        )
+        for u, v in rows
+    ]
+
+
+@router.post("/{handle}/vouch-request", status_code=204)
+async def request_vouch(
+    handle: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Ask @handle to vouch for the current user (idempotent)."""
+    target = await _resolve_user(db, handle)
+    if target.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot request a vouch from yourself")
+
+    existing = await db.execute(
+        select(VouchRequest).where(
+            VouchRequest.requester_id == current_user.id,
+            VouchRequest.target_id == target.id,
+        )
+    )
+    vr = existing.scalar_one_or_none()
+    if vr:
+        if vr.status != "pending":
+            vr.status = "pending"  # re-ask
+        return
+    db.add(VouchRequest(requester_id=current_user.id, target_id=target.id, status="pending"))
+    notify(
+        db,
+        user_id=target.id,
+        actor_id=current_user.id,
+        kind="vouch",
+        title="Vouch request",
+        body="asked you to vouch for them.",
+        ref_type="profile",
+        ref_id=current_user.handle,
+    )
 
 
 @router.get("/{handle}/posts")

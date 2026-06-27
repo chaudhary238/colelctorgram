@@ -15,10 +15,11 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.services.auth import (
-    create_access_token, create_refresh_token,
-    decode_refresh_token, hash_password, verify_password,
+    create_access_token, create_refresh_token, create_reset_token,
+    decode_refresh_token, decode_reset_token, hash_password, verify_password,
+    password_fingerprint,
 )
-from app.services.email import send_otp_email
+from app.services.email import send_otp_email, send_password_reset_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -185,6 +186,138 @@ async def change_password(
         raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
     current_user.password_hash = hash_password(body.new_password)
     db.add(current_user)
+
+
+# ── Password reset (B-71 / DF-37a) ────────────────────────────────────────
+class ForgotPasswordBody(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordBody(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/forgot-password")
+async def forgot_password(body: ForgotPasswordBody, db: AsyncSession = Depends(get_db)):
+    """Email a reset link. Always 200 (never reveal whether the email exists)."""
+    result = await db.execute(select(User).where(User.email == body.email.lower().strip()))
+    user = result.scalar_one_or_none()
+    debug_token = None
+    if user and user.password_hash:  # OAuth-only accounts have no password to reset
+        token = create_reset_token(str(user.id), user.password_hash)
+        reset_url = f"{settings.frontend_url}/auth/reset?token={token}"
+        await send_password_reset_email(user.email, reset_url)  # never raises; logs when no API key
+        if settings.app_debug:
+            logger.info("password reset link for %s: %s", user.email, reset_url)
+        debug_token = token if _debug_otp_allowed() else None
+    # Uniform response regardless of existence.
+    return {"ok": True, "debug_token": debug_token}
+
+
+@router.post("/reset-password", status_code=204)
+async def reset_password(body: ResetPasswordBody, db: AsyncSession = Depends(get_db)):
+    payload = decode_reset_token(body.token)
+    if not payload:
+        raise HTTPException(status_code=400, detail="This reset link is invalid or has expired")
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
+    result = await db.execute(select(User).where(User.id == payload.get("sub")))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=400, detail="This reset link is invalid or has expired")
+    # Single-use: the embedded fingerprint must still match the current hash.
+    if payload.get("fp") != password_fingerprint(user.password_hash):
+        raise HTTPException(status_code=400, detail="This reset link has already been used")
+    user.password_hash = hash_password(body.new_password)
+    db.add(user)
+
+
+# ── OAuth social sign-in (C-04 / DF-37a) — config-gated ───────────────────
+# Real provider verification. Endpoints 503 (and the UI hides the buttons) until
+# the matching client id is configured, so nothing dead ships before credentials.
+class OAuthProvidersOut(BaseModel):
+    google: bool
+    apple: bool
+
+
+@router.get("/providers", response_model=OAuthProvidersOut)
+async def oauth_providers():
+    return OAuthProvidersOut(
+        google=bool(settings.google_client_id),
+        apple=bool(settings.apple_client_id),
+    )
+
+
+class OAuthBody(BaseModel):
+    credential: str  # provider-issued ID token (Google credential / Apple id_token)
+
+
+async def _handle_oauth_user(db: AsyncSession, *, email: str, name: str | None) -> TokenResponse:
+    """Find-or-create a user for a verified OAuth email and issue our tokens."""
+    email = email.lower().strip()
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if not user:
+        # Derive a unique handle from the email local part.
+        base = "".join(c for c in email.split("@")[0].lower() if c.isalnum()) or "collector"
+        handle = base
+        while (await db.execute(select(User.id).where(User.handle == handle))).scalar_one_or_none():
+            handle = f"{base}{secrets.randbelow(10000)}"
+        user = User(
+            id=uuid.uuid4(), handle=handle, name=name or base, email=email,
+            password_hash=None, email_verified=True,  # provider already verified the email
+        )
+        db.add(user)
+        await db.flush()
+    return TokenResponse(
+        access_token=create_access_token(str(user.id)),
+        refresh_token=create_refresh_token(str(user.id)),
+    )
+
+
+@router.post("/oauth/google", response_model=TokenResponse)
+async def oauth_google(body: OAuthBody, db: AsyncSession = Depends(get_db)):
+    if not settings.google_client_id:
+        raise HTTPException(status_code=503, detail="Google sign-in is not configured")
+    # Verify the ID token with Google's tokeninfo endpoint (no extra dependency).
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": body.credential})
+    if resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid Google credential")
+    data = resp.json()
+    if data.get("aud") != settings.google_client_id:
+        raise HTTPException(status_code=401, detail="Google credential was issued for another app")
+    if data.get("email_verified") in ("false", False):
+        raise HTTPException(status_code=401, detail="Google email is not verified")
+    email = data.get("email")
+    if not email:
+        raise HTTPException(status_code=401, detail="Google credential has no email")
+    return await _handle_oauth_user(db, email=email, name=data.get("name"))
+
+
+@router.post("/oauth/apple", response_model=TokenResponse)
+async def oauth_apple(body: OAuthBody, db: AsyncSession = Depends(get_db)):
+    if not settings.apple_client_id:
+        raise HTTPException(status_code=503, detail="Apple sign-in is not configured")
+    from jose import jwt as jose_jwt
+    # Apple signs the identity token with rotating RSA keys published as a JWKS.
+    async with httpx.AsyncClient(timeout=10) as client:
+        jwks_resp = await client.get("https://appleid.apple.com/auth/keys")
+    if jwks_resp.status_code != 200:
+        raise HTTPException(status_code=503, detail="Could not reach Apple to verify the credential")
+    try:
+        claims = jose_jwt.decode(
+            body.credential, jwks_resp.json(),
+            algorithms=["RS256"], audience=settings.apple_client_id,
+            issuer="https://appleid.apple.com",
+        )
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid Apple credential")
+    email = claims.get("email")
+    if not email:
+        raise HTTPException(status_code=401, detail="Apple credential has no email")
+    return await _handle_oauth_user(db, email=email, name=None)
 
 
 @router.post("/refresh", response_model=TokenResponse)

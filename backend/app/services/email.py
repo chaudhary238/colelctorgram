@@ -63,3 +63,23 @@ async def send_otp_email(to: str, code: str) -> bool:
     </div>
     """
     return await send_email(to, f"{code} is your CollectorHub code", html)
+
+
+async def send_password_reset_email(to: str, reset_url: str) -> bool:
+    """Password-reset link (B-71 / DF-37a)."""
+    html = f"""
+    <div style="font-family:system-ui,-apple-system,sans-serif;max-width:420px;margin:0 auto;padding:24px">
+      <h2 style="color:#14110F;margin:0 0 8px">Reset your password</h2>
+      <p style="color:#5C544C;font-size:15px;line-height:1.5;margin:0 0 20px">
+        Tap the button below to choose a new password. This link expires in 15 minutes.
+      </p>
+      <a href="{reset_url}" style="display:inline-block;background:#FF2442;color:#fff;text-decoration:none;
+                  font-weight:700;font-size:15px;border-radius:12px;padding:13px 22px">
+        Reset password
+      </a>
+      <p style="color:#8B8178;font-size:12.5px;margin:20px 0 0">
+        Didn't request this? You can safely ignore this email — your password won't change.
+      </p>
+    </div>
+    """
+    return await send_email(to, "Reset your CollectorHub password", html)

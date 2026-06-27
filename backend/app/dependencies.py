@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, status
@@ -7,6 +8,10 @@ from sqlalchemy import select
 
 from app.database import get_db
 from app.services.auth import decode_access_token
+
+# Presence (DF-36a): refresh last_active_at at most this often to avoid a write
+# on every authenticated request while still keeping the "Online now" dot fresh.
+_PRESENCE_THROTTLE = timedelta(seconds=60)
 
 bearer = HTTPBearer()
 optional_bearer = HTTPBearer(auto_error=False)
@@ -28,6 +33,14 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if not user or user.is_suspended:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    # Presence: touch last_active_at (throttled) so others see an accurate
+    # "Online now" / "Active …" dot. Committed with the request via get_db.
+    now = datetime.now(timezone.utc)
+    last = user.last_active_at
+    if last is None or last.tzinfo is None or (now - last) > _PRESENCE_THROTTLE:
+        user.last_active_at = now
+
     return user
 
 
