@@ -1,0 +1,57 @@
+<!-- @dsCard group="Forms" viewport="680x320" name="Input, Segmented & CategoryChip" subtitle="Text input · tab switcher · filter chips" -->
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 22px 26px; background: var(--paper); font-family: var(--font-body); color: var(--ink); }
+  .label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 12px; margin-top: 18px; }
+  .label:first-child { margin-top: 0; }
+  .label b { color: var(--ink); font-weight: 600; }
+  /* Input */
+  .inp-wrap { position: relative; width: 280px; }
+  .ico { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--ink-faint); display: flex; align-items: center; pointer-events: none; }
+  .inp { width: 100%; height: 42px; padding: 0 14px 0 40px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--paper); font-family: var(--font-body); font-size: 14px; color: var(--ink); outline: none; box-sizing: border-box; }
+  .inp:focus { border-color: var(--stamp-red); box-shadow: 0 0 0 3px rgba(255,36,66,0.30); }
+  /* Segmented */
+  .seg { display: flex; background: var(--bone); border-radius: 12px; padding: 4px; gap: 2px; width: fit-content; }
+  .seg-btn { flex: 1; padding: 8px 14px; border-radius: 9px; border: none; background: transparent; color: var(--ink-faint); font-family: var(--font-body); font-weight: 500; font-size: 13px; cursor: pointer; white-space: nowrap; line-height: 1; }
+  .seg-btn.on { background: var(--paper); color: var(--ink); font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+  /* CategoryChip */
+  .chip { padding: 8px 16px; border-radius: 999px; font-family: var(--font-body); font-weight: 500; font-size: 13px; cursor: pointer; white-space: nowrap; line-height: 1; border: 1px solid var(--border-strong); background: var(--paper); color: var(--ink); }
+  .chip.on { background: var(--stamp-red); color: var(--paper); border-color: var(--stamp-red); font-weight: 600; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+</style></head>
+<body>
+  <div class="label"><b>Input</b> · default · with icon · focused state</div>
+  <div class="row">
+    <div class="inp-wrap">
+      <div class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div>
+      <input class="inp" placeholder="Search listings, brands, sellers…">
+    </div>
+    <div class="inp-wrap" style="width:200px">
+      <input class="inp" style="padding-left:14px" placeholder="Display name" value="Aman Iyer">
+    </div>
+  </div>
+
+  <div class="label"><b>Segmented</b> · tab switcher</div>
+  <div class="row">
+    <div class="seg">
+      <button class="seg-btn on">For You</button>
+      <button class="seg-btn">Explore</button>
+      <button class="seg-btn">Following</button>
+    </div>
+    <div class="seg">
+      <button class="seg-btn on">Collection</button>
+      <button class="seg-btn">Posts</button>
+      <button class="seg-btn">Trades</button>
+    </div>
+  </div>
+
+  <div class="label"><b>CategoryChip</b> · filter selection</div>
+  <div class="row">
+    <button class="chip on">Action Figures</button>
+    <button class="chip">Designer Toys</button>
+    <button class="chip">Model Kits</button>
+    <button class="chip on">Diecast</button>
+    <button class="chip">TCG</button>
+  </div>
+</body></html>

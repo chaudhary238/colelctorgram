@@ -3,13 +3,26 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Share2, Calendar, MapPin, Globe, Ticket } from "lucide-react";
+import { Share2, Bell, Calendar, MapPin, Globe, Users, Star, Settings2, Tag as TagIcon, Package, ChevronRight, MessageCircle } from "lucide-react";
+import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
 import { shortDate } from "@/lib/utils";
 import { ApiEvent } from "@/components/cards";
-import { Avatar, ProductPhoto, SectionLabel, QRCode } from "@/components/ui";
+import { Avatar, ProductPhoto, SectionLabel, Tag, TierChip } from "@/components/ui";
 
-function DetailRow({ icon: Icon, title, sub, last }: { icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>; title: string; sub?: string; last?: boolean }) {
+interface Guest { handle: string; name: string; avatar_url: string | null; city: string | null; tier: string; status: "going" | "interested" }
+
+// v4 category short-labels (design_v4 data.jsx CATEGORIES.short; incl. TCG per DV4-01).
+const CAT_LABEL: Record<string, string> = {
+  figures: "Action Figures", diecast: "Diecast", kits: "Model Kits", designer: "Designer Toys", tcg: "TCG",
+};
+// Community tone → solid tile colour (v4 EventDetail tones map).
+const TONE_BG: Record<string, string> = {
+  plum: "var(--plum)", forest: "var(--forest)", teal: "var(--verified-teal)",
+  red: "var(--stamp-red)", ink: "var(--ink)", gold: "var(--grail-gold)",
+};
+
+function DetailRow({ icon: Icon, title, sub, last }: { icon: React.ComponentType<{ size?: number }>; title: string; sub?: string; last?: boolean }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", borderBottom: last ? "none" : "1px solid var(--border)" }}>
       <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--bone)", color: "var(--ink-mute)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -26,21 +39,30 @@ function DetailRow({ icon: Icon, title, sub, last }: { icon: React.ComponentType
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [event, setEvent] = useState<ApiEvent | null>(null);
+  const [guests, setGuests] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [interested, setInterested] = useState(false);
-  const [interestCount, setInterestCount] = useState(0);
-  const [busy, setBusy] = useState(false);
   const [shared, setShared] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [reminder, setReminder] = useState(false);
+
+  // RSVP state (mirrors the event; optimistic on tap)
+  const [myRsvp, setMyRsvp] = useState<"going" | "interested" | null>(null);
+  const [goingCount, setGoingCount] = useState(0);
+  const [intCount, setIntCount] = useState(0);
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     api.get<ApiEvent>(`/events/${id}`)
       .then((e) => {
         setEvent(e);
-        setInterested(e.is_interested);
-        setInterestCount(e.interested_count);
+        setMyRsvp(e.my_rsvp ?? null);
+        setGoingCount(e.going_count ?? 0);
+        setIntCount(e.interested_count);
+        setReminder(!!e.my_reminder);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
+    api.get<Guest[]>(`/events/${id}/interested`).then((g) => setGuests(g ?? [])).catch(() => {});
   }, [id]);
 
   async function share() {
@@ -49,6 +71,45 @@ export default function EventDetailPage() {
       if (navigator.share) await navigator.share({ title: event?.title ?? "CollectorHub", url });
       else { await navigator.clipboard.writeText(url); setShared(true); setTimeout(() => setShared(false), 1600); }
     } catch { /* cancelled */ }
+  }
+
+  async function toggleReminder() {
+    const next = !reminder;
+    setReminder(next);   // optimistic
+    try {
+      if (next) await api.post(`/events/${id}/reminder`);
+      else await api.delete(`/events/${id}/reminder`);
+    } catch {
+      setReminder(!next);  // revert
+    }
+  }
+
+  async function setRsvp(next: "going" | "interested") {
+    if (busy || !event) return;
+    const prev = { myRsvp, goingCount, intCount };
+    // optimistic
+    let g = goingCount;
+    let i = intCount;
+    let mine: "going" | "interested" | null = next;
+    if (myRsvp === next) {
+      mine = null;
+      if (next === "going") g--; else i--;
+    } else {
+      if (myRsvp === "going") g--;
+      if (myRsvp === "interested") i--;
+      if (next === "going") g++; else i++;
+    }
+    setMyRsvp(mine); setGoingCount(Math.max(0, g)); setIntCount(Math.max(0, i));
+    setBusy(true);
+    try {
+      await api.post(`/events/${id}/interest?status=${next}`);
+      const fresh = await api.get<Guest[]>(`/events/${id}/interested`).catch(() => null);
+      if (fresh) setGuests(fresh);
+    } catch {
+      setMyRsvp(prev.myRsvp); setGoingCount(prev.goingCount); setIntCount(prev.intCount);  // revert
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (loading || !event) {
@@ -65,31 +126,27 @@ export default function EventDetailPage() {
   const eventDate = new Date(event.starts_at);
   const dayName = eventDate.toLocaleString("en-IN", { weekday: "short" });
   const timeStr = eventDate.toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-  const TICKET_CODE = `CH-${event.id.slice(0, 8).toUpperCase()}-0142`;
-
-  async function setInterest(next: boolean) {
-    if (busy || next === interested) return;
-    setInterested(next);                                   // optimistic
-    setInterestCount((n) => n + (next ? 1 : -1));
-    setBusy(true);
-    try {
-      await api.post(`/events/${event!.id}/interest`);     // single toggle endpoint
-    } catch {
-      setInterested(!next);                                // revert
-      setInterestCount((n) => n + (next ? -1 : 1));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const online = event.mode === "online";
+  const past = eventDate.getTime() < now;
+  const going = guests.filter((g) => g.status === "going");
+  const interested = guests.filter((g) => g.status === "interested");
 
   return (
-    <div className="w-full max-w-[680px] flex flex-col pb-24">
+    <div className="w-full max-w-[680px] flex flex-col pb-28">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link href="/events" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)" }}>
-            <ArrowLeft size={18} />
-          </Link>
+          <BackButton fallback="/events" />
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Event</span>
+          {event.is_host && (
+            <Link href={`/events/${id}/manage`} style={{ display: "flex", alignItems: "center", gap: 6, height: 36, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", textDecoration: "none", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13 }}>
+              <Settings2 size={15} />Manage
+            </Link>
+          )}
+          {!past && !event.is_host && (
+            <button onClick={toggleReminder} title={reminder ? "Reminder on" : "Remind me before it starts"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: `1px solid ${reminder ? "var(--stamp-red)" : "var(--border)"}`, color: reminder ? "var(--stamp-red)" : "var(--ink)", background: reminder ? "var(--stamp-red-soft)" : "none", cursor: "pointer" }}>
+              <Bell size={17} fill={reminder ? "var(--stamp-red)" : "none"} />
+            </button>
+          )}
           <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: shared ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
             <Share2 size={17} />
           </button>
@@ -98,7 +155,12 @@ export default function EventDetailPage() {
 
       {/* Hero banner */}
       <div style={{ position: "relative" }}>
-        <ProductPhoto tone="plum" ratio="3/2" rounded={0} />
+        {event.cover_image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={event.cover_image_url} alt="" style={{ display: "block", width: "100%", aspectRatio: "3/2", objectFit: "cover" }} />
+        ) : (
+          <ProductPhoto tone="plum" ratio="3/2" rounded={0} />
+        )}
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 40%, rgba(20,17,15,0.8) 100%)" }} />
         <div style={{ position: "absolute", bottom: 14, left: 20, right: 20, display: "flex", gap: 12, alignItems: "flex-end" }}>
           <div style={{ width: 64, borderRadius: 12, background: "var(--paper)", color: "var(--ink)", textAlign: "center", padding: "8px 0", flexShrink: 0, boxShadow: "0 4px 16px rgba(0,0,0,0.24)" }}>
@@ -107,83 +169,134 @@ export default function EventDetailPage() {
             <div style={{ fontSize: 10, color: "var(--ink-faint)" }}>{dayName}</div>
           </div>
           <div style={{ flex: 1, color: "var(--paper)" }}>
-            <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: 5, background: event.mode === "online" ? "var(--verified-teal)" : "var(--plum)", color: "var(--paper)", marginBottom: 6 }}>
-              {event.mode === "online" ? "Online" : "In person"}
-            </span>
+            <div style={{ marginBottom: 6 }}>
+              <Tag kind={online ? "vouch" : "event"}>{online ? "Online" : "In person"}</Tag>
+            </div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{event.title}</div>
           </div>
         </div>
       </div>
 
       <div style={{ padding: "16px 20px" }}>
-        {/* Free ticket — shown once you're interested (RSVP'd) */}
-        {interested && (
-          <div style={{ border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", marginBottom: 18, background: "var(--paper)", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
-            <div style={{ background: "var(--ink)", color: "var(--paper)", padding: "11px 16px", display: "flex", alignItems: "center", gap: 9 }}>
-              <Ticket size={17} />
-              <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, letterSpacing: "0.02em" }}>FREE ENTRY TICKET</span>
-              <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: 11, opacity: 0.7 }}>× 1</span>
+        {/* RSVP summary strip */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, padding: "11px 14px", background: myRsvp === "going" ? "var(--forest-soft)" : "var(--paper-soft)", border: `1px solid ${myRsvp === "going" ? "var(--forest)" : "var(--border)"}`, borderRadius: 12 }}>
+          <Users size={17} style={{ color: myRsvp === "going" ? "var(--forest)" : "var(--ink-mute)" }} />
+          <span style={{ fontSize: 13.5, fontWeight: 600 }}>{goingCount} going</span>
+          <span style={{ color: "var(--ink-ghost)" }}>·</span>
+          <span style={{ fontSize: 13.5, color: "var(--ink-faint)" }}>{intCount} interested</span>
+          {myRsvp && <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 600, color: myRsvp === "going" ? "var(--forest)" : "var(--grail-gold-deep)" }}>You&rsquo;re {myRsvp}</span>}
+        </div>
+
+        {/* Details */}
+        <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden", marginBottom: 18 }}>
+          <DetailRow icon={Calendar} title={`${dayName}, ${month} ${day} · ${timeStr}`} sub={reminder ? "Reminder on" : past ? "Ended" : event.is_host ? "Upcoming" : "Tap the bell to get reminded"} />
+          <DetailRow icon={online ? Globe : MapPin} title={event.venue ?? (online ? "Online event" : "TBA")} sub={online ? "Online" : event.city ?? undefined} last={event.categories.length === 0 && !event.bring} />
+          {event.categories.length > 0 && <DetailRow icon={TagIcon} title={event.categories.map((c) => CAT_LABEL[c] ?? c).join(" · ")} sub={event.categories.length > 1 ? "Categories" : "Category"} last={!event.bring} />}
+          {event.bring && <DetailRow icon={Package} title={event.bring} sub="What to bring" last />}
+        </div>
+
+        {/* Who's going */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <SectionLabel>Who&rsquo;s going</SectionLabel>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-faint)" }}>{goingCount}</span>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "12px 0 14px" }}>
+          {going.slice(0, 10).map((g) => (
+            <Link key={g.handle} href={`/profile/${g.handle}`} style={{ display: "flex", alignItems: "center", gap: 7, padding: "5px 11px 5px 5px", borderRadius: 999, textDecoration: "none", background: "var(--paper-soft)", border: "1px solid var(--border)" }}>
+              <Avatar name={g.name} size={22} />
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>{g.name.split(" ")[0]}</span>
+            </Link>
+          ))}
+          {going.length === 0 && <span style={{ fontSize: 13, color: "var(--ink-faint)" }}>Be the first to RSVP.</span>}
+          {goingCount > going.length && <span style={{ alignSelf: "center", fontSize: 12.5, color: "var(--ink-faint)" }}>+{goingCount - going.length} more</span>}
+        </div>
+        {interested.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
+            <span style={{ fontSize: 12, color: "var(--ink-faint)", fontWeight: 600 }}>Interested</span>
+            <div style={{ display: "flex" }}>
+              {interested.slice(0, 6).map((g, idx) => (
+                <div key={g.handle} style={{ marginLeft: idx ? -8 : 0, borderRadius: "50%", boxShadow: "0 0 0 2px var(--paper)" }}>
+                  <Avatar name={g.name} size={26} />
+                </div>
+              ))}
             </div>
-            <div style={{ display: "flex", gap: 16, padding: 16, alignItems: "center" }}>
-              <div style={{ flexShrink: 0, border: "1px solid var(--border)", borderRadius: 8, padding: 4, background: "var(--paper)" }}>
-                <QRCode seed={TICKET_CODE} size={110} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em", lineHeight: 1.15 }}>{event.title}</div>
-                <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 4 }}>{month} {day} · {timeStr}</div>
-                {event.venue && <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>{event.venue}</div>}
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-mute)", marginTop: 8, letterSpacing: "0.04em" }}>{TICKET_CODE}</div>
-              </div>
-            </div>
-            <div style={{ borderTop: "1px dashed var(--border-strong)", padding: "9px 16px", background: "var(--paper-soft)" }}>
-              <span style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Scanned at the door. Tickets are always free in Phase 1.</span>
-            </div>
+            {intCount > 6 && <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>+{intCount - 6}</span>}
           </div>
         )}
 
-        {/* Date + location */}
-        <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden", marginBottom: 18 }}>
-          <DetailRow icon={Calendar} title={`${dayName}, ${month} ${day} · ${timeStr}`} sub="Add to calendar" />
-          <DetailRow icon={event.mode === "online" ? Globe : MapPin} title={event.venue ?? (event.mode === "online" ? "Online event" : "TBA")} sub={event.city ?? undefined} last />
-        </div>
-
+        {/* About */}
         <SectionLabel>About</SectionLabel>
         <div style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--ink-soft)", margin: "10px 0 18px" }}>
           {event.description ?? "No description provided."}
         </div>
 
+        {/* Event community */}
+        {event.community && (
+          <>
+            <SectionLabel>Event community</SectionLabel>
+            <Link href={`/community/${event.community.id}`} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textDecoration: "none", margin: "10px 0 18px", padding: 13, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 14 }}>
+              <div style={{ width: 46, height: 46, borderRadius: 12, flexShrink: 0, background: TONE_BG[event.community.tone] ?? "var(--plum)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18 }}>
+                {event.community.tag ?? <MessageCircle size={20} />}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink)" }}>{event.community.name}</div>
+                <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>Talk, network &amp; post with attendees</div>
+              </div>
+              <ChevronRight size={18} style={{ color: "var(--ink-faint)" }} />
+            </Link>
+          </>
+        )}
+
+        {/* Hosted by */}
         <SectionLabel>Hosted by</SectionLabel>
-        <Link href={`/profile/${event.host_handle}`} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", marginTop: 10, padding: 12, cursor: "pointer", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, textDecoration: "none" }}>
-          <Avatar name={event.host_name ?? "?"} size={40} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{event.host_name}</div>
-            <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>@{event.host_handle}</div>
+        <Link href={`/profile/${event.host_handle}`} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", marginTop: 10, padding: 12, textDecoration: "none", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13 }}>
+          <Avatar name={event.host_name ?? "?"} photo={event.host_avatar_url ?? undefined} size={40} verified={!!event.host_tier && event.host_tier !== "verified"} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{event.is_host ? "You" : event.host_name}</span>
+              {!event.is_host && event.host_tier && <TierChip tier={event.host_tier} />}
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>@{event.host_handle}{event.host_city ? ` · ${event.host_city}` : ""}</div>
           </div>
+          <ChevronRight size={18} style={{ color: "var(--ink-faint)" }} />
         </Link>
       </div>
 
       {/* Sticky footer */}
-      <div style={{ position: "fixed", bottom: 0, left: 245, right: 0, maxWidth: 680, borderTop: "1px solid var(--border)", background: "var(--paper)", padding: "12px 20px 20px", display: "flex", gap: 10, alignItems: "center", zIndex: 20 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 15 }}>{interestCount}</div>
-          <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>interested</div>
-        </div>
-        {interested ? (
-          <button
-            onClick={() => setInterest(false)}
-            disabled={busy}
-            style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--verified-teal)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: busy ? "default" : "pointer" }}
-          >
-            <Ticket size={18} />Going · tap to cancel
-          </button>
+      <div style={{ position: "fixed", bottom: 0, left: 245, right: 0, maxWidth: 680, borderTop: "1px solid var(--border)", background: "var(--paper)", padding: "12px 20px 20px", zIndex: 20 }}>
+        {past ? (
+          <div style={{ textAlign: "center", fontSize: 13, color: "var(--ink-faint)", padding: "4px 0" }}>This event has ended.</div>
+        ) : event.is_host ? (
+          <Link href={`/events/${id}/manage`} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 50, borderRadius: 13, background: "var(--ink)", color: "var(--paper)", textDecoration: "none", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 15 }}>
+            <Settings2 size={18} />Manage your event
+          </Link>
         ) : (
-          <button
-            onClick={() => setInterest(true)}
-            disabled={busy}
-            style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--bone)", color: "var(--ink)", border: "1px solid var(--border-strong)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: busy ? "default" : "pointer" }}
-          >
-            <Ticket size={18} />Get free ticket
-          </button>
+          <>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setRsvp("going")} disabled={busy} style={{
+                flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, height: 50, borderRadius: 13, cursor: busy ? "default" : "pointer",
+                border: `1.5px solid ${myRsvp === "going" ? "var(--forest)" : "var(--ink)"}`,
+                background: myRsvp === "going" ? "var(--forest)" : "var(--ink)", color: "var(--paper)",
+                fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 15,
+              }}>
+                <Users size={18} strokeWidth={2.2} />Going
+              </button>
+              <button onClick={() => setRsvp("interested")} disabled={busy} style={{
+                flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, height: 50, borderRadius: 13, cursor: busy ? "default" : "pointer",
+                border: `1.5px solid ${myRsvp === "interested" ? "var(--grail-gold-deep)" : "var(--border-strong)"}`,
+                background: myRsvp === "interested" ? "var(--grail-gold-soft)" : "var(--paper-soft)",
+                color: myRsvp === "interested" ? "var(--grail-gold-deep)" : "var(--ink)",
+                fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 15,
+              }}>
+                <Star size={18} fill={myRsvp === "interested" ? "var(--grail-gold-deep)" : "none"} />Interested
+              </button>
+            </div>
+            {event.community_id && (
+              <Link href={`/community/${event.community_id}`} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", marginTop: 10, height: 40, borderRadius: 11, border: "1px solid var(--border-strong)", background: "transparent", color: "var(--ink-soft)", textDecoration: "none", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13.5 }}>
+                <MessageCircle size={16} />Open event community
+              </Link>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -11,12 +11,24 @@ import { api } from "@/lib/api";
 import { useUser, AuthUser } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
+// v4 order (CATEGORIES in data.jsx): figures → diecast → kits → designer → tcg.
 const CATEGORIES = [
   { id: "figures", label: "Action Figures" },
-  { id: "designer", label: "Designer Toys & Blind Boxes" },
+  { id: "diecast", label: "Diecast" },
   { id: "kits", label: "Model Kits & Lego" },
-  { id: "diecast", label: "Diecast & Scale Models" },
+  { id: "designer", label: "Designer Toys & Blind Boxes" },
+  { id: "tcg", label: "Trading Cards (TCG)" },
 ];
+
+// Per-category sub-interest chips (DV4-06; v4 design_v4/Onboarding.jsx SUBINTERESTS map).
+// Revealed under a category once it's picked, for finer feed tuning (BRD §6.2/§9.2).
+const SUBINTERESTS: Record<string, string[]> = {
+  figures: ["Hot Toys", "SH Figuarts", "Sideshow", "Marvel Legends", "McFarlane", "Premium Format"],
+  designer: ["Pop Mart", "Skullpanda", "Labubu", "KAWS", "Soft vinyl", "Sonny Angel"],
+  kits: ["LEGO", "Gunpla", "MOC builds", "Bandai", "Scale models"],
+  diecast: ["Tomica", "Mini GT", "Hot Wheels", "Inno64", "Kyosho"],
+  tcg: ["Pokémon", "One Piece TCG", "Magic: The Gathering", "Yu-Gi-Oh!", "Dragon Ball Super TCG", "Digimon TCG"],
+};
 
 interface ApiCommunity {
   id: string;
@@ -91,6 +103,8 @@ export default function OnboardingPage() {
   // only persist birth_year if the user actually moved the slider
   const [ageTouched, setAgeTouched] = useState(false);
   const [interests, setInterests] = useState<string[]>([]);
+  // category → selected sub-interest chips (DV4-06)
+  const [subInterests, setSubInterests] = useState<Record<string, string[]>>({});
   const [joins, setJoins] = useState<string[]>([]);
   const [communities, setCommunities] = useState<ApiCommunity[]>([]);
   const [loading, setLoading] = useState(false);
@@ -112,9 +126,30 @@ export default function OnboardingPage() {
   );
 
   function toggleInterest(id: string) {
-    setInterests((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setInterests((prev) => {
+      const removing = prev.includes(id);
+      if (removing) {
+        // Drop the category's sub-interests too so we never persist orphans.
+        setSubInterests((subs) => {
+          const next = { ...subs };
+          delete next[id];
+          return next;
+        });
+        return prev.filter((x) => x !== id);
+      }
+      return [...prev, id];
+    });
+  }
+
+  function toggleSub(cat: string, chip: string) {
+    setSubInterests((prev) => {
+      const cur = prev[cat] ?? [];
+      const nextChips = cur.includes(chip) ? cur.filter((c) => c !== chip) : [...cur, chip];
+      const next = { ...prev };
+      if (nextChips.length === 0) delete next[cat];
+      else next[cat] = nextChips;
+      return next;
+    });
   }
 
   function toggleJoin(id: string) {
@@ -134,6 +169,7 @@ export default function OnboardingPage() {
         gender: gender || undefined,
         birth_year: ageTouched ? currentYear - age : undefined,
         interests,
+        sub_interests: Object.keys(subInterests).length ? subInterests : undefined,
         // Customize-feed defaults (DF-08): tuned to picks, listings hidden
         feed_prefs: { categories: interests, hide_listings: true },
       });
@@ -305,19 +341,50 @@ export default function OnboardingPage() {
               <div className="flex flex-col gap-2.5 mt-5">
                 {CATEGORIES.map((c) => {
                   const on = interests.includes(c.id);
+                  const chips = SUBINTERESTS[c.id] ?? [];
+                  const picked = subInterests[c.id] ?? [];
                   return (
-                    <CheckRow key={c.id} on={on} onClick={() => toggleInterest(c.id)}>
-                      <span
-                        className="flex-1 font-bold text-[16.5px] text-[var(--ink)]"
-                        style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
-                      >
-                        {c.label}
-                      </span>
-                      <CheckBox on={on} />
-                    </CheckRow>
+                    <div key={c.id} className="flex flex-col gap-2.5">
+                      <CheckRow on={on} onClick={() => toggleInterest(c.id)}>
+                        <span
+                          className="flex-1 font-bold text-[16.5px] text-[var(--ink)]"
+                          style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
+                        >
+                          {c.label}
+                        </span>
+                        <CheckBox on={on} />
+                      </CheckRow>
+                      {on && chips.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pl-1 pb-1">
+                          {chips.map((chip) => {
+                            const chipOn = picked.includes(chip);
+                            return (
+                              <button
+                                key={chip}
+                                type="button"
+                                onClick={() => toggleSub(c.id, chip)}
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px",
+                                  borderRadius: 999, cursor: "pointer", lineHeight: 1,
+                                  fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 12.5,
+                                  background: chipOn ? "var(--ink)" : "var(--paper-soft)",
+                                  color: chipOn ? "var(--paper)" : "var(--ink-soft)",
+                                  border: `1px solid ${chipOn ? "var(--ink)" : "var(--border-strong)"}`,
+                                }}
+                              >
+                                {chipOn && <Check size={12} strokeWidth={2.6} />}{chip}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
+              <p className="text-[12.5px] text-[var(--ink-faint)] leading-relaxed mt-3 mb-0">
+                Optional: tap what you collect within each to fine-tune your feed.
+              </p>
             </>
           )}
 

@@ -8,7 +8,7 @@ A community-first social platform for collectors — showcase, discover, connect
 colelctorgram/
 ├── frontend/        # Next.js (App Router) web app + admin console
 ├── backend/         # FastAPI (Python) API — REST + WebSocket
-├── design/          # Design references (web + mobile)
+├── design_v3/       # v3 "New frontend" design — full LOCAL mirror (read off disk; no MCP). See design_v3/README.md
 └── .claude/         # Project notes, tech-stack decisions, history (gitignored)
 ```
 

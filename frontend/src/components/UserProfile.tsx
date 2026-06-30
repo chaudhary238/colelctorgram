@@ -1,21 +1,25 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  LayoutGrid, BarChart3, CalendarDays, Images, Eye, EyeOff,
-  Settings, MessageCircle, Plus, Shield, MapPin,
+  LayoutGrid, BarChart3, CalendarDays, Eye, EyeOff,
+  Settings, MessageCircle, Plus, ShieldCheck, Bookmark, Camera,
+  MoreHorizontal, UserCheck, UserPlus, Check, ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AuthUser, useUser } from "@/lib/auth-context";
 import {
-  Avatar, TierChip, Money, Segmented, ProductPhoto, VerifyBadge,
-  Tag, Stars, EmptyNote, TrustSignals,
+  Avatar, Money, Segmented, ProductPhoto, VerifyBadge,
+  Tag, Stars, EmptyNote, Button, IconButton,
 } from "@/components/ui";
 import { PostCard, CommunityCard, type ApiPost, type ApiCommunity } from "@/components/cards";
 import { EditProfileSheet } from "@/components/EditProfileSheet";
 import { FollowListModal } from "@/components/FollowListModal";
 import { AddToCollectionSheet } from "@/components/AddToCollectionSheet";
+import { VouchGiveSheet, VouchListModal, VouchRequestModal } from "@/components/VouchSheets";
+import { ProfileMoreMenu } from "@/components/ProfileMoreMenu";
+import { RewardCard, BadgeShelf, TopSeasonBadge } from "@/components/gamification";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -37,6 +41,15 @@ interface ProfileUser {
   verified_items_count: number;
   portfolio_value: number; // paise
   is_following?: boolean;
+  // Vouches (DF-36a)
+  vouches_received_count: number;
+  vouches_given_count: number;
+  my_vouch?: { relation: string | null; note: string | null } | null;
+  vouch_requested?: boolean;
+  // Presence (DF-36a) — last_active_at, null when the profile hides it
+  last_active_at?: string | null;
+  // Per-view Collection visibility (eye toggle) — {grid,chart,calendar: public|private}
+  collection_view_privacy?: Record<string, "public" | "private">;
 }
 
 interface CollectionItem {
@@ -48,6 +61,9 @@ interface CollectionItem {
   value: number; // paise
   is_listed: boolean;
   photo_count: number;
+  image_url?: string | null;
+  preorder_eta?: string | null;
+  is_wishlisted?: boolean;
 }
 
 interface RawPost {
@@ -73,16 +89,31 @@ interface TradeDeal {
   vouched: boolean;
 }
 
-type Tab = "collection" | "posts" | "communities" | "trades";
-type CollView = "grid" | "chart" | "calendar" | "collage";
+type Tab = "collection" | "posts" | "communities" | "trades" | "saved";
+type CollView = "grid" | "chart" | "calendar";
+
+/* Presence label from last_active_at (DF-36a) — "Online now" within 5 min. */
+function presenceLabel(iso: string | null | undefined): { text: string; online: boolean } | null {
+  if (!iso) return null;
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return null;
+  const mins = Math.floor((Date.now() - then) / 60000);
+  if (mins < 5) return { text: "Online now", online: true };
+  if (mins < 60) return { text: `Active ${mins}m ago`, online: false };
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return { text: `Active ${hrs}h ago`, online: false };
+  const days = Math.floor(hrs / 24);
+  return { text: `Active ${days}d ago`, online: false };
+}
 
 /* ── SKU → category / tone (no catalogue join on the web yet) ────── */
 
 const SKU_CAT: Record<string, { key: string; label: string; tone: string }> = {
   FIG: { key: "figures", label: "Action Figures", tone: "red" },
   KIT: { key: "kits", label: "Kits & Lego", tone: "forest" },
-  DSN: { key: "designer", label: "Designer Toys", tone: "plum" },
+  DSN: { key: "designer", label: "Designer & Blind Boxes", tone: "plum" },
   DCS: { key: "diecast", label: "Diecast", tone: "teal" },
+  TCG: { key: "tcg", label: "Trading Cards", tone: "gold" },
 };
 function skuPrefix(sku: string | null): string {
   const m = (sku ?? "").match(/SKU-([A-Z]+)-/);
@@ -95,6 +126,9 @@ function titleForItem(it: CollectionItem): string {
   return it.custom_title || it.sku || "Item";
 }
 const paiseToRupees = (p: number) => Math.round(p / 100);
+// Compact stat counts (1.2k) like v3's compactNum; small counts stay exact.
+const compactNum = (n: number) =>
+  n >= 10000 ? (n / 1000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/, "") + "k" : (n || 0).toLocaleString("en-IN");
 
 /* ── Main component ─────────────────────────────────────────────── */
 
@@ -118,6 +152,11 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   const [showEdit, setShowEdit] = useState(false);
   const [showFollowModal, setShowFollowModal] = useState<"followers" | "following" | null>(null);
   const [showAddCollection, setShowAddCollection] = useState(false);
+  const [savedPosts, setSavedPosts] = useState<ApiPost[] | null>(null);
+  const [showVouchGive, setShowVouchGive] = useState(false);
+  const [showVouchList, setShowVouchList] = useState<"received" | "given" | null>(null);
+  const [showVouchRequest, setShowVouchRequest] = useState(false);
+  const [showMore, setShowMore] = useState(false);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -136,6 +175,20 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
     loadProfile();
   }, [loadProfile]);
 
+  // Deep-link from Settings: /profile?edit=profile|avatar opens the edit sheet (DF-22/23);
+  // /profile?vouch=request opens the vouch-request flow (v4 Settings "Vouches & endorsements").
+  useEffect(() => {
+    if (!isOwn || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("edit")) {
+      setShowEdit(true);
+      window.history.replaceState(null, "", window.location.pathname);
+    } else if (params.get("vouch") === "request") {
+      setShowVouchRequest(true);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [isOwn]);
+
   const loadTab = useCallback(async (t: Tab) => {
     if (t === "posts" && posts === null) {
       const data = await api.get<{ items: RawPost[] }>(`/users/${handle}/posts`).catch(() => ({ items: [] }));
@@ -149,8 +202,11 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
     } else if (t === "trades" && trades === null) {
       const data = await api.get<{ items: TradeDeal[] }>(`/users/${handle}/deals`).catch(() => ({ items: [] }));
       setTrades(data.items);
+    } else if (t === "saved" && savedPosts === null) {
+      const data = await api.get<{ items: ApiPost[] }>(`/users/me/saved`).catch(() => ({ items: [] }));
+      setSavedPosts(data.items);
     }
-  }, [handle, posts, collection, communities, trades]);
+  }, [handle, posts, collection, communities, trades, savedPosts]);
 
   useEffect(() => {
     if (!loading) loadTab(tab);
@@ -194,14 +250,15 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
     setCollection(null); // force reload
   }
 
-  /* ── Derived header stats ──────────────────────────────────────── */
-  const ownedItems = useMemo(
-    () => (collection ?? []).filter((i) => i.status === "owned"),
-    [collection]
-  );
-  const portfolioRupees = collection
-    ? paiseToRupees(ownedItems.reduce((s, i) => s + i.value, 0))
-    : paiseToRupees(profile?.portfolio_value ?? 0);
+  // Optimistic vouch state (give / edit / remove) — keeps the CTA + In count truthful.
+  function handleVouchSaved(next: { relation: string; note: string } | null) {
+    setProfile((p) => {
+      if (!p) return p;
+      const had = !!p.my_vouch;
+      const delta = next && !had ? 1 : !next && had ? -1 : 0;
+      return { ...p, my_vouch: next, vouches_received_count: Math.max(0, p.vouches_received_count + delta) };
+    });
+  }
 
   /* ── Render ───────────────────────────────────────────────────── */
 
@@ -228,164 +285,140 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
     );
   }
 
-  const isTrusted = profile.tier === "top_seller" || profile.tier === "trusted";
+  // v4 shows presence for everyone incl. `you` ('Online now'). On the own profile
+  // we know the viewer is online; for others derive from last_active_at.
+  const presence = isOwn ? { text: "Online now", online: true } : presenceLabel(profile.last_active_at);
+  const firstName = profile.name.split(" ")[0];
 
   const TABS: { id: Tab; label: string }[] = [
     { id: "collection", label: "Collection" },
     { id: "posts", label: "Posts" },
     { id: "communities", label: "Communities" },
     { id: "trades", label: "Trades" },
+    ...(isOwn ? [{ id: "saved" as Tab, label: "Saved" }] : []),
   ];
+
+  const avatarEl = profile.avatar_url ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={profile.avatar_url} alt={profile.name} className="rounded-full object-cover" style={{ width: 76, height: 76 }} />
+  ) : (
+    <Avatar name={profile.name} size={76} />
+  );
 
   return (
     <>
       {/* Identity header */}
       <div style={{ padding: "18px 16px 0" }}>
-        <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-          <div className="relative shrink-0">
-            {profile.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={profile.avatar_url}
-                alt={profile.name}
-                className="w-[68px] h-[68px] rounded-full object-cover"
-              />
-            ) : (
-              <Avatar name={profile.name} size={68} verified={isTrusted} />
-            )}
+        {/* avatar + 3 key stat tiles */}
+        <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
+          <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }}>
+            <div style={{ position: "relative" }}>
+              {isOwn ? (
+                <button
+                  onClick={() => setShowEdit(true)}
+                  aria-label="Change profile photo"
+                  style={{ position: "relative", background: "none", border: "none", padding: 0, cursor: "pointer", display: "block" }}
+                >
+                  {avatarEl}
+                  <span style={{ position: "absolute", bottom: -2, right: -2, width: 26, height: 26, borderRadius: "50%", background: "var(--stamp-red)", color: "var(--paper)", border: "2.5px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Camera size={13} />
+                  </span>
+                </button>
+              ) : avatarEl}
+              {/* v4: the user's top season badge as a corner medallion (no TierChip) */}
+              <TopSeasonBadge handle={profile.handle} />
+            </div>
           </div>
 
-          <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 700,
-                  fontSize: 21,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {profile.name}
+          <div style={{ flex: 1, display: "flex", justifyContent: "space-around", alignItems: "flex-start" }}>
+            <StatTop n={profile.deals_count} label="Deals" />
+            <StatTop n={profile.followers_count} label="Followers" onClick={() => setShowFollowModal("followers")} />
+            <StatTop n={profile.vouches_received_count} label="Vouches" onClick={() => setShowVouchList("received")} />
+          </div>
+        </div>
+
+        {/* name + handle + presence + bio */}
+        <div style={{ marginTop: 14, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, letterSpacing: "-0.025em", color: "var(--ink)" }}>{profile.name}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 3, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13, color: "var(--slate-400)" }}>
+                @{profile.handle}{profile.city ? ` · ${profile.city}` : ""}
               </span>
-              {profile.tier && <TierChip tier={profile.tier} />}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-              <span style={{ fontSize: 13, color: "var(--ink-faint)" }}>@{profile.handle}</span>
-              {profile.city && (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 13, color: "var(--ink-faint)" }}>
-                  <MapPin size={12} /> {profile.city}
+              {presence && (
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: presence.online ? "var(--forest)" : "var(--ink-ghost)" }} />
+                  <span style={{ fontSize: 12, color: presence.online ? "var(--forest)" : "var(--ink-faint)", fontWeight: presence.online ? 600 : 400 }}>{presence.text}</span>
                 </span>
               )}
             </div>
-            <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
-              <Stat n={profile.followers_count} l="followers" onClick={() => setShowFollowModal("followers")} />
-              <Stat n={profile.following_count} l="following" onClick={() => setShowFollowModal("following")} />
-            </div>
           </div>
-        </div>
-
-        {profile.bio && (
-          <div style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.5, marginTop: 12 }}>
-            {profile.bio}
-          </div>
-        )}
-
-        {/* ownership stats */}
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: "4px 8px",
-            marginTop: 10,
-            fontSize: 12.5,
-            color: "var(--ink-mute)",
-          }}
-        >
-          <span>
-            <b style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}>{ownedItems.length}</b> owned
-          </span>
-          <span style={{ color: "var(--ink-ghost)" }}>·</span>
-          <span>
-            <b style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}>{profile.verified_items_count}</b> verified
-          </span>
-          <span style={{ color: "var(--ink-ghost)" }}>·</span>
-          <span>
-            portfolio <b style={{ color: "var(--ink)" }}><Money value={portfolioRupees} /></b>
-          </span>
-        </div>
-
-        {/* trust signals */}
-        <div
-          style={{
-            background: "var(--paper-soft)",
-            border: "1px solid var(--border)",
-            borderRadius: 14,
-            padding: "14px 16px",
-            marginTop: 14,
-          }}
-        >
-          <TrustSignals
-            deals={profile.deals_count}
-            rating={profile.rating}
-            ratingCount={profile.rating_count}
-            response={profile.active_listings_count > 0 ? `${profile.active_listings_count}` : null}
-          />
-        </div>
-
-        {/* actions */}
-        <div style={{ display: "flex", gap: 9, marginTop: 14 }}>
-          {isOwn ? (
-            <>
-              <button
-                onClick={() => setShowEdit(true)}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-sm font-semibold bg-[var(--ink)] text-[var(--paper)] hover:opacity-90 transition-opacity"
-              >
-                Edit profile
-              </button>
-              <button
-                onClick={() => setShowAddCollection(true)}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-sm font-semibold border border-[var(--border-strong)] text-[var(--ink)] bg-[var(--paper-soft)] hover:bg-[var(--bone)] transition-colors"
-              >
-                <Plus size={16} /> Add item
-              </button>
-              <button
-                onClick={() => router.push("/settings")}
-                title="Settings"
-                className="w-9 h-9 shrink-0 flex items-center justify-center rounded-full border border-[var(--border-strong)] text-[var(--ink-mute)] bg-[var(--paper-soft)] hover:bg-[var(--bone)] transition-colors"
-              >
-                <Settings size={18} />
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={toggleFollow}
-                disabled={followLoading}
-                className={
-                  "flex-1 px-5 py-2 rounded-full text-sm font-semibold border transition-colors disabled:opacity-60 " +
-                  (isFollowing
-                    ? "bg-[var(--bone)] border-[var(--border-strong)] text-[var(--ink)] hover:bg-[var(--bone-deep)]"
-                    : "bg-[var(--ink)] border-transparent text-[var(--paper)] hover:opacity-90")
-                }
-              >
-                {isFollowing ? "Following" : "Follow"}
-              </button>
-              <button
-                onClick={startMessage}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-sm font-semibold bg-[var(--stamp-red)] text-white hover:bg-[var(--stamp-red-deep)] transition-colors"
-              >
-                <MessageCircle size={16} /> Message
-              </button>
-              <button
-                title="Trade vouch needs a confirmed deal first"
-                className="w-9 h-9 shrink-0 flex items-center justify-center rounded-full border border-[var(--border-strong)] text-[var(--ink-mute)] bg-[var(--paper-soft)]"
-              >
-                <Shield size={18} />
-              </button>
-            </>
+          {!isOwn && (
+            <IconButton icon={<MoreHorizontal size={18} />} onClick={() => setShowMore(true)} />
           )}
         </div>
+        {profile.bio && (
+          <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.55, marginTop: 7 }}>{profile.bio}</div>
+        )}
+
+        {/* Season-badge shelf (GM-14) — hidden when the user has none */}
+        <div><BadgeShelf handle={profile.handle} /></div>
+
+        {/* 4-up follow + vouch stat card */}
+        <div style={{ display: "flex", alignItems: "stretch", background: "var(--card-surface)", border: "1px solid var(--slate-200)", borderRadius: 16, marginTop: 14, overflow: "hidden", boxShadow: "var(--card-shadow)" }}>
+          <StatTile icon={<UserCheck size={15} />} n={profile.followers_count} l="Followers" onClick={() => setShowFollowModal("followers")} />
+          <StatDivider />
+          <StatTile icon={<UserPlus size={15} />} n={profile.following_count} l="Following" onClick={() => setShowFollowModal("following")} />
+          <StatDivider />
+          <StatTile icon={<ShieldCheck size={15} />} accent="var(--verified-teal)" n={profile.vouches_received_count} l="Vouches In" onClick={() => setShowVouchList("received")} />
+          <StatDivider />
+          <StatTile icon={<ShieldCheck size={15} />} accent="var(--verified-teal)" n={profile.vouches_given_count} l="Vouches Out" onClick={() => setShowVouchList("given")} />
+        </div>
+
+        {/* Request a vouch — own profile only */}
+        {isOwn && (
+          <button
+            onClick={() => setShowVouchRequest(true)}
+            style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", marginTop: 8, padding: "10px 13px", borderRadius: 11, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", cursor: "pointer", textAlign: "left" }}
+          >
+            <ShieldCheck size={16} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--verified-teal)" }}>Request a vouch</span>
+              <span style={{ fontSize: 12, color: "var(--verified-teal)", opacity: 0.75, marginLeft: 6 }}>Ask collectors who know you</span>
+            </span>
+            <ChevronRight size={15} style={{ color: "var(--verified-teal)", opacity: 0.7, flexShrink: 0 }} />
+          </button>
+        )}
+
+        {/* Collector rank card (GM-15) — own card adds "Earn points"; others
+            see rank + archetype but not the contribution mix breakdown */}
+        <RewardCard handle={profile.handle} isMe={isOwn} />
+
+        {/* actions */}
+        {isOwn ? (
+          <div style={{ display: "flex", gap: 9, marginTop: 14 }}>
+            <Button variant="dark" style={{ flex: 1, justifyContent: "center" }} onClick={() => setShowEdit(true)}>Edit profile</Button>
+            <Button variant="secondary" icon={<Plus size={17} />} onClick={() => setShowAddCollection(true)}>Add item</Button>
+            <IconButton icon={<Settings size={18} />} onClick={() => router.push("/settings")} />
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 14 }}>
+            <div style={{ display: "flex", gap: 9 }}>
+              <Button variant={isFollowing ? "secondary" : "dark"} style={{ flex: 1, justifyContent: "center" }} disabled={followLoading} onClick={toggleFollow}>
+                {isFollowing ? "Following" : "Follow"}
+              </Button>
+              <Button variant="dark" style={{ flex: 1, justifyContent: "center" }} icon={<MessageCircle size={16} />} onClick={startMessage}>Message</Button>
+            </div>
+            <Button
+              variant={profile.my_vouch ? "secondary" : "teal"}
+              style={{ width: "100%", justifyContent: "center", ...(profile.my_vouch ? { borderColor: "var(--verified-teal)", color: "var(--verified-teal)" } : null) }}
+              icon={profile.my_vouch ? <Check size={17} /> : <ShieldCheck size={17} />}
+              onClick={() => setShowVouchGive(true)}
+            >
+              {profile.my_vouch ? "Vouched · Edit" : `Vouch for ${firstName}`}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -406,7 +439,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
       {/* Tab content */}
       <div style={{ padding: "14px 16px 28px" }}>
         {tab === "collection" && (
-          <CollectionTab items={collection} verifiedCount={profile.verified_items_count} isOwn={isOwn} />
+          <CollectionTab items={collection} isOwn={isOwn} viewPrivacy={profile.collection_view_privacy} />
         )}
 
         {tab === "posts" && (
@@ -426,6 +459,18 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
         )}
 
         {tab === "trades" && <TradesTab trades={trades} />}
+
+        {tab === "saved" && isOwn && (
+          savedPosts === null ? (
+            <SkeletonRows />
+          ) : savedPosts.length === 0 ? (
+            <EmptyNote>No saved posts yet — tap the bookmark on any post to save it here.</EmptyNote>
+          ) : (
+            <div style={{ margin: "0 -16px" }}>
+              {savedPosts.map((p) => <PostCard key={p.id} post={p} />)}
+            </div>
+          )
+        )}
       </div>
 
       {/* Overlays */}
@@ -438,39 +483,95 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
       {showAddCollection && isOwn && (
         <AddToCollectionSheet onClose={() => setShowAddCollection(false)} onAdded={handleCollectionAdded} />
       )}
+      {showVouchGive && !isOwn && (
+        <VouchGiveSheet
+          targetHandle={profile.handle}
+          targetName={profile.name}
+          existing={profile.my_vouch ?? null}
+          onClose={() => setShowVouchGive(false)}
+          onSaved={handleVouchSaved}
+        />
+      )}
+      {showVouchList && (
+        <VouchListModal handle={profile.handle} mode={showVouchList} onClose={() => setShowVouchList(null)} />
+      )}
+      {showVouchRequest && isOwn && (
+        <VouchRequestModal myHandle={profile.handle} onClose={() => setShowVouchRequest(false)} />
+      )}
+      {showMore && !isOwn && (
+        <ProfileMoreMenu
+          targetId={profile.id}
+          targetHandle={profile.handle}
+          targetName={profile.name}
+          avatarUrl={profile.avatar_url}
+          onClose={() => setShowMore(false)}
+          onBlocked={() => router.push("/feed")}
+        />
+      )}
     </>
   );
 }
 
-/* ── Stat (tappable follower/following count) ───────────────────── */
-function Stat({ n, l, onClick }: { n: number; l: string; onClick?: () => void }) {
+/* ── Top stat tile (Deals / Followers / Vouches) ─────────────────── */
+const STAT_TOP_META: Record<string, { emoji: string; bg: string }> = {
+  Deals: { emoji: "🤝", bg: "var(--rose-tint-bg)" },
+  Followers: { emoji: "👥", bg: "var(--sky-soft)" },
+  Vouches: { emoji: "🛡️", bg: "rgba(139,92,246,0.10)" },
+};
+function StatTop({ n, label, onClick }: { n: number; label: string; onClick?: () => void }) {
+  const meta = STAT_TOP_META[label] ?? { emoji: "•", bg: "var(--paper-soft)" };
   return (
     <button
       onClick={onClick}
+      disabled={!onClick}
       style={{
-        display: "flex",
-        alignItems: "baseline",
-        gap: 5,
-        background: "none",
-        border: "none",
-        padding: 0,
-        cursor: onClick ? "pointer" : "default",
+        background: "none", border: "none", padding: "4px 10px", cursor: onClick ? "pointer" : "default",
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
       }}
     >
-      <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 15, color: "var(--ink)", fontFeatureSettings: '"tnum" 1' }}>
-        {n.toLocaleString("en-IN")}
+      <span style={{ width: 38, height: 38, borderRadius: 12, background: meta.bg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 1 }}>
+        <span style={{ fontSize: 20, lineHeight: 1 }}>{meta.emoji}</span>
       </span>
-      <span style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>{l}</span>
+      <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "var(--slate-900)", lineHeight: 1, letterSpacing: "-0.04em" }}>{compactNum(n)}</span>
+      <span style={{ fontSize: 9.5, fontWeight: 300, color: "var(--slate-400)", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 1 }}>{label}</span>
     </button>
   );
 }
 
+/* ── 4-up stat tile (Followers / Following / Vouches In·Out) ─────── */
+function StatTile({ icon, n, l, accent, onClick }: { icon: React.ReactNode; n: number; l: string; accent?: string; onClick?: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 7,
+        background: "none", border: "none", padding: "14px 4px", cursor: onClick ? "pointer" : "default",
+      }}
+      title={(n || 0).toLocaleString("en-IN")}
+    >
+      <span style={{ display: "flex", alignItems: "center", gap: 5, color: accent || "var(--ink-mute)" }}>
+        {icon}
+        <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 17, color: "var(--ink)", fontFeatureSettings: '"tnum" 1', lineHeight: 1 }}>{compactNum(n)}</span>
+      </span>
+      <span style={{ fontSize: 9, fontWeight: 700, lineHeight: 1, textAlign: "center", color: "var(--ink-faint)", letterSpacing: "0.07em", textTransform: "uppercase", whiteSpace: "nowrap" }}>{l}</span>
+    </button>
+  );
+}
+
+function StatDivider() {
+  return <span style={{ width: 1, background: "var(--border)", alignSelf: "stretch", margin: "11px 0" }} />;
+}
+
 /* ── Collection tab (grid / chart / calendar / collage) ─────────── */
-function CollectionTab({ items, verifiedCount, isOwn }: { items: CollectionItem[] | null; verifiedCount: number; isOwn: boolean }) {
+function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] | null; isOwn: boolean; viewPrivacy?: Record<string, "public" | "private"> }) {
   const [seg, setSeg] = useState<"owned" | "wishlist" | "preorder">("owned");
   const [view, setView] = useState<CollView>("grid");
+  // Seed per-view visibility from the server (eye toggle is persisted in
+  // privacy_prefs.collection_views). Falls back to public.
   const [vis, setVis] = useState<Record<CollView, "public" | "private">>({
-    grid: "public", chart: "public", calendar: "public", collage: "private",
+    grid: viewPrivacy?.grid ?? "public",
+    chart: viewPrivacy?.chart ?? "public",
+    calendar: viewPrivacy?.calendar ?? "public",
   });
 
   if (items === null) {
@@ -490,8 +591,7 @@ function CollectionTab({ items, verifiedCount, isOwn }: { items: CollectionItem[
   const views: { id: CollView; icon: React.ReactNode; label: string }[] = [
     { id: "grid", icon: <LayoutGrid size={15} />, label: "Grid" },
     { id: "chart", icon: <BarChart3 size={15} />, label: "Chart" },
-    { id: "calendar", icon: <CalendarDays size={15} />, label: "Calendar" },
-    { id: "collage", icon: <Images size={15} />, label: "Collage" },
+    { id: "calendar", icon: <CalendarDays size={15} />, label: "PO Calendar" },
   ];
   const isPrivate = vis[view] === "private";
   const hiddenFromViewer = !isOwn && isPrivate;
@@ -500,13 +600,13 @@ function CollectionTab({ items, verifiedCount, isOwn }: { items: CollectionItem[
     <div>
       {/* portfolio value cards */}
       <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-        <ValueCard label="Portfolio value" value={ownedValue} accent="var(--stamp-red)" />
-        <ValueCard label="Verified items" value={verifiedCount} plain accent="var(--verified-teal)" />
+        <ValueCard label="Portfolio Value" value={ownedValue} accent="var(--stamp-red)" />
+        <ValueCard label="Items Owned" value={owned.length} plain accent="var(--ink)" />
       </div>
 
       {/* view switcher + per-view visibility */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-        <div style={{ display: "flex", gap: 6, flex: 1, overflowX: "auto" }}>
+        <div style={{ display: "flex", gap: 6, flex: 1 }}>
           {views.map((v) => {
             const on = view === v.id;
             return (
@@ -514,10 +614,10 @@ function CollectionTab({ items, verifiedCount, isOwn }: { items: CollectionItem[
                 key={v.id}
                 onClick={() => setView(v.id)}
                 style={{
-                  display: "flex", alignItems: "center", gap: 6, padding: "7px 11px", borderRadius: 999, cursor: "pointer",
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "7px 8px", borderRadius: 999, cursor: "pointer",
                   border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
                   background: on ? "var(--ink)" : "var(--paper-soft)", color: on ? "var(--paper)" : "var(--ink)",
-                  fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 12.5, whiteSpace: "nowrap", flexShrink: 0,
+                  fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 12.5, whiteSpace: "nowrap",
                 }}
               >
                 {v.icon}
@@ -528,7 +628,13 @@ function CollectionTab({ items, verifiedCount, isOwn }: { items: CollectionItem[
         </div>
         {isOwn && (
           <button
-            onClick={() => setVis((s) => ({ ...s, [view]: isPrivate ? "public" : "private" }))}
+            onClick={() => {
+              const next: "public" | "private" = isPrivate ? "public" : "private";
+              setVis((s) => ({ ...s, [view]: next })); // optimistic
+              api.patch("/users/me/collection-privacy", { view, visibility: next }).catch(() => {
+                setVis((s) => ({ ...s, [view]: isPrivate ? "private" : "public" })); // revert
+              });
+            }}
             title="Toggle who can see this view"
             style={{
               width: 36, height: 36, borderRadius: 10, flexShrink: 0, cursor: "pointer",
@@ -568,7 +674,7 @@ function CollectionTab({ items, verifiedCount, isOwn }: { items: CollectionItem[
                 ]}
               />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11, marginTop: 14 }}>
-                {filtered.map((it) => <ItemTile key={it.id} item={it} />)}
+                {filtered.map((it) => <ItemTile key={it.id} item={it} isOwn={isOwn} />)}
               </div>
               {filtered.length === 0 && (
                 <EmptyNote>{isOwn ? "Nothing here yet — add from the catalogue." : "Private or empty."}</EmptyNote>
@@ -578,7 +684,6 @@ function CollectionTab({ items, verifiedCount, isOwn }: { items: CollectionItem[
 
           {view === "chart" && <PortfolioChart items={owned} />}
           {view === "calendar" && <PortfolioCalendar items={items} />}
-          {view === "collage" && <PortfolioCollage items={owned} />}
         </>
       )}
     </div>
@@ -596,22 +701,68 @@ function ValueCard({ label, value, accent, plain }: { label: string; value: numb
   );
 }
 
-function ItemTile({ item }: { item: CollectionItem }) {
+function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
+  const router = useRouter();
   const c = catForItem(item);
+  const [wishlisted, setWishlisted] = useState(!!item.is_wishlisted);
+  const [busy, setBusy] = useState(false);
+
+  async function toggleWishlist(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (busy) return;
+    setBusy(true);
+    const next = !wishlisted;
+    setWishlisted(next); // optimistic
+    try {
+      const res = await api.post<{ wishlisted: boolean }>(`/items/${item.id}/wishlist`);
+      setWishlisted(res.wishlisted);
+    } catch {
+      setWishlisted(!next); // revert
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div
+      onClick={() => router.push(`/item/${item.id}`)}
+      role="button"
+      tabIndex={0}
       style={{
         background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13,
-        overflow: "hidden", display: "flex", flexDirection: "column",
+        overflow: "hidden", display: "flex", flexDirection: "column", cursor: "pointer",
       }}
     >
       <div style={{ position: "relative" }}>
-        <ProductPhoto tone={c.tone} ratio="1/1" rounded={0} label={c.label} />
+        {item.image_url ? (
+          <div style={{ aspectRatio: "1/1", overflow: "hidden" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={item.image_url} alt={titleForItem(item)} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          </div>
+        ) : (
+          <ProductPhoto tone={c.tone} ratio="1/1" rounded={0} label={c.label} />
+        )}
         <div style={{ position: "absolute", top: 7, left: 7 }}>
           <VerifyBadge tier={item.verify_tier} />
         </div>
         {item.is_listed && <div style={{ position: "absolute", top: 7, right: 7 }}><Tag kind="sale">Listed</Tag></div>}
         {item.status === "preorder" && <div style={{ position: "absolute", bottom: 7, left: 7 }}><Tag kind="po">PO</Tag></div>}
+        {/* Wishlist-for-others button — only on someone else's collection (DF-24) */}
+        {!isOwn && (
+          <button
+            onClick={toggleWishlist}
+            aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+            title={wishlisted ? "Remove from your wishlist" : "Add to your wishlist"}
+            style={{
+              position: "absolute", bottom: 7, right: 7, width: 28, height: 28, borderRadius: 7,
+              border: "none", cursor: busy ? "wait" : "pointer",
+              background: wishlisted ? "var(--stamp-red)" : "rgba(20,17,15,0.52)", color: "var(--paper)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <Bookmark size={14} fill={wishlisted ? "currentColor" : "none"} strokeWidth={wishlisted ? 0 : 1.75} />
+          </button>
+        )}
       </div>
       <div style={{ padding: "8px 9px 10px" }}>
         <div
@@ -630,6 +781,7 @@ function ItemTile({ item }: { item: CollectionItem }) {
   );
 }
 
+// SVG donut by category value — converted from design ProfileCollection PortfolioChart.
 function PortfolioChart({ items }: { items: CollectionItem[] }) {
   const byCat: Record<string, { count: number; value: number; label: string; tone: string }> = {};
   items.forEach((i) => {
@@ -639,80 +791,164 @@ function PortfolioChart({ items }: { items: CollectionItem[] }) {
     byCat[c.key].value += i.value;
   });
   const tokenTone: Record<string, string> = {
-    red: "var(--stamp-red)", forest: "var(--forest)", plum: "var(--plum)", teal: "var(--verified-teal)", bone: "var(--ink-mute)",
+    red: "var(--stamp-red)", forest: "var(--forest)", plum: "var(--plum)", teal: "var(--verified-teal)", gold: "var(--grail-gold)", bone: "var(--ink-mute)",
   };
   const rows = Object.values(byCat).sort((a, b) => b.value - a.value);
-  const max = Math.max(1, ...rows.map((v) => v.value));
   if (rows.length === 0) return <EmptyNote>No items to chart yet.</EmptyNote>;
+
+  const total = rows.reduce((s, v) => s + v.value, 0) || 1;
+  const totalCount = rows.reduce((s, v) => s + v.count, 0);
+  const cx = 100, cy = 100, R = 76, ir = 44;
+  // Cumulative start fraction per slice, computed purely (no closure mutation
+  // during render — react-hooks/immutability).
+  const START = -Math.PI / 2;
+  const pcts = rows.map((v) => v.value / total);
+  const offsets = pcts.map((_, i) => pcts.slice(0, i).reduce((s, x) => s + x, 0));
+  const slices = rows.map((v, idx) => {
+    const pct = pcts[idx];
+    const sweep = pct * 2 * Math.PI;
+    const sa = START + offsets[idx] * 2 * Math.PI;
+    const ea = sa + sweep;
+    let pathD: string;
+    if (pct > 0.9999) {
+      pathD = `M ${cx} ${cy - R} A ${R} ${R} 0 1 1 ${cx} ${cy + R} A ${R} ${R} 0 1 1 ${cx} ${cy - R} M ${cx} ${cy - ir} A ${ir} ${ir} 0 1 0 ${cx} ${cy + ir} A ${ir} ${ir} 0 1 0 ${cx} ${cy - ir} Z`;
+    } else {
+      const lg = sweep > Math.PI ? 1 : 0;
+      const x1 = cx + R * Math.cos(sa), y1 = cy + R * Math.sin(sa);
+      const x2 = cx + R * Math.cos(ea), y2 = cy + R * Math.sin(ea);
+      const xi1 = cx + ir * Math.cos(sa), yi1 = cy + ir * Math.sin(sa);
+      const xi2 = cx + ir * Math.cos(ea), yi2 = cy + ir * Math.sin(ea);
+      pathD = `M ${xi1} ${yi1} L ${x1} ${y1} A ${R} ${R} 0 ${lg} 1 ${x2} ${y2} L ${xi2} ${yi2} A ${ir} ${ir} 0 ${lg} 0 ${xi1} ${yi1} Z`;
+    }
+    return { ...v, pct, pathD };
+  });
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "4px 2px" }}>
-      {rows.map((v) => (
-        <div key={v.label}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 6 }}>
-            <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>{v.label}</span>
-            <span style={{ fontSize: 12.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>
-              {v.count} · <Money value={paiseToRupees(v.value)} />
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <svg width={200} height={200} viewBox="0 0 200 200">
+          <circle cx={cx} cy={cy} r={(R + ir) / 2} fill="none" stroke="var(--bone)" strokeWidth={R - ir + 1} />
+          {slices.map((s) => (
+            <path key={s.label} d={s.pathD} style={{ fill: tokenTone[s.tone] || "var(--ink-mute)" }} stroke="var(--paper)" strokeWidth={2.5} />
+          ))}
+          <text x={cx} y={cy - 4} textAnchor="middle" style={{ fontFamily: "var(--font-mono)", fontSize: "22px", fontWeight: 700, fill: "var(--ink)" }}>{totalCount}</text>
+          <text x={cx} y={cy + 13} textAnchor="middle" style={{ fontFamily: "var(--font-body)", fontSize: "11px", fill: "var(--ink-faint)" }}>items</text>
+        </svg>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 11, padding: "0 2px" }}>
+        {slices.map((s) => (
+          <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: tokenTone[s.tone] || "var(--ink-mute)", flexShrink: 0 }} />
+            <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600 }}>{s.label}</span>
+            <span style={{ fontSize: 12, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>{s.count} · {Math.round(s.pct * 100)}%</span>
+            <span style={{ fontSize: 12, color: "var(--ink-mute)", fontFamily: "var(--font-mono)", minWidth: 76, textAlign: "right" }}>
+              <Money value={paiseToRupees(s.value)} />
             </span>
           </div>
-          <div style={{ height: 12, borderRadius: 999, background: "var(--bone)", overflow: "hidden" }}>
-            <div
-              style={{
-                height: "100%",
-                width: Math.max(6, Math.round((v.value / max) * 100)) + "%",
-                background: tokenTone[v.tone] || "var(--ink)",
-                borderRadius: 999,
-                transition: "width 320ms var(--ease-out)",
-              }}
-            />
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-soft)" }}>Portfolio value</span>
+        <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--stamp-red)" }}><Money value={paiseToRupees(total)} /></span>
+      </div>
     </div>
   );
 }
 
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTH_SHORT = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+// Best-effort parse of a free-text ETA ("March 2026", "Q1 2026", "12 Mar 2026") into a
+// {monthIdx, year, day} so pre-orders can be grouped by month like the design. Falls
+// back to an "Upcoming" bucket when no month is recognisable.
+function parseEta(eta?: string | null): { key: string; label: string; monthIdx: number | null; day: string | null } {
+  if (!eta) return { key: "zzz-upcoming", label: "Upcoming", monthIdx: null, day: null };
+  const lower = eta.toLowerCase();
+  // DV4-03c: TBD pre-orders group under "Date to be announced", sorted last.
+  if (lower.includes("to be announced") || lower === "tbd" || lower === "tba") {
+    return { key: "zzz-tbd", label: "Date to be announced", monthIdx: null, day: null };
+  }
+  const monthIdx = MONTH_NAMES.findIndex((m, i) => lower.includes(m.toLowerCase()) || lower.includes(MONTH_SHORT[i].toLowerCase()));
+  const yearMatch = eta.match(/(20\d{2})/);
+  const year = yearMatch ? yearMatch[1] : "";
+  const dayMatch = eta.match(/\b([0-3]?\d)\b/);
+  if (monthIdx >= 0) {
+    return {
+      key: `${year || "0000"}-${String(monthIdx).padStart(2, "0")}`,
+      label: `${MONTH_NAMES[monthIdx]}${year ? " " + year : ""}`,
+      monthIdx,
+      day: dayMatch ? dayMatch[1] : null,
+    };
+  }
+  // Quarter window ("Q3 2026") — bucket by its first month so it sorts chronologically.
+  const qMatch = lower.match(/q([1-4])/);
+  if (qMatch) {
+    const q = Number(qMatch[1]);
+    return {
+      key: `${year || "0000"}-${String((q - 1) * 3).padStart(2, "0")}q`,
+      label: `Q${q}${year ? " " + year : ""}`,
+      monthIdx: null,
+      day: null,
+    };
+  }
+  // Bare year ("2026") — sorts after that year's dated windows.
+  if (year) {
+    return { key: `${year}-99`, label: year, monthIdx: null, day: null };
+  }
+  // Anything else keeps its own bucket (don't merge distinct free-text ETAs).
+  return { key: `zzz-${lower}`, label: eta, monthIdx: null, day: null };
+}
+
+// Pre-orders grouped by month — converted from design ProfileCollection PortfolioCalendar.
 function PortfolioCalendar({ items }: { items: CollectionItem[] }) {
   const pos = items.filter((i) => i.status === "preorder");
   if (pos.length === 0) return <EmptyNote>No pre-orders on the calendar.</EmptyNote>;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      {pos.map((it) => (
-        <div
-          key={it.id}
-          style={{
-            display: "flex", gap: 12, alignItems: "center", background: "var(--paper-soft)",
-            border: "1px solid var(--border)", borderRadius: 13, padding: 12,
-          }}
-        >
-          <div
-            style={{
-              width: 46, height: 46, borderRadius: 10, background: "var(--grail-gold-soft)",
-              color: "var(--grail-gold-deep)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-            }}
-          >
-            <CalendarDays size={20} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25 }}>{titleForItem(it)}</div>
-            <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 2, fontFamily: "var(--font-mono)" }}>Ordered · ETA TBD</div>
-          </div>
-          <Tag kind="po">PO</Tag>
-        </div>
-      ))}
-    </div>
-  );
-}
 
-function PortfolioCollage({ items }: { items: CollectionItem[] }) {
-  if (items.length === 0) return <EmptyNote>Nothing to show off yet.</EmptyNote>;
+  const grouped: Record<string, { label: string; monthIdx: number | null; items: { it: CollectionItem; day: string | null }[] }> = {};
+  pos.forEach((it) => {
+    const p = parseEta(it.preorder_eta);
+    grouped[p.key] = grouped[p.key] || { label: p.label, monthIdx: p.monthIdx, items: [] };
+    grouped[p.key].items.push({ it, day: p.day });
+  });
+  const keys = Object.keys(grouped).sort();
+
   return (
-    <div style={{ columnCount: 2, columnGap: 8 }}>
-      {items.map((it, i) => {
-        const c = catForItem(it);
-        const ratio = ["3/4", "1/1", "4/5", "1/1"][i % 4];
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      {keys.map((key) => {
+        const g = grouped[key];
         return (
-          <div key={it.id} style={{ width: "100%", marginBottom: 8, breakInside: "avoid", display: "inline-block" }}>
-            <ProductPhoto tone={c.tone} ratio={ratio} rounded={12} label={c.label} />
+          <div key={key}>
+            {/* Month header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <div style={{ background: "var(--grail-gold)", color: "var(--ink)", borderRadius: 7, padding: "4px 11px", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
+                {g.label}
+              </div>
+              <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+              <span style={{ fontSize: 11, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
+                {g.items.length} item{g.items.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+            {/* Items */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              {g.items.map(({ it, day }) => (
+                <div key={it.id} style={{ display: "flex", gap: 12, alignItems: "center", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: 12 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 10, flexShrink: 0, overflow: "hidden", border: "1px solid var(--grail-gold)", display: "flex", flexDirection: "column" }}>
+                    <div style={{ background: "var(--grail-gold)", textAlign: "center", fontSize: 8, fontWeight: 700, color: "var(--ink)", letterSpacing: "0.07em", padding: "3px 0", lineHeight: 1 }}>
+                      {g.monthIdx != null ? MONTH_SHORT[g.monthIdx] : "PO"}
+                    </div>
+                    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--grail-gold-soft)", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: day ? 17 : 13, color: "var(--grail-gold-deep)", lineHeight: 1 }}>
+                      {day || "~"}
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titleForItem(it)}</div>
+                    <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 3 }}>On order</div>
+                    <div style={{ fontSize: 11.5, color: "var(--grail-gold-deep)", fontFamily: "var(--font-mono)", marginTop: 2 }}>{it.preorder_eta || "ETA TBD"}</div>
+                  </div>
+                  <Tag kind="po">PO</Tag>
+                </div>
+              ))}
+            </div>
           </div>
         );
       })}

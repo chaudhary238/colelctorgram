@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { ArrowLeft, Plus, Send, Check, Clock, Shield, Eye, EyeOff, Star } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft, Plus, Send, Check, Clock, Shield, Star, Tag, Share2, MoreHorizontal } from "lucide-react";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
 import { Avatar, VerifyBadge, Money } from "@/components/ui";
+import { ProfileMoreMenu } from "@/components/ProfileMoreMenu";
 
 interface ChatUser {
   id: string;
@@ -60,6 +61,7 @@ interface ThreadData {
 
 export default function ChatPage() {
   const { threadId } = useParams<{ threadId: string }>();
+  const router = useRouter();
   const [data, setData] = useState<ThreadData | null>(null);
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
@@ -67,8 +69,11 @@ export default function ChatPage() {
   const [dealBusy, setDealBusy] = useState(false);
   const [ratingValue, setRatingValue] = useState(5);
   const [vouchDone, setVouchDone] = useState(false);
-  const [makePublic, setMakePublic] = useState(false);
   const [sending, setSending] = useState(false);
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [offerOpen, setOfferOpen] = useState(false);
+  const [offerAmt, setOfferAmt] = useState("");
+  const [moreOpen, setMoreOpen] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -85,18 +90,39 @@ export default function ChatPage() {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [localMessages, deal]);
 
+  const sendText = async (text: string) => {
+    const t = text.trim();
+    if (!t) return;
+    const msg = await api.post<Message>(`/threads/${threadId}/messages`, { body: t });
+    setLocalMessages((prev) => [...prev, msg]);
+  };
+
   const send = async () => {
     if (!draft.trim() || sending) return;
     setSending(true);
     try {
-      const msg = await api.post<Message>(`/threads/${threadId}/messages`, { body: draft.trim() });
-      setLocalMessages((prev) => [...prev, msg]);
+      await sendText(draft);
       setDraft("");
     } catch (e) {
       console.error(e);
     } finally {
       setSending(false);
     }
+  };
+
+  // v3 attach actions — message-based, fully real (no mock/dead controls).
+  const shareListing = async () => {
+    if (!data?.listing) return;
+    setAttachOpen(false);
+    await sendText(`📦 Sharing listing: ${data.listing.title}`).catch(console.error);
+  };
+  const sendOffer = async () => {
+    if (!offerAmt) return;
+    const amt = Number(offerAmt).toLocaleString("en-IN");
+    const what = data?.listing?.title ?? "this item";
+    setOfferOpen(false);
+    setOfferAmt("");
+    await sendText(`💰 Offer: ₹${amt} for ${what}`).catch(console.error);
   };
 
   const other = data?.other_user;
@@ -165,6 +191,58 @@ export default function ChatPage() {
 
   return (
     <div className="w-full max-w-[680px] flex flex-col" style={{ height: "100vh", overflow: "hidden", background: "var(--bone)" }}>
+      {/* ── Attach sheet (v3) ── */}
+      {attachOpen && (
+        <div onClick={() => setAttachOpen(false)} className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.38)" }}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl sm:mb-4" style={{ boxShadow: "0 -4px 24px rgba(0,0,0,0.12)", padding: "8px 0 28px" }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 18px" }} />
+            <div style={{ padding: "0 20px", display: "grid", gridTemplateColumns: listing ? "1fr 1fr" : "1fr", gap: 12 }}>
+              <button onClick={() => { setAttachOpen(false); setOfferAmt(""); setOfferOpen(true); }} style={attachBtn}>
+                <span style={attachIcon}><Tag size={22} /></span>
+                <span style={{ fontSize: 12.5, fontWeight: 600 }}>Make offer</span>
+              </button>
+              {listing && (
+                <button onClick={shareListing} style={attachBtn}>
+                  <span style={attachIcon}><Share2 size={22} /></span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>Share listing</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Offer sheet (v3) ── */}
+      {offerOpen && (
+        <div onClick={() => setOfferOpen(false)} className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.38)" }}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl sm:mb-4" style={{ boxShadow: "0 -4px 24px rgba(0,0,0,0.12)", padding: "8px 20px 28px" }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 18px" }} />
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, marginBottom: 4 }}>Make an offer</div>
+            {listing && <div style={{ fontSize: 13, color: "var(--ink-faint)", marginBottom: 16 }}>Listed at <b style={{ color: "var(--ink)" }}><Money value={Math.round(listing.price / 100)} /></b></div>}
+            <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border-strong)", borderRadius: 12, overflow: "hidden", marginBottom: 14 }}>
+              <span style={{ padding: "0 14px", fontSize: 18, fontWeight: 700, color: "var(--ink-faint)", borderRight: "1px solid var(--border)", height: 50, display: "flex", alignItems: "center" }}>₹</span>
+              <input autoFocus type="number" value={offerAmt} onChange={(e) => setOfferAmt(e.target.value)} placeholder="Enter amount"
+                style={{ flex: 1, height: 50, padding: "0 14px", border: "none", outline: "none", fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 600, color: "var(--ink)", background: "none" }} />
+            </div>
+            <button onClick={sendOffer} disabled={!offerAmt} className="w-full py-2.5 rounded-xl font-semibold text-sm disabled:opacity-50" style={{ background: "var(--stamp-red)", color: "#fff" }}>
+              Send offer
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── More menu (block / report) ── */}
+      {moreOpen && other && (
+        <ProfileMoreMenu
+          targetId={other.id}
+          targetHandle={other.handle ?? ""}
+          targetName={other.name ?? "this user"}
+          avatarUrl={other.avatar_url}
+          onClose={() => setMoreOpen(false)}
+          onBlocked={() => router.push("/inbox")}
+        />
+      )}
+
       {/* Header */}
       <div style={{ flexShrink: 0, background: "var(--paper)", borderBottom: "1px solid var(--border)", padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -178,25 +256,20 @@ export default function ChatPage() {
               <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{other?.rating}★ · {other?.deals_count} deals</div>
             </div>
           </Link>
+          {other && (
+            <button
+              onClick={() => setMoreOpen(true)}
+              aria-label="More"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "none", cursor: "pointer" }}
+            >
+              <MoreHorizontal size={18} />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Scrollable message body */}
       <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-        {/* Public thread toggle */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "12px 20px 0", padding: "11px 13px", background: makePublic ? "rgba(0,180,160,0.08)" : "var(--paper)", border: `1px solid ${makePublic ? "var(--verified-teal)" : "var(--border)"}`, borderRadius: 13 }}>
-          {makePublic ? <Eye size={18} style={{ color: "var(--verified-teal)", flexShrink: 0 }} /> : <EyeOff size={18} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{makePublic ? "Public thread" : "Make thread public"}</div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.4 }}>
-              {makePublic ? "Anyone can read this Q&A on the listing." : "Let other buyers see your questions & the seller's answers."}
-            </div>
-          </div>
-          <button onClick={() => setMakePublic((v) => !v)} style={{ width: 44, height: 26, borderRadius: 999, border: "none", background: makePublic ? "var(--verified-teal)" : "var(--bone-deep)", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 160ms" }}>
-            <span style={{ position: "absolute", top: 3, left: makePublic ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "var(--paper)", transition: "left 160ms", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
-          </button>
-        </div>
-
         {/* Listing context */}
         {listing && (
           <Link href={`/listing/${listing.id}`} style={{ display: "flex", alignItems: "center", gap: 11, margin: "12px 20px", cursor: "pointer", background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 13, padding: 10, textDecoration: "none" }}>
@@ -297,7 +370,7 @@ export default function ChatPage() {
         )}
 
         <div style={{ display: "flex", gap: 9, alignItems: "center" }}>
-          <button style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, borderRadius: 11, border: "1px solid var(--border)", background: "transparent", color: "var(--ink-mute)", cursor: "pointer" }}>
+          <button onClick={() => setAttachOpen(true)} aria-label="Attach" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, borderRadius: 11, border: "1px solid var(--border)", background: "transparent", color: "var(--ink-mute)", cursor: "pointer" }}>
             <Plus size={20} />
           </button>
           <input
@@ -315,3 +388,11 @@ export default function ChatPage() {
     </div>
   );
 }
+
+const attachBtn: React.CSSProperties = {
+  display: "flex", flexDirection: "column", alignItems: "center", gap: 9, padding: "16px 8px",
+  background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 16, cursor: "pointer", color: "var(--ink)",
+};
+const attachIcon: React.CSSProperties = {
+  width: 46, height: 46, borderRadius: 14, background: "var(--bone)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink)",
+};

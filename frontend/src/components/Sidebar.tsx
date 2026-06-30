@@ -2,26 +2,36 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   Home, Search, ShoppingBag, Users, Calendar,
   Bell, PlusCircle, Settings, User, MessageSquare, Bookmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SealMark } from "@/components/ui";
+import { api, isGuest } from "@/lib/api";
 
 // Order mirrors the DF-12 header: create+search cluster up top (mobile top-left),
 // Messages paired directly with Notifications (mobile top-right: message btn + bell).
-const NAV = [
-  { href: "/feed",          label: "Home",          icon: Home,       badge: 0 },
-  { href: "/search",        label: "Search",        icon: Search,     badge: 0 },
-  { href: "/compose",       label: "Create",        icon: PlusCircle, badge: 0 },
-  { href: "/market",        label: "Market",        icon: ShoppingBag, badge: 0 },
-  { href: "/community",     label: "Community",     icon: Users,      badge: 0 },
-  { href: "/events",        label: "Events",        icon: Calendar,   badge: 0 },
-  { href: "/inbox",         label: "Messages",      icon: MessageSquare, badge: 3 },
-  { href: "/notifications", label: "Notifications", icon: Bell,       badge: 3 },
-  { href: "/saved",         label: "Saved",         icon: Bookmark,   badge: 0 },
-  { href: "/profile",       label: "Profile",       icon: User,       badge: 0 },
+// badgeKey wires a live unread count (DF-38) instead of a hardcoded number.
+type NavDef = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+  guest: boolean;
+  badgeKey?: "msgs" | "notifs";
+};
+const NAV: NavDef[] = [
+  { href: "/feed",          label: "Home",          icon: Home,       guest: true },
+  { href: "/search",        label: "Search",        icon: Search,     guest: true },
+  { href: "/compose",       label: "Create",        icon: PlusCircle, guest: false },
+  { href: "/market",        label: "Market",        icon: ShoppingBag, guest: true },
+  { href: "/community",     label: "Community",     icon: Users,      guest: true },
+  { href: "/events",        label: "Events",        icon: Calendar,   guest: true },
+  { href: "/inbox",         label: "Messages",      icon: MessageSquare, guest: false, badgeKey: "msgs" as const },
+  { href: "/notifications", label: "Notifications", icon: Bell,       guest: false, badgeKey: "notifs" as const },
+  { href: "/saved",         label: "Saved",         icon: Bookmark,   guest: false },
+  { href: "/profile",       label: "Profile",       icon: User,       guest: false },
 ];
 
 function NavItem({
@@ -63,6 +73,26 @@ function NavItem({
 
 export function Sidebar() {
   const pathname = usePathname();
+  // Resolve guest state after mount (cookie/localStorage are client-only) to
+  // avoid a hydration mismatch — defaults to the full nav, then narrows.
+  const [guest, setGuest] = useState(false);
+  // Live unread counts (DF-38) — replaces the old hardcoded badge:3.
+  const [unread, setUnread] = useState<{ msgs: number; notifs: number }>({ msgs: 0, notifs: 0 });
+  useEffect(() => {
+    const g = isGuest();
+    setGuest(g);
+    if (g) return; // guests have no inbox/notifications
+    Promise.all([
+      api.get<{ unread: number }[]>("/threads").catch(() => []),
+      api.get<{ is_read: boolean }[]>("/notifications").catch(() => []),
+    ]).then(([threads, notifs]) => {
+      setUnread({
+        msgs: threads.reduce((s, t) => s + (t.unread || 0), 0),
+        notifs: notifs.filter((n) => !n.is_read).length,
+      });
+    });
+  }, [pathname]);
+  const items = guest ? NAV.filter((n) => n.guest) : NAV;
 
   return (
     <nav
@@ -84,19 +114,29 @@ export function Sidebar() {
       </Link>
 
       <div className="flex flex-col gap-1 flex-1">
-        {NAV.map(({ href, label, icon, badge }) => (
+        {items.map(({ href, label, icon, badgeKey }) => (
           <NavItem
             key={href}
             href={href}
             label={label}
             icon={icon}
-            badge={badge || undefined}
+            badge={badgeKey ? unread[badgeKey] || undefined : undefined}
             active={pathname === href || (href !== "/" && pathname.startsWith(href))}
           />
         ))}
       </div>
 
-      <NavItem href="/settings" label="Settings" icon={Settings} />
+      {guest ? (
+        <Link
+          href="/auth/signup"
+          className="flex items-center justify-center gap-2 rounded-xl px-3 py-[11px] font-semibold text-sm"
+          style={{ background: "var(--stamp-red)", color: "#fff" }}
+        >
+          <span className="ch-nav-label">Sign up to interact</span>
+        </Link>
+      ) : (
+        <NavItem href="/settings" label="Settings" icon={Settings} />
+      )}
     </nav>
   );
 }

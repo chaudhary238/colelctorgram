@@ -57,11 +57,13 @@ export function Avatar({
   color,
   size = 36,
   verified = false,
+  photo,
 }: {
   name?: string;
   color?: string;
   size?: number;
   verified?: boolean;
+  photo?: string | null;
 }) {
   const initial = (name || "?").slice(0, 1).toUpperCase();
   const bg = color ?? AVATAR_PALETTE[(name || "x").charCodeAt(0) % AVATAR_PALETTE.length];
@@ -82,9 +84,12 @@ export function Avatar({
         position: "relative",
         flexShrink: 0,
         letterSpacing: "-0.02em",
+        backgroundImage: photo ? `url(${photo})` : "none",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
       }}
     >
-      {initial}
+      {!photo && initial}
       {verified && (
         <div
           style={{
@@ -148,31 +153,36 @@ export function Tag({ kind = "default", children, style }: { kind?: TagKind; chi
   );
 }
 
-/* ── Post-type pill (Showcase / Discussion / Review) ─────────── */
+/* ── Post-type pill (Post / Showcase / Discussion / Review / Poll / ISO) ──
+   v3 (DF-29c): tinted pill. In the feed only ISO renders a type tag. */
 export function PostTypeTag({ type }: { type: string }) {
-  const map: Record<string, { label: string; c: string }> = {
-    showcase: { label: "Showcase", c: "var(--verified-teal)" },
-    discussion: { label: "Discussion", c: "var(--plum)" },
-    review: { label: "Review", c: "var(--grail-gold-deep)" },
-    poll: { label: "Poll", c: "var(--stamp-red)" },
+  const map: Record<string, { label: string; c: string; bg: string }> = {
+    post: { label: "Post", c: "#999999", bg: "rgba(0,0,0,0.06)" },
+    showcase: { label: "Showcase", c: "#2D8F87", bg: "rgba(45,143,135,0.12)" },
+    discussion: { label: "Discussion", c: "#6B3656", bg: "rgba(107,54,86,0.12)" },
+    review: { label: "Review", c: "#C48420", bg: "rgba(196,132,32,0.12)" },
+    poll: { label: "Poll", c: "#FF2442", bg: "rgba(255,36,66,0.10)" },
+    iso: { label: "ISO", c: "#B07724", bg: "rgba(176,119,36,0.13)" },
   };
-  const m = map[type] || map.showcase;
+  const m = map[type] || map.post;
   return (
     <span
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 5,
-        fontFamily: "var(--font-body)",
-        fontWeight: 600,
-        fontSize: 10,
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
+        padding: "4px 8px",
+        borderRadius: 6,
+        background: m.bg,
         color: m.c,
+        fontFamily: "var(--font-body)",
+        fontWeight: 700,
+        fontSize: 10,
+        letterSpacing: "0.07em",
+        textTransform: "uppercase",
         whiteSpace: "nowrap",
+        flexShrink: 0,
       }}
     >
-      <span style={{ width: 5, height: 5, borderRadius: "50%", background: m.c }} />
       {m.label}
     </span>
   );
@@ -234,10 +244,10 @@ export function TierChip({ tier }: { tier: string }) {
   const map: Record<string, string> = {
     "Top Seller": "var(--stamp-red)",
     Trusted: "var(--forest)",
-    Verified: "var(--verified-teal)",
   };
-  const label = tier === "verified" ? "Verified" : tier === "trusted" ? "Trusted" : tier === "top_seller" ? "Top Seller" : tier;
-  const c = map[label] || "var(--ink-mute)";
+  const label = tier === "trusted" ? "Trusted" : tier === "top_seller" ? "Top Seller" : tier;
+  const c = map[label];
+  if (!c) return null; // base users (incl. former "Verified") show no chip — v3 DF-29c
   return (
     <span
       style={{
@@ -311,50 +321,6 @@ export function TrustSignals({
   );
 }
 
-/* ── QR code (deterministic pseudo-QR, ported from shared.jsx) ──── */
-export function QRCode({ seed = "ch", size = 140, fg = "var(--ink)", bg = "var(--paper)" }: { seed?: string; size?: number; fg?: string; bg?: string }) {
-  const N = 21;
-  const cells = React.useMemo(() => {
-    let h = 0;
-    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-    const out: number[] = [];
-    for (let i = 0; i < N * N; i++) {
-      h = (h * 1103515245 + 12345) >>> 0;
-      out.push((h >> 16) & 1);
-    }
-    return out;
-  }, [seed]);
-  const isFinder = (r: number, c: number) => {
-    const inBox = (br: number, bc: number) => r >= br && r < br + 7 && c >= bc && c < bc + 7;
-    return inBox(0, 0) || inBox(0, N - 7) || inBox(N - 7, 0);
-  };
-  const finderOn = (r: number, c: number) => {
-    const local = (br: number, bc: number) => {
-      const rr = r - br, cc = c - bc;
-      const edge = rr === 0 || rr === 6 || cc === 0 || cc === 6;
-      const core = rr >= 2 && rr <= 4 && cc >= 2 && cc <= 4;
-      return edge || core;
-    };
-    if (r < 7 && c < 7) return local(0, 0);
-    if (r < 7 && c >= N - 7) return local(0, N - 7);
-    if (r >= N - 7 && c < 7) return local(N - 7, 0);
-    return false;
-  };
-  const cell = size / N;
-  return (
-    <div style={{ width: size, height: size, background: bg, borderRadius: 8, position: "relative" }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} shapeRendering="crispEdges">
-        {Array.from({ length: N * N }).map((_, idx) => {
-          const r = Math.floor(idx / N), c = idx % N;
-          const on = isFinder(r, c) ? finderOn(r, c) : cells[idx] === 1;
-          if (!on) return null;
-          return <rect key={idx} x={c * cell} y={r * cell} width={cell} height={cell} fill={fg} />;
-        })}
-      </svg>
-    </div>
-  );
-}
-
 /* ── Stars ───────────────────────────────────────────────────── */
 export function Stars({ n = 0, size = 13, c = "var(--grail-gold-deep)" }: { n?: number; size?: number; c?: string }) {
   return (
@@ -381,7 +347,7 @@ export function Segmented<T extends string>({
   style?: React.CSSProperties;
 }) {
   return (
-    <div style={{ display: "flex", background: "var(--bone)", borderRadius: 10, padding: 3, gap: 2, ...style }}>
+    <div style={{ display: "flex", background: "var(--bone)", borderRadius: 12, padding: 4, gap: 2, ...style }}>
       {options.map((o) => {
         const active = o.id === value;
         return (
@@ -390,8 +356,8 @@ export function Segmented<T extends string>({
             onClick={() => onChange(o.id)}
             style={{
               flex: 1,
-              padding: "7px 6px",
-              borderRadius: 8,
+              padding: "8px 6px",
+              borderRadius: 9,
               border: "none",
               background: active ? "var(--paper)" : "transparent",
               color: active ? "var(--ink)" : "var(--ink-faint)",
@@ -401,7 +367,7 @@ export function Segmented<T extends string>({
               cursor: "pointer",
               whiteSpace: "nowrap",
               lineHeight: 1,
-              boxShadow: active ? "var(--shadow-1)" : "none",
+              boxShadow: active ? "var(--shadow-2)" : "none",
               transition: "all 120ms",
             }}
           >
@@ -419,18 +385,19 @@ export function CategoryChip({ active, children, onClick }: { active?: boolean; 
     <button
       onClick={onClick}
       style={{
-        padding: "7px 14px",
+        padding: "8px 16px",
         borderRadius: 999,
-        background: active ? "var(--ink)" : "var(--paper-soft)",
+        background: active ? "var(--stamp-red)" : "var(--paper-soft)",
         color: active ? "var(--paper)" : "var(--ink)",
-        border: `1px solid ${active ? "var(--ink)" : "var(--border-strong)"}`,
+        border: `1px solid ${active ? "var(--stamp-red)" : "var(--border-strong)"}`,
         fontFamily: "var(--font-body)",
-        fontWeight: 500,
+        fontWeight: active ? 600 : 500,
         fontSize: 13,
         cursor: "pointer",
         whiteSpace: "nowrap",
         lineHeight: 1,
         flexShrink: 0,
+        transition: "all 150ms var(--ease-out)",
       }}
     >
       {children}
@@ -577,4 +544,251 @@ export function initialsOf(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+/* ── Status → display label ──────────────────────────────────── */
+const STATUS_LABEL: Record<string, string> = {
+  available: "Available",
+  sold: "Sold",
+  reserved: "Reserved",
+  preorder: "Pre-order",
+  wishlist: "Wishlist",
+  owned: "Owned",
+};
+export function statusLabel(s: string) {
+  return STATUS_LABEL[s] || (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
+}
+
+/* ── Badge (v3 DF-29c) — pill, lighter than Tag, many variants ── */
+type BadgeVariant =
+  | "default" | "secondary" | "outline" | "success" | "warning"
+  | "destructive" | "teal" | "plum" | "sky" | "violet" | "slate" | "dark";
+const BADGE_STYLES: Record<BadgeVariant, React.CSSProperties> = {
+  default: { background: "var(--stamp-red)", color: "var(--paper)" },
+  secondary: { background: "var(--slate-100)", color: "var(--slate-600)", border: "1px solid var(--slate-200)" },
+  outline: { background: "transparent", color: "var(--slate-700)", border: "1px solid var(--slate-300)" },
+  success: { background: "var(--emerald-soft)", color: "var(--emerald)" },
+  warning: { background: "var(--amber-soft)", color: "var(--amber)" },
+  destructive: { background: "var(--stamp-red-soft)", color: "var(--stamp-red)" },
+  teal: { background: "var(--verified-teal-soft)", color: "var(--verified-teal)" },
+  plum: { background: "var(--plum-soft)", color: "var(--plum)" },
+  sky: { background: "var(--sky-soft)", color: "var(--sky)" },
+  violet: { background: "var(--violet-soft)", color: "var(--violet)" },
+  slate: { background: "var(--slate-100)", color: "var(--slate-500)" },
+  dark: { background: "var(--slate-800)", color: "var(--paper)" },
+};
+export function Badge({ variant = "default", children, style }: { variant?: BadgeVariant; children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 4,
+        padding: "3px 9px", borderRadius: 999, lineHeight: 1,
+        fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 11.5,
+        letterSpacing: "0.01em", whiteSpace: "nowrap",
+        ...BADGE_STYLES[variant], ...style,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/* ── Button (v3 DF-29c) — variant + size, press/focus motion ──── */
+type ButtonVariant =
+  | "primary" | "secondary" | "outline" | "ghost" | "dark" | "teal" | "grail" | "link" | "destructive";
+type ButtonSize = "sm" | "md" | "lg" | "block";
+const BUTTON_VARIANTS: Record<ButtonVariant, React.CSSProperties> = {
+  primary: { background: "var(--stamp-red)", color: "var(--paper)", border: "1px solid var(--stamp-red)" },
+  secondary: { background: "var(--bone)", color: "var(--ink-soft)", border: "1px solid var(--border-strong)" },
+  outline: { background: "transparent", color: "var(--ink)", border: "1px solid var(--border-strong)" },
+  ghost: { background: "transparent", color: "var(--ink)", border: "1px solid transparent" },
+  dark: { background: "var(--ink)", color: "var(--paper)", border: "1px solid var(--ink)" },
+  teal: { background: "var(--verified-teal)", color: "var(--paper)", border: "1px solid var(--verified-teal)" },
+  grail: { background: "var(--grail-gold)", color: "var(--ink)", border: "1px solid var(--grail-gold-deep)", boxShadow: "var(--shadow-stamp)" },
+  link: { background: "transparent", color: "var(--stamp-red)", border: "none", textDecoration: "underline", textUnderlineOffset: "3px" },
+  destructive: { background: "var(--stamp-red-soft)", color: "var(--stamp-red)", border: "1px solid rgba(255,36,66,0.25)" },
+};
+const BUTTON_SIZES: Record<ButtonSize, React.CSSProperties> = {
+  sm: { height: 34, padding: "0 14px", fontSize: 13, borderRadius: 9 },
+  md: { height: 46, padding: "0 20px", fontSize: 15, borderRadius: 14 },
+  lg: { height: 54, padding: "0 24px", fontSize: 16, borderRadius: 16 },
+  block: { height: 52, padding: "0 22px", fontSize: 16, borderRadius: 14, width: "100%", justifyContent: "center" },
+};
+export function Button({
+  variant = "primary", size = "md", icon, children, onClick, style, disabled, type = "button",
+}: {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  icon?: React.ReactNode;
+  children?: React.ReactNode;
+  onClick?: (e: React.MouseEvent) => void;
+  style?: React.CSSProperties;
+  disabled?: boolean;
+  type?: "button" | "submit";
+}) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 8,
+        fontFamily: "var(--font-body)", fontWeight: 600,
+        cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1,
+        transition: "transform 120ms var(--ease-out), background 120ms, box-shadow 120ms",
+        lineHeight: 1, whiteSpace: "nowrap", outline: "none",
+        ...BUTTON_VARIANTS[variant], ...BUTTON_SIZES[size], ...style,
+      }}
+      onPointerDown={(e) => { if (!disabled) e.currentTarget.style.transform = "scale(0.97)"; }}
+      onPointerUp={(e) => { e.currentTarget.style.transform = ""; }}
+      onPointerLeave={(e) => { e.currentTarget.style.transform = ""; }}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+/* ── IconButton (v3 DF-29c) — square icon w/ optional badge ───── */
+export function IconButton({
+  icon, onClick, active, badge,
+}: {
+  icon: React.ReactNode;
+  onClick?: (e: React.MouseEvent) => void;
+  active?: boolean;
+  badge?: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        width: 40, height: 40, borderRadius: 13, position: "relative",
+        background: active ? "var(--ink)" : "transparent",
+        color: active ? "var(--paper)" : "var(--ink)",
+        border: "1px solid " + (active ? "var(--ink)" : "var(--border)"),
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: "pointer", flexShrink: 0, outline: "none",
+        transition: "background 120ms, border-color 120ms",
+      }}
+    >
+      {icon}
+      {badge != null && (
+        <span
+          style={{
+            position: "absolute", top: -3, right: -3, minWidth: 16, height: 16, padding: "0 4px",
+            borderRadius: 999, background: "var(--stamp-red)", color: "var(--paper)",
+            fontSize: 10, fontWeight: 700, fontFamily: "var(--font-mono)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            border: "1.5px solid var(--paper)",
+          }}
+        >
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/* ── GlassPill (v3 DF-29c) — floats inside image areas ────────── */
+export function GlassPill({
+  children, variant = "dark", style,
+}: {
+  children: React.ReactNode;
+  variant?: "dark" | "red" | "white";
+  style?: React.CSSProperties;
+}) {
+  const bgs = {
+    dark: "rgba(15,23,42,0.52)",
+    red: "rgba(255,36,66,0.78)",
+    white: "rgba(255,255,255,0.72)",
+  };
+  return (
+    <span
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 5,
+        padding: "5px 11px", borderRadius: 999,
+        background: bgs[variant],
+        backdropFilter: "blur(8px) saturate(180%)",
+        WebkitBackdropFilter: "blur(8px) saturate(180%)",
+        border: "1px solid rgba(255,255,255,0.18)",
+        color: "#fff", fontSize: 12, fontWeight: 600, lineHeight: 1,
+        ...style,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/* ── StackedAvatars (v3 DF-29c) — social-proof overlap row ────── */
+const STACK_PALETTE = ["#FF2442", "#8B5CF6", "#10B981", "#F59E0B", "#0EA5E9", "#E94560"];
+export function StackedAvatars({
+  items = [], max = 3, label, style,
+}: {
+  items?: ({ name?: string; color?: string } | string)[];
+  max?: number;
+  label?: React.ReactNode;
+  style?: React.CSSProperties;
+}) {
+  const shown = items.slice(0, max);
+  const overflow = items.length - max;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, ...style }}>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        {shown.map((item, i) => {
+          const name = typeof item === "string" ? item : item.name || "?";
+          const color = typeof item === "object" && item.color ? item.color : STACK_PALETTE[i % STACK_PALETTE.length];
+          const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+          return (
+            <div
+              key={i}
+              style={{
+                width: 26, height: 26, borderRadius: "50%",
+                border: "2px solid var(--card-surface)",
+                background: color, color: "#fff", fontSize: 9, fontWeight: 800,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                marginLeft: i === 0 ? 0 : -9,
+                position: "relative", zIndex: shown.length - i, flexShrink: 0,
+              }}
+            >
+              {initials}
+            </div>
+          );
+        })}
+        {overflow > 0 && (
+          <div
+            style={{
+              width: 26, height: 26, borderRadius: "50%",
+              border: "2px solid var(--card-surface)",
+              background: "var(--slate-200)", color: "var(--slate-600)",
+              fontSize: 9, fontWeight: 800,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              marginLeft: -9, flexShrink: 0,
+            }}
+          >
+            +{overflow}
+          </div>
+        )}
+      </div>
+      {label != null && <span style={{ fontSize: 12, color: "var(--slate-500)", fontWeight: 500 }}>{label}</span>}
+    </div>
+  );
+}
+
+/* ── LocationTag (v3 DF-29c) ─────────────────────────────────── */
+export function LocationTag({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 4,
+        padding: "4px 9px", borderRadius: 999,
+        background: "rgba(14,165,233,0.10)", border: "1px solid rgba(14,165,233,0.22)",
+        color: "var(--sky)", fontSize: 12, fontWeight: 600, lineHeight: 1,
+        ...style,
+      }}
+    >
+      📍 {children}
+    </span>
+  );
 }

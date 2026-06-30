@@ -1,13 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { api, storeTokens } from "@/lib/api";
+import { SocialButtons } from "@/components/SocialButtons";
 
 export default function SignUpPage() {
   const [form, setForm] = useState({ handle: "", name: "", email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // GM-05 referral — captured from ?ref=<handle>. Read from the URL directly to
+  // avoid a useSearchParams Suspense boundary on this client page.
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Read the ?ref= handle once after mount. Effect (not a lazy initializer) so
+    // the server renders null and the client fills it in post-hydration — no SSR
+    // mismatch on the optional "Invited by" banner.
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot read of an external (URL) value on mount
+    if (ref) setReferralCode(ref);
+  }, []);
 
   function set(field: string) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -23,7 +36,7 @@ export default function SignUpPage() {
         access_token: string;
         refresh_token: string;
         debug_otp?: string | null;
-      }>("/auth/signup", form);
+      }>("/auth/signup", { ...form, referral_code: referralCode });
       storeTokens(access_token, refresh_token);
       // DF-06 — confirm email via OTP before onboarding.
       // Full page load (not router.push): AuthProvider must refetch /users/me with the
@@ -57,9 +70,16 @@ export default function SignUpPage() {
           </span>
         </div>
 
-        <h2 className="text-xl font-bold mb-6" style={{ fontFamily: "var(--font-display)" }}>
-          Create account
+        <h2 className="text-[26px] font-bold mb-1" style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>
+          Create your account
         </h2>
+        <p className="text-sm text-[var(--ink-mute)] mb-6">Build your collection and start trading.</p>
+
+        {referralCode && (
+          <p className="text-[13px] mb-5 px-3 py-2 rounded-lg bg-[var(--rose-tint-bg)] text-[var(--ink-soft)]">
+            Invited by <span className="font-semibold text-[var(--stamp-red)]">@{referralCode.replace(/^@/, "")}</span>
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {fields.map(({ key, label, type, placeholder }) => (
@@ -83,15 +103,20 @@ export default function SignUpPage() {
             disabled={loading}
             className="w-full py-2.5 rounded-lg bg-[var(--stamp-red)] text-white font-semibold text-sm transition-colors hover:bg-[var(--stamp-red-deep)] disabled:opacity-60"
           >
-            {loading ? "Creating account…" : "Create account"}
+            {loading ? "Creating account…" : "Continue"}
           </button>
         </form>
+
+        <SocialButtons onError={setError} />
 
         <p className="text-sm text-[var(--ink-faint)] text-center mt-6">
           Already have an account?{" "}
           <Link href="/auth/signin" className="text-[var(--stamp-red)] font-medium hover:underline">
-            Sign in
+            Log in
           </Link>
+        </p>
+        <p className="text-[11.5px] text-[var(--ink-faint)] text-center leading-relaxed mt-4">
+          By continuing you agree to our Terms of Service and Privacy Policy.
         </p>
       </div>
     </div>

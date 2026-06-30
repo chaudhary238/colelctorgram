@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
-import { Avatar, VerifyBadge, Money } from "@/components/ui";
+import { Avatar, Money } from "@/components/ui";
 
 interface ThreadUser {
   id: string;
@@ -48,17 +48,11 @@ export default function InboxPage() {
   return (
     <div className="w-full max-w-[680px] flex flex-col">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "12px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, letterSpacing: "-0.025em", margin: 0 }}>Messages</h1>
-            {totalUnread > 0 && (
-              <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 1 }}>{totalUnread} unread</div>
-            )}
-          </div>
-          <button style={{ height: 36, padding: "0 14px", borderRadius: 9, border: "1px solid var(--border-strong)", background: "transparent", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer", color: "var(--ink)" }}>
-            New message
-          </button>
-        </div>
+        {/* v4 InboxView header is just the "Messages" title (no action button). */}
+        <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, letterSpacing: "-0.025em", margin: 0 }}>Messages</h1>
+        {totalUnread > 0 && (
+          <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 1 }}>{totalUnread} unread</div>
+        )}
       </div>
 
       <div style={{ paddingBottom: 24 }}>

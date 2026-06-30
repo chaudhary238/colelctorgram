@@ -26,6 +26,7 @@ class Event(Base):
     categories: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list, server_default="{}")
     mode: Mapped[str] = mapped_column(String(16), default="in_person", nullable=False)  # in_person | online
     city: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pincode: Mapped[str | None] = mapped_column(String(6), nullable=True)  # DV4-07b: 6-digit PIN resolves to canonical city (dedup Bengaluru/Bangalore)
     venue: Mapped[str | None] = mapped_column(Text, nullable=True)
     online_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     cover_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)

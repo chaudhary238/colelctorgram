@@ -10,13 +10,14 @@ from typing import Optional
 from app.database import get_db
 from app.dependencies import get_current_user, get_optional_user
 from app.models.user import User, Follow
-from app.models.item import Item
+from app.models.item import Item, ItemPhoto
 from app.models.listing import Listing
 from app.models.post import Post, PostLike, PostSave
 from app.models.deal import Deal, Vouch, VouchRequest
 from app.models.community import Community, CommunityMember
 from app.routers.communities import _community_dict
 from app.services.notifications import notify
+from app.services.gamification import award_xp, maybe_award_profile_complete
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -30,6 +31,7 @@ class ProfileOut(BaseModel):
     avatar_url: Optional[str]
     tier: str
     interests: list[str]
+    sub_interests: Optional[dict] = None  # per-category chips from onboarding (DV4-06)
     deals_count: int
     rating: float
     rating_count: int
@@ -60,6 +62,10 @@ class ProfileOut(BaseModel):
     notif_prefs: Optional[dict] = None
     privacy_prefs: Optional[dict] = None
     email_verified: Optional[bool] = None
+    # Per-view collection visibility (eye toggle) — {grid,chart,calendar: public|private}.
+    # Populated for ALL viewers (not nulled for non-owners) so the client can hide
+    # views the owner marked private.
+    collection_view_privacy: dict = {}
 
     model_config = {"from_attributes": True}
 
@@ -76,6 +82,17 @@ DEFAULT_PRIVACY_PREFS = {
     "wishlist": "followers",   # public | followers | private
     "show_online": True,
 }
+# Per-view collection visibility (the profile Collection "eye" toggle). The grid/
+# chart/calendar views all render from the same /collection items, so this is a
+# display choice the owner makes — stored under privacy_prefs.collection_views and
+# returned to ALL viewers so the client hides views the owner marked private.
+DEFAULT_COLLECTION_VIEWS = {"grid": "public", "chart": "public", "calendar": "public"}
+
+
+def _collection_views(user: User) -> dict:
+    stored = (user.privacy_prefs or {}).get("collection_views") or {}
+    return {**DEFAULT_COLLECTION_VIEWS,
+            **{k: v for k, v in stored.items() if k in DEFAULT_COLLECTION_VIEWS}}
 
 
 def _fill_pref_defaults(out: "ProfileOut") -> "ProfileOut":
@@ -90,6 +107,7 @@ class EditProfileBody(BaseModel):
     city: Optional[str] = None
     avatar_url: Optional[str] = None
     interests: Optional[list[str]] = None
+    sub_interests: Optional[dict] = None  # per-category sub-interest chips (DV4-06)
     privacy_portfolio: Optional[str] = None
     privacy_value: Optional[str] = None
     gender: Optional[str] = None        # 'f' | 'm' | 'x' (DF-01 / DF-22)
@@ -110,9 +128,20 @@ class SuggestedUserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class FollowUserOut(BaseModel):
+    handle: str
+    name: str
+    avatar_url: Optional[str]
+    tier: str
+
+    model_config = {"from_attributes": True}
+
+
 @router.get("/me", response_model=ProfileOut)
 async def get_me(current_user: User = Depends(get_current_user)):
-    return _fill_pref_defaults(ProfileOut.model_validate(current_user))
+    out = _fill_pref_defaults(ProfileOut.model_validate(current_user))
+    out.collection_view_privacy = _collection_views(current_user)
+    return out
 
 
 @router.get("/me/suggested", response_model=list[SuggestedUserOut])
@@ -153,6 +182,41 @@ async def get_suggested(
         )
         rows = result2.scalars().all()
     return rows
+
+
+@router.get("/me/vouch-candidates", response_model=list[FollowUserOut])
+async def vouch_candidates(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    limit: int = 40,
+):
+    """Collectors the user can ask for a vouch (Request-a-vouch flow, v4 = "ask anyone
+    who knows you"). Prioritises people you follow / who follow you, then other active
+    collectors. Excludes self and suspended accounts."""
+    follow_ids_q = await db.execute(
+        select(Follow.following_id).where(
+            Follow.follower_id == current_user.id, Follow.following_type == "user"
+        )
+    )
+    followed = {r for r in follow_ids_q.scalars().all()}
+    follower_ids_q = await db.execute(
+        select(Follow.follower_id).where(
+            Follow.following_id == current_user.id, Follow.following_type == "user"
+        )
+    )
+    followers = {r for r in follower_ids_q.scalars().all()}
+    connected = followed | followers
+
+    result = await db.execute(
+        select(User)
+        .where(User.id != current_user.id, User.is_suspended == False)  # noqa: E712
+        .order_by(User.followers_count.desc())
+        .limit(limit)
+    )
+    users = list(result.scalars().all())
+    # Connections first (people who actually know you), then the rest — stable.
+    users.sort(key=lambda u: 0 if u.id in connected else 1)
+    return users
 
 
 @router.get("/me/saved")
@@ -227,7 +291,40 @@ async def edit_me(
         setattr(current_user, field, value)
     db.add(current_user)
     await db.flush()
-    return _fill_pref_defaults(ProfileOut.model_validate(current_user))
+    # XP: +50 one-time once all 5 profile steps are filled (GM-05, dedup'd).
+    await maybe_award_profile_complete(db, current_user)
+    out = _fill_pref_defaults(ProfileOut.model_validate(current_user))
+    out.collection_view_privacy = _collection_views(current_user)
+    return out
+
+
+class CollectionViewPrivacyBody(BaseModel):
+    view: str         # grid | chart | calendar
+    visibility: str   # public | private
+
+
+@router.patch("/me/collection-privacy", response_model=ProfileOut)
+async def set_collection_view_privacy(
+    body: CollectionViewPrivacyBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Toggle one Collection view (grid/chart/calendar) public/private (the eye icon)."""
+    if body.view not in DEFAULT_COLLECTION_VIEWS:
+        raise HTTPException(status_code=400, detail="invalid view")
+    if body.visibility not in ("public", "private"):
+        raise HTTPException(status_code=400, detail="invalid visibility")
+    # JSONB must be reassigned (not mutated in place) for SQLAlchemy to flag it dirty.
+    prefs = dict(current_user.privacy_prefs or {})
+    views = dict(prefs.get("collection_views") or {})
+    views[body.view] = body.visibility
+    prefs["collection_views"] = views
+    current_user.privacy_prefs = prefs
+    db.add(current_user)
+    await db.flush()
+    out = _fill_pref_defaults(ProfileOut.model_validate(current_user))
+    out.collection_view_privacy = _collection_views(current_user)
+    return out
 
 
 @router.get("/{handle}", response_model=ProfileOut)
@@ -243,6 +340,10 @@ async def get_profile(
 
     out = ProfileOut.model_validate(user)
     is_self = bool(viewer and viewer.id == user.id)
+    # Per-view collection visibility is returned to everyone (it only tells the
+    # client which views to render; the underlying items are already item-level
+    # privacy-filtered in /collection).
+    out.collection_view_privacy = _collection_views(user)
 
     # Vouch counts (social endorsements + trade vouches both count toward trust).
     out.vouches_received_count = await db.scalar(
@@ -326,7 +427,7 @@ async def follow_user(
     db.add(Follow(follower_id=current_user.id, following_type="user", following_id=target_user.id))
     target_user.followers_count += 1
     current_user.following_count += 1
-    notify(
+    await notify(
         db,
         user_id=target_user.id,
         actor_id=current_user.id,
@@ -336,15 +437,6 @@ async def follow_user(
         ref_type="profile",
         ref_id=current_user.handle,
     )
-
-
-class FollowUserOut(BaseModel):
-    handle: str
-    name: str
-    avatar_url: Optional[str]
-    tier: str
-
-    model_config = {"from_attributes": True}
 
 
 @router.get("/{handle}/followers", response_model=list[FollowUserOut])
@@ -468,7 +560,9 @@ async def give_vouch(
             pr.status = "fulfilled"
 
     if is_new:
-        notify(
+        # XP: +10 for vouching for a collector, dedup'd on the vouched user (GM-05).
+        await award_xp(db, current_user, "vouch", ref_id=str(target.id), ref_type="user")
+        await notify(
             db,
             user_id=target.id,
             actor_id=current_user.id,
@@ -557,7 +651,7 @@ async def request_vouch(
             vr.status = "pending"  # re-ask
         return
     db.add(VouchRequest(requester_id=current_user.id, target_id=target.id, status="pending"))
-    notify(
+    await notify(
         db,
         user_id=target.id,
         actor_id=current_user.id,
@@ -609,6 +703,28 @@ async def get_user_posts(
     }
 
 
+async def _wishlist_hidden(db: AsyncSession, viewer: Optional[User], target_user: User) -> bool:
+    """Whether `viewer` is barred from seeing target's wishlist (DF-23 privacy)."""
+    if viewer and viewer.id == target_user.id:
+        return False  # owner always sees their own
+    wmode = (target_user.privacy_prefs or {}).get("wishlist", "followers")
+    if wmode == "public":
+        return False
+    if wmode == "private":
+        return True
+    # "followers": visible only to people who follow the target
+    if not viewer:
+        return True
+    follows = await db.scalar(
+        select(Follow.follower_id).where(
+            Follow.following_type == "user",
+            Follow.follower_id == viewer.id,
+            Follow.following_id == target_user.id,
+        ).limit(1)
+    )
+    return not follows
+
+
 @router.get("/{handle}/collection")
 async def get_collection(
     handle: str,
@@ -623,9 +739,15 @@ async def get_collection(
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Wishlist visibility (DF-23): public | followers | private. Owned/pre-order
+    # items are unaffected — only the wishlist is gated for non-owners.
+    hide_wishlist = await _wishlist_hidden(db, viewer, target_user)
+
     stmt = select(Item).where(Item.user_id == target_user.id, Item.privacy == "public")
     if status:
         stmt = stmt.where(Item.status == status)
+    if hide_wishlist:
+        stmt = stmt.where(Item.status != "wishlist")
     stmt = stmt.order_by(Item.created_at.desc()).offset((page - 1) * limit).limit(limit)
     result = await db.execute(stmt)
     items = result.scalars().all()
@@ -653,6 +775,18 @@ async def get_collection(
             return True
         return False
 
+    # Cover photo per item (first non-verify upload), fetched in one query for the page.
+    covers: dict = {}
+    item_ids = [i.id for i in items]
+    if item_ids:
+        photo_rows = await db.execute(
+            select(ItemPhoto.item_id, ItemPhoto.url)
+            .where(ItemPhoto.item_id.in_(item_ids))
+            .order_by(ItemPhoto.item_id, ItemPhoto.is_verify_photo.asc(), ItemPhoto.uploaded_at.asc())
+        )
+        for iid, url in photo_rows.all():
+            covers.setdefault(iid, url)  # first row per item = cover
+
     return {
         "page": page,
         "items": [
@@ -665,6 +799,7 @@ async def get_collection(
                 "value": i.value,
                 "is_listed": i.is_listed,
                 "photo_count": i.photo_count,
+                "image_url": covers.get(i.id),
                 "preorder_eta": i.preorder_eta,
                 "is_wishlisted": _wishlisted(i),
                 "created_at": i.created_at.isoformat(),

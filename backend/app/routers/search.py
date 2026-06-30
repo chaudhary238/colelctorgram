@@ -4,6 +4,7 @@ from sqlalchemy import select, or_, func
 from datetime import datetime, timedelta, timezone
 
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.catalogue import Catalogue
 from app.models.community import Community
@@ -13,28 +14,79 @@ from app.models.deal import Vouch
 
 router = APIRouter(prefix="/search", tags=["search"])
 
+# pg_trgm fuzzy threshold (migration e4a7c2f9b8d1). word_similarity(q, col) >= this
+# tolerates typos/partial words; 0.4 ≈ "one typo in a short term" without much noise.
+SIM_THRESHOLD = 0.4
+# Trending interest boost: an in-interest tag's count is scaled by this when ranking,
+# so a collector's categories float up without hiding genuinely huge global trends.
+INTEREST_BOOST = 1.6
+
+
+def _match(q: str, pattern: str, *cols):
+    """Substring (index-backed ILIKE) OR trigram fuzzy match across the given columns."""
+    conds = []
+    for c in cols:
+        conds.append(c.ilike(pattern))
+        conds.append(func.word_similarity(q, c) >= SIM_THRESHOLD)
+    return or_(*conds)
+
+
+def _rank(q: str, *cols):
+    """Relevance score = best trigram word-similarity across columns (for ORDER BY)."""
+    sims = [func.word_similarity(q, c) for c in cols]
+    return func.greatest(*sims) if len(sims) > 1 else sims[0]
+
 
 @router.get("/trending")
 async def trending(
     limit: int = Query(5, le=10),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """DF-31 — 'Trending now' ranked terms for the search empty state.
-    Derived from hashtags on recent published posts (real counts), most-used first."""
+
+    Stays a GLOBAL discovery rail (real hashtag counts over recent published posts —
+    so a collector can still discover a category they haven't opted into), but
+    interest-boosted: a term whose dominant category is in the viewer's interests has
+    its count scaled by INTEREST_BOOST for ranking only. Displayed count = real count.
+    """
     since = datetime.now(timezone.utc) - timedelta(days=30)
-    tag = func.unnest(Post.tags).label("tag")
-    rows = await db.execute(
-        select(tag, func.count().label("n"))
+    # Explode tags so we can attach each post's category, then take the dominant
+    # category per tag (mode) alongside the real usage count.
+    exploded = (
+        select(
+            func.unnest(Post.tags).label("tag"),
+            Post.category.label("category"),
+        )
         .where(Post.status == "published", Post.created_at >= since)
-        .group_by(tag)
+        .subquery()
+    )
+    rows = await db.execute(
+        select(
+            exploded.c.tag,
+            func.count().label("n"),
+            func.mode().within_group(exploded.c.category).label("top_cat"),
+        )
+        .group_by(exploded.c.tag)
         .order_by(func.count().desc())
-        .limit(limit)
+        # Pull a wider pool than `limit` so the interest boost can reorder before trimming.
+        .limit(max(limit * 4, 20))
+    )
+    interests = set(current_user.interests or [])
+    pool = [
+        {"term": r.tag, "count": r.n, "top_cat": r.top_cat}
+        for r in rows
+        if r.tag
+    ]
+    # Boost in-interest terms for ordering; real count is still what we display.
+    pool.sort(
+        key=lambda t: t["count"] * (INTEREST_BOOST if t["top_cat"] in interests else 1.0),
+        reverse=True,
     )
     # The hottest two terms get the 🔥 flag, the rest 📈 (mirrors v3 SearchOverlay).
     items = [
-        {"rank": i + 1, "term": r.tag, "count": r.n, "hot": i < 2}
-        for i, r in enumerate(rows)
-        if r.tag
+        {"rank": i + 1, "term": t["term"], "count": t["count"], "hot": i < 2}
+        for i, t in enumerate(pool[:limit])
     ]
     return {"trending": items}
 
@@ -63,7 +115,8 @@ async def global_search(
             func.coalesce(vouch_sq.c.vouches, 0).label("vouches"),
         )
         .outerjoin(vouch_sq, vouch_sq.c.to_user_id == User.id)
-        .where(or_(User.handle.ilike(pattern), User.name.ilike(pattern)))
+        .where(_match(q, pattern, User.name, User.handle))
+        .order_by(_rank(q, User.name, User.handle).desc())
         .limit(limit)
     )
     users = [
@@ -87,6 +140,10 @@ async def global_search(
                 Post.body.ilike(pattern),
                 Post.title.ilike(pattern),
                 Post.iso_item.ilike(pattern),
+                # Trending terms are hashtags from Post.tags (e.g. "#NewDrops"); without this
+                # a tag-only post (text doesn't contain the hashtag) returns 0 results when a
+                # user taps a trending term. Match against the joined tag list too.
+                func.array_to_string(Post.tags, " ").ilike(pattern),
             ),
         )
         .order_by(Post.created_at.desc())
@@ -119,12 +176,9 @@ async def global_search(
         select(Catalogue.sku, Catalogue.title, Catalogue.brand, Catalogue.category, Catalogue.thumbnail_url)
         .where(
             Catalogue.is_approved == True,
-            or_(
-                Catalogue.title.ilike(pattern),
-                Catalogue.brand.ilike(pattern),
-                Catalogue.sku.ilike(pattern),
-            ),
+            _match(q, pattern, Catalogue.title, Catalogue.brand, Catalogue.sku),
         )
+        .order_by(_rank(q, Catalogue.title, Catalogue.brand).desc())
         .limit(limit)
     )
     catalogue = [
@@ -134,7 +188,8 @@ async def global_search(
 
     communities_q = await db.execute(
         select(Community.id, Community.name, Community.description, Community.category, Community.member_count)
-        .where(or_(Community.name.ilike(pattern), Community.description.ilike(pattern)))
+        .where(_match(q, pattern, Community.name, Community.description))
+        .order_by(_rank(q, Community.name).desc())
         .limit(limit)
     )
     communities = [
@@ -146,12 +201,9 @@ async def global_search(
         select(Event.id, Event.title, Event.city, Event.mode, Event.starts_at)
         .where(
             Event.status == "active",
-            or_(
-                Event.title.ilike(pattern),
-                Event.city.ilike(pattern),
-                Event.venue.ilike(pattern),
-            ),
+            _match(q, pattern, Event.title, Event.city, Event.venue),
         )
+        .order_by(_rank(q, Event.title).desc())
         .limit(limit)
     )
     events = [

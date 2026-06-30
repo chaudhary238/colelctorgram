@@ -10,6 +10,7 @@ from app.models.thread import Thread, Message
 from app.models.notification import Notification
 from app.models.trust import UserBlock, Report
 from app.models.search import SavedSearch
+from app.models.gamification import XpEvent, SeasonBadge
 
 __all__ = [
     "User", "Follow",
@@ -24,4 +25,5 @@ __all__ = [
     "Notification",
     "UserBlock", "Report",
     "SavedSearch",
+    "XpEvent", "SeasonBadge",
 ]

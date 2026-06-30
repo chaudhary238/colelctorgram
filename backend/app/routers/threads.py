@@ -10,7 +10,7 @@ from sqlalchemy import select, or_
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.thread import Thread, Message
-from app.models.user import User
+from app.models.user import User, Follow
 from app.models.listing import Listing
 from app.models.catalogue import Catalogue
 from app.models.item import Item
@@ -108,6 +108,29 @@ async def create_thread(
     thread = existing.scalar_one_or_none()
 
     if not thread:
+        # Messaging privacy (DF-23): honour the recipient's "who can message me"
+        # setting when STARTING a new conversation. Listing inquiries (a buyer
+        # contacting a seller about something they listed) always go through.
+        if not body.listing_id:
+            target = await db.scalar(select(User).where(User.id == body.other_user_id))
+            if not target:
+                raise HTTPException(status_code=404, detail="User not found")
+            mode = (target.privacy_prefs or {}).get("messaging", "everyone")
+            if mode == "none":
+                raise HTTPException(status_code=403, detail="This user isn't accepting new messages.")
+            if mode == "followers":
+                connected = await db.scalar(
+                    select(Follow.follower_id).where(
+                        Follow.following_type == "user",
+                        ((Follow.follower_id == current_user.id) & (Follow.following_id == target.id))
+                        | ((Follow.follower_id == target.id) & (Follow.following_id == current_user.id)),
+                    ).limit(1)
+                )
+                if not connected:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="This user only accepts messages from people they're connected with.",
+                    )
         thread = Thread(participant_a=a, participant_b=b, listing_id=body.listing_id)
         db.add(thread)
         await db.flush()

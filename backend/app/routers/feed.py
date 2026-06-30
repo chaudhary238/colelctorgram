@@ -34,12 +34,21 @@ def _recency_decay(created_at: datetime) -> float:
     return math.exp(-hours / 24)
 
 
-def _score(post: Post, interests: set[str], followed_ids: set[str]) -> float:
+def _score(post: Post, interests: set[str], followed_ids: set[str], featured_authors: set[str], viewer_id: str = "") -> float:
     interest_w = 1.0 if post.category in interests else 0.0
     follow_w = 1.0 if str(post.user_id) in followed_ids else 0.0
     recency = _recency_decay(post.created_at)
     engage = (post.likes_count + post.comments_count * 2 + post.saves_count * 3) / 1000
-    return interest_w * 0.4 + follow_w * 0.3 + recency * 0.2 + min(engage, 1.0) * 0.1
+    base = interest_w * 0.4 + follow_w * 0.3 + recency * 0.2 + min(engage, 1.0) * 0.1
+    # Your own freshly-posted content floats to the top of your feed (Instagram-style)
+    # then decays with recency — otherwise a new post with no interest/follow/engagement
+    # score sinks to the bottom and feels "lost".
+    if viewer_id and str(post.user_id) == viewer_id:
+        base += recency * 0.6
+    # GM-03 Pro perk — showcases from Pro+ collectors get a discovery-feed boost.
+    if post.type == "showcase" and str(post.user_id) in featured_authors:
+        base += 0.15
+    return base
 
 
 @router.get("")
@@ -103,7 +112,15 @@ async def get_feed(
             reverse=True,
         )
     else:
-        scored = sorted(posts, key=lambda p: _score(p, interests, followed_ids), reverse=True)
+        # GM-03 — resolve which candidate authors are Pro+ (one query over the
+        # ≤500 loaded posts) so their showcases get the discovery-feed boost.
+        from app.services.gamification import discovery_featured
+        cand_author_ids = list({p.user_id for p in posts})
+        featured_authors: set[str] = set()
+        if cand_author_ids:
+            xp_rows = await db.execute(select(User.id, User.xp).where(User.id.in_(cand_author_ids)))
+            featured_authors = {str(uid) for uid, xp in xp_rows.all() if discovery_featured(xp)}
+        scored = sorted(posts, key=lambda p: _score(p, interests, followed_ids, featured_authors, str(current_user.id)), reverse=True)
     start = (page - 1) * limit
     page_posts = scored[start: start + limit]
 

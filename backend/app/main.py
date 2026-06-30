@@ -14,7 +14,7 @@ from app.workers.tasks import schedule_background_workers
 from app.routers import (
     auth, users, feed, catalogue, items, posts,
     listings, deals, communities, events,
-    threads, notifications, search, media, admin,
+    threads, notifications, search, media, admin, rewards,
 )
 from app.routers.moderation import router as moderation_router
 from app.routers.posts import comments_router
@@ -67,6 +67,7 @@ app.include_router(search.router)
 app.include_router(media.router)
 app.include_router(admin.router)
 app.include_router(moderation_router)
+app.include_router(rewards.router)
 
 # Serve locally-stored uploads when R2 is not configured (dev fallback).
 if not settings.r2_configured:

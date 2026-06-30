@@ -12,6 +12,7 @@ export interface AuthUser {
   avatar_url: string | null;
   tier: string;
   interests: string[];
+  sub_interests?: Record<string, string[]> | null; // per-category chips (DV4-06)
   deals_count: number;
   rating: number;
   rating_count: number;
@@ -22,10 +23,30 @@ export interface AuthUser {
   email?: string | null;
   privacy_portfolio?: string | null;
   privacy_value?: string | null;
-  gender?: string | null; // 'f' | 'm'
+  gender?: string | null; // 'f' | 'm' | 'x'
   birth_year?: number | null;
   feed_prefs?: { categories?: string[]; hide_listings?: boolean } | null;
+  // Per-type notification toggles + extra privacy settings (DF-23)
+  notif_prefs?: NotifPrefs | null;
+  privacy_prefs?: PrivacyPrefs | null;
   email_verified?: boolean | null;
+}
+
+export interface NotifPrefs {
+  followers: boolean;
+  messages: boolean;
+  listing_activity: boolean;
+  trade_requests: boolean;
+  event_reminders: boolean;
+  community_activity: boolean;
+  price_drops: boolean;
+  new_listings: boolean;
+}
+
+export interface PrivacyPrefs {
+  messaging: "everyone" | "followers" | "none";
+  wishlist: "public" | "followers" | "private";
+  show_online: boolean;
 }
 
 interface AuthContextValue {

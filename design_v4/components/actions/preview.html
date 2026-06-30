@@ -1,0 +1,54 @@
+<!-- @dsCard group="Actions" viewport="680x310" name="Button & IconButton" subtitle="8 variants · 4 sizes · icon button" -->
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 22px 26px; background: var(--paper); font-family: var(--font-body); color: var(--ink); }
+  .label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 14px; }
+  .label b { color: var(--ink); font-weight: 600; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin-bottom: 9px; }
+  .btn { display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-body); font-weight: 600; line-height: 1; cursor: pointer; white-space: nowrap; border: none; }
+  .primary   { background: var(--stamp-red);    color: var(--paper);    border: 1px solid var(--stamp-red) !important;    border-radius: 14px; }
+  .secondary { background: var(--bone);          color: var(--ink-soft); border: 1px solid var(--border-strong) !important; border-radius: 14px; }
+  .dark      { background: var(--ink);           color: var(--paper);    border: 1px solid var(--ink) !important;           border-radius: 14px; }
+  .teal      { background: var(--verified-teal); color: var(--paper);    border: 1px solid var(--verified-teal) !important; border-radius: 14px; }
+  .grail     { background: var(--grail-gold);    color: var(--ink);      border: 1px solid var(--grail-gold-deep) !important; box-shadow: var(--shadow-stamp); border-radius: 14px; }
+  .destructive { background: var(--stamp-red-soft); color: var(--stamp-red); border: 1px solid rgba(255,36,66,0.25) !important; border-radius: 14px; }
+  .ghost     { background: transparent; color: var(--ink); border: 1px solid var(--border-strong) !important; border-radius: 14px; }
+  .outline   { background: transparent; color: var(--ink); border: 1px solid var(--border-strong) !important; border-radius: 14px; }
+  .md { height: 44px; padding: 0 18px; font-size: 15px; }
+  .sm { height: 34px; padding: 0 12px; font-size: 13px; border-radius: 9px !important; }
+  .lg { height: 52px; padding: 0 22px; font-size: 17px; border-radius: 16px !important; }
+  .icoBtn { width: 40px; height: 40px; border-radius: 13px; border: 1px solid var(--border); background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .icoBtn.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .tok { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); min-width: 90px; }
+</style></head>
+<body>
+  <div class="label"><b>Button</b> · variants</div>
+  <div class="row">
+    <span class="tok">primary</span>
+    <button class="btn primary md">List for sale</button>
+    <button class="btn primary sm">Follow</button>
+    <button class="btn primary lg">Create account</button>
+  </div>
+  <div class="row">
+    <span class="tok">dark · teal · grail</span>
+    <button class="btn dark md">Edit profile</button>
+    <button class="btn teal sm">Vouch</button>
+    <button class="btn grail md">Notify me</button>
+  </div>
+  <div class="row">
+    <span class="tok">secondary · ghost · destructive</span>
+    <button class="btn secondary md">Save</button>
+    <button class="btn ghost sm">Cancel</button>
+    <button class="btn destructive sm">Remove</button>
+  </div>
+  <div class="label" style="margin-top:12px"><b>IconButton</b> · default · active · badged</div>
+  <div class="row">
+    <button class="icoBtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+    <button class="icoBtn active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>
+    <div style="position:relative;display:inline-flex">
+      <button class="icoBtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+      <span style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:999px;background:var(--stamp-red);color:var(--paper);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--paper);font-family:var(--font-mono)">3</span>
+    </div>
+  </div>
+</body></html>

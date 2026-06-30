@@ -11,13 +11,16 @@ MEDIA_LOCAL_DIR = Path(__file__).resolve().parents[2] / "media_uploads"
 
 
 def _r2_client():
+    # Explicit S3 endpoint (Backblaze B2, Supabase, AWS S3) wins; otherwise derive the
+    # Cloudflare R2 endpoint from the account id.
+    endpoint = settings.s3_endpoint_url or f"https://{settings.r2_account_id}.r2.cloudflarestorage.com"
     return boto3.client(
         "s3",
-        endpoint_url=f"https://{settings.r2_account_id}.r2.cloudflarestorage.com",
+        endpoint_url=endpoint,
         aws_access_key_id=settings.r2_access_key_id,
         aws_secret_access_key=settings.r2_secret_access_key,
         config=Config(signature_version="s3v4"),
-        region_name="auto",
+        region_name=settings.s3_region,
     )
 
 

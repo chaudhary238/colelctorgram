@@ -30,6 +30,9 @@ class User(Base):
     birth_year: Mapped[int | None] = mapped_column(Integer, nullable=True)  # from onboarding age slider (DF-05)
     # pg ARRAY (not generic sa.ARRAY) so .overlap() works in /users/me/suggested
     interests: Mapped[list[str]] = mapped_column(PG_ARRAY(Text), default=list)
+    # Per-category sub-interest chips from onboarding step 2 (DV4-06, BRD §6.2/§9.2):
+    #   {"figures": ["Hot Toys", "Marvel Legends"], "tcg": ["Pokémon"], ...}
+    sub_interests: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # Feed customisation (DF-08): {"categories": [...], "hide_listings": bool}
     feed_prefs: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # Per-type notification toggles (DF-23): {followers, messages, listing_activity,
@@ -40,6 +43,11 @@ class User(Base):
     privacy_prefs: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     tier: Mapped[str] = mapped_column(String(32), default="verified")
+
+    # Gamification (BRD v1.4 §8.12). Lifetime Collector XP — monotonic, never
+    # deducted. Denormalized cache of SUM(xp_events.points); incremented in the
+    # same txn as each award. Rank is derived from this (services/gamification).
+    xp: Mapped[int] = mapped_column(Integer, default=0, nullable=False, server_default="0")
 
     # Trust signals
     deals_count: Mapped[int] = mapped_column(Integer, default=0)

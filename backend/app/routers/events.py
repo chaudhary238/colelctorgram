@@ -12,6 +12,7 @@ from app.dependencies import get_current_user, get_optional_user
 from app.models.event import Event, EventInterest, EventReminder
 from app.models.community import Community
 from app.models.user import User
+from app.services.gamification import award_xp
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -23,6 +24,7 @@ class CreateEventBody(BaseModel):
     categories: list[str] = []
     mode: str = "in_person"
     city: Optional[str] = None
+    pincode: Optional[str] = None
     venue: Optional[str] = None
     online_url: Optional[str] = None
     cover_image_url: Optional[str] = None
@@ -38,6 +40,7 @@ class UpdateEventBody(BaseModel):
     categories: Optional[list[str]] = None
     mode: Optional[str] = None
     city: Optional[str] = None
+    pincode: Optional[str] = None
     venue: Optional[str] = None
     online_url: Optional[str] = None
     cover_image_url: Optional[str] = None
@@ -171,6 +174,7 @@ async def create_event(
         categories=body.categories,
         mode=body.mode,
         city=body.city,
+        pincode=body.pincode,
         venue=body.venue,
         online_url=body.online_url,
         cover_image_url=body.cover_image_url,
@@ -293,6 +297,11 @@ async def set_rsvp(
         _adjust(event, rsvp, +1)
         interest.status = rsvp
 
+    # XP: +10 for going to an event, dedup'd on event id (GM-05). A later
+    # un-RSVP/re-RSVP is a no-op — the grant already landed once.
+    if rsvp == "going":
+        await award_xp(db, current_user, "rsvp", ref_id=str(event_id), ref_type="event")
+
 
 @router.post("/{event_id}/reminder", status_code=204)
 async def set_reminder(
@@ -364,6 +373,7 @@ def _event_dict(
         "categories": e.categories or [],
         "mode": e.mode,
         "city": e.city,
+        "pincode": e.pincode,
         "venue": e.venue,
         "online_url": e.online_url,
         "cover_image_url": e.cover_image_url,

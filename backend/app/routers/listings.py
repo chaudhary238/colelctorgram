@@ -24,7 +24,8 @@ router = APIRouter(prefix="/listings", tags=["listings"])
 
 class CreateListingBody(BaseModel):
     item_id: uuid.UUID
-    price: int  # paise
+    price: int  # minor units of `currency`
+    currency: str = "INR"
     condition: str
     condition_notes: Optional[str] = None
     qty: int = 1
@@ -63,6 +64,7 @@ async def create_listing(
         seller_id=current_user.id,
         sku=item.sku,
         price=body.price,
+        currency=body.currency,
         condition=body.condition,
         condition_notes=body.condition_notes,
         qty=body.qty,
@@ -472,6 +474,12 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
             "scale": item.scale if item else None,
             "release_year": item.release_year if item else None,
             "description": item.description if item else None,
+            # Pre-order listing display (DV4-07a) — a listing whose underlying item is a
+            # pre-order shows a "Pre-order" tag + launch window + ordered-from store, matching
+            # design_v4 ListingView (l.acq/poDate/poSeller).
+            "acq": "preorder" if (item and item.status == "preorder") else "inhand",
+            "preorder_eta": item.preorder_eta if item else None,
+            "preorder_seller": item.preorder_seller if item else None,
             "photos": item_photos,
             "cover_url": item_photos[0] if item_photos else None,
             # seller
@@ -485,6 +493,7 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
             "vouches_count": vouches_by_seller.get(l.seller_id, 0),
             # listing
             "price": l.price,
+            "currency": l.currency,
             "retail_price": l.retail_price,
             "qty": l.qty,
             "condition": l.condition,

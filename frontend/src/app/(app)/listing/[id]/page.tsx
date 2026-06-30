@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Heart, Share2, MessageCircle, Repeat2, Shield, Info, ChevronRight } from "lucide-react";
+import { Heart, Bookmark, Share2, MessageCircle, Repeat2, Shield, Info, ChevronRight, Pencil, Send, Check, Clock } from "lucide-react";
+import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
-import { timeAgo, formatPrice } from "@/lib/utils";
-import { ApiListing } from "@/components/cards";
+import { timeAgo } from "@/lib/utils";
+import { symOf } from "@/lib/catalog";
+import { ApiListing, ApiListingQuestion } from "@/components/cards";
 import { Avatar, VerifyBadge, Money, ProductPhoto, SectionLabel, TierChip, TrustSignals } from "@/components/ui";
 
 const CONDITION_LABEL: Record<string, string> = {
@@ -43,6 +45,14 @@ function SpecRow({ label, value, last }: { label: string; value: string; last?: 
   );
 }
 
+function Stepper({ sign, onClick, disabled }: { sign: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{ width: 34, height: 34, borderRadius: 9, cursor: disabled ? "default" : "pointer", border: "1px solid var(--border-strong)", background: "var(--paper)", color: disabled ? "var(--ink-ghost)" : "var(--ink)", fontSize: 18, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)" }}>
+      {sign}
+    </button>
+  );
+}
+
 export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -50,17 +60,32 @@ export default function ListingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
+  const [wishlisted, setWishlisted] = useState(false);
+  const [wishBusy, setWishBusy] = useState(false);
   const [shared, setShared] = useState(false);
   const [dmBusy, setDmBusy] = useState(false);
   const [tab, setTab] = useState<"details" | "terms">("details");
   const [fulfil, setFulfil] = useState<"ship" | "pickup">("ship");
   const [priceVote, setPriceVote] = useState<string | null>(null);
+  const [voteCounts, setVoteCounts] = useState({ low: 0, fair: 0, high: 0, total: 0 });
   const [photo, setPhoto] = useState(0);
   const [qty, setQty] = useState(1);
+  const [editing, setEditing] = useState(false);
+  const [editPrice, setEditPrice] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
 
   useEffect(() => {
     api.get<ApiListing>(`/listings/${id}`)
-      .then((l) => { setListing(l); setSaved(l.is_saved ?? false); })
+      .then((l) => {
+        setListing(l);
+        setSaved(l.is_saved ?? false);
+        setWishlisted(l.is_wishlisted ?? false);
+        if (l.price_votes) {
+          setPriceVote(l.price_votes.my_vote);
+          setVoteCounts({ low: l.price_votes.low, fair: l.price_votes.fair, high: l.price_votes.high, total: l.price_votes.total });
+        }
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
@@ -76,6 +101,20 @@ export default function ListingDetailPage() {
       setSaved(!next);
     } finally {
       setSaveBusy(false);
+    }
+  }
+
+  async function toggleWishlist() {
+    if (!listing || wishBusy) return;
+    const next = !wishlisted;
+    setWishlisted(next);
+    setWishBusy(true);
+    try {
+      await api.post(`/items/${listing.item_id}/wishlist`);
+    } catch {
+      setWishlisted(!next);
+    } finally {
+      setWishBusy(false);
     }
   }
 
@@ -117,12 +156,67 @@ export default function ListingDetailPage() {
   const sold = listing.status === "sold";
   const reserved = listing.status === "reserved";
   const available = listing.status === "available";
+  const isPreorder = listing.acq === "preorder";
   const sellerTier = listing.deals_count >= 50 ? "top_seller" : listing.deals_count >= 20 ? "trusted" : "verified";
   const priceRupees = Math.round(listing.price / 100);
-  const shippingRupees = Math.round(listing.shipping_cost / 100);
+  const cur = symOf(listing.currency ?? "INR");
   const retailRupees = listing.retail_price ? Math.round(listing.retail_price / 100) : 0;
   const pctOff = retailRupees > priceRupees ? Math.round((1 - priceRupees / retailRupees) * 100) : 0;
   const maxQty = Math.max(1, listing.qty ?? 1);
+  const gallery = listing.photos ?? [];
+  const mine = listing.is_mine ?? false;
+  const metaBits = [listing.brand, listing.scale, listing.release_year ? String(listing.release_year) : null, listing.sku ? `SKU ${listing.sku}` : null].filter(Boolean);
+  const dominantVote = (() => {
+    const entries: [string, number][] = [["“Too low”", voteCounts.low], ["“Fair”", voteCounts.fair], ["“Too high”", voteCounts.high]];
+    return entries.reduce((a, b) => (b[1] > a[1] ? b : a))[0];
+  })();
+
+  function openEdit() {
+    if (!listing) return;
+    setEditPrice(String(Math.round(listing.price / 100)));
+    setEditNotes(listing.condition_notes ?? "");
+    setEditing(true);
+  }
+
+  async function saveEdit() {
+    if (!listing || editBusy) return;
+    setEditBusy(true);
+    try {
+      const updated = await api.patch<ApiListing>(`/listings/${listing.id}`, {
+        price: Number(editPrice) * 100,
+        condition_notes: editNotes.trim() || null,
+      });
+      setListing(updated);
+      setEditing(false);
+    } catch { /* keep the form open on failure */ } finally {
+      setEditBusy(false);
+    }
+  }
+
+  async function castVote(vote: string) {
+    if (!listing) return;
+    const prev = priceVote;
+    setPriceVote(vote); // optimistic
+    try {
+      const res = await api.post<{ low: number; fair: number; high: number; total: number; my_vote: string | null }>(`/listings/${listing.id}/price-vote`, { vote });
+      setVoteCounts({ low: res.low, fair: res.fair, high: res.high, total: res.total });
+      setPriceVote(res.my_vote);
+    } catch {
+      setPriceVote(prev);
+    }
+  }
+
+  async function markSold() {
+    if (!listing || editBusy) return;
+    setEditBusy(true);
+    try {
+      const updated = await api.patch<ApiListing>(`/listings/${listing.id}`, { status: "sold" });
+      setListing(updated);
+      setEditing(false);
+    } catch { /* ignore */ } finally {
+      setEditBusy(false);
+    }
+  }
 
   const terms = listing.terms.length > 0 ? listing.terms : [
     "Item ships within 48 hours of payment confirmation.",
@@ -135,10 +229,11 @@ export default function ListingDetailPage() {
     <div className="w-full max-w-[680px] flex flex-col pb-24">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link href="/market" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)" }}>
-            <ArrowLeft size={18} />
-          </Link>
+          <BackButton fallback="/market" />
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Listing</span>
+          <button onClick={toggleWishlist} title={wishlisted ? "Remove from wishlist" : "Add to wishlist"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "none", cursor: "pointer" }}>
+            <Bookmark size={17} fill={wishlisted ? "currentColor" : "none"} />
+          </button>
           <button onClick={toggleSave} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: saved ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
             <Heart size={18} fill={saved ? "currentColor" : "none"} />
           </button>
@@ -148,9 +243,9 @@ export default function ListingDetailPage() {
         </div>
       </div>
 
-      {/* Gallery */}
+      {/* Gallery — real uploaded photos when present, else the placeholder */}
       <div style={{ position: "relative" }}>
-        <ProductPhoto tone="ink" ratio="1/1" rounded={0} label={`${photo + 1} of 4`}>
+        <ProductPhoto tone="ink" src={gallery[photo]} ratio="1/1" rounded={0} label={gallery.length ? `${photo + 1} of ${gallery.length}` : undefined}>
           {!available && (
             <div style={{ position: "absolute", top: 60, left: 16 }}>
               <span style={{ fontSize: 12, padding: "5px 10px", borderRadius: 6, background: sold ? "var(--ink)" : "var(--grail-gold)", color: "var(--paper)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{listing.status}</span>
@@ -159,15 +254,22 @@ export default function ListingDetailPage() {
         </ProductPhoto>
       </div>
 
-      <div style={{ display: "flex", gap: 6, justifyContent: "center", padding: "12px 0 4px" }}>
-        {[0, 1, 2, 3].map((i) => (
-          <button key={i} onClick={() => setPhoto(i)} style={{ width: i === photo ? 18 : 7, height: 7, borderRadius: 999, border: "none", cursor: "pointer", background: i === photo ? "var(--ink)" : "var(--bone-deep)", transition: "all 160ms" }} />
-        ))}
-      </div>
+      {gallery.length > 1 && (
+        <div style={{ display: "flex", gap: 6, justifyContent: "center", padding: "12px 0 4px" }}>
+          {gallery.map((_, i) => (
+            <button key={i} onClick={() => setPhoto(i)} style={{ width: i === photo ? 18 : 7, height: 7, borderRadius: 999, border: "none", cursor: "pointer", background: i === photo ? "var(--ink)" : "var(--bone-deep)", transition: "all 160ms" }} />
+          ))}
+        </div>
+      )}
 
       <div style={{ padding: "6px 20px 20px" }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
           <VerifyBadge tier={listing.verify_tier} size="lg" />
+          {isPreorder && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: 5, background: "var(--grail-gold-soft)", color: "var(--grail-gold-deep)", border: "1px solid var(--grail-gold)" }}>
+              <Clock size={11} /> Pre-order
+            </span>
+          )}
           {listing.trade_willing && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: 5, background: "var(--bone)", color: "var(--ink-mute)", border: "1px solid var(--border)" }}>
               <Repeat2 size={11} /> Trade considered
@@ -176,17 +278,17 @@ export default function ListingDetailPage() {
         </div>
 
         <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 23, letterSpacing: "-0.025em", lineHeight: 1.15, margin: "0 0 4px" }}>{listing.title}</h1>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 12 }}>
-          Listed {timeAgo(listing.created_at)} · {listing.ships_from_city}
-        </div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 28, color: "var(--stamp-red)" }}><Money value={priceRupees} /></span>
+        {metaBits.length > 0 && (
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 12 }}>
+            {metaBits.join(" · ")}
+          </div>
+        )}
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 28, color: "var(--stamp-red)" }}><Money value={priceRupees} currency={cur} /></span>
           {pctOff > 0 && (
             <>
-              <span style={{ fontSize: 15, color: "var(--ink-faint)" }}><Money value={retailRupees} strike /></span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--forest)", background: "var(--forest-soft)", borderRadius: 6, padding: "2px 7px", letterSpacing: "0.02em" }}>
-                {pctOff}% off retail
-              </span>
+              <span style={{ fontSize: 15, color: "var(--ink-faint)" }}><Money value={retailRupees} currency={cur} strike /></span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--forest)" }}>{pctOff}% off MRP</span>
             </>
           )}
         </div>
@@ -204,9 +306,10 @@ export default function ListingDetailPage() {
           <>
             <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden", marginBottom: 14 }}>
               <SpecRow label="Condition" value={CONDITION_LABEL[listing.condition] ?? listing.condition} />
+              {isPreorder && listing.preorder_eta && <SpecRow label="Launch date" value={listing.preorder_eta} />}
+              {isPreorder && listing.preorder_seller && <SpecRow label="Pre-order from" value={listing.preorder_seller} />}
+              <SpecRow label="Quantity" value={`${maxQty} available`} />
               <SpecRow label="Ships from" value={listing.ships_from_city ?? "—"} />
-              <SpecRow label="Shipping" value={listing.shipping_cost === 0 ? "Free" : formatPrice(listing.shipping_cost)} />
-              <SpecRow label="Nationwide" value={listing.ships_nationwide ? "Yes" : "Pickup / local only"} />
               <SpecRow label="Watching" value={`${listing.watching_count} people`} last />
             </div>
 
@@ -221,37 +324,47 @@ export default function ListingDetailPage() {
               })}
             </div>
 
-            {listing.condition_notes && (
-              <div style={{ fontSize: 15, lineHeight: 1.6, color: "var(--ink-soft)", marginBottom: 18 }}>{listing.condition_notes}</div>
+            {listing.description && (
+              <div style={{ marginBottom: 18 }}>
+                <SectionLabel>About this item</SectionLabel>
+                <div style={{ fontSize: 15, lineHeight: 1.6, color: "var(--ink-soft)", marginTop: 10 }}>{listing.description}</div>
+              </div>
             )}
 
-            {available && (
+            {listing.condition_notes && (
+              <div style={{ marginBottom: 18 }}>
+                <SectionLabel>Condition notes</SectionLabel>
+                <div style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--ink-soft)", marginTop: 10, padding: 13, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 12 }}>{listing.condition_notes}</div>
+              </div>
+            )}
+
+            {available && !mine && (
               <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 14, padding: 14, marginBottom: 18 }}>
                 <SectionLabel>Your order</SectionLabel>
-                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
+                  <span style={{ fontSize: 14, color: "var(--ink-soft)" }}>Quantity</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <Stepper sign="−" disabled={qty <= 1} onClick={() => setQty((q) => Math.max(1, q - 1))} />
+                    <span style={{ width: 34, textAlign: "center", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 16, fontFeatureSettings: '"tnum" 1' }}>{qty}</span>
+                    <Stepper sign="+" disabled={qty >= maxQty} onClick={() => setQty((q) => Math.min(maxQty, q + 1))} />
+                  </div>
+                </div>
+                <div style={{ marginTop: 14 }}><span style={{ fontSize: 14, color: "var(--ink-soft)" }}>Fulfilment</span></div>
+                <div style={{ display: "flex", gap: 8, marginTop: 9 }}>
                   {(["ship", "pickup"] as const).map((o) => (
                     <button key={o} onClick={() => setFulfil(o)} style={{ flex: 1, padding: "10px 0", borderRadius: 11, cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13.5, border: `1px solid ${fulfil === o ? "var(--ink)" : "var(--border-strong)"}`, background: fulfil === o ? "var(--ink)" : "transparent", color: fulfil === o ? "var(--paper)" : "var(--ink)" }}>
                       {o === "ship" ? "Shipping" : "Local pickup"}
                     </button>
                   ))}
                 </div>
-                {maxQty > 1 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
-                    <span style={{ fontSize: 13, color: "var(--ink-faint)" }}>Quantity <span style={{ color: "var(--ink-ghost)" }}>· {maxQty} available</span></span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 0, border: "1px solid var(--border-strong)", borderRadius: 10, overflow: "hidden" }}>
-                      <button onClick={() => setQty((q) => Math.max(1, q - 1))} disabled={qty <= 1} style={{ width: 34, height: 34, border: "none", background: "var(--paper)", color: qty <= 1 ? "var(--ink-ghost)" : "var(--ink)", fontSize: 18, cursor: qty <= 1 ? "default" : "pointer", lineHeight: 1 }}>−</button>
-                      <span style={{ width: 34, textAlign: "center", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 14, fontFeatureSettings: '"tnum" 1' }}>{qty}</span>
-                      <button onClick={() => setQty((q) => Math.min(maxQty, q + 1))} disabled={qty >= maxQty} style={{ width: 34, height: 34, border: "none", background: "var(--paper)", color: qty >= maxQty ? "var(--ink-ghost)" : "var(--ink)", fontSize: 18, cursor: qty >= maxQty ? "default" : "pointer", lineHeight: 1 }}>+</button>
-                    </div>
-                  </div>
-                )}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
                   <span style={{ fontSize: 13, color: "var(--ink-faint)" }}>Est. total {fulfil === "ship" ? "(+ shipping)" : "(pickup)"}</span>
-                  <span style={{ fontSize: 18, color: "var(--stamp-red)" }}><Money value={priceRupees * qty + (fulfil === "ship" ? shippingRupees : 0)} /></span>
+                  <span style={{ fontSize: 18, color: "var(--stamp-red)" }}><Money value={priceRupees * qty} currency={cur} /></span>
                 </div>
               </div>
             )}
 
+            {!mine && (
             <div style={{ background: "var(--bone)", borderRadius: 14, padding: 14, marginBottom: 18 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                 <Info size={15} style={{ color: "var(--ink-mute)" }} />
@@ -259,19 +372,20 @@ export default function ListingDetailPage() {
                 <span style={{ fontSize: 11, color: "var(--ink-faint)", marginLeft: "auto" }}>Anonymous</span>
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 11 }}>
-                {(["Too low", "Fair", "Too high"] as const).map((o) => {
-                  const on = priceVote === o;
+                {([["low", "Too low"], ["fair", "Fair"], ["high", "Too high"]] as const).map(([id, label]) => {
+                  const on = priceVote === id;
                   return (
-                    <button key={o} onClick={() => setPriceVote(o)} style={{ flex: 1, padding: "9px 0", borderRadius: 10, cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`, background: on ? "var(--ink)" : "var(--paper)", color: on ? "var(--paper)" : "var(--ink-soft)" }}>
-                      {o}
+                    <button key={id} onClick={() => castVote(id)} style={{ flex: 1, padding: "9px 0", borderRadius: 10, cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`, background: on ? "var(--ink)" : "var(--paper)", color: on ? "var(--paper)" : "var(--ink-soft)" }}>
+                      {label}
                     </button>
                   );
                 })}
               </div>
               <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 9 }}>
-                {priceVote ? "Your vote is private." : `${listing.watching_count + 12} collectors weighed in.`}
+                {priceVote ? "Your vote is private. The seller only sees the overall split." : voteCounts.total > 0 ? `${voteCounts.total} collector${voteCounts.total === 1 ? "" : "s"} weighed in · mostly ${dominantVote}.` : "Be the first to weigh in."}
               </div>
             </div>
+            )}
           </>
         ) : (
           <div style={{ marginBottom: 18 }}>
@@ -279,7 +393,7 @@ export default function ListingDetailPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 1, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden" }}>
               {terms.map((t, i) => (
                 <div key={i} style={{ display: "flex", gap: 11, alignItems: "flex-start", padding: "13px 14px", borderBottom: i < terms.length - 1 ? "1px solid var(--border)" : "none" }}>
-                  <span style={{ color: "var(--forest)", flexShrink: 0, marginTop: 1, fontWeight: 700, fontSize: 14 }}>✓</span>
+                  <Check size={16} strokeWidth={2.4} style={{ color: "var(--forest)", flexShrink: 0, marginTop: 1 }} />
                   <span style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.45 }}>{t}</span>
                 </div>
               ))}
@@ -287,39 +401,85 @@ export default function ListingDetailPage() {
           </div>
         )}
 
-        <SectionLabel>Seller</SectionLabel>
-        <Link href={`/profile/${listing.handle}`} style={{ display: "block", width: "100%", marginTop: 10, padding: 14, cursor: "pointer", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 14, textDecoration: "none" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <Avatar name={listing.name ?? "?"} size={46} verified={sellerTier !== "verified"} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <span style={{ fontWeight: 600, fontSize: 15, color: "var(--ink)" }}>{listing.name}</span>
-                <TierChip tier={sellerTier} />
-              </div>
-              <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 1 }}>@{listing.handle}</div>
-            </div>
-            <ChevronRight size={18} style={{ color: "var(--ink-faint)" }} />
-          </div>
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
-            <TrustSignals
-              compact
-              deals={listing.deals_count}
-              rating={listing.rating}
-              ratingCount={listing.deals_count}
-            />
-          </div>
-        </Link>
+        <ListingQA listingId={id} canAnswer={mine} sellerName={listing.name} sellerPhoto={listing.avatar_url} />
 
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 13, padding: "12px 14px", marginTop: 16 }}>
-          <Shield size={17} style={{ color: "var(--grail-gold-deep)", flexShrink: 0, marginTop: 1 }} />
-          <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.5 }}>
-            <b>Safe trading:</b> deals complete off-platform in Phase 1. CollectorHub doesn&rsquo;t hold payments. Always check trust signals, ask for an in-hand video, and never pay before you&rsquo;ve verified the seller.
+        {mine ? (
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 13, padding: "12px 14px", marginTop: 4 }}>
+            <Shield size={17} style={{ color: "var(--grail-gold-deep)", flexShrink: 0, marginTop: 1 }} />
+            <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+              <b>Boost trust:</b> add a verified in-app photo to earn the Verified badge — verified listings rank higher and sell faster.
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            <SectionLabel>Seller</SectionLabel>
+            <Link href={`/profile/${listing.handle}`} style={{ display: "block", width: "100%", marginTop: 10, padding: 14, cursor: "pointer", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 14, textDecoration: "none" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <Avatar name={listing.name ?? "?"} size={46} verified={sellerTier !== "verified"} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                    <span style={{ fontWeight: 600, fontSize: 15, color: "var(--ink)" }}>{listing.name}</span>
+                    <TierChip tier={sellerTier} />
+                  </div>
+                  <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{listing.handle}{listing.seller_city ? ` · ${listing.seller_city}` : ""}</div>
+                </div>
+                <ChevronRight size={18} style={{ color: "var(--ink-faint)" }} />
+              </div>
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+                <TrustSignals
+                  compact
+                  deals={listing.deals_count}
+                  rating={listing.rating}
+                  ratingCount={listing.deals_count}
+                />
+              </div>
+            </Link>
+
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 13, padding: "12px 14px", marginTop: 16 }}>
+              <Shield size={17} style={{ color: "var(--grail-gold-deep)", flexShrink: 0, marginTop: 1 }} />
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+                <b>Safe trading:</b> deals complete off-platform. CollectorHub doesn&rsquo;t hold payments. Always check trust signals, ask for an in-hand video, and never pay before you&rsquo;ve verified the seller.
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div style={{ position: "fixed", bottom: 0, left: 245, right: 0, maxWidth: 680, borderTop: "1px solid var(--border)", background: "var(--paper)", padding: "12px 20px 20px", zIndex: 20 }}>
-        {sold ? (
+        {mine ? (
+          editing ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: "var(--ink-faint)", marginBottom: 4 }}>Price ({cur})</div>
+                  <input value={editPrice} onChange={(e) => setEditPrice(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" style={{ width: "100%", boxSizing: "border-box", height: 40, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 15, color: "var(--ink)", outline: "none" }} />
+                </div>
+                <div style={{ flex: 2 }}>
+                  <div style={{ fontSize: 11, color: "var(--ink-faint)", marginBottom: 4 }}>Condition notes</div>
+                  <input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Box wear, what's included…" style={{ width: "100%", boxSizing: "border-box", height: 40, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none" }} />
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <button onClick={markSold} disabled={editBusy} style={{ height: 44, padding: "0 14px", borderRadius: 11, background: "var(--bone)", border: "1px solid var(--border-strong)", color: "var(--ink)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, cursor: editBusy ? "default" : "pointer" }}>Mark sold</button>
+                <button onClick={() => setEditing(false)} disabled={editBusy} style={{ height: 44, padding: "0 14px", borderRadius: 11, background: "transparent", border: "1px solid var(--border-strong)", color: "var(--ink-soft)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13.5, cursor: "pointer", marginLeft: "auto" }}>Cancel</button>
+                <button onClick={saveEdit} disabled={editBusy} style={{ height: 44, padding: "0 18px", borderRadius: 11, background: "var(--stamp-red)", border: "none", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14, cursor: editBusy ? "wait" : "pointer" }}>{editBusy ? "Saving…" : "Save"}</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>YOUR LISTING · {sold ? "SOLD" : reserved ? "RESERVED" : "LIVE"}</div>
+                <div style={{ fontSize: 18, color: "var(--stamp-red)" }}><Money value={priceRupees} currency={cur} /></div>
+              </div>
+              <button onClick={openEdit} style={{ display: "flex", alignItems: "center", gap: 7, height: 44, padding: "0 16px", borderRadius: 11, background: "var(--bone)", border: "1px solid var(--border-strong)", color: "var(--ink)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                <Pencil size={16} />Edit
+              </button>
+              <button onClick={share} style={{ display: "flex", alignItems: "center", gap: 7, height: 44, padding: "0 16px", borderRadius: 11, background: "var(--ink)", border: "none", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                <Share2 size={16} />{shared ? "Copied" : "Share"}
+              </button>
+            </div>
+          )
+        ) : sold ? (
           <button disabled style={{ width: "100%", height: 48, borderRadius: 13, background: "var(--bone)", color: "var(--ink-faint)", border: "1px solid var(--border)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "not-allowed" }}>
             This listing is sold
           </button>
@@ -340,6 +500,116 @@ export default function ListingDetailPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ── Public Q&A on a listing ─────────────────────────────────────── */
+function ListingQA({ listingId, canAnswer, sellerName, sellerPhoto }: { listingId: string; canAnswer: boolean; sellerName?: string | null; sellerPhoto?: string | null }) {
+  const [questions, setQuestions] = useState<ApiListingQuestion[]>([]);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [answerFor, setAnswerFor] = useState<string | null>(null);
+  const [answerDraft, setAnswerDraft] = useState("");
+
+  useEffect(() => {
+    api.get<{ questions: ApiListingQuestion[] }>(`/listings/${listingId}/questions`)
+      .then((d) => setQuestions(d?.questions ?? []))
+      .catch(() => { /* leave empty */ });
+  }, [listingId]);
+
+  async function ask() {
+    const body = draft.trim();
+    if (!body || busy) return;
+    setBusy(true);
+    try {
+      const q = await api.post<ApiListingQuestion>(`/listings/${listingId}/questions`, { body });
+      setQuestions((qs) => [q, ...qs]);
+      setDraft("");
+    } catch { /* ignore */ } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitAnswer(qid: string) {
+    const answer = answerDraft.trim();
+    if (!answer || busy) return;
+    setBusy(true);
+    try {
+      const res = await api.post<{ answer: string; answered_at: string }>(`/listings/${listingId}/questions/${qid}/answer`, { answer });
+      setQuestions((qs) => qs.map((q) => (q.id === qid ? { ...q, answer: res.answer, answered_at: res.answered_at } : q)));
+      setAnswerFor(null);
+      setAnswerDraft("");
+    } catch { /* ignore */ } finally {
+      setBusy(false);
+    }
+  }
+
+  const visible = expanded ? questions : questions.slice(0, 2);
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <SectionLabel>Q&amp;A</SectionLabel>
+      <div style={{ fontSize: 12.5, color: "var(--ink-faint)", margin: "4px 0 12px" }}>Questions are public — don&rsquo;t share personal info here.</div>
+
+      {!canAnswer && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && ask()} placeholder="Ask the seller a question…"
+            style={{ flex: 1, height: 40, padding: "0 13px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--ink)", outline: "none" }} />
+          <button onClick={ask} disabled={!draft.trim() || busy} style={{ height: 40, padding: "0 14px", borderRadius: 10, border: "none", background: draft.trim() ? "var(--ink)" : "var(--bone-deep)", color: draft.trim() ? "var(--paper)" : "var(--ink-faint)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: draft.trim() && !busy ? "pointer" : "default" }}>Ask</button>
+        </div>
+      )}
+
+      {questions.length === 0 ? (
+        <div style={{ fontSize: 13.5, color: "var(--ink-faint)", padding: "12px 0" }}>No questions yet{canAnswer ? "." : " — be the first to ask."}</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {visible.map((item) => (
+            <div key={item.id} style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden" }}>
+              <div style={{ padding: "11px 13px", display: "flex", gap: 9, alignItems: "flex-start" }}>
+                <Avatar name={item.asker_name ?? "?"} size={26} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 3 }}>{item.is_mine ? "You" : item.asker_name} · {timeAgo(item.created_at)}</div>
+                  <div style={{ fontSize: 14, color: "var(--ink)", lineHeight: 1.45 }}>{item.body}</div>
+                </div>
+              </div>
+              {item.answer ? (
+                <div style={{ padding: "10px 13px 12px", borderTop: "1px solid var(--border)", background: "var(--bone)", display: "flex", gap: 9 }}>
+                  <Avatar name={sellerName ?? "?"} photo={sellerPhoto ?? undefined} size={26} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 3 }}>Seller · verified answer</div>
+                    <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.45 }}>{item.answer}</div>
+                  </div>
+                </div>
+              ) : canAnswer ? (
+                <div style={{ padding: "10px 13px", borderTop: "1px solid var(--border)", background: "var(--bone)" }}>
+                  {answerFor === item.id ? (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input value={answerDraft} onChange={(e) => setAnswerDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submitAnswer(item.id)} autoFocus placeholder="Write your answer…"
+                        style={{ flex: 1, height: 36, padding: "0 11px", borderRadius: 9, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink)", outline: "none" }} />
+                      <button onClick={() => submitAnswer(item.id)} disabled={!answerDraft.trim() || busy} style={{ height: 36, padding: "0 12px", borderRadius: 9, border: "none", background: answerDraft.trim() ? "var(--ink)" : "var(--bone-deep)", color: answerDraft.trim() ? "var(--paper)" : "var(--ink-faint)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: answerDraft.trim() && !busy ? "pointer" : "default" }}>Send</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setAnswerFor(item.id); setAnswerDraft(""); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5 }}>
+                      <Send size={13} />Answer this
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div style={{ padding: "9px 13px", borderTop: "1px solid var(--border)", background: "var(--bone)" }}>
+                  <span style={{ fontSize: 12.5, color: "var(--ink-faint)", fontStyle: "italic" }}>Awaiting seller response…</span>
+                </div>
+              )}
+            </div>
+          ))}
+          {questions.length > 2 && (
+            <button onClick={() => setExpanded((v) => !v)} style={{ background: "none", border: "none", padding: "4px 0", cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, textAlign: "left" }}>
+              {expanded ? "Show less" : `View all ${questions.length} questions`}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { api, storeTokens } from "@/lib/api";
+import { SocialButtons } from "@/components/SocialButtons";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -42,9 +43,10 @@ export default function SignInPage() {
           </span>
         </div>
 
-        <h2 className="text-xl font-bold mb-6" style={{ fontFamily: "var(--font-display)" }}>
-          Sign in
+        <h2 className="text-[26px] font-bold mb-1" style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>
+          Welcome back
         </h2>
+        <p className="text-sm text-[var(--ink-mute)] mb-6">Log in to pick up where you left off.</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -70,6 +72,12 @@ export default function SignInPage() {
             />
           </div>
 
+          <div className="text-right -mt-1">
+            <Link href="/auth/forgot" className="text-[13px] font-semibold text-[var(--stamp-red)] hover:underline">
+              Forgot password?
+            </Link>
+          </div>
+
           {error && (
             <p className="text-sm text-[var(--stamp-red)]">{error}</p>
           )}
@@ -79,14 +87,16 @@ export default function SignInPage() {
             disabled={loading}
             className="w-full py-2.5 rounded-lg bg-[var(--stamp-red)] text-white font-semibold text-sm transition-colors hover:bg-[var(--stamp-red-deep)] disabled:opacity-60"
           >
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? "Signing in…" : "Log in"}
           </button>
         </form>
 
+        <SocialButtons onError={setError} />
+
         <p className="text-sm text-[var(--ink-faint)] text-center mt-6">
-          No account?{" "}
+          New to CollectorHub?{" "}
           <Link href="/auth/signup" className="text-[var(--stamp-red)] font-medium hover:underline">
-            Create one
+            Sign up
           </Link>
         </p>
       </div>

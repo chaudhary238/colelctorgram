@@ -17,7 +17,7 @@ class Catalogue(Base):
     sku: Mapped[str] = mapped_column(String(64), primary_key=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     brand: Mapped[str] = mapped_column(Text, nullable=False)
-    category: Mapped[str] = mapped_column(String(32), nullable=False)  # figures | designer | kits | diecast
+    category: Mapped[str] = mapped_column(String(32), nullable=False)  # figures | designer | kits | diecast | tcg
     scale: Mapped[str | None] = mapped_column(String(16), nullable=True)
     year: Mapped[str | None] = mapped_column(String(8), nullable=True)
     tone: Mapped[str] = mapped_column(String(16), default="ink")

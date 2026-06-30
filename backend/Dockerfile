@@ -21,6 +21,8 @@ USER appuser
 
 EXPOSE 8000
 
-# Railway overrides this via railway.toml startCommand (which also runs migrations).
-# This default keeps the image runnable on a plain VM / docker run.
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Default: run migrations then start the server. This is exec-form `sh -c`, so the shell
+# interprets `&&` and `${PORT}` properly — unlike Render's Docker Command field, which
+# execs without a shell. Railway still overrides this via railway.toml startCommand;
+# Render should leave its Docker Command BLANK so this CMD is used.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

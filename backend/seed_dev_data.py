@@ -90,6 +90,17 @@ async def run():
                      'Hot Wheels mainline and premium lines are both welcome.',
                      'No reproductions. Only official diecast brands.',
                      'Custom paint jobs must be declared.'],
+               false, true, NOW(), NOW()),
+
+              ('tcg-india', 'TCG India — Pokémon, One Piece & More',
+               'Pokémon, One Piece, Yu-Gi-Oh!, Magic & every TCG in between. Pulls, deck builds, grading talk and trade threads. EN and JP prints both welcome.',
+               'Trading card games — pulls, grading & trades',
+               '🃏', 'tcg', 'teal',
+               :admin, 71, 0, 'open',
+               ARRAY['Always specify language / print (EN / JP) and set in listings.',
+                     'Graded cards: state the grader + grade (PSA 10, BGS 9.5, …).',
+                     'No "gem mint" claims on raw cards without clear photos.',
+                     'Singles, sealed product and slabs are all welcome.'],
                false, true, NOW(), NOW())
         """), {"admin": ADMIN})
 
@@ -124,6 +135,10 @@ async def run():
               ('gunpla-india', :brick, 'mod',     NOW()),
               ('diecast-india', :admin, 'founder', NOW()),
               ('diecast-india', :die,   'mod',     NOW()),
+              ('tcg-india', :admin, 'founder', NOW()),
+              ('tcg-india', :fig,   'mod',     NOW()),
+              ('tcg-india', :die,   'member',  NOW()),
+              ('tcg-india', :bbq,   'member',  NOW()),
               ('figures-india', :brick, 'member',  NOW()),
               ('gunpla-india',  :fig,   'member',  NOW()),
               ('designer-toys-india', :die, 'member', NOW()),
@@ -160,8 +175,8 @@ async def run():
                'Maker''s Asylum, Lower Parel', :starts1, 38, 9, true, 'active', NOW(), NOW()),
 
               (:e2, 'Collector''s Swap Meet — Bangalore',
-               'Quarterly toy and collectible swap meet. Bring your duplicates, trade or sell to fellow collectors. Categories: Action Figures, Designer Toys, Diecast, Kits.',
-               :admin, 'figures-india', ARRAY['figures','designer','diecast','kits'], 'in_person', 'Bangalore',
+               'Quarterly toy and collectible swap meet. Bring your duplicates, trade or sell to fellow collectors. Categories: Action Figures, Designer Toys, Diecast, Kits, Trading Cards (TCG).',
+               :admin, 'figures-india', ARRAY['figures','designer','diecast','kits','tcg'], 'in_person', 'Bangalore',
                'UB City Mall Atrium', :starts2, 86, 26, true, 'active', NOW(), NOW()),
 
               (:e3, 'Popmart India Drop Watch Party',
@@ -224,6 +239,20 @@ async def run():
             "fig": FIG, "brick": BRICK, "bbq": BBQ, "die": DIE,
         })
 
+        # figurehead's wishlist + pre-orders (so the Collection tab shows all 3 statuses).
+        # SKUs must exist in the catalogue (items.sku FK).
+        await db.execute(text("""
+            INSERT INTO items (id, user_id, sku, status, verify_tier, value, is_listed,
+                photo_count, wishlist_alert_enabled, privacy, preorder_ordered_at, preorder_eta, created_at, updated_at)
+            VALUES
+              (:w1, :fig, 'SKU-DSN-002', 'wishlist', 'claimed', 4500000, false, 0, true,  'public', NULL, NULL, NOW(), NOW()),
+              (:w2, :fig, 'SKU-DCS-002', 'wishlist', 'claimed', 1800000, false, 0, true,  'public', NULL, NULL, NOW(), NOW()),
+              (:w3, :fig, 'SKU-FIG-003', 'wishlist', 'claimed', 6500000, false, 0, false, 'public', NULL, NULL, NOW(), NOW()),
+              (:p1, :fig, 'SKU-FIG-004', 'preorder', 'claimed', 7200000, false, 0, false, 'public', NOW() - INTERVAL '20 days', 'March 2026', NOW(), NOW()),
+              (:p2, :fig, 'SKU-KIT-002', 'preorder', 'claimed', 1950000, false, 0, false, 'public', NOW() - INTERVAL '8 days',  'Q2 2026',    NOW(), NOW())
+        """), {"w1": uuid.uuid4(), "w2": uuid.uuid4(), "w3": uuid.uuid4(),
+               "p1": uuid.uuid4(), "p2": uuid.uuid4(), "fig": FIG})
+
         # ── Listings ──────────────────────────────────────────────────────
         l1 = uuid.uuid4()  # figurehead selling MAFEX Spider-Man
         l2 = uuid.uuid4()  # brickmaster selling RG Nu Gundam
@@ -268,6 +297,45 @@ async def run():
             "fig": FIG, "brick": BRICK, "bbq": BBQ, "die": DIE,
         })
 
+        # ── Pre-order listings (DV4-07a) ──────────────────────────────────
+        # Items sold AS pre-orders. ListingView renders a "Pre-order" tag + Launch
+        # date + "Pre-order from" rows, all sourced from the underlying preorder item
+        # (status/preorder_eta/preorder_seller). Mirrors v4's 6 seeded preorder listings.
+        ipo1 = uuid.uuid4()  # blindbox_queen selling a confirmed pre-order slot
+        ipo2 = uuid.uuid4()  # diecast_dreams selling a pre-order 1/18
+        await db.execute(text("""
+            INSERT INTO items (id, user_id, sku, status, verify_tier, value, is_listed,
+                photo_count, wishlist_alert_enabled, privacy,
+                preorder_ordered_at, preorder_eta, preorder_window_precision, preorder_seller,
+                created_at, updated_at)
+            VALUES
+              (:ipo1, :bbq, 'SKU-DSN-002', 'preorder', 'claimed', 4500000, true, 0, false, 'public',
+               NOW() - INTERVAL '12 days', 'March 2026', 'month', 'Pop Mart India', NOW(), NOW()),
+              (:ipo2, :die, 'SKU-DCS-002', 'preorder', 'claimed', 1800000, true, 0, false, 'public',
+               NOW() - INTERVAL '4 days', 'Q2 2026', 'quarter', 'AUTOart SG', NOW(), NOW())
+        """), {"ipo1": ipo1, "ipo2": ipo2, "bbq": BBQ, "die": DIE})
+
+        lp1 = uuid.uuid4()
+        lp2 = uuid.uuid4()
+        await db.execute(text("""
+            INSERT INTO listings (id, item_id, seller_id, sku, price, retail_price, condition,
+                condition_notes, qty, trade_willing, ships_from_city, ships_nationwide,
+                shipping_cost, notes, terms, status, saves_count, watching_count, created_at, updated_at)
+            VALUES
+              (:lp1, :ipo1, :bbq, 'SKU-DSN-002', 4200000, 4500000, 'sealed_misb',
+               'Pre-order slot — arrives sealed from Pop Mart. Deposit paid; balance on arrival.',
+               1, false, 'Bangalore', true, 0,
+               'Selling my confirmed pre-order slot at cost.',
+               ARRAY['Balance due before dispatch', 'No returns on pre-orders'],
+               'available', 6, 4, NOW() - INTERVAL '1 day', NOW()),
+              (:lp2, :ipo2, :die, 'SKU-DCS-002', 1700000, 1800000, 'sealed_misb',
+               'Confirmed pre-order from AUTOart. Ships sealed on release.',
+               1, false, 'Pune', true, 9000,
+               'Funding another grail — passing on my slot.',
+               ARRAY['Buyer pays shipping', 'Ships on release'],
+               'available', 2, 1, NOW() - INTERVAL '6 hours', NOW())
+        """), {"lp1": lp1, "lp2": lp2, "ipo1": ipo1, "ipo2": ipo2, "bbq": BBQ, "die": DIE})
+
         # Update items as listed + user listing counts
         await db.execute(text("UPDATE items SET is_listed = true WHERE id = ANY(:ids)"),
                          {"ids": [item2, item4, item5, item7]})
@@ -289,6 +357,7 @@ async def run():
         p_camaro, p_die_disc, p_die_poll = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
         p_welcome, p_restock = uuid.uuid4(), uuid.uuid4()
         p_iso, p_cross = uuid.uuid4(), uuid.uuid4()
+        p_tcg, p_tcg_disc = uuid.uuid4(), uuid.uuid4()
 
         posts_data = [
             # ── figurehead — figures ──
@@ -348,6 +417,15 @@ async def run():
                  poll_options={"Hot Wheels RLC": 120, "Tomica Limited Vintage": 134, "Mini GT": 78},
                  body="Best 1:64 brand for a serious collector starting out today? Settle it 👇"),
 
+            # ── tcg (Phase-1 category, DV4-01) ──
+            dict(id=p_tcg, user=FIG, type="showcase", category="tcg", community="tcg-india",
+                 tags=["#Pokemon", "#TCG", "#NewDrops"], images=_imgs("ch-tcg1", "ch-tcg2"),
+                 likes=276, saves=64, age=20,
+                 body="Pulled (and graded) a PSA 10 Charizard from the SV 151 set 🔥 EN print, perfect centering. TCG might be my most addictive category now — anyone else chasing the 151 master set? Sealed ETBs are getting hard to find at MSRP."),
+            dict(id=p_tcg_disc, user=DIE, type="discussion", category="tcg", community="tcg-india",
+                 tags=["#TCG", "#Pokemon"], likes=91, saves=11, age=7,
+                 body="EN vs JP prints — where do you land?\n\nJP: cheaper packs, better pull rates, releases first\nEN: easier to resell locally, bigger graded market\n\nI buy JP for the personal collection and EN for anything I might flip. What's your split?"),
+
             # ── ISO ("In Search Of") — DF-30c ──
             dict(id=p_iso, user=FIG, type="iso", category="figures", community="figures-india",
                  tags=["#Grails", "#HotToys", "#Marvel"], likes=12, saves=3, age=20,
@@ -364,7 +442,7 @@ async def run():
             # ── admin / releases ──
             dict(id=p_welcome, user=ADMIN, type="showcase", category="figures", community=None,
                  tags=["#NewDrops"], likes=1024, saves=40, age=96,
-                 body="Welcome to CollectorHub 🎉\n\nWe're live! CollectorHub is your home for showcasing your collection, connecting with fellow collectors, and trading trusted P2P.\n\nPhase 1 categories: Action Figures, Designer Toys & Blind Boxes, Gunpla & Model Kits, Diecast.\n\nSay hi in the comments and tell us what you collect 👇"),
+                 body="Welcome to CollectorHub 🎉\n\nWe're live! CollectorHub is your home for showcasing your collection, connecting with fellow collectors, and trading trusted P2P.\n\nPhase 1 categories: Action Figures, Designer Toys & Blind Boxes, Model Kits & Lego, Diecast, Trading Cards (TCG).\n\nSay hi in the comments and tell us what you collect 👇"),
             dict(id=p_restock, user=ADMIN, type="showcase", category="designer", community=None,
                  tags=["#Restock", "#PopMart", "#NewDrops"], images=_imgs("ch-restock1"),
                  likes=389, saves=120, age=30,
@@ -570,6 +648,25 @@ async def run():
             "fig": FIG, "bbq": BBQ, "brick": BRICK, "die": DIE,
         })
 
+        # ── Vouches (DF-36a social endorsements) — figurehead in + out ────
+        await db.execute(text("""
+            INSERT INTO vouches (id, from_user_id, to_user_id, deal_id, kind, relation, body, created_at)
+            VALUES
+              (:r1, :bbq,  :fig, NULL, 'social_endorsement', 'offapp',    'Smooth off-app trade, shipped same day.', NOW() - INTERVAL '6 days'),
+              (:r2, :brick,:fig, NULL, 'social_endorsement', 'community', 'Active mod in Figures India, very trustworthy.', NOW() - INTERVAL '3 days'),
+              (:r3, :die,  :fig, NULL, 'social_endorsement', 'person',    'Met at the Mumbai meet — legit collector.', NOW() - INTERVAL '1 day'),
+              (:g1, :fig,  :bbq, NULL, 'social_endorsement', 'app',       'Great Pop Mart trade on CollectorHub.', NOW() - INTERVAL '5 days'),
+              (:g2, :fig,  :die, NULL, 'social_endorsement', 'friend',    'Known him for years, solid diecast guy.', NOW() - INTERVAL '2 days')
+        """), {"r1": uuid.uuid4(), "r2": uuid.uuid4(), "r3": uuid.uuid4(), "g1": uuid.uuid4(), "g2": uuid.uuid4(),
+               "fig": FIG, "bbq": BBQ, "brick": BRICK, "die": DIE})
+
+        # ── figurehead saves a few posts (Saved tab) ──────────────────────
+        await db.execute(text("""
+            INSERT INTO post_saves (user_id, post_id, created_at)
+            VALUES (:u, :a, NOW()), (:u, :b, NOW()), (:u, :c, NOW()), (:u, :d, NOW())
+            ON CONFLICT DO NOTHING
+        """), {"u": FIG, "a": p_pop, "b": p_kaws, "c": p_eiffel, "d": p_camaro})
+
         # ── Portfolio value = sum of owned-item value (paise) ─────────────
         await db.execute(text("""
             UPDATE users SET portfolio_value = COALESCE((
@@ -577,6 +674,68 @@ async def run():
                 WHERE items.user_id = users.id AND items.status = 'owned'
             ), 0)
         """))
+
+        # ── Gamification: Collector XP ledger + season badges (BRD v1.4 §8.12) ──
+        # Backfilled so the Rewards screen, leaderboard, rank cards and trophy
+        # cases are populated. Lifetime contribution points per dimension drive
+        # the archetype + contribution mix; a recent "this month"/"this week"
+        # bump dates rows into the leaderboard windows. users.xp is recomputed
+        # from the ledger sum afterwards so the cache always matches.
+        #   contrib = {posts, social, collection, market}; tier derives from xp.
+        gam = [
+            # (uuid,  contrib,                                            month, week, dominant, badges)
+            (FIG,   {"posts": 350, "social": 300, "collection": 200, "market": 80},  360, 180, "posts",
+                    [("bronze", "weekly", "Wk 25 · 2026", "Weekly Bronze"),
+                     ("finalist", "monthly", "May 2026", "May Finalist")]),
+            (DIE,   {"posts": 500, "social": 1000, "collection": 1500, "market": 6000}, 480, 240, "market",
+                    [("gold", "monthly", "May 2026", "May Champion")]),
+            (BBQ,   {"posts": 1200, "social": 3500, "collection": 300, "market": 300}, 700, 410, "social",
+                    [("silver", "social", "May 2026", "Connector Runner-up")]),
+            (ADMIN, {"posts": 3000, "social": 1500, "collection": 1500, "market": 800}, 400, 200, "posts",
+                    [("bronze", "posts", "Apr 2026", "Showcaser Bronze")]),
+            (BRICK, {"posts": 700, "social": 200, "collection": 1400, "market": 100}, 300, 150, "collection",
+                    [("finalist", "monthly", "Apr 2026", "Apr Finalist")]),
+        ]
+        SEASON_REWARD = {"gold": 300, "silver": 200, "bronze": 120, "finalist": 50}
+        xp_rows, xp_params = [], {}
+        badge_rows, badge_params = [], {}
+        n = 0
+        for uid, contrib, month_bonus, week_bonus, dominant, badges in gam:
+            def _ev(dim, pts, hours_ago):
+                nonlocal n
+                k = f"e{n}"; n += 1
+                xp_rows.append(f"(:{k}_id, :{k}_u, 'seed', :{k}_d, :{k}_p, NOW() - (:{k}_h || ' hours')::interval)")
+                xp_params.update({f"{k}_id": uuid.uuid4(), f"{k}_u": uid, f"{k}_d": dim, f"{k}_p": pts, f"{k}_h": str(hours_ago)})
+            for dim, pts in contrib.items():
+                _ev(dim, pts, 45 * 24)            # lifetime, outside all windows
+            _ev(dominant, month_bonus, 10 * 24)   # this month (outside this week)
+            _ev(dominant, week_bonus, 6)          # this week
+            for tier, kind, period, title in badges:
+                bid = uuid.uuid4()
+                bonus = SEASON_REWARD[tier]
+                bk = f"b{len(badge_rows)}"
+                badge_rows.append(f"(:{bk}_id, :{bk}_u, :{bk}_t, :{bk}_k, :{bk}_p, :{bk}_ti, :{bk}_x, NOW() - INTERVAL '20 days')")
+                badge_params.update({f"{bk}_id": bid, f"{bk}_u": uid, f"{bk}_t": tier, f"{bk}_k": kind,
+                                     f"{bk}_p": period, f"{bk}_ti": title, f"{bk}_x": bonus})
+                _ev("none", bonus, 50 * 24)        # banked bonus XP (GM-12), lifetime only
+
+        await db.execute(text(
+            "INSERT INTO xp_events (id, user_id, action, dimension, points, created_at) VALUES "
+            + ", ".join(xp_rows)
+        ), xp_params)
+        await db.execute(text(
+            "INSERT INTO season_badges (id, user_id, tier, kind, period, title, bonus_xp, awarded_at) VALUES "
+            + ", ".join(badge_rows)
+        ), badge_params)
+        # Recompute the denormalized lifetime XP cache from the ledger.
+        await db.execute(text("""
+            UPDATE users u SET xp = COALESCE(
+                (SELECT SUM(points) FROM xp_events e WHERE e.user_id = u.id), 0)
+        """))
+
+        # Social graph (real follow rows + reconciled counts) + admin-profile data.
+        from seed_social_graph import apply as apply_social_graph
+        await apply_social_graph(db)
 
         await db.commit()
         print("✓ Communities (5 — incl. invite-only 'The Grail Vault')")
@@ -587,6 +746,7 @@ async def run():
         print("✓ Threads + Messages (2 threads, 9 messages)")
         print("✓ Deals (3 confirmed)")
         print("✓ Trust signals + portfolio value updated")
+        print("✓ Gamification: XP ledger + season badges (5 users)")
         print("\nDone! Login: figurehead@collectohub.app / seed_pass_1!")
         print("Private-community demo (grail-vault-india 'The Grail Vault'):")
         print("  • figurehead (seed_pass_1!)  → non-member w/ a pending request: locked preview + withdraw")

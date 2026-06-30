@@ -22,7 +22,8 @@ class Listing(Base):
     seller_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     sku: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
-    price: Mapped[int] = mapped_column(Integer, nullable=False)  # paise
+    price: Mapped[int] = mapped_column(Integer, nullable=False)  # minor units of `currency`
+    currency: Mapped[str] = mapped_column(String(3), default="INR", nullable=False)  # DV4-05: INR|USD|EUR|GBP|JPY|AED|SGD
     retail_price: Mapped[int] = mapped_column(Integer, default=0)
     condition: Mapped[str] = mapped_column(String(24), nullable=False)  # sealed_misb | mint | like_new | good | fair | for_parts
     condition_notes: Mapped[str | None] = mapped_column(Text, nullable=True)

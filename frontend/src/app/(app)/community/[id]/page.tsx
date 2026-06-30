@@ -3,16 +3,26 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Share2, Shield, CheckCircle2, Settings2 } from "lucide-react";
+import { Share2, Shield, Globe, CheckCircle2, Check, Settings2, UserPlus, Clock } from "lucide-react";
+import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
 import { ApiPost } from "@/components/cards";
-import { Avatar, Segmented, SectionLabel, EmptyNote } from "@/components/ui";
+import { Avatar, Segmented, SectionLabel, EmptyNote, TierChip, Button } from "@/components/ui";
 import { PostCard } from "@/components/cards";
 
 interface CommunityAdmin {
   handle: string;
   name: string;
   avatar_url: string | null;
+  tier: string;
+  role: string;
+}
+
+interface RosterMember {
+  handle: string;
+  name: string;
+  avatar_url: string | null;
+  tier: string;
   role: string;
 }
 
@@ -35,20 +45,60 @@ interface CommunityDetail {
   admins: CommunityAdmin[];
 }
 
+type Tab = "posts" | "members" | "about";
+
+/* Rules list + admins/mods list — shared by the About tab and the private lock (v3 RulesAndAdmins). */
+function RulesAndAdmins({ community }: { community: CommunityDetail }) {
+  return (
+    <>
+      <SectionLabel>Community rules</SectionLabel>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+        {(community.rules.length > 0 ? community.rules : ["Be respectful and constructive.", "Stay on topic.", "No spam or excessive self-promotion."]).map((r, i) => (
+          <div key={i} style={{ display: "flex", gap: 11, alignItems: "flex-start" }}>
+            <div style={{ width: 22, height: 22, borderRadius: 6, background: "var(--bone)", color: "var(--ink-mute)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{i + 1}</div>
+            <div style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.5, paddingTop: 1 }}>{r}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 24 }}><SectionLabel>Admins &amp; mods</SectionLabel></div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 12 }}>
+        {community.admins.map((a) => (
+          <Link key={a.handle} href={`/profile/${a.handle}`} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: 12, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, textDecoration: "none" }}>
+            <Avatar name={a.name} photo={a.avatar_url} size={42} verified={a.tier !== "verified"} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontWeight: 600, fontSize: 14, color: "var(--ink)" }}>{a.name}</span>
+                <TierChip tier={a.tier} />
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>@{a.handle}</div>
+            </div>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", padding: "4px 9px", borderRadius: 7, background: a.role === "founder" ? "var(--ink)" : "var(--bone-deep)", color: a.role === "founder" ? "var(--paper)" : "var(--ink-mute)", fontWeight: 700 }}>
+              {a.role}
+            </span>
+          </Link>
+        ))}
+      </div>
+    </>
+  );
+}
+
 export default function CommunityDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [community, setCommunity] = useState<CommunityDetail | null>(null);
   const [posts, setPosts] = useState<ApiPost[]>([]);
-  const [tab, setTab] = useState<"posts" | "about">("posts");
+  const [members, setMembers] = useState<RosterMember[]>([]);
+  const [tab, setTab] = useState<Tab>("posts");
   const [joinState, setJoinState] = useState<string>("none"); // member | requested | none
   const joined = joinState === "member";
   const [joinBusy, setJoinBusy] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [shared, setShared] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0); // join requests + posts awaiting review (admin only)
 
   async function toggleJoin() {
-    if (!community || joinBusy || joinState === "requested") return;
+    if (!community || joinBusy) return;
     setJoinBusy(true);
     if (joined) {
       // leave
@@ -59,6 +109,18 @@ export default function CommunityDetailPage() {
       } catch {
         setJoinState("member");
         setCommunity((c) => c ? { ...c, member_count: c.member_count + 1 } : c);
+      } finally {
+        setJoinBusy(false);
+      }
+      return;
+    }
+    if (joinState === "requested") {
+      // withdraw a pending request
+      setJoinState("none");
+      try {
+        await api.delete(`/communities/${community.id}/join`);
+      } catch {
+        setJoinState("requested");
       } finally {
         setJoinBusy(false);
       }
@@ -87,16 +149,28 @@ export default function CommunityDetailPage() {
     Promise.all([
       api.get<CommunityDetail>(`/communities/${id}`),
       api.get<ApiPost[]>(`/communities/${id}/posts?limit=10`),
+      api.get<RosterMember[]>(`/communities/${id}/roster`).catch(() => []),
     ])
-      .then(([c, p]) => {
+      .then(([c, p, m]) => {
         setCommunity(c);
         setJoinState(c.join_state ?? (c.is_member ? "member" : "none"));
         setAccepted(c.is_member);
         setPosts(p ?? []);
+        setMembers(m ?? []);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Admins see a "Manage · N" badge counting pending join requests + posts to review (v3 parity).
+  const isModView = community?.member_role === "founder" || community?.member_role === "mod";
+  useEffect(() => {
+    if (!community || !isModView) return;
+    Promise.all([
+      api.get<unknown[]>(`/communities/${community.id}/requests`).catch(() => []),
+      api.get<unknown[]>(`/communities/${community.id}/pending-posts`).catch(() => []),
+    ]).then(([reqs, pend]) => setPendingCount((reqs?.length ?? 0) + (pend?.length ?? 0)));
+  }, [community, isModView]);
 
   if (loading || !community) {
     return (
@@ -111,21 +185,20 @@ export default function CommunityDetailPage() {
   const rawTone = community.tone || "plum";
   const tone = rawTone.startsWith("var(--") ? rawTone : `var(--${rawTone})`;
   const approval = community.post_mode === "approval";
+  const isMod = isModView;
+  const isPrivate = community.is_invite_only;
+  const locked = isPrivate && !joined && !isMod;
   const founder = community.admins.find((a) => a.role === "founder");
+  const requested = joinState === "requested";
+  const joinLabel = joined ? "Joined" : isPrivate ? (requested ? "Requested" : "Request to join") : "Join";
 
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-8">
+      {/* Web sticky header (DF-33b detail idiom; DF-38 owns the global header) */}
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link href="/community" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)" }}>
-            <ArrowLeft size={18} />
-          </Link>
+          <BackButton fallback="/community" />
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Community</span>
-          {(community.member_role === "founder" || community.member_role === "mod") && (
-            <Link href={`/community/${id}/manage`} title="Manage" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)" }}>
-              <Settings2 size={17} />
-            </Link>
-          )}
           <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: shared ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
             <Share2 size={17} />
           </button>
@@ -146,120 +219,165 @@ export default function CommunityDetailPage() {
           <div style={{ width: 76, height: 76, borderRadius: 18, background: tone, color: "var(--paper)", border: "3px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, flexShrink: 0 }}>
             {community.tag ?? "🏷"}
           </div>
-          <div style={{ flex: 1, paddingBottom: 4, display: "flex", justifyContent: "flex-end" }}>
-            <button onClick={toggleJoin} disabled={joinBusy || joinState === "requested"} style={{ height: 36, padding: "0 18px", borderRadius: 10, border: `1px solid ${joined || joinState === "requested" ? "var(--border-strong)" : "var(--ink)"}`, background: joined || joinState === "requested" ? "var(--bone)" : "var(--ink)", color: joined || joinState === "requested" ? "var(--ink)" : "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13, cursor: joinBusy || joinState === "requested" ? "default" : "pointer" }}>
-              {joined ? "Joined" : joinState === "requested" ? "Requested" : community.is_invite_only ? "Request to join" : "Join"}
-            </button>
+          <div style={{ flex: 1, paddingBottom: 4, display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            {isMod ? (
+              <Link href={`/community/${id}/manage`} style={{ textDecoration: "none" }}>
+                <Button size="sm" variant="secondary" icon={<Settings2 size={15} />}>
+                  Manage{pendingCount > 0 ? ` · ${pendingCount}` : ""}
+                </Button>
+              </Link>
+            ) : (
+              <Button
+                size="sm"
+                variant={joined || requested ? "secondary" : "dark"}
+                onClick={toggleJoin}
+                disabled={joinBusy}
+              >
+                {joinLabel}
+              </Button>
+            )}
           </div>
         </div>
 
         <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 23, letterSpacing: "-0.025em", margin: "12px 0 4px" }}>{community.name}</h1>
         <div style={{ fontSize: 14, color: "var(--ink-mute)", lineHeight: 1.5 }}>{community.description}</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 10, fontSize: 12.5, color: "var(--ink-faint)" }}>
+
+        {/* meta row */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 10, fontSize: 12.5, color: "var(--ink-faint)" }}>
           <span><b style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}>{community.member_count.toLocaleString("en-IN")}</b> members</span>
           <span><b style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}>{community.post_count.toLocaleString("en-IN")}</b> posts</span>
           {founder && (
             <span>
-              founded by{" "}
+              by{" "}
               <Link href={`/profile/${founder.handle}`} style={{ color: "var(--ink)", fontWeight: 600, textDecoration: "none" }}>
                 @{founder.handle}
               </Link>
             </span>
           )}
         </div>
-        <div
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 6, marginTop: 12, padding: "5px 10px", borderRadius: 999,
-            background: approval ? "var(--grail-gold-soft)" : "var(--forest-soft)",
-            border: `1px solid ${approval ? "var(--grail-gold)" : "var(--forest)"}`,
-          }}
-        >
-          {approval ? <Shield size={13} style={{ color: "var(--grail-gold-deep)" }} /> : <CheckCircle2 size={13} style={{ color: "var(--forest)" }} />}
-          <span style={{ fontSize: 11.5, fontWeight: 600, color: approval ? "var(--grail-gold-deep)" : "var(--forest)" }}>
-            {approval ? "Approval to post" : "Open posting"}
+
+        {/* privacy + posting + admin badges */}
+        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, background: "var(--bone)", border: "1px solid var(--border-strong)" }}>
+            {isPrivate ? <Shield size={13} style={{ color: "var(--ink-mute)" }} /> : <Globe size={13} style={{ color: "var(--ink-mute)" }} />}
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink-soft)" }}>{isPrivate ? "Private" : "Public"}</span>
           </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, background: approval ? "var(--grail-gold-soft)" : "var(--forest-soft)", border: `1px solid ${approval ? "var(--grail-gold)" : "var(--forest)"}` }}>
+            {approval ? <Shield size={13} style={{ color: "var(--grail-gold-deep)" }} /> : <Check size={13} style={{ color: "var(--forest)" }} />}
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: approval ? "var(--grail-gold-deep)" : "var(--forest)" }}>{approval ? "Posts reviewed" : "Open posting"}</span>
+          </span>
+          {isMod && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, background: "var(--ink)", border: "1px solid var(--ink)" }}>
+              <Shield size={13} style={{ color: "var(--paper)" }} />
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--paper)" }}>You&rsquo;re an admin</span>
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{ position: "sticky", top: 56, zIndex: 9, background: "var(--paper)", padding: "16px 20px 10px", marginTop: 14, borderBottom: "1px solid var(--border)" }}>
-        <Segmented
-          value={tab}
-          onChange={(v) => setTab(v as "posts" | "about")}
-          options={[{ id: "posts", label: "Posts" }, { id: "about", label: "Rules & info" }]}
-        />
-      </div>
-
-      {tab === "posts" ? (
-        <div>
-          {joined && !accepted && (
-            <div style={{ margin: "14px 20px 4px", background: "var(--bone)", border: "1px solid var(--border)", borderRadius: 13, padding: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                <Shield size={17} style={{ color: "var(--ink-mute)" }} />
-                <span style={{ fontSize: 13.5, fontWeight: 600 }}>Read the guidelines before posting</span>
-              </div>
-              <div style={{ fontSize: 12.5, color: "var(--ink-faint)", lineHeight: 1.5, margin: "7px 0 12px" }}>
-                {community.name} asks every member to accept its house rules before their first post.
-              </div>
-              <div style={{ display: "flex", gap: 9 }}>
-                <button onClick={() => setTab("about")} style={{ height: 36, padding: "0 14px", borderRadius: 9, border: "1px solid var(--border-strong)", background: "transparent", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>View rules</button>
-                <button onClick={() => setAccepted(true)} style={{ height: 36, padding: "0 14px", borderRadius: 9, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Accept & continue</button>
-              </div>
+      {locked ? (
+        /* LOCKED private preview */
+        <div style={{ padding: "20px 20px" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "8px 0 20px" }}>
+            <div style={{ width: 52, height: 52, borderRadius: 15, background: "var(--bone)", border: "1px solid var(--border-strong)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-mute)", marginBottom: 12 }}>
+              <Shield size={24} />
             </div>
-          )}
-          {joined && accepted && (
-            <Link href={`/compose?community=${community.id}`} style={{ display: "flex", alignItems: "center", gap: 10, width: "calc(100% - 40px)", margin: "14px 20px 4px", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 12, padding: "11px 14px", cursor: "pointer", textAlign: "left", textDecoration: "none" }}>
-              <Avatar name="You" size={30} />
-              <span style={{ fontSize: 14, color: "var(--ink-faint)" }}>
-                {approval ? `Suggest a post to ${community.name} — mods review first` : `Share something with ${community.name}…`}
-              </span>
-            </Link>
-          )}
-          <div style={{ marginTop: 8 }}>
-            {posts.length > 0
-              ? posts.map((p) => <PostCard key={p.id} post={p} />)
-              : <EmptyNote>Quiet so far — be the first to post.</EmptyNote>}
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17 }}>This community is private</div>
+            <div style={{ fontSize: 13.5, color: "var(--ink-faint)", marginTop: 6, maxWidth: 280, lineHeight: 1.55 }}>
+              Posts and members are visible once an admin approves your request to join.
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <Button variant={requested ? "secondary" : "dark"} icon={requested ? <Clock size={17} /> : <UserPlus size={17} />} onClick={toggleJoin} disabled={joinBusy}>
+                {requested ? "Request pending — tap to withdraw" : "Request to join"}
+              </Button>
+            </div>
           </div>
+          <RulesAndAdmins community={community} />
         </div>
       ) : (
-        <div style={{ padding: "16px 20px" }}>
-          <SectionLabel>Community rules</SectionLabel>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
-            {(community.rules.length > 0 ? community.rules : ["Be respectful and constructive.", "Stay on topic.", "No spam or excessive self-promotion."]).map((r, i) => (
-              <div key={i} style={{ display: "flex", gap: 11, alignItems: "flex-start" }}>
-                <div style={{ width: 22, height: 22, borderRadius: 6, background: "var(--bone)", color: "var(--ink-mute)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{i + 1}</div>
-                <div style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.5, paddingTop: 1 }}>{r}</div>
-              </div>
-            ))}
+        <>
+          {/* Tabs */}
+          <div style={{ position: "sticky", top: 56, zIndex: 9, background: "var(--paper)", padding: "16px 20px 10px", marginTop: 14, borderBottom: "1px solid var(--border)" }}>
+            <Segmented
+              value={tab}
+              onChange={(v) => setTab(v as Tab)}
+              options={[{ id: "posts", label: "Posts" }, { id: "members", label: "Members" }, { id: "about", label: "About" }]}
+            />
           </div>
 
-          {joined && !accepted && (
-            <button onClick={() => { setAccepted(true); setTab("posts"); }} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: 48, marginTop: 16, borderRadius: 13, background: "var(--stamp-red)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
-              Accept guidelines
-            </button>
-          )}
-          {accepted && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, color: "var(--forest)", fontSize: 13, fontWeight: 600 }}>
-              <CheckCircle2 size={16} />You&rsquo;ve accepted these guidelines.
+          {tab === "posts" ? (
+            <div>
+              {joined && (accepted ? (
+                <Link href={`/compose?community=${community.id}`} style={{ display: "flex", alignItems: "center", gap: 10, width: "calc(100% - 40px)", margin: "14px 20px 4px", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 12, padding: "11px 14px", cursor: "pointer", textAlign: "left", textDecoration: "none" }}>
+                  <Avatar name="You" size={30} />
+                  <span style={{ fontSize: 14, color: "var(--ink-faint)" }}>
+                    {approval ? `Suggest a post to ${community.name}…` : `Share something with ${community.name}…`}
+                  </span>
+                </Link>
+              ) : (
+                <div style={{ margin: "14px 20px 4px", background: "var(--bone)", border: "1px solid var(--border)", borderRadius: 13, padding: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                    <Shield size={17} style={{ color: "var(--ink-mute)" }} />
+                    <span style={{ fontSize: 13.5, fontWeight: 600 }}>Read the guidelines before posting</span>
+                  </div>
+                  <div style={{ fontSize: 12.5, color: "var(--ink-faint)", lineHeight: 1.5, margin: "7px 0 12px" }}>
+                    {community.name} asks every member to accept its house rules before their first post.
+                  </div>
+                  <div style={{ display: "flex", gap: 9 }}>
+                    <Button size="sm" variant="secondary" onClick={() => setTab("about")}>View rules</Button>
+                    <Button size="sm" variant="dark" onClick={() => setAccepted(true)}>Accept &amp; continue</Button>
+                  </div>
+                </div>
+              ))}
+              {!joined && (
+                <div style={{ margin: "14px 20px 4px", textAlign: "center", fontSize: 13, color: "var(--ink-faint)", padding: "8px 0" }}>
+                  {isPrivate ? "Request to join to post here." : "Join to post and join the conversation."}
+                </div>
+              )}
+              <div style={{ marginTop: 8 }}>
+                {posts.length > 0
+                  ? posts.map((p) => <PostCard key={p.id} post={p} />)
+                  : <EmptyNote>Quiet so far — be the first to post.</EmptyNote>}
+              </div>
+            </div>
+          ) : tab === "members" ? (
+            <div style={{ padding: "14px 20px" }}>
+              <SectionLabel>{members.length} members</SectionLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+                {members.map((m) => (
+                  <Link key={m.handle} href={`/profile/${m.handle}`} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: 10, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, textDecoration: "none" }}>
+                    <Avatar name={m.name} photo={m.avatar_url} size={40} verified={m.role !== "member" && m.tier !== "verified"} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontWeight: 600, fontSize: 14, color: "var(--ink)" }}>{m.name}</span>
+                        <TierChip tier={m.tier} />
+                      </div>
+                      <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>@{m.handle}</div>
+                    </div>
+                    {m.role !== "member" && (
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", padding: "4px 9px", borderRadius: 7, background: m.role === "founder" ? "var(--ink)" : "var(--bone-deep)", color: m.role === "founder" ? "var(--paper)" : "var(--ink-mute)", fontWeight: 700 }}>{m.role}</span>
+                    )}
+                  </Link>
+                ))}
+                {members.length === 0 && <EmptyNote>No members yet.</EmptyNote>}
+              </div>
+            </div>
+          ) : (
+            <div style={{ padding: "16px 20px" }}>
+              <RulesAndAdmins community={community} />
+              {joined && !accepted && (
+                <Button variant="primary" size="block" style={{ marginTop: 16 }} onClick={() => { setAccepted(true); setTab("posts"); }}>
+                  Accept guidelines
+                </Button>
+              )}
+              {accepted && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, color: "var(--forest)", fontSize: 13, fontWeight: 600 }}>
+                  <CheckCircle2 size={16} />You&rsquo;ve accepted these guidelines.
+                </div>
+              )}
             </div>
           )}
-
-          <div style={{ marginTop: 24 }}><SectionLabel>Admins & mods</SectionLabel></div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 12 }}>
-            {community.admins.map((a) => (
-              <Link key={a.handle} href={`/profile/${a.handle}`} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: 12, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, textDecoration: "none" }}>
-                <Avatar name={a.name} size={42} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: "var(--ink)" }}>{a.name}</div>
-                  <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>@{a.handle}</div>
-                </div>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", padding: "4px 9px", borderRadius: 7, background: a.role === "founder" ? "var(--ink)" : "var(--bone-deep)", color: a.role === "founder" ? "var(--paper)" : "var(--ink-mute)", fontWeight: 700 }}>
-                  {a.role}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
+        </>
       )}
     </div>
   );

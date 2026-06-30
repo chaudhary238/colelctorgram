@@ -49,6 +49,8 @@ class SignUpBody(BaseModel):
     name: str
     email: EmailStr
     password: str
+    # GM-05 referral: the inviter's handle, captured from a ?ref=<handle> link.
+    referral_code: str | None = None
 
 
 class LoginBody(BaseModel):
@@ -104,6 +106,8 @@ async def signup(body: SignUpBody, db: AsyncSession = Depends(get_db)):
     except IntegrityError:
         # concurrent-signup race on the unique index — surface as the same 400
         raise HTTPException(status_code=400, detail="Email or handle already taken")
+    await _credit_referral(db, body.referral_code, invitee=user)
+
     code = _issue_otp(user)
     await send_otp_email(user.email, code)  # never raises; logs when no API key
 
@@ -112,6 +116,38 @@ async def signup(body: SignUpBody, db: AsyncSession = Depends(get_db)):
         refresh_token=create_refresh_token(str(user.id)),
         debug_otp=code if _debug_otp_allowed() else None,
     )
+
+
+async def _credit_referral(db: AsyncSession, code: str | None, *, invitee: User) -> None:
+    """GM-05: credit the inviter +40 XP when a referred friend creates an account.
+
+    The referral code is just the inviter's handle (?ref=<handle>). Idempotent and
+    repeatable: award_xp dedups on (inviter, "refer", invitee_id), so one credit per
+    referred friend, +40 per distinct friend. Never blocks signup — an unknown or
+    self-referral code is silently ignored."""
+    if not code:
+        return
+    handle = code.lower().strip().lstrip("@")
+    if not handle:
+        return
+    inviter = (await db.execute(select(User).where(User.handle == handle))).scalar_one_or_none()
+    if inviter is None or inviter.id == invitee.id:
+        return
+
+    from app.models.notification import Notification
+    from app.services.gamification import award_xp
+
+    granted = await award_xp(db, inviter, "refer", ref_id=str(invitee.id), ref_type="user")
+    if granted:
+        db.add(Notification(
+            user_id=inviter.id,
+            actor_id=invitee.id,
+            kind="referral",
+            title="Your invite paid off!",
+            body=f"@{invitee.handle} joined with your invite — +40 XP.",
+            ref_type="user",
+            ref_id=str(invitee.id),
+        ))
 
 
 class VerifyEmailBody(BaseModel):

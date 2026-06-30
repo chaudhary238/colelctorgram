@@ -24,6 +24,40 @@ class SubmitCatalogueBody(BaseModel):
     thumbnail_url: Optional[str] = None
 
 
+def _hit(c: Catalogue) -> dict:
+    return {
+        "sku": c.sku,
+        "title": c.title,
+        "brand": c.brand,
+        "category": c.category,
+        "scale": c.scale,
+        "year": c.year,
+        "est_retail_price": c.est_retail_price,
+        "thumbnail_url": c.thumbnail_url,
+    }
+
+
+@router.get("/popular")
+async def popular_catalogue(
+    category: Optional[str] = Query(None, description="comma-separated categories to prefer (e.g. user interests)"),
+    limit: int = Query(6, le=20),
+    db: AsyncSession = Depends(get_db),
+):
+    """Default "Popular in your interests" suggestions for the Add-to-collection form (DV4-02c).
+
+    Prefers the caller's interest categories when provided, then fills with other approved items.
+    """
+    cats = [c.strip() for c in category.split(",") if c.strip()] if category else []
+    stmt = select(Catalogue).where(Catalogue.is_approved == True)
+    if cats:
+        stmt = stmt.order_by(Catalogue.category.in_(cats).desc(), Catalogue.est_retail_price.desc())
+    else:
+        stmt = stmt.order_by(Catalogue.est_retail_price.desc())
+    stmt = stmt.limit(limit)
+    result = await db.execute(stmt)
+    return {"hits": [_hit(c) for c in result.scalars().all()]}
+
+
 @router.get("/search")
 async def search_catalogue(
     q: str = Query(..., min_length=1),
@@ -45,20 +79,7 @@ async def search_catalogue(
     stmt = stmt.limit(limit)
     result = await db.execute(stmt)
     items = result.scalars().all()
-    hits = [
-        {
-            "sku": c.sku,
-            "title": c.title,
-            "brand": c.brand,
-            "category": c.category,
-            "scale": c.scale,
-            "year": c.year,
-            "est_retail_price": c.est_retail_price,
-            "thumbnail_url": c.thumbnail_url,
-        }
-        for c in items
-    ]
-    return {"hits": hits, "query": q}
+    return {"hits": [_hit(c) for c in items], "query": q}
 
 
 @router.post("", status_code=201)

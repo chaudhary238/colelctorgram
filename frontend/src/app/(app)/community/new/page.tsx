@@ -3,16 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X, Shield, User, Star, Box, Tag } from "lucide-react";
+import { X, Shield } from "lucide-react";
 import { api } from "@/lib/api";
 import { SectionLabel } from "@/components/ui";
+import { ADD_CATEGORIES } from "@/lib/catalog";
 
-const CATEGORIES = [
-  { id: "figures", label: "Figures", icon: User },
-  { id: "designer", label: "Designer", icon: Star },
-  { id: "kits", label: "Kits & Lego", icon: Box },
-  { id: "diecast", label: "Diecast", icon: Tag },
-];
+// v4 CreateCommunity maps the global 5-category CATEGORIES (incl. TCG) as plain
+// chipLabel pills, no icons. ADD_CATEGORIES is that exact list in v4 order.
+const CATEGORIES = ADD_CATEGORIES;
 
 const TONES = ["plum", "forest", "teal", "red", "ink", "gold"];
 
@@ -70,10 +68,21 @@ function RadioRow({ title, sub, on, onClick }: {
   );
 }
 
+function readParams() {
+  if (typeof window === "undefined") return new URLSearchParams();
+  return new URLSearchParams(window.location.search);
+}
+
 export default function CreateCommunityPage() {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [cats, setCats] = useState<string[]>([]);
+  // When launched from EventCreate ("Create new" community for an event) the URL
+  // carries ?forEvent=1 + prefills; lazy init reads it once (no setState-in-effect).
+  const [forEvent] = useState(() => readParams().get("forEvent") !== null);
+  const [name, setName] = useState(() => readParams().get("prefillName") ?? "");
+  const [cats, setCats] = useState<string[]>(() => {
+    const pc = readParams().get("prefillCat");
+    return pc && CATEGORIES.some((c) => c.id === pc) ? [pc] : [];
+  });
   const [desc, setDesc] = useState("");
   const [privacy, setPrivacy] = useState<"public" | "invite">("public");
   const [posting, setPosting] = useState<"open" | "approval">("open");
@@ -95,9 +104,10 @@ export default function CreateCommunityPage() {
     setError(null);
     const tone = TONES[Math.floor(Math.random() * TONES.length)];
     const ruleList = rules.split("\n").map((r) => r.trim()).filter(Boolean);
+    const id = slugify(name);
     try {
       await api.post("/communities", {
-        id: slugify(name),
+        id,
         name: name.trim(),
         // The model stores a single category; first pick is primary (multi-select is UI sugar).
         category: cats[0] || "figures",
@@ -109,7 +119,7 @@ export default function CreateCommunityPage() {
         is_invite_only: privacy === "invite",
         rules: ruleList,
       });
-      router.push("/community");
+      router.push(forEvent ? `/events/new?newCommunity=${id}` : "/community");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not submit community");
       setSubmitting(false);
@@ -138,20 +148,18 @@ export default function CreateCommunityPage() {
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mumbai Figure Heads" style={{ ...fieldStyle, borderColor: tried && miss.name ? "var(--stamp-red)" : "var(--border-strong)" }} />
 
         <Label required>Category <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(pick one or more)</span></Label>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
           {CATEGORIES.map((c) => {
             const on = cats.includes(c.id);
             return (
               <button key={c.id} type="button" onClick={() => toggleCat(c.id)} style={{
-                display: "flex", alignItems: "center", gap: 10, padding: "11px 13px", borderRadius: 12,
-                cursor: "pointer", textAlign: "left", transition: "all 150ms",
-                border: `1.5px solid ${on ? "var(--stamp-red)" : "var(--border-strong)"}`,
-                background: on ? "rgba(217,51,36,0.06)" : "var(--paper-soft)",
+                display: "inline-flex", alignItems: "center", padding: "7px 13px", borderRadius: 999,
+                cursor: "pointer", whiteSpace: "nowrap", lineHeight: 1,
+                background: on ? "var(--ink)" : "var(--paper-soft)", color: on ? "var(--paper)" : "var(--ink)",
+                border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
+                fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13,
               }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: on ? "var(--stamp-red)" : "var(--bone)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <c.icon size={16} style={{ color: on ? "var(--paper)" : "var(--ink-faint)" }} />
-                </div>
-                <span style={{ fontFamily: "var(--font-body)", fontWeight: on ? 700 : 500, fontSize: 13, color: on ? "var(--stamp-red)" : "var(--ink)", lineHeight: 1.3 }}>{c.label}</span>
+                {c.label}
               </button>
             );
           })}

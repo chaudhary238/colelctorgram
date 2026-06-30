@@ -203,6 +203,39 @@ async def send_event_reminders():
     logger.info("send_event_reminders: done")
 
 
+async def award_season_badges():
+    """GM-11/12: at each cycle end, award permanent season badges + bonus XP to the
+    top-10 finishers of the completed weekly and monthly XP boards.
+
+    Self-healing: computes the most-recently-completed week ([prev Monday, this
+    Monday)) and month ([1st prev month, 1st this month)) windows and awards each.
+    ``cycle_already_awarded`` guards re-runs, so a missed tick just lands on the
+    next hourly pass and a restart never double-awards. Each award also drops an
+    in-app notification for the recipient."""
+    from datetime import timedelta
+    from app.database import AsyncSessionLocal
+    from app.services import gamification as gam
+
+    async with AsyncSessionLocal() as db:
+        this_week = gam.week_start()
+        prev_week = this_week - timedelta(days=7)
+        n_week = await gam.award_cycle_badges(
+            db, kind="weekly", since=prev_week, until=this_week,
+            period=gam.iso_week_period(prev_week),
+        )
+
+        this_month = gam.month_start()
+        prev_month = (this_month - timedelta(days=1)).replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        n_month = await gam.award_cycle_badges(
+            db, kind="monthly", since=prev_month, until=this_month,
+            period=gam.month_period(prev_month),
+        )
+        await db.commit()
+    logger.info("award_season_badges: done (weekly=%d, monthly=%d)", n_week, n_month)
+
+
 async def _run_periodic(coro_factory, interval_seconds: int, name: str):
     """Run a coroutine factory on a fixed interval, logging exceptions without crashing."""
     while True:
@@ -223,4 +256,5 @@ def schedule_background_workers(app_state: dict | None = None):
     loop.create_task(_run_periodic(send_preorder_reminders, interval_seconds=3600 * 6,  name="send_preorder_reminders"))
     loop.create_task(_run_periodic(send_event_reminders,    interval_seconds=3600,       name="send_event_reminders"))
     loop.create_task(_run_periodic(reconcile_counters,      interval_seconds=3600 * 12, name="reconcile_counters"))
+    loop.create_task(_run_periodic(award_season_badges,     interval_seconds=3600,       name="award_season_badges"))
     logger.info("Background workers scheduled.")

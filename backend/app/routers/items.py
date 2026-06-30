@@ -1,5 +1,6 @@
+import logging
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -10,7 +11,10 @@ from sqlalchemy import select
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.item import Item, ItemPhoto
-from app.models.user import User
+from app.models.user import Follow, User
+from app.services.gamification import award_xp
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/items", tags=["items"])
 
@@ -25,16 +29,35 @@ class AddItemBody(BaseModel):
     category: Optional[str] = None
     status: str = "owned"
     value: int = 0
+    value_currency: str = "INR"
     privacy: str = "public"
+    # TCG spec (DV4-01)
+    tcg_language: Optional[str] = None
+    tcg_product_type: Optional[str] = None
+    tcg_graded: bool = False
+    tcg_grader: Optional[str] = None
+    tcg_grade: Optional[str] = None
+    # Pre-order financial + calendar layer (DV4-03)
     preorder_eta: Optional[str] = None
+    preorder_window_precision: Optional[str] = None
+    preorder_seller: Optional[str] = None
+    preorder_ordered_at: Optional[date] = None
+    preorder_total: Optional[int] = None
+    preorder_deposit: Optional[int] = None
     wishlist_alert_enabled: bool = False
 
 
 class UpdateItemBody(BaseModel):
     status: Optional[str] = None
     value: Optional[int] = None
+    value_currency: Optional[str] = None
     privacy: Optional[str] = None
     preorder_eta: Optional[str] = None
+    preorder_window_precision: Optional[str] = None
+    preorder_seller: Optional[str] = None
+    preorder_ordered_at: Optional[date] = None
+    preorder_total: Optional[int] = None
+    preorder_deposit: Optional[int] = None
     wishlist_alert_enabled: Optional[bool] = None
 
 
@@ -51,8 +74,23 @@ class ItemOut(BaseModel):
     status: str
     verify_tier: str
     value: int
+    value_currency: str = "INR"
     is_listed: bool
     photo_count: int
+    # Uploaded ownership photos (cover first). image_url is the cover convenience field.
+    images: list[str] = []
+    image_url: Optional[str] = None
+    tcg_language: Optional[str] = None
+    tcg_product_type: Optional[str] = None
+    tcg_graded: bool = False
+    tcg_grader: Optional[str] = None
+    tcg_grade: Optional[str] = None
+    preorder_ordered_at: Optional[date] = None
+    preorder_eta: Optional[str] = None
+    preorder_window_precision: Optional[str] = None
+    preorder_seller: Optional[str] = None
+    preorder_total: Optional[int] = None
+    preorder_deposit: Optional[int] = None
     privacy: str
     created_at: datetime
 
@@ -78,8 +116,19 @@ async def add_item(
         category=body.category,
         status=body.status,
         value=body.value,
+        value_currency=body.value_currency,
         privacy=body.privacy,
+        tcg_language=body.tcg_language,
+        tcg_product_type=body.tcg_product_type,
+        tcg_graded=body.tcg_graded,
+        tcg_grader=body.tcg_grader,
+        tcg_grade=body.tcg_grade,
         preorder_eta=body.preorder_eta,
+        preorder_window_precision=body.preorder_window_precision,
+        preorder_seller=body.preorder_seller,
+        preorder_ordered_at=body.preorder_ordered_at,
+        preorder_total=body.preorder_total,
+        preorder_deposit=body.preorder_deposit,
         wishlist_alert_enabled=body.wishlist_alert_enabled,
     )
     db.add(item)
@@ -140,6 +189,48 @@ async def toggle_wishlist(
     return WishlistToggleOut(wishlisted=True)
 
 
+@router.get("/by-sku/{sku}")
+async def get_my_item_by_sku(
+    sku: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Resolve a catalogue SKU to the caller's own collection item (if any).
+
+    Lets the search page mirror design_v4: tapping a catalogue result routes to the
+    item's status-aware detail page when it's already in your collection, or to the
+    "Add to my collection" flow when it isn't. Prefers owned > preorder > wishlist so a
+    real shelf item wins over a wishlist entry for the same SKU.
+    """
+    result = await db.execute(
+        select(Item.id, Item.status).where(
+            Item.user_id == current_user.id, Item.sku == sku
+        )
+    )
+    rows = result.all()
+    if not rows:
+        return {"item": None}
+    priority = {"owned": 0, "preorder": 1, "wishlist": 2}
+    best = min(rows, key=lambda r: priority.get(r.status, 3))
+    return {"item": {"id": str(best.id), "status": best.status}}
+
+
+def _item_view_allowed(item_user_id: uuid.UUID, privacy: str, viewer_id: uuid.UUID, is_follower: bool) -> bool:
+    """Whether `viewer` may read a single item's full detail (Security Audit #1).
+
+    Owner always sees their own item. Otherwise honour the item's `privacy` tier:
+    `public` → anyone; `followers` → only people who follow the owner; anything
+    else (`private`/unknown) → nobody but the owner.
+    """
+    if item_user_id == viewer_id:
+        return True
+    if privacy == "public":
+        return True
+    if privacy == "followers":
+        return is_follower
+    return False
+
+
 @router.get("/{item_id}", response_model=ItemOut)
 async def get_item(
     item_id: uuid.UUID,
@@ -150,7 +241,26 @@ async def get_item(
     item = result.scalar_one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    return _item_out(item)
+
+    # Resource-level authorization: an item carries a `privacy` tier, but get_item
+    # previously returned any item by UUID, leaking private collections (incl. value
+    # and pre-order financials) to anyone who could guess a UUID. Enforce it here.
+    if item.user_id != current_user.id and item.privacy != "public":
+        is_follower = False
+        if item.privacy == "followers":
+            is_follower = bool(await db.scalar(
+                select(Follow.follower_id).where(
+                    Follow.following_type == "user",
+                    Follow.follower_id == current_user.id,
+                    Follow.following_id == item.user_id,
+                ).limit(1)
+            ))
+        if not _item_view_allowed(item.user_id, item.privacy, current_user.id, is_follower):
+            # 404 (not 403) so a private item is indistinguishable from a missing one.
+            raise HTTPException(status_code=404, detail="Item not found")
+
+    photos = (await db.execute(select(ItemPhoto).where(ItemPhoto.item_id == item.id))).scalars().all()
+    return _item_out(item, photos)
 
 
 @router.patch("/{item_id}", response_model=ItemOut)
@@ -166,12 +276,18 @@ async def update_item(
         raise HTTPException(status_code=404, detail="Item not found")
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(item, field, value)
-    return _item_out(item)
+    photos = (await db.execute(select(ItemPhoto).where(ItemPhoto.item_id == item.id))).scalars().all()
+    return _item_out(item, photos)
+
+
+# DV4-04: remove-from-collection reasons (design_v4 ItemDetail "Remove from collection?" sheet).
+REMOVE_REASONS = {"sold", "traded", "lost", "broken", "gifted", "other"}
 
 
 @router.delete("/{item_id}", status_code=204)
 async def delete_item(
     item_id: uuid.UUID,
+    reason: Optional[str] = Query(None, description="sold | traded | lost | broken | gifted | other"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -179,6 +295,10 @@ async def delete_item(
     item = result.scalar_one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+    # Reason is captured for trade-signal analytics (F-01 price history can later mine
+    # sold/traded removals); stored items have no removal table yet, so we just log it.
+    if reason and reason in REMOVE_REASONS:
+        logger.info("item_removed item=%s user=%s reason=%s", item.id, current_user.id, reason)
     await db.delete(item)
 
 
@@ -196,6 +316,8 @@ async def verify_item(
         raise HTTPException(status_code=400, detail="Item must have a photo to verify")
     item.verify_tier = "verified"
     current_user.verified_items_count += 1
+    # XP: +20 for adding a verified item to the collection, dedup'd on item id.
+    await award_xp(db, current_user, "item", ref_id=str(item.id), ref_type="item")
     return {"verify_tier": "verified"}
 
 
@@ -223,9 +345,14 @@ async def add_photo(
     return {"id": str(photo.id), "url": url, "verify_tier": item.verify_tier}
 
 
-def _item_out(item: Item) -> dict:
+def _item_out(item: Item, photos: Optional[list[ItemPhoto]] = None) -> dict:
+    # Cover = first non-verify upload (the AddToCollection photo); verify/challenge
+    # shots sort last so the user's chosen cover wins.
+    urls = [p.url for p in sorted(photos, key=lambda p: p.is_verify_photo)] if photos else []
     return {
         "id": str(item.id),
+        "images": urls,
+        "image_url": urls[0] if urls else None,
         "user_id": str(item.user_id),
         "sku": item.sku,
         "custom_title": item.custom_title,
@@ -237,10 +364,20 @@ def _item_out(item: Item) -> dict:
         "status": item.status,
         "verify_tier": item.verify_tier,
         "value": item.value,
+        "value_currency": item.value_currency,
         "is_listed": item.is_listed,
         "photo_count": item.photo_count,
+        "tcg_language": item.tcg_language,
+        "tcg_product_type": item.tcg_product_type,
+        "tcg_graded": item.tcg_graded,
+        "tcg_grader": item.tcg_grader,
+        "tcg_grade": item.tcg_grade,
         "preorder_ordered_at": item.preorder_ordered_at.isoformat() if item.preorder_ordered_at else None,
         "preorder_eta": item.preorder_eta,
+        "preorder_window_precision": item.preorder_window_precision,
+        "preorder_seller": item.preorder_seller,
+        "preorder_total": item.preorder_total,
+        "preorder_deposit": item.preorder_deposit,
         "privacy": item.privacy,
         "created_at": item.created_at.isoformat(),
     }

@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { ArrowLeft, Heart, MessageCircle, Share2, Bookmark, Send } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { Heart, MessageCircle, Share2, Bookmark, Send, Tag as TagIcon, MapPin, MessageSquare } from "lucide-react";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
 import { ApiPost } from "@/components/cards";
+import { BackButton } from "@/components/BackButton";
+import { useUser } from "@/lib/auth-context";
 import { Avatar, Stars, PostTypeTag, ProductPhoto, SectionLabel } from "@/components/ui";
 
 interface Comment {
@@ -41,7 +43,10 @@ function refTone(sku: string | null): string {
 
 export default function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const { user } = useUser();
   const [post, setPost] = useState<PostDetail | null>(null);
+  const [dmBusy, setDmBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -110,6 +115,24 @@ export default function PostDetailPage() {
     }
   }
 
+  // "I have this" — open a DM to the ISO author with the wanted item as context.
+  async function haveThis() {
+    if (dmBusy || !post) return;
+    setDmBusy(true);
+    const item = post.iso_item ?? post.title ?? "the item you're looking for";
+    try {
+      const thread = await api.post<{ id: string }>("/threads", {
+        other_user_id: post.user_id,
+        initial_message: `Hi! I saw your ISO for "${item}" — I have one. Still looking?`,
+      });
+      router.push(`/chat/${thread.id}`);
+    } catch {
+      router.push("/inbox");
+    } finally {
+      setDmBusy(false);
+    }
+  }
+
   const send = async () => {
     const text = draft.trim();
     if (!text || sending) return;
@@ -148,9 +171,7 @@ export default function PostDetailPage() {
     <div className="w-full max-w-[680px] flex flex-col pb-20">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link href="/feed" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)" }}>
-            <ArrowLeft size={18} />
-          </Link>
+          <BackButton fallback="/feed" />
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Post</span>
         </div>
       </div>
@@ -166,8 +187,37 @@ export default function PostDetailPage() {
               <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{post.handle} · {timeAgo(post.created_at)}</div>
             </div>
           </div>
-          <PostTypeTag type={post.type as "showcase" | "discussion" | "review"} />
+          <PostTypeTag type={post.type as "showcase" | "discussion" | "review" | "iso"} />
         </div>
+
+        {post.type === "iso" && (
+          <>
+            <div style={{ borderRadius: 16, overflow: "hidden", background: "rgba(232,163,61,0.07)", border: "1.5px solid rgba(232,163,61,0.32)", padding: "14px 16px", position: "relative", marginBottom: 12 }}>
+              <div style={{ position: "absolute", right: -4, top: "50%", transform: "translateY(-50%) rotate(15deg)", fontFamily: "var(--font-display)", fontWeight: 900, fontSize: 34, letterSpacing: "0.2em", color: "rgba(176,119,36,0.1)", textTransform: "uppercase", pointerEvents: "none", userSelect: "none" }}>WANTED</div>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em", color: "var(--ink)", lineHeight: 1.25, marginBottom: 10, paddingRight: 48 }}>{post.iso_item ?? post.title ?? post.body.slice(0, 60)}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {post.iso_budget != null && (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, background: "rgba(176,119,36,0.15)", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: "#9A6010" }}>
+                    <TagIcon size={11} />Max ₹{Math.round(Number(post.iso_budget) / 100).toLocaleString("en-IN")}
+                  </span>
+                )}
+                {post.iso_cond && post.iso_cond !== "Any" && (
+                  <span style={{ display: "inline-flex", alignItems: "center", padding: "4px 9px", borderRadius: 6, background: "var(--bone)", fontSize: 12, fontWeight: 600, color: "var(--ink-mute)" }}>{post.iso_cond}</span>
+                )}
+                {post.iso_city && (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, background: "var(--bone)", fontSize: 12, fontWeight: 500, color: "var(--ink-mute)" }}>
+                    <MapPin size={11} />{post.iso_city}
+                  </span>
+                )}
+              </div>
+            </div>
+            {user?.id !== post.user_id && (
+              <button onClick={haveThis} disabled={dmBusy} style={{ display: "inline-flex", alignItems: "center", gap: 7, height: 40, padding: "0 16px", borderRadius: 10, border: "none", background: "var(--verified-teal)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, cursor: dmBusy ? "wait" : "pointer", marginBottom: 14 }}>
+                <MessageSquare size={15} />{dmBusy ? "Opening…" : "I have this"}
+              </button>
+            )}
+          </>
+        )}
 
         {post.type === "review" && post.review_rating && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
@@ -179,8 +229,11 @@ export default function PostDetailPage() {
         <div style={{ fontSize: 16, lineHeight: 1.6, color: "var(--ink-soft)", marginBottom: 14, whiteSpace: "pre-wrap" }}>{post.body}</div>
 
         {post.images.length > 0 && (
-          <div style={{ marginBottom: 14, borderRadius: 13, overflow: "hidden" }}>
-            <img src={post.images[0]} alt="" style={{ width: "100%", display: "block", objectFit: "cover", maxHeight: 480 }} />
+          <div style={{ marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+            {post.images.map((src, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={i} src={src} alt="" style={{ width: "100%", display: "block", objectFit: "cover", maxHeight: 480, borderRadius: 13 }} />
+            ))}
           </div>
         )}
         {post.images.length === 0 && post.type === "showcase" && (

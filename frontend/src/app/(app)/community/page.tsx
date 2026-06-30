@@ -2,24 +2,26 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Search, PlusCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiCommunity } from "@/components/cards";
-import { CategoryChip, SectionLabel, EmptyNote } from "@/components/ui";
+import { CategoryChip, SectionLabel, EmptyNote, Button } from "@/components/ui";
 import { CommunityCard } from "@/components/cards";
+import { ADD_CATEGORIES } from "@/lib/catalog";
 
-const CATEGORIES = [
-  { id: "all", label: "All" },
-  { id: "figures", label: "Figures" },
-  { id: "designer", label: "Designer" },
-  { id: "kits", label: "Kits & Lego" },
-  { id: "diecast", label: "Diecast" },
-];
+// v4 CommunityView filter maps the global CATEGORIES with chipLabel (incl. TCG).
+// ADD_CATEGORIES is that 5-category list in v4 order. Kept in lockstep.
+const CATEGORIES = ADD_CATEGORIES;
 
 export default function CommunityPage() {
-  const [cat, setCat] = useState("all");
+  const router = useRouter();
+  const [cats, setCats] = useState<string[]>([]); // [] = all
   const [communities, setCommunities] = useState<ApiCommunity[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const toggleCat = (id: string) =>
+    setCats((cs) => (cs.includes(id) ? cs.filter((x) => x !== id) : [...cs, id]));
 
   useEffect(() => {
     api.get<ApiCommunity[]>("/communities?limit=50")
@@ -29,15 +31,17 @@ export default function CommunityPage() {
   }, []);
 
   const joined = communities.filter((c) => c.is_member);
-  const discover = communities.filter((c) => !c.is_member && (cat === "all" || c.category.toLowerCase().includes(cat)));
+  const discover = communities.filter(
+    (c) => !c.is_member && (cats.length === 0 || cats.includes(c.category)),
+  );
 
   return (
     <div className="w-full max-w-[760px] flex flex-col pb-7">
-      <div style={{ padding: "14px 20px 0" }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "14px 20px 0" }}>
         <Link
           href="/search"
           style={{
-            display: "flex", alignItems: "center", gap: 9, width: "100%",
+            flex: 1, display: "flex", alignItems: "center", gap: 9,
             height: 40, padding: "0 14px", borderRadius: 11,
             border: "1px solid var(--border-strong)", background: "var(--paper-soft)",
             color: "var(--ink-faint)", fontSize: 14,
@@ -46,6 +50,9 @@ export default function CommunityPage() {
           <Search size={18} />
           Find a community…
         </Link>
+        <Button size="sm" variant="primary" icon={<PlusCircle size={15} />} onClick={() => router.push("/community/new")}>
+          Create
+        </Button>
       </div>
 
       {loading ? (
@@ -67,9 +74,10 @@ export default function CommunityPage() {
 
           <div style={{ padding: "20px 20px 0" }}>
             <SectionLabel>Discover</SectionLabel>
-            <div style={{ display: "flex", gap: 7, margin: "10px 0", overflowX: "auto" }}>
+            <div style={{ display: "flex", gap: 7, margin: "10px 0", overflowX: "auto", paddingBottom: 2 }}>
+              <CategoryChip active={cats.length === 0} onClick={() => setCats([])}>All</CategoryChip>
               {CATEGORIES.map((c) => (
-                <CategoryChip key={c.id} active={cat === c.id} onClick={() => setCat(c.id)}>
+                <CategoryChip key={c.id} active={cats.includes(c.id)} onClick={() => toggleCat(c.id)}>
                   {c.label}
                 </CategoryChip>
               ))}
@@ -81,21 +89,6 @@ export default function CommunityPage() {
           </div>
         </>
       )}
-
-      <div style={{ padding: "20px 20px 0" }}>
-        <Link
-          href="/community/new"
-          style={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            width: "100%", height: 46, borderRadius: 12, border: "1px dashed var(--border-strong)",
-            background: "transparent", color: "var(--ink-mute)",
-            fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14,
-          }}
-        >
-          <PlusCircle size={18} />
-          Create a new community
-        </Link>
-      </div>
     </div>
   );
 }

@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CollectorHub — Business Requirements Document v1.4</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  :root {
+    --ink:#1A1A1A;--ink-soft:#333;--ink-mute:#555;--ink-faint:#888;
+    --paper:#ffffff;--canvas:#F8FAFC;--bone:#F1F5F9;
+    --border:rgba(0,0,0,0.08);--border-strong:rgba(0,0,0,0.14);
+    --red:#FF2442;--red-soft:#FFE4E8;--gold:#E8A33D;--gold-soft:#FEF3C7;
+    --teal:#2D8F87;--teal-soft:#CCEBE8;--forest:#2D5F3F;--forest-soft:#DCEDE0;
+    --plum:#6B3656;--plum-soft:#EDE0E9;
+    --new-bg:#FFF9E6;--new-border:#F59E0B;--new-text:#92400E;
+    --change-bg:#EFF6FF;--change-border:#3B82F6;--change-text:#1E40AF;
+    --fix-bg:#FFF1F2;--fix-border:#FB7185;--fix-text:#9F1239;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html{font-size:15px;scroll-behavior:smooth}
+  body{margin:0;padding:0;font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--canvas);line-height:1.65;-webkit-font-smoothing:antialiased}
+  .layout{display:flex;min-height:100vh}
+  .sidebar{width:260px;flex-shrink:0;background:var(--paper);border-right:1px solid var(--border);position:sticky;top:0;height:100vh;overflow-y:auto;padding:32px 0 40px}
+  .main{flex:1;min-width:0;padding:48px 56px 80px;max-width:900px}
+  .sidebar-logo{padding:0 24px 24px;border-bottom:1px solid var(--border);margin-bottom:16px}
+  .sidebar-logo .seal{width:28px;height:28px;background:var(--red);border-radius:7px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;transform:rotate(-4deg);box-shadow:2px 2px 0 var(--ink);margin-right:8px;vertical-align:middle}
+  .sidebar-logo .brand{font-weight:700;font-size:15px;letter-spacing:-0.03em;vertical-align:middle}
+  .sidebar-logo .ver{display:block;font-size:11px;color:var(--ink-faint);margin-top:4px;font-family:'JetBrains Mono',monospace}
+  .nav-group{margin-bottom:4px}
+  .nav-group-label{padding:8px 24px 4px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint)}
+  .nav-item{display:block;padding:7px 24px;font-size:13px;color:var(--ink-mute);text-decoration:none;transition:color 120ms,background 120ms;border-left:2px solid transparent}
+  .nav-item:hover{color:var(--ink);background:var(--canvas)}
+  .nav-item.active{color:var(--red);font-weight:600;border-left-color:var(--red);background:var(--red-soft)}
+  .doc-header{background:var(--paper);border:1px solid var(--border);border-radius:16px;padding:36px 40px;margin-bottom:36px;box-shadow:0 1px 4px rgba(0,0,0,0.05)}
+  .doc-header h1{font-size:28px;font-weight:800;letter-spacing:-0.04em;margin:0 0 6px}
+  .doc-header .tagline{font-size:15px;color:var(--ink-mute);margin:0 0 24px}
+  .meta-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+  .meta-item{background:var(--canvas);border-radius:10px;padding:12px 14px}
+  .meta-item .k{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:3px}
+  .meta-item .v{font-size:13px;font-weight:600;color:var(--ink)}
+  .section{margin-bottom:48px}
+  .section-anchor{display:block;height:0;overflow:hidden}
+  h2.sec-title{font-size:20px;font-weight:800;letter-spacing:-0.03em;color:var(--ink);margin:0 0 20px;padding-bottom:12px;border-bottom:2px solid var(--border);display:flex;align-items:center;gap:10px}
+  h2.sec-title .sec-num{width:28px;height:28px;background:var(--ink);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+  h3.sub-title{font-size:15px;font-weight:700;margin:28px 0 12px;color:var(--ink);letter-spacing:-0.01em}
+  h4.sub-sub{font-size:11px;font-weight:700;margin:20px 0 8px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.06em}
+  p{margin:0 0 12px;color:var(--ink-soft)}
+  ul,ol{margin:0 0 14px;padding-left:22px;color:var(--ink-soft)}
+  li{margin-bottom:4px}
+  strong{color:var(--ink);font-weight:600}
+  code{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--bone);padding:2px 6px;border-radius:4px;color:var(--red)}
+  .callout{border-radius:10px;padding:14px 16px;margin:14px 0;font-size:13.5px;line-height:1.55;border-left:3px solid}
+  .callout.new{background:var(--new-bg);border-color:var(--new-border);color:var(--new-text)}
+  .callout.changed{background:var(--change-bg);border-color:var(--change-border);color:var(--change-text)}
+  .callout.fix{background:var(--fix-bg);border-color:var(--fix-border);color:var(--fix-text)}
+  .callout .cl-label{font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;opacity:0.7;margin-bottom:4px}
+  .callout p{margin:0;color:inherit}
+  .tbl-wrap{overflow-x:auto;margin:14px 0 20px;border-radius:10px;border:1px solid var(--border)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{background:var(--canvas);padding:10px 14px;text-align:left;font-weight:700;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-faint);border-bottom:1px solid var(--border);white-space:nowrap}
+  tbody td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover td{background:var(--canvas)}
+  .td-new{background:var(--new-bg)!important}
+  .td-changed{background:var(--change-bg)!important}
+  .token-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:14px 0 20px}
+  .token-row{display:flex;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+  .swatch{width:32px;height:32px;border-radius:8px;flex-shrink:0;border:1px solid rgba(0,0,0,0.07)}
+  .token-info .name{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--ink)}
+  .token-info .val{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint)}
+  .token-row.v14{border-color:var(--new-border);background:var(--new-bg)}
+  .req-table thead th:first-child{width:80px}
+  .pri{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;letter-spacing:0.06em}
+  .pri-m{background:#FEE2E2;color:#991B1B}
+  .pri-s{background:#FEF3C7;color:#92400E}
+  .pri-c{background:#DBEAFE;color:#1E40AF}
+  .pri-w{background:var(--bone);color:var(--ink-faint)}
+  .status-done{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:#DCFCE7;color:#166534}
+  .status-pending{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:#FEF9C3;color:#854D0E}
+  @media print{.sidebar{display:none}.main{padding:24px;max-width:100%}.callout{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  @media(max-width:860px){.sidebar{display:none}.main{padding:28px 20px 60px}}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ══ SIDEBAR ══════════════════════════════════════════════════════ -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <span class="seal">C</span><span class="brand">CollectorHub</span>
+    <span class="ver">BRD v1.4 · 24 Jun 2026</span>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Document</div>
+    <a href="#s1" class="nav-item">1 · Document Control</a>
+    <a href="#s2" class="nav-item">2 · Executive Summary</a>
+    <a href="#s3" class="nav-item">3 · Vision &amp; Objectives</a>
+    <a href="#s4" class="nav-item">4 · Market Context</a>
+    <a href="#s5" class="nav-item">5 · Competitive Landscape</a>
+    <a href="#s6" class="nav-item">6 · Scope &amp; Categories</a>
+    <a href="#s7" class="nav-item">7 · Phasing Overview</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Requirements</div>
+    <a href="#s8" class="nav-item">8 · Functional Req.</a>
+    <a href="#s8-rewards" class="nav-item">8.x · Rewards &amp; XP</a>
+    <a href="#s9" class="nav-item">9 · Screen Specs</a>
+    <a href="#s10" class="nav-item">10 · Return Loop</a>
+    <a href="#s11" class="nav-item">11 · Content Seeding</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Design System</div>
+    <a href="#s-visual" class="nav-item active">Visual Foundations</a>
+    <a href="#s-type" class="nav-item">Typography</a>
+    <a href="#s-tokens" class="nav-item">Token Reference</a>
+    <a href="#s-components" class="nav-item">Component Status</a>
+    <a href="#s-appbar" class="nav-item">AppBar Layout</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Non-functional</div>
+    <a href="#s12" class="nav-item">12 · NFRs</a>
+    <a href="#s13" class="nav-item">13 · Trust &amp; Safety</a>
+    <a href="#s14" class="nav-item">14 · KPIs</a>
+    <a href="#s15" class="nav-item">15 · Risks</a>
+    <a href="#s16" class="nav-item">16 · Roadmap</a>
+    <a href="#s17" class="nav-item">17 · Glossary</a>
+    <a href="#s18" class="nav-item">18 · Change Log</a>
+  </div>
+</nav>
+
+<!-- ══ MAIN ══════════════════════════════════════════════════════════ -->
+<main class="main">
+
+  <!-- Doc header -->
+  <div class="doc-header">
+    <h1>CollectorHub — Business Requirements Document</h1>
+    <p class="tagline">A community-first social platform for collectors — showcase, discover, connect, and trade.</p>
+    <div class="meta-grid">
+      <div class="meta-item"><div class="k">Document type</div><div class="v">BRD — Phase 1 &amp; Phase 2</div></div>
+      <div class="meta-item"><div class="k">Version</div><div class="v">Draft v1.4</div></div>
+      <div class="meta-item"><div class="k">Date</div><div class="v">24 June 2026</div></div>
+      <div class="meta-item"><div class="k">Owners</div><div class="v">Product (RC) · Content &amp; Marketing (SA, AV)</div></div>
+      <div class="meta-item"><div class="k">Status</div><div class="v">Implementation-aligned — prototype review</div></div>
+    </div>
+  </div>
+
+  <!-- §1 -->
+  <span class="section-anchor" id="s1"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">1</span>Document Control &amp; Purpose</h2>
+    <p>This BRD defines the product vision, scope, functional requirements, and phased delivery plan for CollectorHub. It is the single source of truth aligning product, engineering, content, and marketing.</p>
+
+    <h3 class="sub-title">1.1 Intended Audience</h3>
+    <ul>
+      <li><strong>Engineering / build team (RC)</strong> — scope, sequence, and implementation details.</li>
+      <li><strong>Content &amp; Marketing (SA, AV)</strong> — seeding, content calendars, go-to-market.</li>
+      <li><strong>Founders / stakeholders</strong> — scope, priorities, and phasing decisions.</li>
+    </ul>
+
+    <h3 class="sub-title">1.2 Revision History</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Version</th><th>Date</th><th>Author</th><th>Summary</th></tr></thead>
+        <tbody>
+          <tr><td><code>v1.0</code></td><td>31 May 2026</td><td>Product</td><td>Initial BRD — vision, market, competitive analysis, features, screen specs, phasing, KPIs.</td></tr>
+          <tr><td><code>v1.1</code></td><td>31 May 2026</td><td>Product</td><td>Design review: Item/Listing/Post/Deal data model; collection-first selling; Deal completion + transaction-linked trust; tiered ownership verification; wishlist matching; follow as first-class action; simplified post types.</td></tr>
+          <tr><td><code>v1.2</code></td><td>4 Jun 2026</td><td>Product (AV &amp; SA)</td><td>Stakeholder screen review: profile-first onboarding, Scale/Universe sub-interests, in-feed follow &amp; inline comments, mandatory add-to-collection fields, chart/calendar/collage portfolio views, post-type-first composer + poll, condition list + seller terms + anon price feedback, opt-in public DM threads, follow counts + online status + ownership stats, QR-code event tickets.</td></tr>
+          <tr><td><code>v1.3</code></td><td>22 Jun 2026</td><td>Design</td><td>Design implementation alignment: clean white palette canonical; Geist primary font; AppBar layout corrected; canvas/card-surface depth model; missing <code>-deep</code> tokens; corner radii updated; component corrections listed.</td></tr>
+          <tr class="td-new"><td><code>v1.4</code></td><td>24 Jun 2026</td><td>Product (prototype review)</td><td><strong>Prototype implementation alignment:</strong> TCG promoted to Phase 1; Engagement &amp; Rewards system (XP / ranks / archetypes / season badges / leaderboard) fully specified; ISO post type added; vouch model decoupled from deals; threaded comments + @mentions; Feed customisation (Customize Feed popover); 3-step onboarding + OTP; marketplace filter panel + ISO Board; listing model additions; profile header redesign; events RSVP model confirmed; Block/Report from profile; v1.3 component-fix status tracked; CSS tokens updated.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- §2 -->
+  <span class="section-anchor" id="s2"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">2</span>Executive Summary</h2>
+    <p>Collecting is a large, fast-growing, deeply social hobby — yet collectors today are scattered across tools never built for them: Instagram for showcasing, WhatsApp and Facebook Groups for community and buy/sell/trade, eBay for transactions, Discord/Reddit for discussion. No single product combines identity, community, discovery, and trusted peer-to-peer trading tuned to a collector's interests.</p>
+    <p>CollectorHub closes that gap. A collector creates a profile, selects interests, and builds a collection portfolio. A personalised master feed surfaces new releases, community discussions, marketplace listings, and events. They join communities, message other collectors, confirm completed deals, and build reputation through a trust system — not just a popularity count. An engagement rewards layer (Collector XP) gamifies participation and drives daily return.</p>
+    <p><strong>Phase 1</strong> launches with five categories — Action Figures, Designer Toys &amp; Blind Boxes, Model Kits &amp; Lego, Diecast, and Trading Cards (TCG) — targeting 10,000 engaged users.</p>
+  </div>
+
+  <!-- §3 -->
+  <span class="section-anchor" id="s3"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">3</span>Product Vision &amp; Objectives</h2>
+    <p><strong>Vision:</strong> To be the home for collectors — the single place to showcase what you own, discover what's new in your niche, find your community, and trade with people you trust.</p>
+    <p><strong>Mission (Phase 1):</strong> Build a focused, high-trust community across five collectible categories that proves collectors will return daily and transact peer-to-peer.</p>
+
+    <h3 class="sub-title">3.1 Strategic Objectives</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>#</th><th>Objective</th><th>Phase 1 success looks like</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Reach critical community mass</td><td>10,000 registered users; self-sustaining daily-active base.</td></tr>
+        <tr><td>2</td><td>Establish the daily return loop</td><td>Multiple weekly sessions per active user via feed, marketplace, rewards, and notifications.</td></tr>
+        <tr><td>3</td><td>Prove trusted peer trading</td><td>Working vouch/reputation system; steady marketplace listing and DM volume.</td></tr>
+        <tr><td>4</td><td>Shift to user-generated content</td><td>Declining reliance on admin/dummy seeding as organic post share rises.</td></tr>
+        <tr><td>5</td><td>Validate category-fit</td><td>Evidence of which categories drive most engagement and trade.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">3.2 Design Principles</h3>
+    <ul>
+      <li><strong>Interest-first.</strong> A new user with zero followers gets a rich feed on day one.</li>
+      <li><strong>Trust is a feature.</strong> Reputation, vouches, and visible seller history are first-class.</li>
+      <li><strong>Seed, then step back.</strong> Admin and dummy accounts prime the pump; the product hands the microphone to real users as fast as quality allows.</li>
+      <li><strong>Earn your engagement.</strong> XP, ranks, and season badges reward genuine participation and create competitive return loops.</li>
+      <li><strong>Realistic to build.</strong> Phase 1 scoped to a shippable MVP; ambitious capabilities deferred to Phase 2.</li>
+    </ul>
+  </div>
+
+  <!-- §4 -->
+  <span class="section-anchor" id="s4"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">4</span>Market Context &amp; Opportunity</h2>
+    <p>The collectibles category has moved from niche hobby to mainstream cultural and economic phenomenon. The designer-toy/blind-box secondary market alone was valued at over US$1.8 billion in 2025. The India toys market was valued at roughly US$2.77 billion in 2025; the broader collectibles market is forecast to grow at ~10% CAGR through 2033. The TCG market (Pokémon, One Piece, MTG) is experiencing rapid growth in India driven by collector/investor demand for sealed product.</p>
+    <p>Collector behaviour is consistent: show off what you own, learn about new releases, find others in your niche, buy/sell/trade. Today they stitch this together across Instagram, WhatsApp, Facebook Groups, Discord, Reddit, eBay, and category marketplaces. That fragmentation is the opportunity.</p>
+  </div>
+
+  <!-- §5 -->
+  <span class="section-anchor" id="s5"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">5</span>Competitive Landscape</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Player</th><th>What it is</th><th>Gaps CollectorHub exploits</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Connectible</strong></td><td>Social app for collectors with chronological feed + commission-free marketplace.</td><td>Limited trust layer; no rewards/XP loop; broad not niche-tuned.</td></tr>
+        <tr><td><strong>Mantel</strong></td><td>Collector social network (sports cards, TCG) with digital display case + gamification.</td><td>Card-skewed; marketplace/trade not core.</td></tr>
+        <tr><td><strong>hobbyDB / PPG</strong></td><td>Collection-management + price guide + marketplace.</td><td>Database-first; discovery &amp; discussion secondary.</td></tr>
+        <tr><td><strong>Whatnot</strong></td><td>Livestream-led buy/sell of collectibles.</td><td>Livestream-centric; not a daily social home.</td></tr>
+        <tr><td><strong>FB Groups / WA</strong></td><td>Where most P2P community &amp; trade happens today.</td><td>No collector identity; no reputation; high scam risk.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §6 -->
+  <span class="section-anchor" id="s6"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">6</span>Scope &amp; Category Strategy</h2>
+
+    <div class="callout new">
+      <div class="cl-label">Changed in v1.4 — TCG promoted to Phase 1</div>
+      <p>v1.3 deferred Trading Cards to Phase 2 pending the §6.2 decision. The prototype implementation includes TCG as the 5th Phase 1 category with its own community (TCG India), seed listings, and posts. <strong>TCG is now a confirmed Phase 1 launch category.</strong> Sneakers remain Phase 2.</p>
+    </div>
+
+    <h3 class="sub-title">6.1 Phase 1 Categories (confirmed — 5 total)</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Category</th><th>Why it fits Phase 1</th><th>Return-loop strength</th></tr></thead>
+      <tbody>
+        <tr><td>Action Figures</td><td>Large established collector base; constant new releases; high showcase + trade activity.</td><td>High — releases + trade</td></tr>
+        <tr><td>Designer Toys &amp; Blind Boxes</td><td>Explosive growth (Labubu/Pop Mart); blind-box mechanic drives discovery, trading of duplicates, and chase-figure hunting.</td><td>Very high — releases + trade</td></tr>
+        <tr><td>Model Kits &amp; Lego</td><td>Build-in-progress content is highly visual and discussion-rich; strong AFOL/Gunpla communities.</td><td>High — showcase + discussion</td></tr>
+        <tr><td>Diecast</td><td>Dedicated adult collectors; limited editions; strong in India (scale model cars).</td><td>Medium-high — showcase + trade</td></tr>
+        <tr class="td-new"><td>Trading Cards (TCG)</td><td>Pokémon, One Piece TCG, MTG, Yu-Gi-Oh!, Dragon Ball Super TCG — fast-growing in India; sealed product trade is high-frequency; group breaks + pulls drive discussion.</td><td>High — sealed product trade + community</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">6.2 In Scope vs Out of Scope (Phase 1)</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>In scope (Phase 1)</th><th>Out of scope → Phase 2+</th></tr></thead>
+      <tbody>
+        <tr><td>Profiles, interests (inc. Scale/Universe sub-interests), follow, trust signals &amp; tiers</td><td>In-app payments / escrow / checkout</td></tr>
+        <tr><td>Collection portfolio + catalogue (search/barcode) + tiered ownership verification</td><td>Automated genuineness authentication / grading</td></tr>
+        <tr><td>Personalised master feed (interest + behaviour) — For You / Explore / Following</td><td>Live streaming / live commerce</td></tr>
+        <tr><td>Posts: Showcase / Discussion / Review / Poll / <strong>ISO</strong> (new in v1.4)</td><td>Image-recognition matching, NFC verification, batch shelf-scan</td></tr>
+        <tr><td>Marketplace listings + Deal completion + DM to transact</td><td>Shipping &amp; logistics integration</td></tr>
+        <tr><td>Wishlist-to-marketplace match notifications</td><td>Price-guide / valuation engine (auto)</td></tr>
+        <tr><td>1:1 direct messaging (with item-offer attachments)</td><td>Public web profiles / SEO pages</td></tr>
+        <tr><td>Communities (admin + user created, public/private, request-to-join, posting modes)</td><td>Ads / monetisation, subscriptions</td></tr>
+        <tr><td>Events — RSVP (Going / Interested); multi-day support</td><td>Ticketing, payments, QR check-in (Phase 2)</td></tr>
+        <tr><td>Engagement Rewards — Collector XP, ranks, archetypes, season badges, leaderboard</td><td>Redeemable rewards / prize fulfilment (Phase 2)</td></tr>
+        <tr><td>Block / Report from profile</td><td>Structured trade-proposal object; group DM</td></tr>
+        <tr><td>System notifications; admin &amp; dummy-account seeding</td><td>Sneakers category</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §7 -->
+  <span class="section-anchor" id="s7"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">7</span>Phasing Overview</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Area</th><th>Phase 1 (Target: 10K users)</th><th>Phase 2 (Scale &amp; monetise)</th></tr></thead>
+      <tbody>
+        <tr><td>Categories</td><td>Action Figures; Designer Toys &amp; Blind Boxes; Model Kits &amp; Lego; Diecast; <strong>TCG</strong></td><td>+ Sneakers; sub-categories &amp; brand pages</td></tr>
+        <tr><td>Profile &amp; Trust</td><td>Profile, interests, follow, transaction-linked trust + independent vouch system, trust tiers</td><td>Reputation scoring algorithm, badge tiers, public web profile</td></tr>
+        <tr><td>Collection &amp; Catalogue</td><td>Catalogue add (search + barcode scan), portfolio, tiered ownership verification</td><td>Image-recognition, NFC, batch shelf-scan, auto-valuation</td></tr>
+        <tr><td>Feed</td><td>Interest + follow + behaviour-optimised; For You / Explore / Following tabs; feed customisation</td><td>Advanced ML ranking, topic clustering, trending, digests</td></tr>
+        <tr><td>Posting</td><td>Showcase / Discussion / Review / Poll / <strong>ISO</strong>; inline threaded comments + @mentions</td><td>Carousels, video, drafts/scheduling, rich ratings</td></tr>
+        <tr><td>Marketplace</td><td>Listings from collection items; Deal completion; DM to transact; ISO Board; filter/sort panel</td><td>In-app payments/escrow, offers/bidding, shipping &amp; order tracking</td></tr>
+        <tr><td>Rewards</td><td>Collector XP, 6 rank tiers, 4 archetypes, season badges (weekly/monthly), leaderboard</td><td>Redeemable prizes, physical badge programme</td></tr>
+        <tr><td>Community</td><td>Public + private (request-to-join); open and approval posting modes; admin tools</td><td>Community roles &amp; tools, sub-forums, community-run events &amp; shops</td></tr>
+        <tr><td>Events</td><td>Admin + user-created (approval-based); RSVP Going/Interested; multi-day support</td><td>Ticketing/payments, calendar sync, maps, QR check-in</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §8 -->
+  <span class="section-anchor" id="s8"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">8</span>Functional Requirements</h2>
+    <p>Priority: <span class="pri pri-m">M</span> Must (Phase 1 launch) · <span class="pri pri-s">S</span> Should (strongly desired P1) · <span class="pri pri-c">C</span> Could (P1 if capacity) · <span class="pri pri-w">W</span> Won't-now (Phase 2).</p>
+
+    <h3 class="sub-title">8.1 Core Data Model</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Object</th><th>What it is</th><th>Key relationships &amp; lifecycle</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Item</strong></td><td>A single collectible in a user's collection — the source of truth for what a user owns or wants.</td><td>Belongs to one user. Status: owned / wishlist / pre-order. An owned Item can become a Listing.</td></tr>
+        <tr><td><strong>Listing</strong></td><td>An Item offered for sale or trade.</td><td>Derived from one owned Item. Status: available / reserved / sold / closed. Carries condition, price, shipping terms, acquisition type.</td></tr>
+        <tr><td><strong>Post</strong></td><td>Social content — Showcase / Discussion / Review / Poll / ISO.</td><td>May reference an Item or Listing. Deleting a Post does not delete the underlying Item/Listing.</td></tr>
+        <tr><td><strong>Deal</strong></td><td>A record that a transaction occurred between two users.</td><td>Links buyer, seller, and Listing/Item. Closes the Listing and unlocks mutual rating.</td></tr>
+        <tr class="td-new"><td><strong>User XP record</strong></td><td>Lifetime engagement points driving rank and leaderboard standing.</td><td>Belongs to one user. Accumulates from engagement actions. Informs rank tier, archetype, and season-badge eligibility.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">8.2 Profile, Identity &amp; Trust</h3>
+    <div class="tbl-wrap"><table class="req-table">
+      <thead><tr><th>ID</th><th>Requirement</th><th>Pri.</th></tr></thead>
+      <tbody>
+        <tr><td>PR-01</td><td>User can sign up / log in (email + OTP verification + social login: Google, Apple) and create a basic profile: display name, handle, avatar, bio, location, gender, age.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>PR-02</td><td>Onboarding wizard: 3 steps — (1) Profile setup; (2) Category interest selection; (3) Community joining. Skip available at any step. Guest/explore mode accessible from splash without account creation.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>PR-03</td><td>User can edit interests at any time; changes immediately re-tune the feed.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>PR-04</td><td>Follow is a first-class action: follow users, brands/lines, and communities. Follow/Unfollow inline from the feed author line.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>PR-05</td><td>Profile surfaces transaction-linked trust signals: completed deals, buyer/seller rating, response time, account age, active-listing count.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr class="td-new"><td>PR-06</td><td>Vouch system is <strong>independent of deals</strong>. Any user can vouch for any other based on 5 relationship types: Traded on CollectorHub · Traded off-app · Met in person · Known from a community · Trusted collector friend. Vouches given without requiring a prior Deal. Users can request a vouch from any other user (sends a notification). Trade vouches (backed by a confirmed Deal) carry higher trust weighting.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>PR-07</td><td>Trust tier shown on profiles and listings: <strong>Top Seller</strong> (red) and <strong>Trusted</strong> (forest), derived from verified ownership, completed deals, and ratings.</td><td><span class="pri pri-s">S</span></td></tr>
+        <tr><td>PR-08</td><td>Profile shows Collection Portfolio with owned / wishlist / pre-order tabs, aggregate value, and trade history.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>PR-09</td><td>Privacy controls: portfolio items and value can be set public / followers-only / private.</td><td><span class="pri pri-s">S</span></td></tr>
+        <tr class="td-new"><td>PR-10</td><td>Profile header (Instagram-style): large avatar (with top season badge overlaid), then Deals / Followers / Vouches stats in a row, then name / handle / city / online presence / bio full-width below. A scrollable stat row shows Followers / Following / Vouches In / Vouches Out.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr class="td-new"><td>PR-11</td><td>Online presence shown on profiles and follower/following lists: "Online now" (green dot) or "active X min ago" (grey dot). Visible to all users.</td><td><span class="pri pri-s">S</span></td></tr>
+        <tr class="td-new"><td>PR-12</td><td>Ownership stats shown on profile: breakdown of verified items by category (e.g. "58 action figures · 13 designer toys").</td><td><span class="pri pri-s">S</span></td></tr>
+        <tr class="td-new"><td>PR-13</td><td>Block &amp; Report accessible from the <code>···</code> menu on any profile. Block hides the user's profile, listings, and messages. Report requires selecting from 6 reason types (Fake/impersonation, Counterfeit listings, Scam/fraud, Harassment, Spam, Other) before submission.</td><td><span class="pri pri-m">M</span></td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">8.3 Collection, Catalogue &amp; Ownership Verification</h3>
+    <div class="tbl-wrap"><table class="req-table">
+      <thead><tr><th>ID</th><th>Requirement</th><th>Pri.</th></tr></thead>
+      <tbody>
+        <tr><td>CO-01</td><td>Add to collection via built-in catalogue: search by name or scan barcode/SKU. Free-text fallback when not in catalogue.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CO-02</td><td>Catalogue seeded for top SKUs across all 5 Phase 1 categories (~10 initial SKUs); unknown items can be submitted (admin-reviewed).</td><td><span class="pri pri-s">S</span></td></tr>
+        <tr><td>CO-03</td><td>Ownership verification tiers: <strong>Claimed</strong> (catalogue only, no photo) · <strong>Shown</strong> (one in-app live photo) · <strong>Verified</strong> (live photo + challenge shot). Listing requires Verified.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CO-04</td><td>Ownership photo via in-app camera only (no gallery upload for verification). Gallery upload allowed for additional showcase photos only.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CO-05</td><td>Portfolio statuses: owned / wishlist / pre-order. Pre-orders carry acquisition precision levels: exact day / month / quarter / year / TBD; plus total cost, deposit paid, and seller name.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CO-06</td><td>Wishlist items create an implicit saved search that notifies the user when a matching Listing appears.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CO-07</td><td>Duplicate-image detection: perceptual-hash uploaded photos and flag same image reused across accounts/listings.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CO-08</td><td>Verified photos watermarked with handle + timestamp to deter reuse.</td><td><span class="pri pri-s">S</span></td></tr>
+        <tr><td>CO-09</td><td>Possession ≠ genuineness: the Verified badge denotes proof of possession, not authenticity. This must be clearly communicated.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CO-10</td><td>Profile tabs: Collection · Posts · Communities · Trades · Saved (own profile only).</td><td><span class="pri pri-m">M</span></td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">8.4 Master Feed</h3>
+    <div class="tbl-wrap"><table class="req-table">
+      <thead><tr><th>ID</th><th>Requirement</th><th>Pri.</th></tr></thead>
+      <tbody>
+        <tr><td>FE-01</td><td>Three feed tabs: <strong>For You</strong> (interest-tuned + behaviour-ranked) · <strong>Explore</strong> (newest-first, all categories) · <strong>Following</strong> (posts + listings from followed users only).</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr class="td-new"><td>FE-02</td><td><strong>Customize Feed popover</strong> (accessible via caret on the "For You" tab): per-category checkboxes with Select All / Clear All; toggle to <em>Remove Listing posts</em> (hide marketplace listing cards from For You feed). Settings persisted per user. Save confirms immediately; no page reload.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>FE-03</td><td>Horizontal hashtag filter bar below the tab row: All · #NewDrops · #Grails · #HotToys · #Gunpla · #Diecast · #PopMart · #TCG · #Sealed · #Marvel · #Restock · #Meetups. Drag/scroll to navigate. Active tag filters the current feed stream.</td><td><span class="pri pri-s">S</span></td></tr>
+        <tr><td>FE-04</td><td>Feed card types: PostCard (Showcase/Discussion/Review/Poll/ISO) · AdminCard (official CollectorHub release announcements) · ListingFeedCard (marketplace listing surfaced in-feed) · FeedEventCard (event card from a nearby/joined community).</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>FE-05</td><td>Inline follow/unfollow button on feed cards next to author name. Triggers toast confirmation.</td><td><span class="pri pri-m">M</span></td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">8.5 Posting</h3>
+    <div class="tbl-wrap"><table class="req-table">
+      <thead><tr><th>ID</th><th>Requirement</th><th>Pri.</th></tr></thead>
+      <tbody>
+        <tr><td>PO-01</td><td>Post types: <strong>Showcase</strong> (item display, 1–4 photos), <strong>Discussion</strong> (text), <strong>Review</strong> (text + star rating 1–5), <strong>Poll</strong> (text + 2–4 options), <strong>ISO</strong> (In Search Of — see PO-05).</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>PO-02</td><td>Post images displayed as: 1 = full-width; 2 = side-by-side equal grid; 3+ = hero left + column right (max 4 shown, overflow count displayed). Actual uploaded images rendered; placeholder silhouettes used where no real photo is available.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>PO-03</td><td>Long post body truncated at 3 lines with a "read more" expand affordance; no navigation to detail page required.</td><td><span class="pri pri-s">S</span></td></tr>
+        <tr><td>PO-04</td><td>Poll vote: tap an option to vote; results revealed as percentage bars after voting. Total vote count and "tap to vote" label shown.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr class="td-new"><td>PO-05</td><td><strong>ISO (In Search Of) post type:</strong> collector declares what they are hunting. Required fields: <em>Item name</em>; optional: <em>Max budget</em>, <em>Condition</em> (from ladder), <em>City</em>. Rendered as a distinct "WANTED" card with gold tint. Action CTA: "I have this" button for other collectors to initiate a DM. ISO posts appear in the ISO Board tab in the Marketplace. Post type tag: <code>ISO</code> (gold).</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr class="td-new"><td>PO-06</td><td><strong>Threaded comments</strong>: each comment shows a Like count and a Reply affordance. Replies are nested one level (not infinitely). Comment author can edit or delete their own comment via a <code>···</code> menu. No page navigation required — all inline in the feed card.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr class="td-new"><td>PO-07</td><td><strong>@mention system</strong> in comment input: typing <code>@</code> opens a live user picker dropdown (filtered by handle and display name, max 4 suggestions). Selecting inserts a clickable @handle that navigates to that user's profile.</td><td><span class="pri pri-s">S</span></td></tr>
+        <tr><td>PO-08</td><td>Action bar on every post: Like (heart, with burst animation + count) · Comment (toggles inline thread) · Share (bottom sheet) · Bookmark (save, shown only on feed — not on detail). Social proof strip: stacked avatar row of recent likers + count; city location tag if provided.</td><td><span class="pri pri-m">M</span></td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">8.6 Marketplace &amp; Listings</h3>
+    <div class="tbl-wrap"><table class="req-table">
+      <thead><tr><th>ID</th><th>Requirement</th><th>Pri.</th></tr></thead>
+      <tbody>
+        <tr><td>MK-01</td><td>Listing created from a collection Item (must be Verified). Fields: price, currency symbol, condition (from standardised ladder), condition notes, trade welcome toggle, shipping-included toggle, returns-accepted toggle, acquisition type (in-hand / pre-order — if PO: order date + seller name), seller terms.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr class="td-new"><td>MK-02</td><td><strong>Standardised condition ladder</strong> (fixed values, not free text): Sealed / MISB · Mint · Like new · Good · Fair · For parts. Free-text condition notes allowed in addition.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr class="td-new"><td>MK-03</td><td><strong>Seller terms</strong>: per-listing array of plain-text terms (e.g. "No returns once sold", "Shipping at buyer cost"). Default terms shown; seller can customise. Displayed on listing detail screen.</td><td><span class="pri pri-s">S</span></td></tr>
+        <tr><td>MK-04</td><td>Marketplace browse grid (2-column). Sticky header: search input · saved-listings toggle (heart badge) · filter/sort panel toggle (with active-count badge).</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr class="td-new"><td>MK-05</td><td><strong>Filter / sort panel</strong>: Category (multi-select chips) · Sort by (Newest / Price ↑ / Price ↓ / Most Saved / Most Watched) · Price range (from/to INR inputs) · Condition (multi-select: Sealed, MIB, BIB, Loose) · Quick filter: Shipping included. Active filter count shown as badge. Reset All button.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr class="td-new"><td>MK-06</td><td><strong>ISO Board tab</strong> in Marketplace: displays all open ISO posts in card format. "Post ISO" CTA button in header. ISO posts are created via the standard post composer (post type = ISO).</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>MK-07</td><td>Listing card: product photo · item name (2-line clamp) · price · seller avatar + vouch count. Heart save (top-right of photo) · Wishlist bookmark (bottom-right of photo) · Message CTA (bottom of card, navigates to DM pre-loaded with listing context). Status badge (Just listed / Sold / Reserved) where applicable.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>MK-08</td><td>Deal completion: seller marks a listing sold → both buyer and seller confirm → mutual rating unlocked. Deal closes listing and creates a Deal record linked to both users' trust signals.</td><td><span class="pri pri-m">M</span></td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">8.7 Direct Messaging</h3>
+    <p>Unchanged from v1.2. Refer to v1.2 for full DM requirements. Key notes: Phase 1 is 1:1 only; offer attachment ties a listing to the DM thread; deal confirmation initiates from the DM thread.</p>
+
+    <h3 class="sub-title">8.8 Communities</h3>
+    <div class="tbl-wrap"><table class="req-table">
+      <thead><tr><th>ID</th><th>Requirement</th><th>Pri.</th></tr></thead>
+      <tbody>
+        <tr><td>CM-01</td><td>Two privacy modes: <strong>Public</strong> (anyone can join instantly; all posts visible) and <strong>Private</strong> (request-to-join; posts/members hidden until approved). Private communities can also be invite-only.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr class="td-new"><td>CM-02</td><td>Two posting modes per community: <strong>Open</strong> (posts go live immediately) and <strong>Approval</strong> (posts queue for admin review before publishing). Grails and similar high-signal communities use Approval mode.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CM-03</td><td>Admin tools: manage join requests, review pending posts (approve/reject), manage members, edit community rules, view member roles.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CM-04</td><td>Phase 1 seed communities (7): Indian Toy Maniacs · Bricks Bangalore · JDM Diecast Crew · Kaiju &amp; Vinyl · Grail Hunters India · <strong>TCG India</strong> (new in v1.4) · Mumbai Figure Heads (user-run example).</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CM-05</td><td>Community card: shows name, member count, short description, privacy badge, admin/founder tag where applicable. Join/Leave/Request button with appropriate label per state.</td><td><span class="pri pri-m">M</span></td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">8.9 Events</h3>
+    <div class="tbl-wrap"><table class="req-table">
+      <thead><tr><th>ID</th><th>Requirement</th><th>Pri.</th></tr></thead>
+      <tbody>
+        <tr><td>EV-01</td><td>Events have: title, date (single or multi-day), time (start + optional end), venue name, city, mode (in-person), host, linked community, categories, "what to bring" note, and a full about description.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr class="td-new"><td>EV-02</td><td><strong>RSVP model</strong>: two states — <strong>Going</strong> (forest green badge) and <strong>Interested</strong> (gold badge). No ticketing, no QR codes in Phase 1. Going/Interested counts displayed. Past events shown at reduced opacity.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>EV-03</td><td>All events require admin approval before publishing (approval waivable for super-users and admins). Pending events visible to host only until approved.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>EV-04</td><td>Event card: date block (month + day + weekday) · title · venue with pin icon · time range · Going/Interested badges + count. Tapping navigates to event detail screen.</td><td><span class="pri pri-m">M</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §8 Rewards -->
+  <span class="section-anchor" id="s8-rewards"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num" style="background:var(--gold)">XP</span>Engagement Rewards System — v1.4 New</h2>
+
+    <div class="callout new">
+      <div class="cl-label">New in v1.4 — fully implemented in prototype</div>
+      <p>A Duolingo-league-style engagement loop built around <strong>Collector XP</strong>. XP accumulates from engagement actions, drives a permanent rank ladder, and feeds into weekly/monthly competitive leagues that award season badges. The system is live in the prototype across <code>Rewards.jsx</code>, <code>data.jsx</code>, and the profile <code>RewardCard</code> component.</p>
+    </div>
+
+    <h3 class="sub-title">XP Earn Actions</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Action</th><th>XP</th><th>Type</th></tr></thead>
+      <tbody>
+        <tr><td>Complete your profile (5 steps)</td><td>50</td><td>One-time</td></tr>
+        <tr><td>Add a verified item to collection</td><td>20</td><td>Repeatable</td></tr>
+        <tr><td>Post a showcase</td><td>15</td><td>Repeatable</td></tr>
+        <tr><td>Write a review</td><td>15</td><td>Repeatable</td></tr>
+        <tr><td>Vouch for a collector</td><td>10</td><td>Repeatable</td></tr>
+        <tr><td>RSVP to an event</td><td>10</td><td>Repeatable</td></tr>
+        <tr><td>Comment on a post</td><td>5</td><td>Repeatable</td></tr>
+        <tr><td>Daily check-in</td><td>5</td><td>Daily (resets midnight)</td></tr>
+        <tr><td>Refer a friend</td><td>40</td><td>Repeatable</td></tr>
+        <tr><td>Like a post</td><td>1</td><td>Repeatable</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">Rank Ladder (Lifetime — never resets)</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Rank</th><th>Name</th><th>XP threshold</th><th>Colour</th><th>Perk</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Rookie</td><td>0</td><td>Ink mute</td><td>Welcome to the shelf</td></tr>
+        <tr><td>2</td><td>Fan</td><td>250</td><td>Forest</td><td>Profile flair unlocked</td></tr>
+        <tr><td>3</td><td>Collector</td><td>750</td><td>Verified teal</td><td>Early drop alerts</td></tr>
+        <tr><td>4</td><td>Pro</td><td>1,800</td><td>Plum</td><td>Showcases get featured</td></tr>
+        <tr><td>5</td><td>Expert</td><td>4,000</td><td>Grail gold deep</td><td>Priority verification</td></tr>
+        <tr><td>6</td><td>Legend</td><td>8,000</td><td>Stamp red</td><td>Legend badge + spotlight</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">Contributor Archetypes (derived from XP mix)</h3>
+    <p>Each user's XP is split across 4 contribution buckets. The dominant bucket determines their archetype — displayed as a pill in the RewardCard and leaderboard.</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Archetype</th><th>Dominant bucket</th><th>Colour</th><th>Blurb</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Showcaser</strong></td><td>Posts / photos</td><td>Plum</td><td>Shares the most builds &amp; photos</td></tr>
+        <tr><td><strong>Connector</strong></td><td>Social (likes, comments)</td><td>Stamp red</td><td>Likes, comments &amp; lifts the community</td></tr>
+        <tr><td><strong>Archivist</strong></td><td>Collection</td><td>Verified teal</td><td>Catalogs &amp; verifies the deepest shelf</td></tr>
+        <tr><td><strong>Trader</strong></td><td>Market (deals, listings)</td><td>Grail gold deep</td><td>Most active in deals &amp; trades</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">Season Badges (Weekly &amp; Monthly Leagues)</h3>
+    <p>League standings reset each period. Top finishers earn a permanent circular metal badge and bonus XP banked toward their lifetime rank. Standings use XP earned in the period (weekly = Mon–Sun; monthly = calendar month).</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Badge tier</th><th>Finish position</th><th>Bonus XP</th><th>Visual</th></tr></thead>
+      <tbody>
+        <tr><td>Gold</td><td>1st place</td><td>+300 XP</td><td>Gold fill, 1st label</td></tr>
+        <tr><td>Silver</td><td>2nd place</td><td>+200 XP</td><td>Silver fill, 2nd label</td></tr>
+        <tr><td>Bronze</td><td>3rd place</td><td>+120 XP</td><td>Bronze fill, 3rd label</td></tr>
+        <tr><td>Finalist</td><td>Top 10</td><td>+50 XP</td><td>Bone fill, teal ring</td></tr>
+      </tbody>
+    </table></div>
+    <p>Badge leagues run across 6 types: Weekly overall · Monthly overall · Trader season · Connector season · Showcaser season · Archivist season. Badges are permanent and displayed in a Badge Shelf on the user's profile (overlapping row, tap to open Trophy Case).</p>
+
+    <h3 class="sub-title">Leaderboard Screens</h3>
+    <p>Two modes: <strong>By XP</strong> (sub-filter: Weekly / Monthly / All-time) and <strong>By contribution</strong> (sub-filter: Showcaser / Connector / Archivist / Trader). Podium displays top 3 (2nd–1st–3rd layout). Ranks 4+ in a scrollable list. User's own position pinned at top in a dark ink band. Reset clock shown. Season prize callout visible for active periods.</p>
+
+    <h3 class="sub-title">UI locations</h3>
+    <ul>
+      <li><strong>RewardCard</strong> — compact rank card in every profile header (own + others). Shows: rank badge, rank name, archetype chip, XP total, XP progress bar to next rank, this week's XP. CTAs: "Earn points" (own) + "Leaderboard".</li>
+      <li><strong>BadgeShelf</strong> — overlapping season badge row in profile header, tappable, opens Trophy Case.</li>
+      <li><strong>RewardsView</strong> — full screen: hero rank block, daily check-in button, contribution mix stacked bar, ways-to-earn list, rank ladder.</li>
+      <li><strong>LeaderboardView</strong> — full screen (accessible from profile and Rewards).</li>
+      <li><strong>BadgesView</strong> — Trophy Case: featured top badge, all badges grid, "how it works" explainer.</li>
+    </ul>
+  </div>
+
+  <!-- §9 -->
+  <span class="section-anchor" id="s9"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">9</span>Screen-by-Screen Functional Specification</h2>
+
+    <h3 class="sub-title">§9.1 Splash &amp; Auth</h3>
+    <p>Splash screen: brand seal (96px, rotated −4°, stamp shadow), headline, tagline, three CTAs: <em>Create account</em> · <em>I already have an account</em> · <em>Explore as guest →</em>. Guest skips auth and enters the app directly with no profile. Auth supports email+password and social (Google, Apple). Email signup triggers <strong>OTP email verification</strong>: 6-digit code entry with auto-advance between digit inputs, paste support, 30-second resend timer, back to change email link.</p>
+
+    <h3 class="sub-title">§9.2 Onboarding Wizard (3 steps)</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Step</th><th>Content</th><th>Required to proceed?</th></tr></thead>
+      <tbody>
+        <tr><td>0 — Profile setup</td><td>Avatar upload (camera icon CTA), display name, bio (150 char), gender (Female / Male toggle), age (slider 13–80+). Skip available.</td><td>No (all optional)</td></tr>
+        <tr><td>1 — What do you collect?</td><td>All 5 Phase 1 categories as full-width toggle buttons with check indicator. At least 1 must be selected to proceed.</td><td><strong>Yes — 1+ category required</strong></td></tr>
+        <tr><td>2 — Join communities</td><td>Communities filtered to selected categories; same toggle button UI. Pre-selects recommended communities. Skip available.</td><td>No</td></tr>
+      </tbody>
+    </table></div>
+    <p>Progress bar (3 segments) at top. Back button available from steps 1 and 2. Final CTA: "Enter CollectorHub".</p>
+
+    <h3 class="sub-title">§9.3 Master Feed (Home) — AppBar layout</h3>
+    <div class="callout fix">
+      <div class="cl-label">Still pending — v1.3 fix not yet applied in Chrome.jsx</div>
+      <p>The v1.3 spec corrected the AppBar layout to <strong>Create (left) · Wordmark (centre) · Search + Messages + Bell (right)</strong>. The current <code>Chrome.jsx</code> code still places <strong>both Create and Search on the left</strong>. This must be corrected. The fix is isolated to the <code>AppBar</code> function in <code>Chrome.jsx</code>.</p>
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Zone</th><th>Current (incorrect)</th><th>Target (correct)</th></tr></thead>
+      <tbody>
+        <tr><td>Left</td><td>Create post + Search</td><td>Create post only</td></tr>
+        <tr><td>Centre</td><td>Wordmark (squeezed)</td><td>Wordmark — full centre ownership</td></tr>
+        <tr><td>Right</td><td>Messages + Bell</td><td>Search + Messages + Bell</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">§9.4 Catalogue &amp; Item Detail</h3>
+    <p>Catalogue currently seeded with 10 SKUs across all 5 categories: Hot Toys MMS601 (figures) · LEGO 10307 (kits) · Bandai SHF Goku UI (figures) · Tomica TL-R34 (diecast) · Pop Mart Skullpanda TMWYW (designer) · Sideshow PF Batman (figures) · Bandai MG RX-78-2 (kits) · Mini GT R35 Nismo (diecast) · Pokémon TCG SV-151 Booster Box (tcg) · One Piece TCG OP-EB01 (tcg). Free-text fallback when SKU not found.</p>
+
+    <h3 class="sub-title">§9.8 Marketplace</h3>
+    <p>See §8.6 for full requirements. Key screen behaviour: default sort = Newest. 2-column grid. Listing card dimensions: 1:1 product photo, then title (2 lines), price, seller avatar + vouch count, Message CTA. On MarketCard, both heart-save (top right overlay) and wishlist bookmark (bottom right overlay) are visible over the photo area and do not navigate on tap.</p>
+
+    <h3 class="sub-title">§9.9 Listing Detail</h3>
+    <p>Full-bleed product photo carousel with photo count. Seller info with trust tier chip + vouch count + response time. Price (large mono), condition from ladder, condition notes. Acquisition type badge (In-hand vs Pre-order). Trade welcome badge. Shipping terms. Listing notes. Seller terms list. Saves + watching counts. CTA: "Message seller" (DM pre-loaded). If listing is mine: Edit + Mark sold CTAs. Deal completion flow accessible from DM thread.</p>
+
+    <h3 class="sub-title">§9.11 Profile</h3>
+    <p>See §8.2 PR-10 – PR-12 for header spec. Profile tabs: <strong>Collection</strong> · <strong>Posts</strong> (includes ISO posts) · <strong>Communities</strong> · <strong>Trades</strong> · <strong>Saved</strong> (own profile only). Own profile actions: Edit profile / Add item / Settings. Other profile actions: Follow/Unfollow + Message row; Vouch button row. Vouch button opens VouchView (choose relationship type + optional note) or shows "Vouched · Edit" if already vouched.</p>
+
+    <h3 class="sub-title">§9.12 Communities</h3>
+    <p>Community detail shows: header (tone colour + tag initials + name + member count) · About + Rules · Posts feed (filtered to community) · Members list · Events. Admin-only tools: manage members, join requests queue, pending posts queue, community settings. Posting mode (open/approval) shown in header.</p>
+
+    <h3 class="sub-title">§9.13 Events</h3>
+    <p>Event card renders a date block (month/day/weekday) in slate-800 background with gold month label. Event detail shows full about text, categories, "what to bring" note, Going/Interested counts + attendee avatars, RSVP buttons. Multi-day events show start + end date range. Past events shown with reduced opacity (no RSVP).</p>
+
+    <h3 class="sub-title">§9.x Rewards &amp; Leaderboard</h3>
+    <p>See §8.x for full specification. Accessible from: Profile → RewardCard → "Earn points" CTA or "Leaderboard" CTA. Also accessible from DetailHeader back-navigation.</p>
+  </div>
+
+  <!-- §10 -->
+  <span class="section-anchor" id="s10"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">10</span>The Return Loop</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Return driver</th><th>Why it brings users back</th><th>Source at launch</th></tr></thead>
+      <tbody>
+        <tr><td>New release posts</td><td>Collectors must not miss drops, restocks, announcements.</td><td>Admin (primary)</td></tr>
+        <tr><td>Marketplace listings</td><td>Fresh items to buy, sell, or trade — strongest transactional pull.</td><td>User-driven</td></tr>
+        <tr><td>Engagement rewards loop</td><td>Daily check-in, XP progress, leaderboard position — creates habit.</td><td>System-driven</td></tr>
+        <tr><td>Event announcements</td><td>Meetups, fairs, conventions, online drops.</td><td>Admin (primary)</td></tr>
+        <tr><td>Community discussions</td><td>Belonging and conversation in their specific niche.</td><td>Admin + dummy accounts</td></tr>
+        <tr><td>ISO board activity</td><td>Collectors hunting items; others responding "I have this".</td><td>User-driven</td></tr>
+        <tr><td>Collection showcase posts</td><td>Pride in showing off + inspiration from others.</td><td>User-driven</td></tr>
+        <tr><td>Notifications</td><td>Timely nudges: wishlist matches, deal confirmations, vouch requests, event reminders, XP milestones.</td><td>System-driven</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §11 -->
+  <span class="section-anchor" id="s11"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">11</span>Content &amp; Community Seeding Strategy</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Stage</th><th>Who creates content</th><th>Goal</th><th>Exit signal</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Seed</strong></td><td>Admin posts (news/releases/events) + managed dummy accounts (posts, discussions, interactions).</td><td>Make the app feel alive; demonstrate quality norms.</td><td>Real users begin posting &amp; commenting unprompted.</td></tr>
+        <tr><td><strong>Mix</strong></td><td>Admin/dummy taper; real users + early communities contribute a growing share.</td><td>Hand the microphone to users while maintaining quality bar.</td><td>Majority of feed content organic; communities self-sustain.</td></tr>
+        <tr><td><strong>UGC-led</strong></td><td>Users, community admins, and creator partners.</td><td>Self-sustaining content engine; admin focuses on curation &amp; release calendar.</td><td>Stable organic posting &amp; trade volume across categories.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- DESIGN SYSTEM -->
+  <span class="section-anchor" id="s-visual"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num" style="background:var(--red)">DS</span>Visual Foundations — v1.4 Canonical</h2>
+    <p>Clean white palette confirmed canonical as of v1.3. Warm cream spec retired. All values below match <code>colors_and_type.css</code>.</p>
+
+    <h3 class="sub-title">Canvas / Card Depth Model</h3>
+    <p>Screens use <code>--canvas</code> (#F8FAFC, cool slate) as the scrollable body background. Cards use <code>--card-surface</code> (#FFFFFF pure white) which pops off the canvas. This two-level depth system achieves visual lift without warm tinting. <strong>Do not use <code>--paper</code> as a screen background</strong> — use <code>--canvas</code>.</p>
+
+    <h4 class="sub-sub">Backgrounds &amp; Ink</h4>
+    <div class="token-grid">
+      <div class="token-row"><div class="swatch" style="background:#FFFFFF;box-shadow:0 0 0 1px #e2e8f0 inset"></div><div class="token-info"><div class="name">--paper / --card-surface</div><div class="val">#FFFFFF · card background</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#F8FAFC"></div><div class="token-info"><div class="name">--canvas</div><div class="val">#F8FAFC · screen bg</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#F5F5F5"></div><div class="token-info"><div class="name">--bone</div><div class="val">#F5F5F5 · recessed wells</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#EBEBEB"></div><div class="token-info"><div class="name">--bone-deep</div><div class="val">#EBEBEB · stronger dividers</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#1A1A1A"></div><div class="token-info"><div class="name">--ink</div><div class="val">#1A1A1A · primary text</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#666666"></div><div class="token-info"><div class="name">--ink-mute</div><div class="val">#666666 · body secondary</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#999999"></div><div class="token-info"><div class="name">--ink-faint</div><div class="val">#999999 · meta, captions</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#C4C4C4"></div><div class="token-info"><div class="name">--ink-ghost</div><div class="val">#C4C4C4 · placeholders</div></div></div>
+    </div>
+
+    <h4 class="sub-sub">Brand Accents</h4>
+    <div class="token-grid">
+      <div class="token-row"><div class="swatch" style="background:#FF2442"></div><div class="token-info"><div class="name">--stamp-red</div><div class="val">#FF2442 · primary CTA, brand</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#E01F3A"></div><div class="token-info"><div class="name">--stamp-red-deep</div><div class="val">#E01F3A · hover / press</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#FFE4E8"></div><div class="token-info"><div class="name">--stamp-red-soft</div><div class="val">#FFE4E8 · tinted bg</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#E8A33D"></div><div class="token-info"><div class="name">--grail-gold</div><div class="val">#E8A33D · rare / PO / ISO</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#C48420"></div><div class="token-info"><div class="name">--grail-gold-deep</div><div class="val">#C48420 · hover / press</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#F8E6C4"></div><div class="token-info"><div class="name">--grail-gold-soft</div><div class="val">#F8E6C4 · tinted bg</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#2D8F87"></div><div class="token-info"><div class="name">--verified-teal</div><div class="val">#2D8F87 · verified, vouch</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#CFE6E2"></div><div class="token-info"><div class="name">--verified-teal-soft</div><div class="val">#CFE6E2</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#2D5F3F"></div><div class="token-info"><div class="name">--forest</div><div class="val">#2D5F3F · success, trades</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#D2E0D3"></div><div class="token-info"><div class="name">--forest-soft</div><div class="val">#D2E0D3</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#6B3656"></div><div class="token-info"><div class="name">--plum</div><div class="val">#6B3656 · community / events</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#E4D2DE"></div><div class="token-info"><div class="name">--plum-soft</div><div class="val">#E4D2DE</div></div></div>
+    </div>
+
+    <div class="callout fix">
+      <div class="cl-label">Gap — missing -deep tokens (unchanged from v1.3)</div>
+      <p>Still not in <code>colors_and_type.css</code>: <code>--verified-teal-deep</code> (suggested: <code>#236D66</code>) · <code>--forest-deep</code> (suggested: <code>#1F4A2D</code>) · <code>--plum-deep</code> (suggested: <code>#502842</code>). Must be added before any component uses them for hover/active states.</p>
+    </div>
+
+    <h4 class="sub-sub">New in v1.4 — Rose tint &amp; card-shadow tokens</h4>
+    <div class="callout new">
+      <div class="cl-label">New in v1.4 — defined in CSS</div>
+      <p><code>--rose-tint-bg: rgba(255,36,66,0.07)</code> · <code>--rose-tint-text: #CC1133</code> · <code>--rose-tint-border: rgba(255,36,66,0.14)</code> — used for hashtag chips, profile stat tiles, and icon label backgrounds. <code>--card-shadow: 0 2px 16px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)</code> · <code>--card-shadow-lifted: 0 8px 32px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04)</code> — used on all floating card surfaces.</p>
+    </div>
+  </div>
+
+  <!-- TYPOGRAPHY -->
+  <span class="section-anchor" id="s-type"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num" style="background:var(--red)">DS</span>Typography — v1.4 Canonical</h2>
+    <p>Unchanged from v1.3. Geist is the canonical display and body font. Bricolage Grotesque is deprecated (woff2 files still present — remove in next bundle pass).</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Role</th><th>Family</th><th>Usage</th></tr></thead>
+      <tbody>
+        <tr><td>Display / headings</td><td><strong>Geist 700–800</strong></td><td>All headlines, screen titles, wordmark, avatar initials, stamp text. Negative letter-spacing −0.02em → −0.035em.</td></tr>
+        <tr><td>Body / UI</td><td><strong>Geist 300–700</strong></td><td>Default body 15px / 1.65 / 400. All labels, captions, buttons, tabs.</td></tr>
+        <tr><td>Monospace</td><td><strong>JetBrains Mono</strong></td><td>Prices, SKUs, codes, timestamps, compact stats. Always <code>font-variant-numeric: tabular-nums</code>.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- COMPONENT STATUS -->
+  <span class="section-anchor" id="s-components"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num" style="background:var(--red)">DS</span>Component Status — v1.4 Tracking</h2>
+    <p>All component corrections from v1.3 are tracked below with current status as of the v1.4 prototype review.</p>
+
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Component</th><th>Required fix</th><th>File</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td><strong>AppBar</strong></td><td>Search moved to right cluster. Create left · Wordmark centre · Search+Messages+Bell right.</td><td><code>Chrome.jsx</code></td><td><span class="status-pending">Pending</span></td></tr>
+        <tr><td><strong>LocationTag</strong></td><td>Replace emoji 📍 with <code>Icons.mapPin</code> Lucide icon (already in icon set).</td><td><code>shared.jsx</code></td><td><span class="status-pending">Pending</span></td></tr>
+        <tr><td><strong>GlassPill</strong></td><td>Remove <code>backdropFilter: 'blur(8px) saturate(180%)'</code>. Replace with flat semi-transparent dark bg <code>rgba(15,23,42,0.52)</code>. The dark variant already uses the correct value; only the <code>backdropFilter</code> lines need removing.</td><td><code>shared.jsx</code></td><td><span class="status-pending">Pending</span></td></tr>
+        <tr><td><strong>PostTypeTag</strong></td><td>Hard-coded hex values in colour map → CSS variable references (<code>var(--verified-teal)</code>, <code>var(--plum)</code>, etc.).</td><td><code>shared.jsx</code></td><td><span class="status-pending">Pending</span></td></tr>
+        <tr><td><strong>ActionBtn</strong></td><td>Inactive colour <code>var(--slate-400)</code> (#94A3B8 cool blue-grey) → <code>var(--ink-faint)</code> (#999999).</td><td><code>shared.jsx</code></td><td><span class="status-pending">Pending</span></td></tr>
+        <tr><td><strong>StackedAvatars</strong></td><td>Hard-coded <code>PALETTE</code> array uses hex strings — replace with token variable references routed through the <code>Avatar</code> component's <code>color</code> prop.</td><td><code>shared.jsx</code></td><td><span class="status-pending">Pending</span></td></tr>
+        <tr><td><strong>PostCard hover</strong></td><td>Dead <code>onMouseEnter</code> / <code>onMouseLeave</code> translateY handlers never fire on mobile — remove them. Keep only pointer-down press scale.</td><td><code>Cards.jsx</code></td><td><span class="status-pending">Pending</span></td></tr>
+        <tr><td><strong>Screen overscroll</strong></td><td>Add <code>overscrollBehavior: 'contain'</code> to the scroll body div in <code>Screen</code> component to prevent iOS scroll chaining.</td><td><code>Chrome.jsx</code></td><td><span class="status-pending">Pending</span></td></tr>
+        <tr><td><strong>Missing -deep tokens</strong></td><td>Add <code>--verified-teal-deep</code>, <code>--forest-deep</code>, <code>--plum-deep</code>.</td><td><code>colors_and_type.css</code></td><td><span class="status-pending">Pending</span></td></tr>
+        <tr><td><strong>Button size="block"</strong></td><td>Advisory: refactor to <code>fullWidth</code> boolean prop to separate layout from size variant. Not urgent.</td><td><code>shared.jsx</code></td><td><span class="status-pending">Advisory</span></td></tr>
+        <tr><td><strong>Focus rings</strong></td><td>Missing focus rings on CategoryChip, FilterChip, Segmented, and several inline button elements. Button and IconButton already implement focus rings via <code>onFocus</code>/<code>onBlur</code>.</td><td><code>shared.jsx</code></td><td><span class="status-pending">Pending</span></td></tr>
+      </tbody>
+    </table></div>
+
+    <div id="s-appbar"></div>
+  </div>
+
+  <!-- TOKEN REFERENCE -->
+  <span class="section-anchor" id="s-tokens"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num" style="background:var(--red)">DS</span>Full Token Reference</h2>
+    <p>Canonical values from <code>colors_and_type.css</code> at v1.4. <span style="background:var(--new-bg);border:1px solid var(--new-border);padding:1px 6px;border-radius:4px;font-size:11px;color:var(--new-text);font-weight:700">NEW</span> = absent from v1.2/v1.3. <span style="background:var(--fix-bg);border:1px solid var(--fix-border);padding:1px 6px;border-radius:4px;font-size:11px;color:var(--fix-text);font-weight:700">MISSING</span> = still not in CSS.</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Token</th><th>Value</th><th>Usage</th></tr></thead>
+      <tbody>
+        <tr><td><code>--paper</code> / <code>--card-surface</code></td><td>#FFFFFF</td><td>Card surface, modal background</td></tr>
+        <tr><td><code>--canvas</code></td><td>#F8FAFC</td><td>Screen / scrollable body background</td></tr>
+        <tr><td><code>--bone</code></td><td>#F5F5F5</td><td>Recessed wells, segmented control bg</td></tr>
+        <tr><td><code>--bone-deep</code></td><td>#EBEBEB</td><td>Stronger dividers</td></tr>
+        <tr><td><code>--ink</code></td><td>#1A1A1A</td><td>Primary text, icons</td></tr>
+        <tr><td><code>--ink-soft</code></td><td>#333333</td><td>Secondary headings</td></tr>
+        <tr><td><code>--ink-mute</code></td><td>#666666</td><td>Body secondary</td></tr>
+        <tr><td><code>--ink-faint</code></td><td>#999999</td><td>Meta, captions, inactive actions</td></tr>
+        <tr><td><code>--ink-ghost</code></td><td>#C4C4C4</td><td>Placeholders, disabled</td></tr>
+        <tr><td><code>--stamp-red</code></td><td>#FF2442</td><td>Primary CTA, brand seal, prices, destructive</td></tr>
+        <tr><td><code>--stamp-red-deep</code></td><td>#E01F3A</td><td>Press / hover state</td></tr>
+        <tr><td><code>--stamp-red-soft</code></td><td>#FFE4E8</td><td>Tinted background, active nav pill</td></tr>
+        <tr><td><code>--grail-gold</code></td><td>#E8A33D</td><td>Rare / featured / pre-order / warning / ISO</td></tr>
+        <tr><td><code>--grail-gold-deep</code></td><td>#C48420</td><td>Press / hover state</td></tr>
+        <tr><td><code>--grail-gold-soft</code></td><td>#F8E6C4</td><td>Tinted background</td></tr>
+        <tr><td><code>--verified-teal</code></td><td>#2D8F87</td><td>Verified accounts, vouch badge, info</td></tr>
+        <tr class="td-new"><td><code>--verified-teal-deep</code></td><td>#236D66 (proposed)</td><td>Press / hover — <strong>NOT YET IN CSS</strong></td></tr>
+        <tr><td><code>--verified-teal-soft</code></td><td>#CFE6E2</td><td>Tinted background</td></tr>
+        <tr><td><code>--forest</code></td><td>#2D5F3F</td><td>Success, Going RSVP, completed trades</td></tr>
+        <tr class="td-new"><td><code>--forest-deep</code></td><td>#1F4A2D (proposed)</td><td>Press / hover — <strong>NOT YET IN CSS</strong></td></tr>
+        <tr><td><code>--forest-soft</code></td><td>#D2E0D3</td><td>Tinted background</td></tr>
+        <tr><td><code>--plum</code></td><td>#6B3656</td><td>Community / events accent / Showcaser archetype</td></tr>
+        <tr class="td-new"><td><code>--plum-deep</code></td><td>#502842 (proposed)</td><td>Press / hover — <strong>NOT YET IN CSS</strong></td></tr>
+        <tr><td><code>--plum-soft</code></td><td>#E4D2DE</td><td>Tinted background</td></tr>
+        <tr><td><code>--border</code></td><td>rgba(0,0,0,0.08)</td><td>Default hairline borders</td></tr>
+        <tr><td><code>--border-strong</code></td><td>rgba(0,0,0,0.14)</td><td>Stronger borders (inputs, card outlines)</td></tr>
+        <tr><td><code>--border-faint</code></td><td>rgba(0,0,0,0.04)</td><td>Very subtle separators</td></tr>
+        <tr><td><code>--shadow-stamp</code></td><td>2px 2px 0 var(--ink)</td><td>Hard stamp shadow on accent moments</td></tr>
+        <tr class="td-new"><td><code>--card-shadow</code></td><td>0 2px 16px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)</td><td>Default floating card shadow</td></tr>
+        <tr class="td-new"><td><code>--card-shadow-lifted</code></td><td>0 8px 32px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04)</td><td>Hover/lift state for cards</td></tr>
+        <tr class="td-new"><td><code>--rose-tint-bg</code></td><td>rgba(255,36,66,0.07)</td><td>Hashtag chips, icon label tile bg</td></tr>
+        <tr class="td-new"><td><code>--rose-tint-text</code></td><td>#CC1133</td><td>Text on rose tint surfaces</td></tr>
+        <tr class="td-new"><td><code>--rose-tint-border</code></td><td>rgba(255,36,66,0.14)</td><td>Border on rose tint surfaces</td></tr>
+        <tr><td><code>--r-xs / -sm / -md / -lg / -xl / -pill</code></td><td>4 / 8 / 14 / 20 / 32 / 999px</td><td>Corner radius scale (<code>--r-md</code> was 12px in v1.2)</td></tr>
+        <tr><td><code>--font-display</code></td><td>"Geist", system-ui</td><td>All headings, wordmark</td></tr>
+        <tr><td><code>--font-body</code></td><td>"Geist", system-ui</td><td>Body, labels, UI</td></tr>
+        <tr><td><code>--font-mono</code></td><td>"JetBrains Mono", monospace</td><td>Prices, SKUs, codes, timestamps, XP values</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §12 -->
+  <span class="section-anchor" id="s12"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">12</span>Non-Functional Requirements</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Area</th><th>Requirement</th></tr></thead>
+      <tbody>
+        <tr><td>Platforms</td><td>Mobile-first (iOS &amp; Android). Admin console is web. Responsive web app is Phase 2. Web preview mode (<code>CH_WEB</code> flag) hides AppBar bottom nav and shows sidebar instead.</td></tr>
+        <tr><td>Performance</td><td>Feed first paint under ~2s on typical connection; smooth infinite scroll; image lazy-loading &amp; compression.</td></tr>
+        <tr><td>Scalability</td><td>Architecture supports growth from launch to 10K+ users without re-platforming; media on CDN-backed object storage.</td></tr>
+        <tr><td>Reliability</td><td>Target ~99.5% uptime in Phase 1; graceful offline/cached states for feed and messages.</td></tr>
+        <tr><td>Security</td><td>Secure auth (email + OTP + social), encrypted credentials, TLS in transit; least-privilege admin access; rate limiting on posting/DM/listing.</td></tr>
+        <tr><td>Privacy</td><td>User control over portfolio visibility and value; compliance with applicable data-protection norms. Age gate at 13 enforced in onboarding.</td></tr>
+        <tr><td>Accessibility</td><td>Legible typography, sufficient contrast, scalable text, accessible tap targets (min 44px). Focus rings on all interactive elements — currently missing on CategoryChip, FilterChip, Segmented, and several inline buttons (see Component Status).</td></tr>
+        <tr><td>Observability</td><td>Event analytics for KPIs (§14), crash reporting, and basic funnel instrumentation from day one. XP earn events instrumented for engagement analysis.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §13 -->
+  <span class="section-anchor" id="s13"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">13</span>Trust &amp; Safety</h2>
+    <h3 class="sub-title">13.1 Phase 1 Foundations</h3>
+    <ul>
+      <li><strong>Transaction-linked trust.</strong> Trust built from completed Deals — deal-backed vouches weighted higher than social vouches. Social vouches are allowed without a deal but weighted lower.</li>
+      <li><strong>Independent vouching.</strong> Any collector can vouch for another based on 5 relationship types; no prior trade required. Request a vouch from known collectors.</li>
+      <li><strong>Ownership verification.</strong> Tiered: Claimed / Shown / Verified. In-app camera only for verification shots. Possession ≠ genuineness — explicitly stated on verification UI.</li>
+      <li><strong>Photo integrity.</strong> Perceptual-hash duplicate detection + verified-photo watermarking.</li>
+      <li><strong>Reporting &amp; blocking.</strong> Report with 6 reason types from any profile; Block hides profile/listings/messages. Reports reviewed within 24 hours.</li>
+      <li><strong>Community moderation.</strong> Admin moderation queue — review reports, remove content, suspend/ban bad actors. Community approval posting mode for high-signal communities.</li>
+      <li><strong>Transaction clarity.</strong> Phase 1 transactions complete off-platform. Safety tips for meet-ups and payments shown clearly.</li>
+    </ul>
+    <h3 class="sub-title">13.2 Phase 2 Enhancements</h3>
+    <ul>
+      <li>Reputation scoring algorithm over Deal/rating graph; verified/tiered badges.</li>
+      <li>Genuineness verification (NFC, expert/grading partnerships).</li>
+      <li>Dispute resolution + escrow with in-app payments.</li>
+      <li>Fraud/scam detection, seller KYC for higher-value categories.</li>
+      <li>QR check-in for events (ticketing system).</li>
+    </ul>
+  </div>
+
+  <!-- §14 -->
+  <span class="section-anchor" id="s14"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">14</span>Success Metrics &amp; KPIs</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Metric</th><th>What it tells us</th><th>Phase 1 target</th></tr></thead>
+      <tbody>
+        <tr><td>Registered users</td><td>Top-line reach</td><td>10,000</td></tr>
+        <tr><td>DAU / MAU ratio</td><td>Stickiness of the return loop</td><td>≥ 20–25%</td></tr>
+        <tr><td>Sessions per DAU</td><td>'Multiple times a day' goal</td><td>≥ 3 / day for engaged users</td></tr>
+        <tr><td>D1 / D7 / D30 retention</td><td>Habit formation</td><td>Healthy curve flattening by D30</td></tr>
+        <tr><td>Daily check-in rate</td><td>Rewards loop engagement</td><td>Rising; healthy % of DAU claiming daily XP</td></tr>
+        <tr><td>Items added / active user</td><td>Catalogue adoption</td><td>Rising; majority of actives catalogue ≥ 1 item</td></tr>
+        <tr><td>% items at Shown or Verified</td><td>Authenticity of the catalogue</td><td>Majority of listable items photo-backed</td></tr>
+        <tr><td>Organic content share</td><td>Seed → UGC transition</td><td>Majority organic by end of Phase 1</td></tr>
+        <tr><td>Active marketplace listings</td><td>Trade liquidity</td><td>Steady growth; fresh daily inventory</td></tr>
+        <tr><td>Completed Deals / week</td><td>Actual trading volume</td><td>Rising week over week</td></tr>
+        <tr><td>ISO posts + "I have this" responses</td><td>ISO board engagement</td><td>New metric — track from launch</td></tr>
+        <tr><td>Communities joined / user</td><td>Niche belonging</td><td>≥ 2 on average</td></tr>
+        <tr><td>Vouches given / user</td><td>Trust network density</td><td>Rising; measure vouch-to-deal ratio</td></tr>
+        <tr><td>Notification → open rate</td><td>Loop effectiveness</td><td>Healthy CTR without opt-out spikes</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §15 -->
+  <span class="section-anchor" id="s15"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">15</span>Risks &amp; Mitigations</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Risk / assumption</th><th>Impact</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr><td>Cold-start: empty feed/communities deter early users.</td><td>High</td><td>Interest-based cold-start feed; admin + dummy seeding; concentrate density in a few communities first; rewards system creates engagement from day one.</td></tr>
+        <tr><td>Marketplace lacks liquidity early.</td><td>High</td><td>Seed listings; focus on categories with active resale; make listing frictionless; saved-search notifications; ISO board surfaces demand clearly.</td></tr>
+        <tr><td>Trust failures / scams damage reputation.</td><td>High</td><td>Transaction-linked + independent vouch system; tiered ownership verification; trust signals on profiles; reporting/blocking; active moderation; escrow in Phase 2.</td></tr>
+        <tr><td>Verification friction deters cataloguing/listing.</td><td>Med</td><td>Catalogue-from-database to keep common path fast; reserve in-app camera for listing step only; verify lazily not up front.</td></tr>
+        <tr><td>XP/rewards gaming or farming.</td><td>Med</td><td>Per-action rate limits; weight quality actions (verified items, completed deals) higher; monitor contribution mix for anomalies.</td></tr>
+        <tr><td>Notification fatigue causes opt-outs.</td><td>Med</td><td>Per-type controls in P1; batching/quiet hours in P2; monitor opt-out rate.</td></tr>
+        <tr><td>Scope creep delays the MVP.</td><td>Med</td><td>Strict Must/Should/Could/Won't prioritisation; defer payments, livestream, grading, QR ticketing to P2.</td></tr>
+        <tr><td>TCG category requires different moderation (card condition grading disputes).</td><td>Low-Med</td><td>Standardised condition ladder (Sealed/Mint/Like new/Good/Fair/For parts) applies to TCG; EN vs JP print and PSA grade shown in listing notes; community rules require specifying print and condition.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §16 -->
+  <span class="section-anchor" id="s16"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">16</span>Roadmap &amp; Next Steps</h2>
+    <h3 class="sub-title">16.1 Workstream Owners</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Owner</th><th>Workstream</th><th>Immediate next steps</th></tr></thead>
+      <tbody>
+        <tr><td>Product / Design</td><td>User flow &amp; design</td><td>Apply all pending component corrections (see §DS Component Status); confirm TCG seeding requirements with SA/AV; finalise end-to-end flows.</td></tr>
+        <tr><td>RC</td><td>Application build</td><td>Build against v1.4 spec; sequence by Must-priority requirements; implement XP earn event instrumentation from day one.</td></tr>
+        <tr><td>SA &amp; AV</td><td>Content &amp; marketing</td><td>Develop seeding plan for TCG India community; expand seed catalogue for TCG SKUs; go-to-market aligned to 5-category launch.</td></tr>
+        <tr><td>Admin / Ops</td><td>Seeding &amp; moderation</td><td>Prepare admin content, communities, dummy-account governance; stand up moderation process; prepare approval queues for Grails and Kaiju communities.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">16.2 Open Questions</h3>
+    <ul>
+      <li>Add missing <code>--verified-teal-deep</code>, <code>--forest-deep</code>, <code>--plum-deep</code> to <code>colors_and_type.css</code>.</li>
+      <li>Apply all 11 pending component corrections in <code>shared.jsx</code>, <code>Cards.jsx</code>, and <code>Chrome.jsx</code>.</li>
+      <li>Decide on Bricolage Grotesque: remove woff2 files entirely, or retain as intentional fallback?</li>
+      <li>Confirm Phase 1 KPI targets (§14) including new ISO and vouch-rate metrics.</li>
+      <li>Confirm TCG seed catalogue SKUs — how many SKUs to seed at launch?</li>
+      <li>Define rate-limit thresholds for XP earn actions to prevent gaming.</li>
+      <li>Define Phase 2 timeline for QR ticketing and in-app payments.</li>
+    </ul>
+  </div>
+
+  <!-- §17 -->
+  <span class="section-anchor" id="s17"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">17</span>Glossary</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td>Master Feed</td><td>The personalised home stream combining interest- and behaviour-ranked posts, admin content, and joined-community posts. Three tabs: For You, Explore, Following.</td></tr>
+        <tr><td>Vouch</td><td>A peer trust endorsement. Can be given without a prior deal based on any of 5 relationship types. Deal-backed vouches carry higher weight. Anyone can request a vouch.</td></tr>
+        <tr><td>Collection Portfolio</td><td>A user's items (owned / wishlist / pre-order) with photos, value, and pre-order timelines.</td></tr>
+        <tr><td>Item</td><td>A catalogue-level collectible record a user owns or wants. Carries the ownership-verification tier.</td></tr>
+        <tr><td>Listing</td><td>A sale/trade offer attached to a collection Item and surfaced in the marketplace.</td></tr>
+        <tr><td>Deal</td><td>A confirmed transaction between two users; the object that unlocks mutual rating and transaction-backed vouch weighting.</td></tr>
+        <tr><td>Ownership tier</td><td>An Item's verification level: Claimed (self-asserted), Shown (in-app live photo), Verified (passed integrity/challenge checks). Listing requires Verified.</td></tr>
+        <tr><td>Post type</td><td>Classification of a post: Showcase, Discussion, Review, Poll, or ISO. Selling is an Item action, not a post type.</td></tr>
+        <tr><td>ISO</td><td>In Search Of — a post type where a collector declares what they are hunting, with optional budget, condition, and city. Appears in both the feed and the ISO Board in Marketplace.</td></tr>
+        <tr><td>Collector XP</td><td>Engagement points earned through platform actions. Accumulates lifetime (never resets) to drive rank tier. Also feeds into weekly/monthly league standings that reset per period.</td></tr>
+        <tr><td>Archetype</td><td>A label derived from a user's XP contribution mix: Showcaser (posts), Connector (social), Archivist (collection), Trader (market). Changes as the mix shifts.</td></tr>
+        <tr><td>Season badge</td><td>A permanent circular medallion earned by finishing in the top 10 of a weekly or monthly XP league. Gold / Silver / Bronze / Finalist tiers.</td></tr>
+        <tr><td>Canvas</td><td>The scrollable screen background token (<code>--canvas #F8FAFC</code>) — distinct from <code>--paper</code>/<code>--card-surface</code> (card surfaces).</td></tr>
+        <tr><td>RSVP</td><td>An event response: Going (committed) or Interested (considering). No tickets or QR in Phase 1.</td></tr>
+        <tr><td>Condition ladder</td><td>The standardised 6-rung condition scale: Sealed/MISB · Mint · Like new · Good · Fair · For parts. Fixed values; free-text notes allowed in addition.</td></tr>
+        <tr><td>Return loop</td><td>The set of recurring reasons (releases, listings, rewards, events, discussions, showcases, notifications) that bring users back daily.</td></tr>
+        <tr><td>Super-user</td><td>A trusted/high-reputation user who may receive elevated privileges (e.g. event approval waiver).</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §18 -->
+  <span class="section-anchor" id="s18"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">18</span>Change Log — v1.4 Summary</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Area</th><th>Change</th><th>File(s) impacted</th></tr></thead>
+      <tbody>
+        <tr class="td-new"><td>Categories</td><td>TCG (Trading Cards) promoted from Phase 2 to Phase 1 — 5th launch category confirmed. TCG India community and seed content added.</td><td>BRD, <code>data.jsx</code></td></tr>
+        <tr class="td-new"><td>Engagement &amp; Rewards</td><td>Full XP system specified: 10 earn actions, 6 rank tiers, 4 archetypes, season badges (weekly/monthly leagues), leaderboard (XP + contribution modes). RewardCard, BadgeShelf, RewardsView, LeaderboardView, BadgesView all implemented.</td><td>BRD, <code>Rewards.jsx</code>, <code>data.jsx</code></td></tr>
+        <tr class="td-new"><td>ISO post type</td><td>New post type: In Search Of. Fields: item, budget, condition, city. WANTED card UI. "I have this" DM CTA. ISO Board tab in Marketplace.</td><td>BRD, <code>Cards.jsx</code>, <code>MarketView.jsx</code>, <code>data.jsx</code></td></tr>
+        <tr class="td-new"><td>Vouch model</td><td>Vouches decoupled from deals. Any user can vouch via 5 relationship types. Request a vouch feature added. VouchList, VouchView, VouchRequestView implemented.</td><td>BRD, <code>ProfileView.jsx</code></td></tr>
+        <tr class="td-new"><td>Threaded comments + @mentions</td><td>Instagram-style comment threading: per-comment likes, reply threads (1 level deep), edit/delete own comments, @mention live picker dropdown.</td><td>BRD, <code>Cards.jsx</code></td></tr>
+        <tr class="td-new"><td>Feed customisation</td><td>Customize Feed popover on "For You" tab: per-category checkboxes, Remove Listing posts toggle. Feed tabs renamed: For You / Explore / Following.</td><td>BRD, <code>FeedView.jsx</code></td></tr>
+        <tr class="td-new"><td>Onboarding</td><td>3-step wizard: Profile setup (name, bio, gender, age slider) → Category selection → Community joining. OTP email verification (6-digit, auto-advance, paste). Guest mode from splash.</td><td>BRD, <code>Onboarding.jsx</code></td></tr>
+        <tr class="td-new"><td>Marketplace</td><td>Full filter/sort panel (category, sort, price range, condition, shipping). ISO Board tab. Saved toggle with badge count. Wishlist bookmark on listing cards.</td><td>BRD, <code>MarketView.jsx</code>, <code>Cards.jsx</code></td></tr>
+        <tr class="td-new"><td>Listing model</td><td>Added fields: <code>shipIncl</code>, <code>returns</code>, <code>acq</code> (inhand/preorder), <code>poDate</code>, <code>poSeller</code>. Standardised condition ladder (6 rungs). Per-listing seller terms array with defaults.</td><td>BRD, <code>data.jsx</code></td></tr>
+        <tr class="td-new"><td>Profile header</td><td>Instagram-style: avatar + Deals/Followers/Vouches stats row, then name/handle/city/presence/bio full-width. Season badge overlaid on avatar. RewardCard in profile body. Request vouch shortcut.</td><td>BRD, <code>ProfileView.jsx</code></td></tr>
+        <tr class="td-new"><td>Events RSVP model</td><td>Confirmed: Going / Interested RSVP only — no tickets, no QR in Phase 1. Multi-day events supported. Past events shown at reduced opacity.</td><td>BRD, <code>data.jsx</code>, <code>EventDetail.jsx</code></td></tr>
+        <tr class="td-new"><td>Block / Report</td><td>Full block (hides profile/listings/messages) and report (6 reason types, 24hr review SLA) flows from profile ··· menu.</td><td>BRD, <code>ProfileView.jsx</code></td></tr>
+        <tr class="td-new"><td>Rose tint &amp; card shadow tokens</td><td><code>--rose-tint-bg/text/border</code>, <code>--card-shadow</code>, <code>--card-shadow-lifted</code>, <code>--bone-deep</code> added to CSS.</td><td><code>colors_and_type.css</code></td></tr>
+        <tr class="td-changed"><td>User data model</td><td>Users now carry: <code>xp</code>, <code>xpWeek</code>, <code>xpMonth</code>, <code>contrib</code> (4-bucket object), <code>seasonBadges</code> array. ME (prototype user) also updated.</td><td><code>data.jsx</code></td></tr>
+        <tr><td>v1.3 component fixes</td><td>All 11 corrections from v1.3 remain pending (AppBar, LocationTag, GlassPill, PostTypeTag, ActionBtn, StackedAvatars, PostCard hover, Screen overscroll, -deep tokens, Button fullWidth, focus rings). Tracked in Component Status table.</td><td>See §DS Component Status</td></tr>
+      </tbody>
+    </table></div>
+    <p style="margin-top:28px;font-size:13px;color:var(--ink-faint)">v1.0–v1.2 change reasoning documented in v1.2 §18. v1.3 design implementation changes documented in v1.3. Neither is reproduced here.</p>
+  </div>
+
+</main>
+</div>
+</body>
+</html>

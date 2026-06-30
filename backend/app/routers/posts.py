@@ -14,6 +14,7 @@ from app.models.item import Item
 from app.models.listing import Listing
 from app.models.community import Community, CommunityMember
 from app.services.notifications import notify
+from app.services.gamification import award_xp
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 comments_router = APIRouter(prefix="/comments", tags=["posts"])
@@ -131,6 +132,12 @@ async def create_post(
     for cid, cstatus in community_status.items():
         db.add(PostCommunity(post_id=post.id, community_id=cid, status=cstatus))
     await db.flush()
+
+    # XP: showcases (+15) and reviews (+15) earn; dedup'd on post id (GM-05).
+    if body.type == "showcase":
+        await award_xp(db, current_user, "showcase", ref_id=str(post.id), ref_type="post")
+    elif body.type == "review":
+        await award_xp(db, current_user, "review", ref_id=str(post.id), ref_type="post")
 
     return {"id": str(post.id), "status": post_status}
 
@@ -281,7 +288,8 @@ async def toggle_like(
         db.add(PostLike(user_id=current_user.id, post_id=post_id))
         post.likes_count += 1
         if post.user_id != current_user.id:
-            notify(
+            await award_xp(db, current_user, "like", ref_id=str(post.id), ref_type="post")
+            await notify(
                 db,
                 user_id=post.user_id,
                 actor_id=current_user.id,
@@ -338,7 +346,7 @@ async def add_comment(
     post.comments_count += 1
     if post.user_id != current_user.id:
         snippet = body.body if len(body.body) <= 80 else body.body[:80] + "…"
-        notify(
+        await notify(
             db,
             user_id=post.user_id,
             actor_id=current_user.id,
@@ -349,6 +357,9 @@ async def add_comment(
             ref_id=str(post.id),
         )
     await db.flush()
+    # XP: +5 per comment, dedup'd on comment id; not for self-comments (GM-05).
+    if post.user_id != current_user.id:
+        await award_xp(db, current_user, "comment", ref_id=str(comment.id), ref_type="comment")
     return {
         "id": str(comment.id),
         "user_id": str(comment.user_id),

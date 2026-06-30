@@ -92,7 +92,7 @@ async def confirm_deal(
             lst.closed_at = datetime.now(timezone.utc)
 
     # Let the seller know their buyer confirmed
-    notify(
+    await notify(
         db,
         user_id=deal.seller_id,
         actor_id=current_user.id,
@@ -158,7 +158,7 @@ async def rate_deal(
         target.rating_count = count or 0
         target.rating = round(float(avg), 2) if avg is not None else 0
 
-    notify(
+    await notify(
         db,
         user_id=target_id,
         actor_id=current_user.id,

@@ -1,23 +1,27 @@
 @import "tailwindcss";
 
-/* ── CollectorHub design tokens ───────────────────────────────── */
+/* ── CollectorHub design tokens (v3 "New frontend" — RED / Xiaohongshu) ──────
+   Source of truth: design_v3/colors_and_type.css (claude_design 90a2c099…).
+   Token NAMES are reused across the app, so re-valuing them re-themes every
+   page at once (DF-28). The next/font wiring in layout.tsx is preserved — the
+   --font-* var() refs below bind to it. */
 :root {
-  /* Palette */
-  --paper:             #F4EFE6;
-  --paper-soft:        #FAF6EE;
-  --bone:              #E8E1D2;
-  --bone-deep:         #D6CDB9;
-  --ink:               #14110F;
-  --ink-soft:          #2A2521;
-  --ink-mute:          #5C5650;
-  --ink-faint:         #8B847B;
-  --ink-ghost:         #B8AFA3;
+  /* Palette: Paper & Ink (clean white + neutral greys) */
+  --paper:             #FFFFFF;
+  --paper-soft:        #FFFFFF;
+  --bone:              #F5F5F5;
+  --bone-deep:         #EBEBEB;
+  --ink:               #1A1A1A;
+  --ink-soft:          #333333;
+  --ink-mute:          #666666;
+  --ink-faint:         #999999;
+  --ink-ghost:         #C4C4C4;
   --white:             #FFFFFF;
 
-  /* Brand */
-  --stamp-red:         #D93324;
-  --stamp-red-deep:    #B12618;
-  --stamp-red-soft:    #F5D9D5;
+  /* Brand accents */
+  --stamp-red:         #FF2442;
+  --stamp-red-deep:    #E01F3A;
+  --stamp-red-soft:    #FFE4E8;
   --grail-gold:        #E8A33D;
   --grail-gold-deep:   #C48420;
   --grail-gold-soft:   #F8E6C4;
@@ -28,6 +32,18 @@
   --plum:              #6B3656;
   --plum-soft:         #E4D2DE;
 
+  /* Slate (cool neutral scale) — NEW in v3 */
+  --slate-50:  #F8FAFC; --slate-100: #F1F5F9; --slate-200: #E2E8F0;
+  --slate-300: #CBD5E1; --slate-400: #94A3B8; --slate-500: #64748B;
+  --slate-600: #475569; --slate-700: #334155; --slate-800: #1E293B;
+  --slate-900: #0F172A;
+
+  /* Trendy accent tints — NEW in v3 */
+  --emerald: #10B981; --emerald-soft: rgba(16, 185, 129, 0.12);
+  --amber:   #F59E0B; --amber-soft:   rgba(245, 158, 11, 0.13);
+  --sky:     #0EA5E9; --sky-soft:     rgba(14, 165, 233, 0.12);
+  --violet:  #8B5CF6; --violet-soft:  rgba(139, 92, 246, 0.12);
+
   /* Semantic */
   --bg:                var(--paper);
   --surface:           var(--paper-soft);
@@ -35,12 +51,21 @@
   --fg:                var(--ink);
   --fg-secondary:      var(--ink-mute);
   --fg-tertiary:       var(--ink-faint);
-  --border:            rgba(20, 17, 15, 0.10);
-  --border-strong:     rgba(20, 17, 15, 0.18);
+  --fg-on-brand:       var(--paper);
+  --border:            rgba(0, 0, 0, 0.08);
+  --border-strong:     rgba(0, 0, 0, 0.14);
+  --border-faint:      rgba(0, 0, 0, 0.04);
   --brand:             var(--stamp-red);
+  --brand-fg:          var(--paper);
+  --success:           var(--forest);
+  --warning:           var(--grail-gold);
+  --danger:            var(--stamp-red);
+  --info:              var(--verified-teal);
 
-  /* Type — bound to the next/font variables wired in layout.tsx */
-  --font-display: var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif;
+  /* Type — bound to the next/font variables wired in layout.tsx.
+     v4: Geist is the sole loaded display+body font (colors_and_type.css:625);
+     "Bricolage Grotesque" kept only as a string fallback to match v4's chain — no longer loaded. */
+  --font-display: var(--font-geist-sans), "Geist", "Bricolage Grotesque", system-ui, sans-serif;
   --font-body:    var(--font-geist-sans), "Geist", system-ui, sans-serif;
   --font-mono:    var(--font-jetbrains), "JetBrains Mono", ui-monospace, monospace;
 
@@ -49,19 +74,55 @@
   --t-title: 22px; --t-headline: 18px; --t-body-lg: 17px; --t-body: 15px;
   --t-caption: 13px; --t-micro: 11px;
 
-  /* Radii */
-  --r-xs: 4px; --r-sm: 8px; --r-md: 12px;
-  --r-lg: 18px; --r-xl: 28px; --r-pill: 999px;
+  /* Spacing (4pt grid) */
+  --s-0: 0; --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px;
+  --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-12: 48px; --s-16: 64px;
 
-  /* Shadows */
-  --shadow-1: 0 1px 2px rgba(20,17,15,.06), 0 1px 1px rgba(20,17,15,.04);
-  --shadow-2: 0 2px 6px rgba(20,17,15,.08), 0 1px 2px rgba(20,17,15,.04);
-  --shadow-3: 0 8px 24px rgba(20,17,15,.10), 0 2px 6px rgba(20,17,15,.06);
-  --shadow-4: 0 20px 48px rgba(20,17,15,.16), 0 4px 12px rgba(20,17,15,.08);
+  /* Radii (md 12→14, lg 18→20, xl 28→32 vs old) */
+  --r-xs: 4px; --r-sm: 8px; --r-md: 14px;
+  --r-lg: 20px; --r-xl: 32px; --r-pill: 999px;
+
+  /* Shadows (neutral rgba(0,0,0), soft — RED-style flat cards) */
+  --shadow-1: 0 1px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-2: 0 4px 16px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
+  --shadow-3: 0 10px 32px rgba(0,0,0,0.09), 0 3px 8px rgba(0,0,0,0.05);
+  --shadow-4: 0 28px 60px rgba(0,0,0,0.10), 0 8px 20px rgba(0,0,0,0.06);
+  --shadow-inset: inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 0 rgba(0,0,0,0.03);
   --shadow-stamp: 2px 2px 0 var(--ink);
+
+  /* Shadcn-calibrated shadows (Tailwind shadow-sm → shadow-2xl) */
+  --shadow-sm:  0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md:  0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.04);
+  --shadow-lg:  0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.04);
+  --shadow-xl:  0 20px 25px -5px rgba(0,0,0,0.09), 0 8px 10px -6px rgba(0,0,0,0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(0,0,0,0.20);
+
+  /* Canvas & depth tokens (Lemon8 / RED lifestyle feel) — NEW in v3 */
+  --canvas:             #F8FAFC;
+  --card-surface:       #FFFFFF;
+  --card-shadow:        0 2px 16px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
+  --card-shadow-lifted: 0 8px 32px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04);
+
+  /* Rose tint strategy for badges & hashtag chips — NEW in v3 */
+  --rose-tint-bg:       rgba(255, 36, 66, 0.07);
+  --rose-tint-text:     #CC1133;
+  --rose-tint-border:   rgba(255, 36, 66, 0.14);
+
+  /* Shadcn-style semantic aliases */
+  --card: var(--paper); --card-foreground: var(--ink);
+  --popover: var(--paper); --popover-foreground: var(--ink);
+  --primary: var(--stamp-red); --primary-foreground: var(--paper);
+  --secondary: var(--bone); --secondary-foreground: var(--ink-soft);
+  --muted: var(--bone); --muted-foreground: var(--ink-faint);
+  --accent: var(--bone-deep); --accent-foreground: var(--ink);
+  --destructive: var(--stamp-red); --destructive-foreground: var(--paper);
+  --input-border: var(--border-strong);
+  --ring: rgba(255, 36, 66, 0.30);
+  --radius: 0.875rem; /* 14px — maps to --r-md */
 
   /* Motion */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --t-fast: 120ms; --t-base: 200ms; --t-slow: 320ms;
 }
 
@@ -70,6 +131,7 @@
   --color-background: var(--bg);
   --color-foreground: var(--fg);
   --color-paper:      var(--paper);
+  --color-canvas:     var(--canvas);
   --color-bone:       var(--bone);
   --color-ink:        var(--ink);
   --color-brand:      var(--stamp-red);
@@ -78,6 +140,16 @@
   --color-forest:     var(--forest);
   --color-plum:       var(--plum);
   --color-border:     var(--border);
+  --color-slate-50:   var(--slate-50);
+  --color-slate-100:  var(--slate-100);
+  --color-slate-200:  var(--slate-200);
+  --color-slate-300:  var(--slate-300);
+  --color-slate-400:  var(--slate-400);
+  --color-slate-500:  var(--slate-500);
+  --color-slate-600:  var(--slate-600);
+  --color-slate-700:  var(--slate-700);
+  --color-slate-800:  var(--slate-800);
+  --color-slate-900:  var(--slate-900);
   --font-display:     var(--font-display);
   --font-body:        var(--font-body);
   --font-mono:        var(--font-mono);
@@ -88,15 +160,16 @@ html, body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: var(--t-body);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5 {
+h1, h2, h3, h4, h5, .display {
   font-family: var(--font-display);
   font-weight: 700;
+  color: var(--ink);
   letter-spacing: -0.02em;
   line-height: 1.05;
   margin: 0;
@@ -104,6 +177,12 @@ h1, h2, h3, h4, h5 {
 
 * { box-sizing: border-box; }
 button { cursor: pointer; }
+
+/* Layout utilities used across v3 screens */
+.ch-row   { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+.ch-grow  { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-fixed { flex-shrink: 0; }
+.ch-col   { display: flex; flex-direction: column; min-width: 0; }
 
 /* Thin scrollbars */
 ::-webkit-scrollbar { width: 6px; height: 6px; }

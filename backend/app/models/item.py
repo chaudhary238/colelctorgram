@@ -31,12 +31,25 @@ class Item(Base):
 
     status: Mapped[str] = mapped_column(String(16), default="owned", nullable=False)  # owned | wishlist | preorder
     verify_tier: Mapped[str] = mapped_column(String(16), default="claimed", nullable=False)  # claimed | shown | verified
-    value: Mapped[int] = mapped_column(Integer, default=0)  # paise
+    value: Mapped[int] = mapped_column(Integer, default=0)  # estimated value, in minor units of value_currency
+    value_currency: Mapped[str] = mapped_column(String(3), default="INR", nullable=False)  # DV4-05
     is_listed: Mapped[bool] = mapped_column(Boolean, default=False)
     photo_count: Mapped[int] = mapped_column(Integer, default=0)
 
+    # DV4-01: TCG-specific spec (Trading Cards promoted to Phase-1 in BRD v1.4).
+    tcg_language: Mapped[str | None] = mapped_column(String(8), nullable=True)        # EN | JP | KR | TW | Other
+    tcg_product_type: Mapped[str | None] = mapped_column(Text, nullable=True)         # Single Card | Booster Box | …
+    tcg_graded: Mapped[bool] = mapped_column(Boolean, default=False)
+    tcg_grader: Mapped[str | None] = mapped_column(String(8), nullable=True)          # PSA | BGS | CGC
+    tcg_grade: Mapped[str | None] = mapped_column(String(8), nullable=True)           # e.g. "9", "10", "9.5"
+
     preorder_ordered_at: Mapped[date | None] = mapped_column(Date, nullable=True)
-    preorder_eta: Mapped[str | None] = mapped_column(Text, nullable=True)
+    preorder_eta: Mapped[str | None] = mapped_column(Text, nullable=True)             # human window e.g. "Mar 2026", "Q2 2026", "Date to be announced"
+    # DV4-03: pre-order financial + calendar layer.
+    preorder_window_precision: Mapped[str | None] = mapped_column(String(8), nullable=True)  # date | month | quarter | year | tbd
+    preorder_seller: Mapped[str | None] = mapped_column(Text, nullable=True)          # ordered-from store / seller
+    preorder_total: Mapped[int | None] = mapped_column(Integer, nullable=True)        # paise
+    preorder_deposit: Mapped[int | None] = mapped_column(Integer, nullable=True)      # paise (balance = total - deposit)
     wishlist_alert_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
 
     privacy: Mapped[str] = mapped_column(String(16), default="public")

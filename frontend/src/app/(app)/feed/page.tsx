@@ -9,13 +9,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Globe, Home, UserPlus, Check } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser, AuthUser } from "@/lib/auth-context";
-import { PostCard, AdminCard, ListingFeedCard, FeedEventCard, ApiPost, ApiListing, ApiEvent } from "@/components/cards";
+import { PostCard, ListingFeedCard, FeedEventCard, ApiPost, ApiListing, ApiEvent } from "@/components/cards";
 import { RightRail } from "@/components/RightRail";
 import { cn } from "@/lib/utils";
 
 type StreamItem =
   | { t: "post"; key: string; data: ApiPost }
-  | { t: "admin"; key: string; data: ApiPost }
   | { t: "listing"; key: string; data: ApiListing }
   | { t: "event"; key: string; data: ApiEvent };
 
@@ -27,11 +26,13 @@ const TABS = [
 
 type Tab = (typeof TABS)[number]["id"];
 
+// v4 order (CATEGORIES in data.jsx): figures → diecast → kits → designer → tcg.
 const CATEGORIES = [
   { id: "figures", label: "Action Figures" },
-  { id: "designer", label: "Designer Toys & Blind Boxes" },
+  { id: "diecast", label: "Diecast" },
   { id: "kits", label: "Model Kits & Lego" },
-  { id: "diecast", label: "Diecast & Scale Models" },
+  { id: "designer", label: "Designer Toys & Blind Boxes" },
+  { id: "tcg", label: "Trading Cards (TCG)" },
 ];
 
 const FALLBACK_TAGS = ["#NewDrops", "#Grails", "#Sealed", "#Restock", "#Meetups"];
@@ -48,17 +49,32 @@ function buildFeedQuery(tab: Tab, tag: string, page: number): string {
 
 function FeedSkeleton() {
   return (
-    <div style={{ borderBottom: "8px solid var(--bone)", padding: "16px" }}>
+    <div style={{ background: "var(--card-surface)", borderRadius: 20, margin: "0 14px 12px", padding: 18, boxShadow: "var(--card-shadow)" }}>
       <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-        <div style={{ width: 38, height: 38, borderRadius: "50%", background: "var(--bone)" }} />
+        <div style={{ width: 38, height: 38, borderRadius: "50%", background: "var(--slate-100)" }} />
         <div style={{ flex: 1 }}>
-          <div style={{ width: "40%", height: 12, borderRadius: 6, background: "var(--bone)", marginBottom: 6 }} />
-          <div style={{ width: "60%", height: 10, borderRadius: 6, background: "var(--bone)" }} />
+          <div style={{ width: "40%", height: 12, borderRadius: 6, background: "var(--slate-100)", marginBottom: 6 }} />
+          <div style={{ width: "60%", height: 10, borderRadius: 6, background: "var(--slate-100)" }} />
         </div>
       </div>
-      <div style={{ height: 14, borderRadius: 6, background: "var(--bone)", marginBottom: 6 }} />
-      <div style={{ height: 14, borderRadius: 6, background: "var(--bone)", width: "80%" }} />
+      <div style={{ height: 14, borderRadius: 6, background: "var(--slate-100)", marginBottom: 6 }} />
+      <div style={{ height: 14, borderRadius: 6, background: "var(--slate-100)", width: "80%" }} />
     </div>
+  );
+}
+
+function CheckSquare({ on }: { on: boolean }) {
+  return (
+    <span
+      className={cn(
+        "w-6 h-6 rounded-[7px] shrink-0 flex items-center justify-center border-[1.5px] transition-colors",
+        on
+          ? "bg-[var(--stamp-red)] border-[var(--stamp-red)] text-[var(--paper)]"
+          : "border-[var(--border-strong)]"
+      )}
+    >
+      {on && <Check size={15} strokeWidth={3} />}
+    </span>
   );
 }
 
@@ -103,26 +119,11 @@ function CustomizePopover({
     }
   }
 
-  function CheckSquare({ on }: { on: boolean }) {
-    return (
-      <span
-        className={cn(
-          "w-[22px] h-[22px] rounded-md shrink-0 flex items-center justify-center border-[1.5px] transition-colors",
-          on
-            ? "bg-[var(--ink)] border-[var(--ink)] text-[var(--paper)]"
-            : "border-[var(--border-strong)]"
-        )}
-      >
-        {on && <Check size={14} strokeWidth={3} />}
-      </span>
-    );
-  }
-
   return (
     <>
       <div className="fixed inset-0 z-30" onClick={onClose} />
       <div
-        className="absolute left-0 z-40 w-[min(320px,100%)] rounded-[17px] border border-[var(--border)] bg-[var(--paper-soft)] shadow-[var(--shadow-4)] p-4"
+        className="absolute left-0 z-40 w-[min(320px,100%)] rounded-[20px] border border-[var(--slate-200)] bg-[var(--paper)] shadow-[var(--shadow-4)] p-[18px]"
         style={{ top: "calc(100% + 8px)" }}
       >
         <div
@@ -142,45 +143,39 @@ function CustomizePopover({
               <button
                 key={c.id}
                 onClick={() => toggleCat(c.id)}
-                className="flex items-center gap-3 w-full text-left rounded-lg px-1 py-[9px] cursor-pointer hover:bg-[var(--bone)] transition-colors"
+                className="flex items-center gap-3 w-full text-left rounded-lg px-1 py-[9px] cursor-pointer hover:bg-[var(--slate-50)] transition-colors"
               >
                 <CheckSquare on={on} />
-                <span className="text-sm font-medium text-[var(--ink)]">{c.label}</span>
+                <span className="text-[15px] font-medium text-[var(--ink)]">{c.label}</span>
               </button>
             );
           })}
         </div>
 
-        <button
-          onClick={() =>
-            setDraftCats(allOn ? [] : CATEGORIES.map((c) => c.id))
-          }
-          className="text-[12.5px] font-semibold text-[var(--stamp-red)] mt-1.5 px-1 cursor-pointer bg-transparent border-none"
-        >
-          {allOn ? "Clear all" : "Select all"}
-        </button>
-
-        <div className="border-t border-[var(--border)] my-3" />
+        <div className="h-px bg-[var(--border)] mx-1 mt-2.5 mb-1" />
 
         <button
           onClick={() => setDraftHide((h) => !h)}
-          className="flex items-center gap-3 w-full text-left rounded-lg px-1 py-[9px] cursor-pointer hover:bg-[var(--bone)] transition-colors"
+          className="flex items-center gap-3 w-full text-left rounded-lg px-1 py-[9px] cursor-pointer hover:bg-[var(--slate-50)] transition-colors"
         >
           <CheckSquare on={draftHide} />
-          <span className="text-sm font-medium text-[var(--ink)]">Remove Listing posts</span>
+          <span className="flex flex-col gap-px">
+            <span className="text-[15px] font-medium text-[var(--ink)]">Remove Listing posts</span>
+            <span className="text-[11.5px] text-[var(--ink-faint)]">Hide marketplace listings from your feed</span>
+          </span>
         </button>
 
-        <div className="flex gap-2 mt-3.5">
+        <div className="flex gap-2.5 mt-3.5">
           <button
-            onClick={onClose}
-            className="flex-1 py-2.5 rounded-[11px] border border-[var(--border-strong)] bg-transparent text-sm font-semibold text-[var(--ink)] cursor-pointer"
+            onClick={() => setDraftCats(allOn ? [] : CATEGORIES.map((c) => c.id))}
+            className="flex-1 py-[11px] rounded-[11px] border border-[var(--border-strong)] bg-[var(--paper)] text-sm font-semibold text-[var(--ink)] cursor-pointer"
           >
-            Cancel
+            {allOn ? "Clear all" : "Select all"}
           </button>
           <button
             onClick={save}
             disabled={saving}
-            className="flex-1 py-2.5 rounded-[11px] bg-[var(--stamp-red)] text-white text-sm font-semibold hover:bg-[var(--stamp-red-deep)] transition-colors disabled:opacity-60 cursor-pointer"
+            className="flex-[1.4] py-[11px] rounded-[11px] bg-[var(--stamp-red)] text-white text-sm font-bold hover:bg-[var(--stamp-red-deep)] transition-colors disabled:opacity-60 cursor-pointer"
           >
             {saving ? "Saving…" : "Save"}
           </button>
@@ -305,9 +300,9 @@ export default function FeedPage() {
     const showEvents = showExtras && tab !== "following";
     for (let i = 0; i < posts.length; i++) {
       const p = posts[i];
-      base.push(p.is_admin_post
-        ? { t: "admin", key: `a-${p.id}`, data: p }
-        : { t: "post", key: `p-${p.id}`, data: p });
+      // CollectorHub/official posts render as normal posts (same as any user) —
+      // the AdminCard "release" format is no longer used in the feed.
+      base.push({ t: "post", key: `p-${p.id}`, data: p });
       if (showListings && (i + 1) % 3 === 0 && li < listings.length) {
         base.push({ t: "listing", key: `l-${listings[li].id}`, data: listings[li] });
         li++;
@@ -322,11 +317,11 @@ export default function FeedPage() {
 
   return (
     <div className="flex justify-start gap-8">
-      <div className="w-full max-w-[600px] min-h-screen border-r border-[var(--border)]">
-        <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 16px" }}>
+      <div className="w-full max-w-[600px] min-h-screen border-r border-[var(--slate-200)] bg-[var(--canvas)]">
+        <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]" style={{ padding: "12px 16px" }}>
           {/* feed tabs: For You (customisable) · Explore · Following (DF-07) */}
           <div className="relative">
-            <div className="flex gap-1 bg-[var(--bone)] rounded-[13px] p-1">
+            <div className="flex gap-1 bg-[var(--slate-100)] rounded-[14px] p-1">
               {TABS.map((t) => {
                 const on = tab === t.id;
                 const Icon = t.icon;
@@ -340,8 +335,8 @@ export default function FeedPage() {
                     className={cn(
                       "flex-1 flex items-center justify-center gap-1.5 rounded-[10px] py-2 px-1.5 text-[13.5px] whitespace-nowrap cursor-pointer border-none transition-all duration-150",
                       on
-                        ? "bg-[var(--paper)] text-[var(--ink)] font-bold shadow-[var(--shadow-1)]"
-                        : "bg-transparent text-[var(--ink-faint)] font-medium"
+                        ? "bg-[var(--paper)] text-[var(--ink)] font-bold shadow-[var(--shadow-2)]"
+                        : "bg-transparent text-[var(--slate-500)] font-medium"
                     )}
                   >
                     <Icon size={16} strokeWidth={on ? 2.3 : 1.9} />
@@ -385,12 +380,14 @@ export default function FeedPage() {
                   key={t}
                   onClick={() => setTag(t)}
                   className={cn(
-                    "shrink-0 rounded-full px-3.5 py-[7px] text-[13px] leading-none whitespace-nowrap cursor-pointer border transition-colors",
+                    "shrink-0 rounded-full px-4 py-2 text-[13px] leading-none whitespace-nowrap cursor-pointer border transition-colors",
                     on
                       ? isAll
-                        ? "bg-[var(--stamp-red)] border-[var(--stamp-red)] text-white font-semibold"
-                        : "bg-[var(--ink)] border-[var(--ink)] text-[var(--paper)] font-semibold"
-                      : "bg-[var(--paper-soft)] border-[var(--border-strong)] text-[var(--ink)] font-medium"
+                        ? "bg-[var(--stamp-red)] border-[var(--stamp-red)] text-white font-bold"
+                        : "bg-[var(--slate-800)] border-[var(--slate-800)] text-[var(--paper)] font-bold"
+                      : isAll
+                        ? "bg-[var(--card-surface)] border-[var(--slate-200)] text-[var(--slate-500)] font-medium"
+                        : "bg-[var(--rose-tint-bg)] border-[var(--rose-tint-border)] text-[var(--rose-tint-text)] font-medium"
                   )}
                 >
                   {t}
@@ -400,23 +397,33 @@ export default function FeedPage() {
           </div>
         </div>
 
+        <div style={{ paddingTop: 8 }}>
         {loading
           ? Array.from({ length: 5 }).map((_, i) => <FeedSkeleton key={i} />)
           : stream.length === 0
-            ? <div style={{ padding: "48px 20px", textAlign: "center", color: "var(--ink-faint)" }}>
-                {tag !== "All"
-                  ? `No posts under ${tag} yet.`
-                  : tab === "following"
-                    ? "Posts from people you follow will show here."
-                    : "Nothing to show here."}
+            ? <div style={{ padding: "52px 24px", textAlign: "center" }}>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--ink)" }}>
+                  {tag !== "All"
+                    ? `No posts under ${tag}`
+                    : tab === "following"
+                      ? "Nothing from your follows yet"
+                      : "Nothing to show here"}
+                </div>
+                <div style={{ fontSize: 13.5, color: "var(--ink-faint)", marginTop: 5 }}>
+                  {tag !== "All"
+                    ? "Try another hashtag or tap All."
+                    : tab === "following"
+                      ? "Posts from people you follow will show here."
+                      : "Check back soon."}
+                </div>
               </div>
             : stream.map((x) => {
                 if (x.t === "post") return <PostCard key={x.key} post={x.data} showFollow />;
-                if (x.t === "admin") return <AdminCard key={x.key} post={x.data} />;
                 if (x.t === "listing") return <ListingFeedCard key={x.key} listing={x.data} />;
                 if (x.t === "event") return <FeedEventCard key={x.key} event={x.data} />;
                 return null;
               })}
+        </div>
 
         {/* Infinite-scroll sentinel + loading state */}
         {!loading && hasMore && (
@@ -426,7 +433,7 @@ export default function FeedPage() {
         )}
 
         {!loading && !hasMore && stream.length > 0 && (
-          <div style={{ padding: "24px 16px 32px", textAlign: "center", color: "var(--ink-ghost)", fontSize: 12.5 }}>
+          <div style={{ padding: "24px 16px 40px", textAlign: "center", color: "var(--slate-400)", fontSize: 12, letterSpacing: "0.02em" }}>
             You&rsquo;re all caught up
             {user?.interests?.length ? ` · tuned to ${user.interests.length} interest${user.interests.length === 1 ? "" : "s"}` : ""}
           </div>
