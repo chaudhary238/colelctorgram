@@ -8,3 +8,8 @@ node_modules/
 *.prod.env
 dist/
 build/
+
+# Seed scripts — carry demo/seed data + are run with env-provided DB creds.
+# Kept off the public repo (not needed by the deploy image; run locally).
+backend/seed_dev_data.py
+backend/seed_social_graph.py
