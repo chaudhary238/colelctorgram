@@ -14,7 +14,7 @@ from app.models.item import Item
 from app.models.listing import Listing
 from app.models.community import Community, CommunityMember
 from app.services.notifications import notify
-from app.services.gamification import award_xp
+from app.services.gamification import award_xp, feed_badge
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 comments_router = APIRouter(prefix="/comments", tags=["posts"])
@@ -214,6 +214,8 @@ async def get_post(
         "name": author.name if author else None,
         "avatar_url": author.avatar_url if author else None,
         "tier": author.tier if author else "verified",
+        # Rewards badge (v3 §3): First Start badge if any, else the rank badge.
+        "badge": feed_badge(author) if author else None,
         "type": post.type,
         "title": post.title,
         "body": post.body,

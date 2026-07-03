@@ -44,10 +44,14 @@ class User(Base):
 
     tier: Mapped[str] = mapped_column(String(32), default="verified")
 
-    # Gamification (BRD v1.4 §8.12). Lifetime Collector XP — monotonic, never
-    # deducted. Denormalized cache of SUM(xp_events.points); incremented in the
-    # same txn as each award. Rank is derived from this (services/gamification).
+    # Gamification (Rewards & Badge System v3). Lifetime Collector XP — monotonic,
+    # never deducted. Denormalized cache of SUM(xp_events.points); incremented in
+    # the same txn as each award. Rank is derived from this (services/gamification).
     xp: Mapped[int] = mapped_column(Integer, default=0, nullable=False, server_default="0")
+    # First Start badge (v3 §6.1) — permanent, manually team-assigned. One of
+    # 'founding' | 'early_believer' | 'pioneer', or NULL. Drives the feed badge
+    # priority, the profile badge shelf, and the gold avatar frame (§2.2).
+    first_start_badge: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     # Trust signals
     deals_count: Mapped[int] = mapped_column(Integer, default=0)

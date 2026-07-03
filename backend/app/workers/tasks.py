@@ -204,14 +204,15 @@ async def send_event_reminders():
 
 
 async def award_season_badges():
-    """GM-11/12: at each cycle end, award permanent season badges + bonus XP to the
-    top-10 finishers of the completed weekly and monthly XP boards.
+    """v3 §6.2: at each cycle end, award permanent leaderboard badges + bonus XP to
+    the top-10 finishers of the completed weekly league. The monthly board and the
+    contribution boards were removed in v3 — the weekly league is the only
+    badge-minting cycle.
 
     Self-healing: computes the most-recently-completed week ([prev Monday, this
-    Monday)) and month ([1st prev month, 1st this month)) windows and awards each.
-    ``cycle_already_awarded`` guards re-runs, so a missed tick just lands on the
-    next hourly pass and a restart never double-awards. Each award also drops an
-    in-app notification for the recipient."""
+    Monday)) window and awards it. ``cycle_already_awarded`` guards re-runs, so a
+    missed tick just lands on the next hourly pass and a restart never
+    double-awards. Each award also drops an in-app notification for the recipient."""
     from datetime import timedelta
     from app.database import AsyncSessionLocal
     from app.services import gamification as gam
@@ -223,17 +224,8 @@ async def award_season_badges():
             db, kind="weekly", since=prev_week, until=this_week,
             period=gam.iso_week_period(prev_week),
         )
-
-        this_month = gam.month_start()
-        prev_month = (this_month - timedelta(days=1)).replace(
-            day=1, hour=0, minute=0, second=0, microsecond=0
-        )
-        n_month = await gam.award_cycle_badges(
-            db, kind="monthly", since=prev_month, until=this_month,
-            period=gam.month_period(prev_month),
-        )
         await db.commit()
-    logger.info("award_season_badges: done (weekly=%d, monthly=%d)", n_week, n_month)
+    logger.info("award_season_badges: done (weekly=%d)", n_week)
 
 
 async def _run_periodic(coro_factory, interval_seconds: int, name: str):

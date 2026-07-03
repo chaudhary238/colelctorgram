@@ -1,6 +1,6 @@
 "use client";
 
-/* Rewards screen (BRD v1.4 §9.17) — hero, daily check-in, contribution mix,
+/* Rewards screen (Rewards & Badge System v3, §9.17) — hero, daily check-in,
  * ways to earn, rank ladder. Reached from the profile rank card's "Earn points". */
 
 import { useEffect, useState } from "react";
@@ -9,27 +9,16 @@ import { ChevronLeft, Check, Flame, Gift, Copy } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button, SectionLabel } from "@/components/ui";
 import {
-  TierBadge, ArchetypeChip, EarnRow, TIER_VIS, ARCHE_VIS,
+  TierBadge, EarnRow, TIER_VIS, REWARD_TIERS,
   type RewardsSummary, Trophy, Zap,
 } from "@/components/gamification";
 
-// `live` mirrors REWARD_TIERS in services/gamification.py — perks not yet enforced
-// (early drop alerts, priority verification) read as "Soon" instead of faking it.
-const REWARD_TIERS = [
-  { id: "rookie", name: "Rookie", at: 0, perk: "Welcome to the shelf", live: true },
-  { id: "fan", name: "Fan", at: 250, perk: "Profile flair unlocked", live: true },
-  { id: "collector", name: "Collector", at: 750, perk: "Early drop alerts", live: false },
-  { id: "pro", name: "Pro", at: 1800, perk: "Showcases get featured", live: true },
-  { id: "expert", name: "Expert", at: 4000, perk: "Priority verification", live: false },
-  { id: "legend", name: "Legend", at: 8000, perk: "Legend badge + spotlight", live: true },
-];
 const fmt = (n: number) => n.toLocaleString("en-IN");
 
 // §9.17 P2 — earn-action deep links. `refer` is handled separately (copies the
 // invite link); actions with no natural surface (e.g. vouch is post-deal) omitted.
 const EARN_LINK: Record<string, string> = {
   profile: "/settings",
-  item: "/search",
   showcase: "/compose",
   review: "/compose",
   rsvp: "/events",
@@ -105,7 +94,6 @@ export default function RewardsPage() {
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-faint)", letterSpacing: "0.04em", marginTop: 3 }}>
                     {fmt(d.xp)} XP · RANK {index + 1} OF {total}
                   </div>
-                  <div style={{ marginTop: 11 }}><ArchetypeChip archetype={d.archetype} /></div>
                   <div style={{ width: "100%", marginTop: 16 }}>
                     <div style={{ height: 10, borderRadius: 999, background: "var(--bone)", overflow: "hidden" }}>
                       <div style={{ height: "100%", width: pct + "%", background: tcolor, borderRadius: 999, transition: "width 360ms var(--ease-out)" }} />
@@ -113,7 +101,7 @@ export default function RewardsPage() {
                     <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 9, lineHeight: 1.5 }}>
                       {next
                         ? <><b style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}>{fmt(need)} XP</b> to unlock <b style={{ color: tcolor }}>{next.name}</b></>
-                        : "You’ve reached the top rank — Legend."}
+                        : "You’ve reached the top rank — Icon."}
                     </div>
                   </div>
                 </div>
@@ -157,37 +145,6 @@ export default function RewardsPage() {
                   </button>
                 </div>
 
-                {/* contribution mix */}
-                <div style={{ marginTop: 22 }}><SectionLabel>Your contribution mix</SectionLabel></div>
-                <div style={{ marginTop: 11, padding: "15px 15px 13px", borderRadius: 14, border: "1px solid var(--border)", background: "var(--paper-soft)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 14 }}>
-                    {(() => { const a = ARCHE_VIS[d.archetype.id] ?? ARCHE_VIS.social; const AIcon = a.Icon; return (
-                      <>
-                        <span style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: a.color, color: "var(--paper)" }}>
-                          <AIcon size={17} strokeWidth={2.1} />
-                        </span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>You’re a <span style={{ color: a.color }}>{d.archetype.name}</span></div>
-                          <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 1 }}>{a.blurb}</div>
-                        </div>
-                      </>
-                    ); })()}
-                  </div>
-                  <div style={{ display: "flex", height: 9, borderRadius: 999, overflow: "hidden", background: "var(--bone)" }}>
-                    {d.contrib_mix.map((m) => m.pct > 0 && <span key={m.dimension} style={{ width: m.pct + "%", background: (ARCHE_VIS[m.dimension] ?? ARCHE_VIS.social).color }} />)}
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 13 }}>
-                    {d.contrib_mix.map((m) => (
-                      <div key={m.dimension} style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                        <span style={{ width: 9, height: 9, borderRadius: 3, flexShrink: 0, background: (ARCHE_VIS[m.dimension] ?? ARCHE_VIS.social).color }} />
-                        <span style={{ fontSize: 13, color: "var(--ink-soft)", flex: 1 }}>{m.label}</span>
-                        <span style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{m.archetype}</span>
-                        <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12.5, color: "var(--ink)", width: 38, textAlign: "right" }}>{m.pct}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
                 {/* ways to earn */}
                 <div style={{ marginTop: 24 }}><SectionLabel>Ways to earn</SectionLabel></div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 11 }}>
@@ -220,10 +177,6 @@ export default function RewardsPage() {
                           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                             <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15 }}>{t.name}</span>
                             {current && <span style={{ fontWeight: 700, fontSize: 9.5, letterSpacing: "0.08em", color: tc, border: `1px solid ${tc}`, borderRadius: 999, padding: "2px 7px", textTransform: "uppercase" }}>You</span>}
-                          </div>
-                          <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
-                            <span>{t.perk}</span>
-                            {!t.live && <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.05em", color: "var(--ink-mute)", background: "var(--bone)", borderRadius: 999, padding: "1px 6px", textTransform: "uppercase", flexShrink: 0 }}>Soon</span>}
                           </div>
                         </div>
                         <div style={{ textAlign: "right" }}>

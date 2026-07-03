@@ -19,7 +19,7 @@ import { FollowListModal } from "@/components/FollowListModal";
 import { AddToCollectionSheet } from "@/components/AddToCollectionSheet";
 import { VouchGiveSheet, VouchListModal, VouchRequestModal } from "@/components/VouchSheets";
 import { ProfileMoreMenu } from "@/components/ProfileMoreMenu";
-import { RewardCard, BadgeShelf, TopSeasonBadge } from "@/components/gamification";
+import { RewardCard, BadgeShelf, TopSeasonBadge, AvatarFrame } from "@/components/gamification";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -325,7 +325,9 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
                   </span>
                 </button>
               ) : avatarEl}
-              {/* v4: the user's top season badge as a corner medallion (no TierChip) */}
+              {/* v3 §2.2: gold avatar frame for Pioneers & Early Believers */}
+              <AvatarFrame handle={profile.handle} />
+              {/* the user's top season badge as a corner medallion */}
               <TopSeasonBadge handle={profile.handle} />
             </div>
           </div>
@@ -390,8 +392,8 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
           </button>
         )}
 
-        {/* Collector rank card (GM-15) — own card adds "Earn points"; others
-            see rank + archetype but not the contribution mix breakdown */}
+        {/* Collector rank card (GM-15) — own card adds "Earn points"; shows the
+            rank ladder progress + any First Start badge */}
         <RewardCard handle={profile.handle} isMe={isOwn} />
 
         {/* actions */}

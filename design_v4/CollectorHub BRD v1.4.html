@@ -270,7 +270,7 @@
         <tr><td>1:1 direct messaging (with item-offer attachments)</td><td>Public web profiles / SEO pages</td></tr>
         <tr><td>Communities (admin + user created, public/private, request-to-join, posting modes)</td><td>Ads / monetisation, subscriptions</td></tr>
         <tr><td>Events — RSVP (Going / Interested); multi-day support</td><td>Ticketing, payments, QR check-in (Phase 2)</td></tr>
-        <tr><td>Engagement Rewards — Collector XP, ranks, archetypes, season badges, leaderboard</td><td>Redeemable rewards / prize fulfilment (Phase 2)</td></tr>
+        <tr><td>Engagement Rewards — Collector XP, ranks, First Start &amp; weekly league badges, weekly + lifetime leaderboards</td><td>Redeemable rewards / prize fulfilment (Phase 2)</td></tr>
         <tr><td>Block / Report from profile</td><td>Structured trade-proposal object; group DM</td></tr>
         <tr><td>System notifications; admin &amp; dummy-account seeding</td><td>Sneakers category</td></tr>
       </tbody>
@@ -290,7 +290,7 @@
         <tr><td>Feed</td><td>Interest + follow + behaviour-optimised; For You / Explore / Following tabs; feed customisation</td><td>Advanced ML ranking, topic clustering, trending, digests</td></tr>
         <tr><td>Posting</td><td>Showcase / Discussion / Review / Poll / <strong>ISO</strong>; inline threaded comments + @mentions</td><td>Carousels, video, drafts/scheduling, rich ratings</td></tr>
         <tr><td>Marketplace</td><td>Listings from collection items; Deal completion; DM to transact; ISO Board; filter/sort panel</td><td>In-app payments/escrow, offers/bidding, shipping &amp; order tracking</td></tr>
-        <tr><td>Rewards</td><td>Collector XP, 6 rank tiers, 4 archetypes, season badges (weekly/monthly), leaderboard</td><td>Redeemable prizes, physical badge programme</td></tr>
+        <tr><td>Rewards</td><td>Collector XP, 7 rank tiers, First Start + weekly league badges, weekly + lifetime leaderboards</td><td>Redeemable prizes, physical badge programme</td></tr>
         <tr><td>Community</td><td>Public + private (request-to-join); open and approval posting modes; admin tools</td><td>Community roles &amp; tools, sub-forums, community-run events &amp; shops</td></tr>
         <tr><td>Events</td><td>Admin + user-created (approval-based); RSVP Going/Interested; multi-day support</td><td>Ticketing/payments, calendar sync, maps, QR check-in</td></tr>
       </tbody>
@@ -311,7 +311,7 @@
         <tr><td><strong>Listing</strong></td><td>An Item offered for sale or trade.</td><td>Derived from one owned Item. Status: available / reserved / sold / closed. Carries condition, price, shipping terms, acquisition type.</td></tr>
         <tr><td><strong>Post</strong></td><td>Social content — Showcase / Discussion / Review / Poll / ISO.</td><td>May reference an Item or Listing. Deleting a Post does not delete the underlying Item/Listing.</td></tr>
         <tr><td><strong>Deal</strong></td><td>A record that a transaction occurred between two users.</td><td>Links buyer, seller, and Listing/Item. Closes the Listing and unlocks mutual rating.</td></tr>
-        <tr class="td-new"><td><strong>User XP record</strong></td><td>Lifetime engagement points driving rank and leaderboard standing.</td><td>Belongs to one user. Accumulates from engagement actions. Informs rank tier, archetype, and season-badge eligibility.</td></tr>
+        <tr class="td-new"><td><strong>User XP record</strong></td><td>Lifetime engagement points driving rank and leaderboard standing.</td><td>Belongs to one user. Accumulates from engagement actions. Informs rank tier and weekly-league-badge eligibility.</td></tr>
       </tbody>
     </table></div>
 
@@ -424,57 +424,60 @@
   <!-- §8 Rewards -->
   <span class="section-anchor" id="s8-rewards"></span>
   <div class="section">
-    <h2 class="sec-title"><span class="sec-num" style="background:var(--gold)">XP</span>Engagement Rewards System — v1.4 New</h2>
+    <h2 class="sec-title"><span class="sec-num" style="background:var(--gold)">XP</span>Rewards &amp; Badge System — v3 (July 2026)</h2>
 
     <div class="callout new">
-      <div class="cl-label">New in v1.4 — fully implemented in prototype</div>
-      <p>A Duolingo-league-style engagement loop built around <strong>Collector XP</strong>. XP accumulates from engagement actions, drives a permanent rank ladder, and feeds into weekly/monthly competitive leagues that award season badges. The system is live in the prototype across <code>Rewards.jsx</code>, <code>data.jsx</code>, and the profile <code>RewardCard</code> component.</p>
+      <div class="cl-label">Rewards &amp; Badge System v3 — supersedes the v1.4 rewards spec</div>
+      <p>A Duolingo-league-style loop built around <strong>Collector XP</strong>. XP drives a permanent rank ladder and feeds a <strong>weekly league</strong> that awards permanent badges. v3 defines <strong>two badge types</strong>: (1) <strong>First Start badges</strong> — permanent, manually team-assigned; (2) <strong>XP/Season badges</strong> — the rank badge (from lifetime XP) + weekly league badges. v3 removed rank perks, the monthly league, and the contribution/archetype system. Canonical spec: <code>CollectorHub Rewards BRD v3</code>.</p>
     </div>
 
-    <h3 class="sub-title">XP Earn Actions</h3>
+    <h3 class="sub-title">XP Earn Actions (final values — v3 §7)</h3>
+    <p>XP accrues to the <strong>weekly</strong> total (resets Monday) and the <strong>lifetime</strong> total (never resets, drives rank) simultaneously. Per-day caps prevent farming.</p>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Action</th><th>XP</th><th>Type</th></tr></thead>
+      <thead><tr><th>Action</th><th>XP</th><th>Daily limit</th></tr></thead>
       <tbody>
-        <tr><td>Complete your profile (5 steps)</td><td>50</td><td>One-time</td></tr>
-        <tr><td>Add a verified item to collection</td><td>20</td><td>Repeatable</td></tr>
-        <tr><td>Post a showcase</td><td>15</td><td>Repeatable</td></tr>
-        <tr><td>Write a review</td><td>15</td><td>Repeatable</td></tr>
-        <tr><td>Vouch for a collector</td><td>10</td><td>Repeatable</td></tr>
-        <tr><td>RSVP to an event</td><td>10</td><td>Repeatable</td></tr>
-        <tr><td>Comment on a post</td><td>5</td><td>Repeatable</td></tr>
-        <tr><td>Daily check-in</td><td>5</td><td>Daily (resets midnight)</td></tr>
-        <tr><td>Refer a friend</td><td>40</td><td>Repeatable</td></tr>
-        <tr><td>Like a post</td><td>1</td><td>Repeatable</td></tr>
+        <tr><td>Complete your profile (5 steps)</td><td>100</td><td>Once ever</td></tr>
+        <tr><td>Refer a friend (friend signs up)</td><td>150</td><td>No limit</td></tr>
+        <tr><td>Post a showcase</td><td>25</td><td>5 / day</td></tr>
+        <tr><td>Write a review</td><td>15</td><td>3 / day</td></tr>
+        <tr><td>Vouch for a collector</td><td>15</td><td>3 / day</td></tr>
+        <tr><td>RSVP to an event</td><td>10</td><td>3 / day</td></tr>
+        <tr><td>Comment on a post</td><td>10</td><td>10 / day</td></tr>
+        <tr><td>Daily check-in</td><td>5</td><td>1 / day</td></tr>
+        <tr><td>Like a post</td><td>1</td><td>50 / day</td></tr>
+      </tbody>
+    </table></div>
+    <p><em>Removed in v3:</em> "Add a verified item" (+20) and any deal/verified-item earn action.</p>
+
+    <h3 class="sub-title">Rank Ladder — "Collector Journey" (lifetime, never resets, open-ended)</h3>
+    <p>Name + XP threshold only — v3 removed all rank perks. The ladder is open-ended: beyond Icon, new ranks are added as the community scales (+20,000 XP each, no ceiling).</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Rank</th><th>Name</th><th>XP threshold</th><th>Colour</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Rookie</td><td>0</td><td>Ink mute</td></tr>
+        <tr><td>2</td><td>Hunter</td><td>300</td><td>Forest</td></tr>
+        <tr><td>3</td><td>Collector</td><td>1,000</td><td>Verified teal</td></tr>
+        <tr><td>4</td><td>Curator</td><td>3,000</td><td>Plum</td></tr>
+        <tr><td>5</td><td>Archivist</td><td>7,500</td><td>Grail gold deep</td></tr>
+        <tr><td>6</td><td>Legend</td><td>15,000</td><td>Stamp red</td></tr>
+        <tr><td>7</td><td>Icon</td><td>30,000</td><td>Ink</td></tr>
+        <tr><td>8+</td><td>Continues…</td><td>+20,000 / rank — no ceiling</td><td>—</td></tr>
       </tbody>
     </table></div>
 
-    <h3 class="sub-title">Rank Ladder (Lifetime — never resets)</h3>
+    <h3 class="sub-title">First Start Badges (permanent — manually assigned by team)</h3>
+    <p>Rounded-square emoji badges, never expire. Pioneers &amp; Early Believers also receive a <strong>gold avatar frame</strong> on their profile (<code>#E8A33D</code> + halo <code>#FEF3C7</code>); Founding Members keep their pill treatment (no frame).</p>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Rank</th><th>Name</th><th>XP threshold</th><th>Colour</th><th>Perk</th></tr></thead>
+      <thead><tr><th>Badge</th><th>Who gets it</th><th>Avatar frame</th></tr></thead>
       <tbody>
-        <tr><td>1</td><td>Rookie</td><td>0</td><td>Ink mute</td><td>Welcome to the shelf</td></tr>
-        <tr><td>2</td><td>Fan</td><td>250</td><td>Forest</td><td>Profile flair unlocked</td></tr>
-        <tr><td>3</td><td>Collector</td><td>750</td><td>Verified teal</td><td>Early drop alerts</td></tr>
-        <tr><td>4</td><td>Pro</td><td>1,800</td><td>Plum</td><td>Showcases get featured</td></tr>
-        <tr><td>5</td><td>Expert</td><td>4,000</td><td>Grail gold deep</td><td>Priority verification</td></tr>
-        <tr><td>6</td><td>Legend</td><td>8,000</td><td>Stamp red</td><td>Legend badge + spotlight</td></tr>
+        <tr><td><strong>⭐ Founding Member</strong></td><td>Founding members only.</td><td>No (pill treatment)</td></tr>
+        <tr><td><strong>🌱 Early Believer</strong></td><td>First 100–300 users.</td><td>Gold frame</td></tr>
+        <tr><td><strong>🔥 Pioneer</strong></td><td>First beta users (100–200).</td><td>Gold frame</td></tr>
       </tbody>
     </table></div>
 
-    <h3 class="sub-title">Contributor Archetypes (derived from XP mix)</h3>
-    <p>Each user's XP is split across 4 contribution buckets. The dominant bucket determines their archetype — displayed as a pill in the RewardCard and leaderboard.</p>
-    <div class="tbl-wrap"><table>
-      <thead><tr><th>Archetype</th><th>Dominant bucket</th><th>Colour</th><th>Blurb</th></tr></thead>
-      <tbody>
-        <tr><td><strong>Showcaser</strong></td><td>Posts / photos</td><td>Plum</td><td>Shares the most builds &amp; photos</td></tr>
-        <tr><td><strong>Connector</strong></td><td>Social (likes, comments)</td><td>Stamp red</td><td>Likes, comments &amp; lifts the community</td></tr>
-        <tr><td><strong>Archivist</strong></td><td>Collection</td><td>Verified teal</td><td>Catalogs &amp; verifies the deepest shelf</td></tr>
-        <tr><td><strong>Trader</strong></td><td>Market (deals, listings)</td><td>Grail gold deep</td><td>Most active in deals &amp; trades</td></tr>
-      </tbody>
-    </table></div>
-
-    <h3 class="sub-title">Season Badges (Weekly &amp; Monthly Leagues)</h3>
-    <p>League standings reset each period. Top finishers earn a permanent circular metal badge and bonus XP banked toward their lifetime rank. Standings use XP earned in the period (weekly = Mon–Sun; monthly = calendar month).</p>
+    <h3 class="sub-title">Leaderboard / League Badges (weekly cycle only)</h3>
+    <p>The weekly league resets Monday midnight. Top finishers earn a permanent circular metal badge + bonus XP banked toward their lifetime rank.</p>
     <div class="tbl-wrap"><table>
       <thead><tr><th>Badge tier</th><th>Finish position</th><th>Bonus XP</th><th>Visual</th></tr></thead>
       <tbody>
@@ -484,18 +487,23 @@
         <tr><td>Finalist</td><td>Top 10</td><td>+50 XP</td><td>Bone fill, teal ring</td></tr>
       </tbody>
     </table></div>
-    <p>Badge leagues run across 6 types: Weekly overall · Monthly overall · Trader season · Connector season · Showcaser season · Archivist season. Badges are permanent and displayed in a Badge Shelf on the user's profile (overlapping row, tap to open Trophy Case).</p>
+    <p><em>Removed in v3:</em> the monthly league and all contribution-category badges/boards (Showcaser / Connector / Archivist / Trader). No contribution-based badge mechanism of any kind. Badges (First Start first, then league) are shown in a Badge Shelf on the profile → Trophy Case.</p>
 
-    <h3 class="sub-title">Leaderboard Screens</h3>
-    <p>Two modes: <strong>By XP</strong> (sub-filter: Weekly / Monthly / All-time) and <strong>By contribution</strong> (sub-filter: Showcaser / Connector / Archivist / Trader). Podium displays top 3 (2nd–1st–3rd layout). Ranks 4+ in a scrollable list. User's own position pinned at top in a dark ink band. Reset clock shown. Season prize callout visible for active periods.</p>
+    <h3 class="sub-title">Feed Badge Priority (v3 §2.4 / §3)</h3>
+    <p>Each post &amp; leaderboard row shows <strong>exactly one</strong> rewards badge next to the author name — <strong>1st priority = First Start badge, 2nd = rank badge</strong> (everyone has a rank, so it is never empty). The badge is tappable and opens a <strong>BadgeSheet</strong> (v3 §4) explaining what it is and how it was earned. The full badge collection lives on the profile.</p>
+
+    <h3 class="sub-title">Leaderboard Screens (Weekly + Lifetime)</h3>
+    <p>Two boards: <strong>Weekly</strong> (XP since Monday; resets Monday midnight; top 3 mint Gold/Silver/Bronze) and <strong>Lifetime</strong> (total XP; never resets). Podium displays top 3 (2nd–1st–3rd layout). Ranks 4+ in a scrollable list. User's own position pinned at top in a dark ink band. Reset clock shown. Season prize callout on the weekly board. <em>The monthly board and the by-contribution mode were removed in v3.</em></p>
 
     <h3 class="sub-title">UI locations</h3>
     <ul>
-      <li><strong>RewardCard</strong> — compact rank card in every profile header (own + others). Shows: rank badge, rank name, archetype chip, XP total, XP progress bar to next rank, this week's XP. CTAs: "Earn points" (own) + "Leaderboard".</li>
-      <li><strong>BadgeShelf</strong> — overlapping season badge row in profile header, tappable, opens Trophy Case.</li>
-      <li><strong>RewardsView</strong> — full screen: hero rank block, daily check-in button, contribution mix stacked bar, ways-to-earn list, rank ladder.</li>
+      <li><strong>RewardCard</strong> — compact rank card in every profile header (own + others). Shows: rank badge, rank name, First Start pill (if any), XP total, XP progress bar to next rank, this week's XP. CTAs: "Earn points" (own) + "Leaderboard".</li>
+      <li><strong>AvatarFrame</strong> — gold ring on the profile avatar for Pioneers &amp; Early Believers (profile only).</li>
+      <li><strong>BadgeShelf</strong> — overlapping badge row in profile header (First Start first, then league badges), tappable, opens Trophy Case.</li>
+      <li><strong>RewardsView</strong> — full screen: hero rank block, daily check-in button, ways-to-earn list, rank ladder.</li>
       <li><strong>LeaderboardView</strong> — full screen (accessible from profile and Rewards).</li>
-      <li><strong>BadgesView</strong> — Trophy Case: featured top badge, all badges grid, "how it works" explainer.</li>
+      <li><strong>BadgesView</strong> — Trophy Case: featured badge, all badges grid, "how it works" explainer.</li>
+      <li><strong>FeedBadge → BadgeSheet</strong> — the single author badge in the feed / leaderboard, tappable to explain.</li>
     </ul>
   </div>
 
@@ -706,7 +714,7 @@
         <tr><td><code>--forest</code></td><td>#2D5F3F</td><td>Success, Going RSVP, completed trades</td></tr>
         <tr class="td-new"><td><code>--forest-deep</code></td><td>#1F4A2D (proposed)</td><td>Press / hover — <strong>NOT YET IN CSS</strong></td></tr>
         <tr><td><code>--forest-soft</code></td><td>#D2E0D3</td><td>Tinted background</td></tr>
-        <tr><td><code>--plum</code></td><td>#6B3656</td><td>Community / events accent / Showcaser archetype</td></tr>
+        <tr><td><code>--plum</code></td><td>#6B3656</td><td>Community / events accent / Curator rank / Pioneer badge</td></tr>
         <tr class="td-new"><td><code>--plum-deep</code></td><td>#502842 (proposed)</td><td>Press / hover — <strong>NOT YET IN CSS</strong></td></tr>
         <tr><td><code>--plum-soft</code></td><td>#E4D2DE</td><td>Tinted background</td></tr>
         <tr><td><code>--border</code></td><td>rgba(0,0,0,0.08)</td><td>Default hairline borders</td></tr>
@@ -805,7 +813,7 @@
         <tr><td>Marketplace lacks liquidity early.</td><td>High</td><td>Seed listings; focus on categories with active resale; make listing frictionless; saved-search notifications; ISO board surfaces demand clearly.</td></tr>
         <tr><td>Trust failures / scams damage reputation.</td><td>High</td><td>Transaction-linked + independent vouch system; tiered ownership verification; trust signals on profiles; reporting/blocking; active moderation; escrow in Phase 2.</td></tr>
         <tr><td>Verification friction deters cataloguing/listing.</td><td>Med</td><td>Catalogue-from-database to keep common path fast; reserve in-app camera for listing step only; verify lazily not up front.</td></tr>
-        <tr><td>XP/rewards gaming or farming.</td><td>Med</td><td>Per-action rate limits; weight quality actions (verified items, completed deals) higher; monitor contribution mix for anomalies.</td></tr>
+        <tr><td>XP/rewards gaming or farming.</td><td>Med</td><td>Per-day earn caps (v3 §7); weight quality actions higher; dedup grants per target.</td></tr>
         <tr><td>Notification fatigue causes opt-outs.</td><td>Med</td><td>Per-type controls in P1; batching/quiet hours in P2; monitor opt-out rate.</td></tr>
         <tr><td>Scope creep delays the MVP.</td><td>Med</td><td>Strict Must/Should/Could/Won't prioritisation; defer payments, livestream, grading, QR ticketing to P2.</td></tr>
         <tr><td>TCG category requires different moderation (card condition grading disputes).</td><td>Low-Med</td><td>Standardised condition ladder (Sealed/Mint/Like new/Good/Fair/For parts) applies to TCG; EN vs JP print and PSA grade shown in listing notes; community rules require specifying print and condition.</td></tr>
@@ -856,9 +864,9 @@
         <tr><td>Ownership tier</td><td>An Item's verification level: Claimed (self-asserted), Shown (in-app live photo), Verified (passed integrity/challenge checks). Listing requires Verified.</td></tr>
         <tr><td>Post type</td><td>Classification of a post: Showcase, Discussion, Review, Poll, or ISO. Selling is an Item action, not a post type.</td></tr>
         <tr><td>ISO</td><td>In Search Of — a post type where a collector declares what they are hunting, with optional budget, condition, and city. Appears in both the feed and the ISO Board in Marketplace.</td></tr>
-        <tr><td>Collector XP</td><td>Engagement points earned through platform actions. Accumulates lifetime (never resets) to drive rank tier. Also feeds into weekly/monthly league standings that reset per period.</td></tr>
-        <tr><td>Archetype</td><td>A label derived from a user's XP contribution mix: Showcaser (posts), Connector (social), Archivist (collection), Trader (market). Changes as the mix shifts.</td></tr>
-        <tr><td>Season badge</td><td>A permanent circular medallion earned by finishing in the top 10 of a weekly or monthly XP league. Gold / Silver / Bronze / Finalist tiers.</td></tr>
+        <tr><td>Collector XP</td><td>Engagement points earned through platform actions. Accumulates lifetime (never resets) to drive rank tier. Also feeds the weekly league standings that reset each Monday.</td></tr>
+        <tr><td>First Start badge</td><td>A permanent, manually team-assigned badge: Founding Member (⭐), Early Believer (🌱), or Pioneer (🔥). Rounded-square emoji shape; never expires. Early Believer &amp; Pioneer also get a gold avatar frame.</td></tr>
+        <tr><td>League badge</td><td>A permanent circular medallion earned by finishing in the top 10 of the weekly XP league. Gold / Silver / Bronze / Finalist tiers.</td></tr>
         <tr><td>Canvas</td><td>The scrollable screen background token (<code>--canvas #F8FAFC</code>) — distinct from <code>--paper</code>/<code>--card-surface</code> (card surfaces).</td></tr>
         <tr><td>RSVP</td><td>An event response: Going (committed) or Interested (considering). No tickets or QR in Phase 1.</td></tr>
         <tr><td>Condition ladder</td><td>The standardised 6-rung condition scale: Sealed/MISB · Mint · Like new · Good · Fair · For parts. Fixed values; free-text notes allowed in addition.</td></tr>
@@ -876,7 +884,7 @@
       <thead><tr><th>Area</th><th>Change</th><th>File(s) impacted</th></tr></thead>
       <tbody>
         <tr class="td-new"><td>Categories</td><td>TCG (Trading Cards) promoted from Phase 2 to Phase 1 — 5th launch category confirmed. TCG India community and seed content added.</td><td>BRD, <code>data.jsx</code></td></tr>
-        <tr class="td-new"><td>Engagement &amp; Rewards</td><td>Full XP system specified: 10 earn actions, 6 rank tiers, 4 archetypes, season badges (weekly/monthly leagues), leaderboard (XP + contribution modes). RewardCard, BadgeShelf, RewardsView, LeaderboardView, BadgesView all implemented.</td><td>BRD, <code>Rewards.jsx</code>, <code>data.jsx</code></td></tr>
+        <tr class="td-new"><td>Engagement &amp; Rewards</td><td>Rewards &amp; Badge System v3: 9 earn actions (per-day caps), 7 rank tiers (open-ended, no perks), First Start badges + weekly league badges, weekly + lifetime leaderboards, feed badge priority. RewardCard, AvatarFrame, BadgeShelf, RewardsView, LeaderboardView, BadgesView, FeedBadge/BadgeSheet all implemented.</td><td>BRD, <code>Rewards.jsx</code>, <code>data.jsx</code></td></tr>
         <tr class="td-new"><td>ISO post type</td><td>New post type: In Search Of. Fields: item, budget, condition, city. WANTED card UI. "I have this" DM CTA. ISO Board tab in Marketplace.</td><td>BRD, <code>Cards.jsx</code>, <code>MarketView.jsx</code>, <code>data.jsx</code></td></tr>
         <tr class="td-new"><td>Vouch model</td><td>Vouches decoupled from deals. Any user can vouch via 5 relationship types. Request a vouch feature added. VouchList, VouchView, VouchRequestView implemented.</td><td>BRD, <code>ProfileView.jsx</code></td></tr>
         <tr class="td-new"><td>Threaded comments + @mentions</td><td>Instagram-style comment threading: per-comment likes, reply threads (1 level deep), edit/delete own comments, @mention live picker dropdown.</td><td>BRD, <code>Cards.jsx</code></td></tr>

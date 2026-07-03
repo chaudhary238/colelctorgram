@@ -12,7 +12,6 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.item import Item, ItemPhoto
 from app.models.user import Follow, User
-from app.services.gamification import award_xp
 
 logger = logging.getLogger(__name__)
 
@@ -316,8 +315,7 @@ async def verify_item(
         raise HTTPException(status_code=400, detail="Item must have a photo to verify")
     item.verify_tier = "verified"
     current_user.verified_items_count += 1
-    # XP: +20 for adding a verified item to the collection, dedup'd on item id.
-    await award_xp(db, current_user, "item", ref_id=str(item.id), ref_type="item")
+    # v3 §7 removed the "Add a verified item" XP action — no reward is granted here.
     return {"verify_tier": "verified"}
 
 

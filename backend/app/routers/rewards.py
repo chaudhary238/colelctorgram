@@ -39,16 +39,14 @@ async def daily_checkin(
     return await gm.claim_checkin(db, current_user)
 
 
-# ── Leaderboard (§9.18) ──────────────────────────────────────────────────────
+# ── Leaderboard (§9.18) — Weekly + Lifetime only (v3 §9) ─────────────────────
 @router.get("/rewards/leaderboard")
 async def get_leaderboard(
-    mode: Literal["xp", "contrib"] = Query("xp"),
-    period: Literal["week", "month", "all"] = Query("week"),
-    cat: Literal["posts", "social", "collection", "market"] = Query("posts"),
+    period: Literal["week", "all"] = Query("week"),
     db: AsyncSession = Depends(get_db),
     me: Optional[User] = Depends(get_optional_user),
 ):
-    return await gm.leaderboard(db, mode=mode, period=period, cat=cat, me=me)
+    return await gm.leaderboard(db, period=period, me=me)
 
 
 # ── Profile rank card (GM-15) ────────────────────────────────────────────────
@@ -62,11 +60,9 @@ async def get_user_rank(
     user = res.scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    # Contribution mix is owner-only (GM-07/15).
-    is_me = viewer is not None and viewer.id == user.id
-    card = await gm.rank_card(db, user, include_mix=is_me)
+    card = await gm.rank_card(db, user)
     card["user"] = _user_public(user)
-    card["is_me"] = is_me
+    card["is_me"] = viewer is not None and viewer.id == user.id
     return card
 
 

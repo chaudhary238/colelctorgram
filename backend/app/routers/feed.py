@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_optional_user
 from app.models.user import User, Follow
 from app.models.post import Post, PostLike, PostSave, PostCommunity
 from app.routers.posts import _iso_fields
@@ -34,7 +34,7 @@ def _recency_decay(created_at: datetime) -> float:
     return math.exp(-hours / 24)
 
 
-def _score(post: Post, interests: set[str], followed_ids: set[str], featured_authors: set[str], viewer_id: str = "") -> float:
+def _score(post: Post, interests: set[str], followed_ids: set[str], viewer_id: str = "") -> float:
     interest_w = 1.0 if post.category in interests else 0.0
     follow_w = 1.0 if str(post.user_id) in followed_ids else 0.0
     recency = _recency_decay(post.created_at)
@@ -45,9 +45,6 @@ def _score(post: Post, interests: set[str], followed_ids: set[str], featured_aut
     # score sinks to the bottom and feels "lost".
     if viewer_id and str(post.user_id) == viewer_id:
         base += recency * 0.6
-    # GM-03 Pro perk — showcases from Pro+ collectors get a discovery-feed boost.
-    if post.type == "showcase" and str(post.user_id) in featured_authors:
-        base += 0.15
     return base
 
 
@@ -61,22 +58,26 @@ async def get_feed(
     sort: str = Query("foryou", pattern="^(foryou|latest|top)$"),
     following_only: bool = False,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
-    interests = set(current_user.interests or [])
+    # Guests (no token) get a non-personalized feed instead of a 401, so
+    # "Explore as guest" can actually browse content (DF-37a).
+    interests = set(current_user.interests or []) if current_user else set()
 
     # DF-08/DF-11 — "Customize feed" prefs tune the For You tab server-side.
     # {"categories": [...]} narrows category-tagged posts; untagged posts always pass.
-    prefs = current_user.feed_prefs or {}
+    prefs = (current_user.feed_prefs or {}) if current_user else {}
     pref_cats = set(prefs.get("categories") or [])
 
-    follows = await db.execute(
-        select(Follow.following_id).where(
-            Follow.follower_id == current_user.id,
-            Follow.following_type == "user",
+    followed_ids: set[str] = set()
+    if current_user:
+        follows = await db.execute(
+            select(Follow.following_id).where(
+                Follow.follower_id == current_user.id,
+                Follow.following_type == "user",
+            )
         )
-    )
-    followed_ids = {str(r) for r in follows.scalars().all()}
+        followed_ids = {str(r) for r in follows.scalars().all()}
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
     # DF-27 — pending (awaiting-mod-review) community posts never appear in the feed.
@@ -112,15 +113,8 @@ async def get_feed(
             reverse=True,
         )
     else:
-        # GM-03 — resolve which candidate authors are Pro+ (one query over the
-        # ≤500 loaded posts) so their showcases get the discovery-feed boost.
-        from app.services.gamification import discovery_featured
-        cand_author_ids = list({p.user_id for p in posts})
-        featured_authors: set[str] = set()
-        if cand_author_ids:
-            xp_rows = await db.execute(select(User.id, User.xp).where(User.id.in_(cand_author_ids)))
-            featured_authors = {str(uid) for uid, xp in xp_rows.all() if discovery_featured(xp)}
-        scored = sorted(posts, key=lambda p: _score(p, interests, followed_ids, featured_authors, str(current_user.id)), reverse=True)
+        viewer_id = str(current_user.id) if current_user else ""
+        scored = sorted(posts, key=lambda p: _score(p, interests, followed_ids, viewer_id), reverse=True)
     start = (page - 1) * limit
     page_posts = scored[start: start + limit]
 
@@ -132,23 +126,26 @@ async def get_feed(
     users_result = await db.execute(select(User).where(User.id.in_(author_ids)))
     users_by_id = {u.id: u for u in users_result.scalars().all()}
 
-    # Batch-load current user's likes + saves for this page
+    # Batch-load current user's likes + saves for this page (guests have none)
     post_ids = [p.id for p in page_posts]
-    likes_result = await db.execute(
-        select(PostLike.post_id).where(
-            PostLike.user_id == current_user.id,
-            PostLike.post_id.in_(post_ids),
+    liked_ids: set = set()
+    saved_ids: set = set()
+    if current_user:
+        likes_result = await db.execute(
+            select(PostLike.post_id).where(
+                PostLike.user_id == current_user.id,
+                PostLike.post_id.in_(post_ids),
+            )
         )
-    )
-    liked_ids = set(likes_result.scalars().all())
+        liked_ids = set(likes_result.scalars().all())
 
-    saves_result = await db.execute(
-        select(PostSave.post_id).where(
-            PostSave.user_id == current_user.id,
-            PostSave.post_id.in_(post_ids),
+        saves_result = await db.execute(
+            select(PostSave.post_id).where(
+                PostSave.user_id == current_user.id,
+                PostSave.post_id.in_(post_ids),
+            )
         )
-    )
-    saved_ids = set(saves_result.scalars().all())
+        saved_ids = set(saves_result.scalars().all())
 
     # DF-30h — batch the published community memberships for this page
     pc_result = await db.execute(
@@ -177,6 +174,14 @@ async def get_feed(
     }
 
 
+def _feed_badge(author: Optional[User]) -> Optional[dict]:
+    """The single rewards badge for an author (v3 §3), or None for a missing author."""
+    if author is None:
+        return None
+    from app.services.gamification import feed_badge
+    return feed_badge(author)
+
+
 def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, is_following: bool = False, community_ids: Optional[list] = None) -> dict:
     return {
         "id": str(p.id),
@@ -185,6 +190,9 @@ def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, 
         "name": author.name if author else None,
         "avatar_url": author.avatar_url if author else None,
         "tier": author.tier if author else "verified",
+        # Rewards badge shown next to the author (v3 §2.4/§3): First Start badge if
+        # the author has one, else their rank badge. Exactly one per post.
+        "badge": _feed_badge(author),
         "type": p.type,
         "title": p.title,
         "body": p.body,

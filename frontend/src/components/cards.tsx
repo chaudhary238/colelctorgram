@@ -15,6 +15,7 @@ import {
   Avatar, TierChip, PostTypeTag, Stars, Money, ProductPhoto, SealMark,
   Badge, Button, IconButton, GlassPill, LocationTag, statusLabel,
 } from "@/components/ui";
+import { FeedBadge } from "@/components/gamification";
 
 /* ── API response shapes ────────────────────────────────────────── */
 
@@ -25,6 +26,8 @@ export interface ApiPost {
   name: string | null;
   avatar_url: string | null;
   tier: string;
+  // Rewards badge shown next to the author (v3 §3): First Start badge or rank badge.
+  badge?: { kind: "first_start" | "rank"; code: string; name: string; emoji: string | null } | null;
   type: string;
   body: string;
   images: string[];
@@ -260,6 +263,8 @@ function AuthorLine({ post, showFollow }: { post: ApiPost; showFollow?: boolean 
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <span style={{ fontWeight: 600, fontSize: 14, color: "var(--ink)" }}>{post.name}</span>
           {tier && <TierChip tier={tier} />}
+          {/* v3 §3: the single rewards badge (First Start badge, else rank badge) */}
+          <FeedBadge badge={post.badge} />
           {showFollow && (
             <button
               onClick={toggleFollow}
