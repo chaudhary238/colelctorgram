@@ -163,7 +163,7 @@ async def add_item(
             db, current_user,
             title=body.custom_title, brand=body.brand, category=body.category,
             scale=body.scale, release_year=body.release_year, value=body.value,
-            cover_url=body.cover_url,
+            cover_url=body.cover_url, description=body.description,
         )
         item.sku = sku
         await db.flush()

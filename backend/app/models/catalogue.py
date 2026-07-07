@@ -24,6 +24,8 @@ class Catalogue(Base):
     category: Mapped[str] = mapped_column(String(32), nullable=False)  # figures | designer | kits | diecast | tcg
     scale: Mapped[str | None] = mapped_column(String(16), nullable=True)
     year: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    # DV6-13 — shared blurb about the item (seeds the add form's description on pick).
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     tone: Mapped[str] = mapped_column(String(16), default="ink")
     est_retail_price: Mapped[int] = mapped_column(Integer, default=0)  # paise
     thumbnail_url: Mapped[str | None] = mapped_column(Text, nullable=True)

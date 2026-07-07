@@ -19,6 +19,7 @@ type AcqMode = "inhand" | "preorder" | "intel";
 interface CatalogueHit {
   sku: string; title: string; brand: string; category: string;
   scale?: string | null; thumbnail_url: string | null;
+  year?: string | null; description?: string | null;
   pending?: boolean; score?: number | null; is_official?: boolean;
 }
 
@@ -217,6 +218,9 @@ export default function AddListingPage() {
   const [photos, setPhotos] = useState<string[]>([]);
   // DV6-13 — per-photo "share to catalogue" visibility (parallel to photos). Private by default.
   const [photoPublic, setPhotoPublic] = useState<boolean[]>([]);
+  // DV6-13 — when you pick an existing item you inherit its shared reference image (shown as the
+  // cover; no upload required). Cleared once you're adding a brand-new entry.
+  const [refImage, setRefImage] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [brand, setBrand] = useState("");
   const [brandFocus, setBrandFocus] = useState(false);
@@ -325,7 +329,8 @@ export default function AddListingPage() {
   const linkDupe = (h: CatalogueHit) => { setTitle(h.title); setBrand(h.brand); setLinkedSku(h.sku); setDupes([]); };
 
   const miss = {
-    photo: photos.length === 0,
+    // Inheriting the catalogue reference image satisfies the photo requirement (DV6-13).
+    photo: photos.length === 0 && !refImage,
     title: !title.trim(),
     brand: !brand.trim(),
     scale: !isIntel && usesScale && (scale === "Other" ? !scaleOther.trim() : !scale),
@@ -434,6 +439,9 @@ export default function AddListingPage() {
     setBrand(h.brand);
     if (h.category) setCat(h.category);
     if (h.scale && h.scale !== "—") setScale(h.scale);
+    setYear(h.year ?? "");
+    setDesc(h.description ?? "");
+    setRefImage(h.thumbnail_url ?? null);  // inherit the shared cover; upload optional
     setDupes([]);
     setStep("form");
   };
@@ -446,7 +454,7 @@ export default function AddListingPage() {
     return (
       <SearchStep
         onPick={prefillFromHit}
-        onAddNew={() => { setLinkedSku(null); setStep("form"); }}
+        onAddNew={() => { setLinkedSku(null); setRefImage(null); setStep("form"); }}
         onBack={() => setStep("pick")}
       />
     );
@@ -625,7 +633,7 @@ export default function AddListingPage() {
 
         {/* Title */}
         <Label required missing={tried && miss.title}>Title</Label>
-        <input value={title} onChange={(e) => { setTitle(e.target.value); setLinkedSku(null); }} placeholder={meta.titleEg} style={{ ...fieldStyle, borderColor: tried && miss.title ? "var(--stamp-red)" : "var(--border-strong)" }} />
+        <input value={title} onChange={(e) => { setTitle(e.target.value); setLinkedSku(null); setRefImage(null); }} placeholder={meta.titleEg} style={{ ...fieldStyle, borderColor: tried && miss.title ? "var(--stamp-red)" : "var(--border-strong)" }} />
         {/* Central-catalogue search results — tap to link instead of creating a duplicate (DV6-12) */}
         {!linkedSku && dupes.length > 0 && (
           <div style={{ marginTop: 7, borderRadius: 11, border: "1px solid var(--border-strong)", overflow: "hidden", background: "var(--paper)" }}>
@@ -658,7 +666,7 @@ export default function AddListingPage() {
           <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 9, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)" }}>
             <Check size={13} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
             <span style={{ fontSize: 12, color: "var(--verified-teal)", fontWeight: 600 }}>Linked to catalogue — pre-filled from the Scorred DB</span>
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); setLinkedSku(null); }} aria-label="Unlink" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)", padding: 0, display: "flex", marginLeft: "auto" }}>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); setLinkedSku(null); setRefImage(null); }} aria-label="Unlink" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)", padding: 0, display: "flex", marginLeft: "auto" }}>
               <X size={14} strokeWidth={2} />
             </button>
           </div>
@@ -674,7 +682,19 @@ export default function AddListingPage() {
         <input value={year} onChange={(e) => setYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))} inputMode="numeric" placeholder="e.g. 2022" style={{ ...fieldStyle, height: 42, fontSize: 14.5, fontFamily: "var(--font-mono)" }} />
 
         {/* Photos */}
-        <Label required missing={tried && miss.photo} hint={photos.length ? `${photos.length} added · first = cover` : "min 1 · up to 4"}>Photos</Label>
+        <Label required missing={tried && miss.photo} hint={refImage ? "your own — optional" : photos.length ? `${photos.length} added · first = cover` : "min 1 · up to 4"}>Photos</Label>
+        {/* DV6-13 — inherited catalogue reference (shown when you picked an existing item) */}
+        {refImage && (
+          <div style={{ display: "flex", alignItems: "center", gap: 11, padding: 10, borderRadius: 12, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", marginBottom: 11 }}>
+            <div style={{ width: 56, height: 56, borderRadius: 9, overflow: "hidden", flexShrink: 0 }}>
+              <ProductPhoto tone="ink" src={refImage} ratio="1/1" rounded={9} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--verified-teal)" }}>Using the catalogue image</div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 2, lineHeight: 1.45 }}>It&rsquo;s the shared cover for this item — no need to upload. Add your own photos below if you like (private by default).</div>
+            </div>
+          </div>
+        )}
         {isIntel && photos.length === 0 && (
           <div style={{ display: "flex", gap: 8, padding: "9px 12px", borderRadius: 10, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", marginBottom: 11 }}>
             <Info size={14} style={{ color: "var(--verified-teal)", flexShrink: 0, marginTop: 1 }} />
@@ -726,10 +746,12 @@ export default function AddListingPage() {
             label={photos.length ? `Add more (up to ${photoMax - photos.length})` : `Add photos — pick up to ${photoMax} at once`}
           />
         )}
-        {/* Cover note (DV6-13) */}
-        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "8px 2px 0", lineHeight: 1.5 }}>
-          The <b style={{ color: "var(--ink)" }}>first photo is the cover</b> — it&rsquo;s <b style={{ color: "var(--verified-teal)" }}>public</b> and represents this item in the Scorred catalogue. Tap <b>Set cover</b> on any photo to change it. Your other photos stay private unless you tap <b>Private → Public</b>.
-        </div>
+        {/* Cover note (DV6-13) — only when this add owns the cover (a brand-new entry) */}
+        {!refImage && (
+          <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "8px 2px 0", lineHeight: 1.5 }}>
+            The <b style={{ color: "var(--ink)" }}>first photo is the cover</b> — it&rsquo;s <b style={{ color: "var(--verified-teal)" }}>public</b> and represents this item in the Scorred catalogue. Tap <b>Set cover</b> on any photo to change it. Your other photos stay private unless you tap <b>Private → Public</b>.
+          </div>
+        )}
 
         <Label hint="optional">Description</Label>
         <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} placeholder="What makes this one special? Accessories, edition, where you got it…" style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none", fontSize: 14.5 }} />

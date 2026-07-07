@@ -35,6 +35,7 @@ def _hit(c: Catalogue, score: float | None = None) -> dict:
         "category": c.category,
         "scale": c.scale,
         "year": c.year,
+        "description": c.description,
         "est_retail_price": c.est_retail_price,
         "thumbnail_url": c.thumbnail_url,
         # DV6-12 — de-dup search surfaces pending (unreviewed) community entries too,

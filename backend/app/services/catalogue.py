@@ -71,6 +71,7 @@ async def resolve_or_create(
     release_year: Optional[int],
     value: int,
     cover_url: Optional[str] = None,
+    description: Optional[str] = None,
 ) -> tuple[str, int, bool]:
     """Resolve a free-text add to a catalogue SKU.
 
@@ -105,6 +106,7 @@ async def resolve_or_create(
         category=cat,
         scale=scale,
         year=str(release_year) if release_year else None,
+        description=(description or "").strip() or None,
         est_retail_price=value or 0,
         thumbnail_url=cover_url.strip(),
         submitted_by=user.id,
