@@ -171,9 +171,14 @@ export function AddToCollectionSheet({ onClose, onAdded, initialPick }: AddToCol
         preorder_ordered_at: isPreorder && poOrderDate ? poOrderDate : null,
         preorder_total: isPreorder && poTotal ? Number(poTotal) * 100 : null,
         preorder_deposit: isPreorder && poDeposit ? Number(poDeposit) * 100 : null,
+        // DV6-13 — a free-text add that CREATES a new catalogue entry needs a public
+        // reference image (the first photo). Ignored server-side when linking an existing SKU.
+        cover_url: picked ? undefined : (photos[0] ?? undefined),
       });
-      for (const url of photos) {
-        await api.post(`/items/${item.id}/photos?url=${encodeURIComponent(url)}`);
+      for (let idx = 0; idx < photos.length; idx++) {
+        // First photo of a new entry is the shared public reference; the rest are private.
+        const isPublicCover = !picked && idx === 0;
+        await api.post(`/items/${item.id}/photos?url=${encodeURIComponent(photos[idx])}${isPublicCover ? "&is_public=true" : ""}`);
       }
       // DV6-02 — surface the +50 XP when this was the first contribution to the DB.
       if (item.db_new_xp && item.db_new_xp > 0) fireXpToast(item.db_new_xp, "XP · added to Scorred DB");

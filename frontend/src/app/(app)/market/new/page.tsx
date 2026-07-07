@@ -340,6 +340,12 @@ export default function AddListingPage() {
     setPhotoPublic((v) => v.filter((_, idx) => idx !== i));
   };
   const togglePhotoPublic = (i: number) => setPhotoPublic((v) => v.map((x, idx) => (idx === i ? !x : x)));
+  // Move photo i to the front so it becomes the cover (DV6-13).
+  const makeCover = (i: number) => {
+    if (i === 0) return;
+    setPhotos((p) => { const n = [...p]; const [x] = n.splice(i, 1); n.unshift(x); return n; });
+    setPhotoPublic((v) => { const n = [...v]; const [x] = n.splice(i, 1); n.unshift(x); return n; });
+  };
   // A new entry's first photo is the mandatory public reference; a listed item's photos are
   // public by nature (it's a public sale); otherwise honor the per-photo toggle (DV6-13).
   const isPhotoPublic = (i: number) => (!linkedSku && i === 0) || forSale || !!photoPublic[i];
@@ -694,6 +700,14 @@ export default function AddListingPage() {
                     {isPhotoPublic(i) ? <><Eye size={9} /> Public</> : "Private"}
                   </button>
                 )}
+                {/* Set-as-cover (DV6-13) — non-cover photos only */}
+                {i !== 0 && (
+                  <button type="button" onClick={() => makeCover(i)} title="Make this the cover" style={{
+                    position: "absolute", top: 6, left: 6, cursor: "pointer",
+                    background: "rgba(15,23,42,0.72)", color: "var(--paper)", border: "none",
+                    fontWeight: 700, fontSize: 9, letterSpacing: "0.04em", textTransform: "uppercase", padding: "3px 6px", borderRadius: 4,
+                  }}>Set cover</button>
+                )}
                 <button type="button" onClick={() => rmPhoto(i)} aria-label="Remove photo" style={{
                   position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: "50%", cursor: "pointer",
                   background: "var(--ink)", color: "var(--paper)", border: "2px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center",
@@ -705,9 +719,17 @@ export default function AddListingPage() {
           </div>
         )}
         {photos.length < photoMax && (
-          // Key by count so each add remounts a fresh, empty uploader (it keeps its own preview).
-          <ImageUploader key={photos.length} onUpload={(url) => { setPhotos((p) => [...p, url]); setPhotoPublic((v) => [...v, false]); }} label={photos.length ? "Add another photo" : "Add a photo"} />
+          <ImageUploader
+            multiple
+            maxFiles={photoMax - photos.length}
+            onUpload={(url) => { setPhotos((p) => [...p, url]); setPhotoPublic((v) => [...v, false]); }}
+            label={photos.length ? `Add more (up to ${photoMax - photos.length})` : `Add photos — pick up to ${photoMax} at once`}
+          />
         )}
+        {/* Cover note (DV6-13) */}
+        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "8px 2px 0", lineHeight: 1.5 }}>
+          The <b style={{ color: "var(--ink)" }}>first photo is the cover</b> — it&rsquo;s <b style={{ color: "var(--verified-teal)" }}>public</b> and represents this item in the Scorred catalogue. Tap <b>Set cover</b> on any photo to change it. Your other photos stay private unless you tap <b>Private → Public</b>.
+        </div>
 
         <Label hint="optional">Description</Label>
         <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} placeholder="What makes this one special? Accessories, edition, where you got it…" style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none", fontSize: 14.5 }} />

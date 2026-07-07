@@ -10,6 +10,10 @@ interface ImageUploaderProps {
   accept?: string;
   /** Show current image */
   previewUrl?: string;
+  /** Allow selecting several files at once (DV6-13); onUpload fires per file, in pick order. */
+  multiple?: boolean;
+  /** In multiple mode, cap how many files this pick accepts (e.g. remaining slots). */
+  maxFiles?: number;
 }
 
 interface UploadUrlResponse {
@@ -46,47 +50,42 @@ async function compressImage(file: File): Promise<Blob> {
   }
 }
 
-export function ImageUploader({ onUpload, label = "Upload image", accept = "image/*", previewUrl }: ImageUploaderProps) {
+export function ImageUploader({ onUpload, label = "Upload image", accept = "image/*", previewUrl, multiple = false, maxFiles }: ImageUploaderProps) {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(previewUrl ?? null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const upload = useCallback(async (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      setError("Please select an image file.");
-      return;
-    }
-    setError(null);
-    setUploading(true);
+  // Upload one file. `silent` (multiple mode) skips the internal preview — the parent grid
+  // shows the thumbnails — and leaves the `uploading` flag to the batch caller.
+  const uploadOne = useCallback(async (file: File, silent: boolean) => {
+    if (!file.type.startsWith("image/")) { setError("Please select an image file."); return; }
     try {
-      // 1. Downscale/compress, then get a presigned URL for the resulting type.
       const blob = await compressImage(file);
       const contentType = blob.type || file.type;
       const meta = await api.post<UploadUrlResponse>(
         `/media/upload-url?prefix=uploads&content_type=${encodeURIComponent(contentType)}`
       );
-      // 2. PUT the compressed bytes directly to R2
-      await fetch(meta.upload_url, {
-        method: "PUT",
-        body: blob,
-        headers: { "Content-Type": contentType },
-      });
-      // 3. Show preview + call back
-      setPreview(meta.public_url);
+      await fetch(meta.upload_url, { method: "PUT", body: blob, headers: { "Content-Type": contentType } });
+      if (!silent) setPreview(meta.public_url);
       onUpload(meta.public_url);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
-    } finally {
-      setUploading(false);
     }
   }, [onUpload]);
 
-  const handleFiles = useCallback((files: FileList | null) => {
-    const file = files?.[0];
-    if (file) upload(file);
-  }, [upload]);
+  const handleFiles = useCallback(async (files: FileList | null) => {
+    const list = Array.from(files ?? []);
+    if (!list.length) return;
+    const chosen = multiple ? (maxFiles && maxFiles > 0 ? list.slice(0, maxFiles) : list) : list.slice(0, 1);
+    setError(null);
+    setUploading(true);
+    // Sequential so onUpload appends in the picked order (first = cover).
+    for (const f of chosen) await uploadOne(f, multiple);
+    setUploading(false);
+    if (inputRef.current) inputRef.current.value = "";
+  }, [multiple, maxFiles, uploadOne]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -174,6 +173,7 @@ export function ImageUploader({ onUpload, label = "Upload image", accept = "imag
         ref={inputRef}
         type="file"
         accept={accept}
+        multiple={multiple}
         style={{ display: "none" }}
         onChange={(e) => handleFiles(e.target.files)}
       />
