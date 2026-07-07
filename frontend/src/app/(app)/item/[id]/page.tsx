@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Camera, Bell, Tag, Trash2, Pencil } from "lucide-react";
+import { ArrowLeft, Camera, Bell, Tag, Trash2, Pencil, Eye } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
@@ -31,6 +31,8 @@ interface ApiItem {
   preorder_deposit?: number | null;
   privacy: string;
   created_at: string;
+  owner_handle?: string | null;
+  owner_name?: string | null;
 }
 
 // DV4-04: remove-from-collection reasons (design_v4 ItemDetail "Remove from collection?" sheet).
@@ -47,6 +49,7 @@ const STATUS_LABEL: Record<string, string> = {
   owned: "In collection",
   wishlist: "Wishlist",
   preorder: "Pre-order",
+  intel: "DB Contribution",
 };
 
 const TONES = ["teal", "plum", "forest", "gold", "red", "ink"];
@@ -235,6 +238,7 @@ export default function ItemDetailPage() {
   const isOwned = item.status === "owned";
   const isWish = item.status === "wishlist";
   const isPreorder = item.status === "preorder";
+  const isIntel = item.status === "intel"; // DV6-11h — DB Contribution (unowned catalogue seed)
   const isOwnItem = !!user && user.id === item.user_id;
 
   return (
@@ -272,7 +276,7 @@ export default function ItemDetailPage() {
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8, alignItems: "center" }}>
           <VerifyBadge tier={item.verify_tier} size="lg" />
           {item.status !== "owned" && (
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: 5, background: isWish ? "var(--plum)" : "var(--grail-gold)", color: "var(--paper)" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: 5, background: isIntel ? "var(--verified-teal)" : isWish ? "var(--plum)" : "var(--grail-gold)", color: "var(--paper)" }}>
               {STATUS_LABEL[item.status] ?? item.status}
             </span>
           )}
@@ -291,6 +295,28 @@ export default function ItemDetailPage() {
             SKU {item.sku}
           </div>
         )}
+
+        {/* DV6-11h — DB Contribution attribution (tap → contributor's profile) */}
+        {isIntel && (() => {
+          const canTap = !isOwnItem && !!item.owner_handle;
+          const who = isOwnItem ? "@you" : item.owner_handle ? `@${item.owner_handle}` : "Scorred";
+          return (
+            <button
+              type="button"
+              onClick={() => canTap && router.push(`/profile/${item.owner_handle}`)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 14, padding: "4px 10px", borderRadius: 999,
+                background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)",
+                cursor: canTap ? "pointer" : "default",
+              }}
+            >
+              <Eye size={12} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
+              <span style={{ fontSize: 11.5, color: "var(--verified-teal)", fontWeight: 500 }}>
+                DB Contribution by <b style={{ fontWeight: 700 }}>{who}</b>
+              </span>
+            </button>
+          );
+        })()}
 
         <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
           {item.value > 0 && (
@@ -352,8 +378,8 @@ export default function ItemDetailPage() {
               <div style={{ fontSize: 13.5, fontWeight: 600 }}>Verify ownership in the app to list it</div>
               <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
                 {verifyHint
-                  ? "Open CollectorHub on your phone → this item → Verify, then take a live photo plus the challenge shot. Verified items can be listed for sale."
-                  : "Ownership photos are captured live in the CollectorHub app — tap to learn how."}
+                  ? "Open Scorred on your phone → this item → Verify, then take a live photo plus the challenge shot. Verified items can be listed for sale."
+                  : "Ownership photos are captured live in the Scorred app — tap to learn how."}
               </div>
             </div>
           </button>

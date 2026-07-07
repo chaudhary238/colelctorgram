@@ -15,16 +15,21 @@ import {
 
 const fmt = (n: number) => n.toLocaleString("en-IN");
 
-// §9.17 P2 — earn-action deep links. `refer` is handled separately (copies the
-// invite link); actions with no natural surface (e.g. vouch is post-deal) omitted.
+// DV6-02 — earn-action deep links. Each lands on the surface where the action is
+// actually performed: refer → the referral dashboard; profile → your own profile;
+// db_new → your collection (where "Add to collection" submits new catalogue items);
+// showcase/review deep-link straight into the composer (skipping the Create
+// chooser); vouch → your Following list (who you can vouch for).
 const EARN_LINK: Record<string, string> = {
-  profile: "/settings",
-  showcase: "/compose",
-  review: "/compose",
+  refer: "/refer",
+  profile: "/profile",
+  db_new: "/market/new",
+  showcase: "/compose?type=post",
+  review: "/compose?type=review",
   rsvp: "/events",
   comment: "/feed",
   like: "/feed",
-  vouch: "/inbox",
+  vouch: "/search",
 };
 
 export default function RewardsPage() {
@@ -74,6 +79,7 @@ export default function RewardsPage() {
 
   return (
     <div className="w-full max-w-[600px] min-h-screen border-r border-[var(--border)]">
+      <style>{`@keyframes scr-pop-in { 0% { opacity: 0; transform: scale(0.4); } 70% { transform: scale(1.12); } 100% { opacity: 1; transform: scale(1); } } .scr-pop-in { animation: scr-pop-in 400ms cubic-bezier(.34,1.56,.64,1) both; }`}</style>
       {rankUp && <RankUpOverlay tier={rankUp} onClose={() => setRankUp(null)} />}
       <Header title="Rewards" subtitle="Collector XP" onBack={() => router.back()}
         trailing={<Button size="sm" variant="secondary" icon={<Trophy size={15} />} onClick={() => router.push("/leaderboard")}>Ranks</Button>} />
@@ -113,7 +119,9 @@ export default function RewardsPage() {
                   border: `1px solid ${d.checkin.claimed ? "var(--border)" : "var(--grail-gold)"}`,
                   background: d.checkin.claimed ? "var(--paper-soft)" : "var(--grail-gold-soft)" }}>
                   <div style={{ width: 40, height: 40, borderRadius: 11, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: d.checkin.claimed ? "var(--bone)" : "var(--grail-gold)", color: d.checkin.claimed ? "var(--ink-faint)" : "var(--ink)" }}>
-                    {d.checkin.claimed ? <Check size={20} strokeWidth={2.2} /> : <Zap size={20} strokeWidth={2.2} />}
+                    {d.checkin.claimed
+                      ? <img className="scr-pop-in" src="/brand/icon-crop.png" width={24} height={24} alt="" style={{ objectFit: "contain", display: "block" }} />
+                      : <Zap size={20} strokeWidth={2.2} />}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{d.checkin.claimed ? "Checked in today" : "Daily check-in"}</div>
@@ -150,9 +158,7 @@ export default function RewardsPage() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 11 }}>
                   {d.earn_actions.map((a) => {
                     const target = EARN_LINK[a.id];
-                    const onClick = a.id === "refer"
-                      ? () => copyInvite(d.referral.code)
-                      : target ? () => router.push(target) : undefined;
+                    const onClick = target ? () => router.push(target) : undefined;
                     return <EarnRow key={a.id} action={a} onClick={onClick} />;
                   })}
                 </div>

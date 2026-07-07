@@ -121,7 +121,7 @@ export default function ListingDetailPage() {
   async function share() {
     const url = `${window.location.origin}/listing/${id}`;
     try {
-      if (navigator.share) await navigator.share({ title: listing?.title ?? "CollectorHub", url });
+      if (navigator.share) await navigator.share({ title: listing?.title ?? "Scorred", url });
       else { await navigator.clipboard.writeText(url); setShared(true); setTimeout(() => setShared(false), 1600); }
     } catch { /* cancelled */ }
   }
@@ -157,7 +157,8 @@ export default function ListingDetailPage() {
   const reserved = listing.status === "reserved";
   const available = listing.status === "available";
   const isPreorder = listing.acq === "preorder";
-  const sellerTier = listing.deals_count >= 50 ? "top_seller" : listing.deals_count >= 20 ? "trusted" : "verified";
+  const sellerVouches = listing.vouches_count ?? 0;
+  const sellerTier = sellerVouches >= 50 ? "top_seller" : sellerVouches >= 20 ? "trusted" : "verified";
   const priceRupees = Math.round(listing.price / 100);
   const cur = symOf(listing.currency ?? "INR");
   const retailRupees = listing.retail_price ? Math.round(listing.retail_price / 100) : 0;
@@ -428,9 +429,9 @@ export default function ListingDetailPage() {
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
                 <TrustSignals
                   compact
-                  deals={listing.deals_count}
+                  vouches={sellerVouches}
                   rating={listing.rating}
-                  ratingCount={listing.deals_count}
+                  ratingCount={sellerVouches}
                 />
               </div>
             </Link>
@@ -438,7 +439,7 @@ export default function ListingDetailPage() {
             <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 13, padding: "12px 14px", marginTop: 16 }}>
               <Shield size={17} style={{ color: "var(--grail-gold-deep)", flexShrink: 0, marginTop: 1 }} />
               <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.5 }}>
-                <b>Safe trading:</b> deals complete off-platform. CollectorHub doesn&rsquo;t hold payments. Always check trust signals, ask for an in-hand video, and never pay before you&rsquo;ve verified the seller.
+                <b>Safe trading:</b> deals complete off-platform. Scorred doesn&rsquo;t hold payments. Always check trust signals, ask for an in-hand video, and never pay before you&rsquo;ve verified the seller.
               </div>
             </div>
           </>

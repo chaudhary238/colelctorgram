@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="design_doc_mode" content="canvas">
+<title>Scorred — Logo v8 · Bullseye + Creative Type</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@700;800;900&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0C0C0C;min-height:100vh;font-family:'DM Sans',sans-serif}
+.canvas{width:1560px;margin:0 auto;padding:72px 40px 140px}
+.ey{font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#333}
+</style>
+</head>
+<body>
+<div class="canvas">
+
+<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:64px">
+  <div>
+    <div class="ey" style="margin-bottom:10px">Brand Identity · v8 · Typographic creativity</div>
+    <div style="font-size:44px;font-weight:800;letter-spacing:-0.045em;color:#fff;line-height:1;font-family:'Geist',system-ui">Bullseye O · and five more</div>
+    <div style="font-size:13px;color:#444;margin-top:9px;line-height:1.6">Alignment fixed — all wordmarks use a single SVG coordinate space so the bullseye sits exactly where the O sits.</div>
+  </div>
+  <div style="background:#D42038;color:#fff;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;padding:7px 16px;border-radius:999px">v8 · Typographic</div>
+</div>
+
+<!--
+  ALIGNMENT RULE (applied everywhere below):
+  One SVG per wordmark. Text baseline at y=82 for 82px type.
+  O sits between y=22 (cap top) and y=82 (baseline).
+  Circle: cy=52 (midpoint), r=29 (cap-height/2 ≈ 30, small inset for natural O feel).
+  "SC" advance ≈ 94px, O advance ≈ 52px → O cx=120, RRED starts at x=146.
+-->
+
+<!-- ══════════════════════════════════════════
+     CONCEPT 1 — BULLSEYE O (hero)
+     ══════════════════════════════════════════ -->
+<div style="background:#111;border-radius:24px;padding:56px 64px;margin-bottom:14px">
+  <div class="ey" style="margin-bottom:6px">Concept 1</div>
+  <div style="font-size:22px;font-weight:700;color:#fff;margin-bottom:4px">Bullseye O</div>
+  <div style="font-size:13px;color:#444;margin-bottom:44px;max-width:580px;line-height:1.6">The O in SCORRED is a target — single SVG so the circle shares the same baseline as the letters. It should read as naturally as the letter O itself.</div>
+
+  <!-- A: Concentric rings — primary -->
+  <div style="margin-bottom:40px">
+    <div class="ey" style="margin-bottom:16px;color:#2A2A2A">A · Concentric rings · red bull · 82px</div>
+    <!-- Single SVG. SC ≈94px, O cx=120 cy=52 r=29, RRED starts x=146 -->
+    <svg width="500" height="96" viewBox="0 0 500 96" fill="none">
+      <text x="0" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" letter-spacing="-2">SC</text>
+      <circle cx="120" cy="52" r="29" stroke="white" stroke-width="3" fill="none" opacity="0.25"/>
+      <circle cx="120" cy="52" r="19" stroke="white" stroke-width="2.5" fill="none" opacity="0.55"/>
+      <circle cx="120" cy="52" r="10" stroke="white" stroke-width="2.5" fill="none" opacity="0.8"/>
+      <circle cx="120" cy="52" r="4" fill="#D42038"/>
+      <text x="146" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" letter-spacing="-2">RRED</text>
+    </svg>
+  </div>
+
+  <!-- A: with RR in red -->
+  <div style="margin-bottom:40px">
+    <div class="ey" style="margin-bottom:16px;color:#2A2A2A">A · RR accent red · 82px</div>
+    <svg width="500" height="96" viewBox="0 0 500 96" fill="none">
+      <text x="0" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" letter-spacing="-2">SC</text>
+      <circle cx="120" cy="52" r="29" stroke="white" stroke-width="3" fill="none" opacity="0.25"/>
+      <circle cx="120" cy="52" r="19" stroke="white" stroke-width="2.5" fill="none" opacity="0.55"/>
+      <circle cx="120" cy="52" r="10" stroke="white" stroke-width="2.5" fill="none" opacity="0.8"/>
+      <circle cx="120" cy="52" r="4" fill="#D42038"/>
+      <text x="146" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="#D42038" letter-spacing="-2">RR</text>
+      <text x="262" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" letter-spacing="-2">ED</text>
+    </svg>
+  </div>
+
+  <!-- Medium scale -->
+  <div style="display:flex;gap:48px;align-items:flex-end;margin-bottom:40px;flex-wrap:wrap">
+    <div>
+      <div class="ey" style="margin-bottom:14px;color:#2A2A2A">48px — same proportions</div>
+      <!-- Scale: 48/82 ≈ 0.585. SC≈55px, O cx=70 cy=30 r=17, RRED x=85 -->
+      <svg width="310" height="56" viewBox="0 0 310 56" fill="none">
+        <text x="0" y="48" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white" letter-spacing="-1">SC</text>
+        <circle cx="70" cy="30" r="17" stroke="white" stroke-width="2.5" fill="none" opacity="0.25"/>
+        <circle cx="70" cy="30" r="11" stroke="white" stroke-width="2" fill="none" opacity="0.55"/>
+        <circle cx="70" cy="30" r="6" stroke="white" stroke-width="2" fill="none" opacity="0.8"/>
+        <circle cx="70" cy="30" r="2.5" fill="#D42038"/>
+        <text x="85" y="48" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white" letter-spacing="-1">RRED</text>
+      </svg>
+    </div>
+    <div>
+      <div class="ey" style="margin-bottom:14px;color:#2A2A2A">32px — small</div>
+      <!-- Scale: 32/82≈0.39. SC≈37px, O cx=46 cy=20 r=11, RRED x=57 -->
+      <svg width="210" height="38" viewBox="0 0 210 38" fill="none">
+        <text x="0" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="white" letter-spacing="-0.8">SC</text>
+        <circle cx="46" cy="20" r="11" stroke="white" stroke-width="2" fill="none" opacity="0.25"/>
+        <circle cx="46" cy="20" r="7" stroke="white" stroke-width="1.8" fill="none" opacity="0.6"/>
+        <circle cx="46" cy="20" r="3" fill="#D42038"/>
+        <text x="57" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="white" letter-spacing="-0.8">RRED</text>
+      </svg>
+    </div>
+    <div>
+      <div class="ey" style="margin-bottom:14px;color:#2A2A2A">20px — minimum</div>
+      <svg width="140" height="24" viewBox="0 0 140 24" fill="none">
+        <text x="0" y="20" font-family="'Geist',system-ui" font-weight="900" font-size="20" fill="white" letter-spacing="-0.5">SC</text>
+        <circle cx="29" cy="12" r="7" stroke="white" stroke-width="1.5" fill="none" opacity="0.3"/>
+        <circle cx="29" cy="12" r="3" fill="#D42038"/>
+        <text x="36" y="20" font-family="'Geist',system-ui" font-weight="900" font-size="20" fill="white" letter-spacing="-0.5">RRED</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- B: Crosshair scope sight -->
+  <div style="margin-bottom:40px">
+    <div class="ey" style="margin-bottom:16px;color:#2A2A2A">B · Scope / crosshair · 82px</div>
+    <svg width="500" height="96" viewBox="0 0 500 96" fill="none">
+      <text x="0" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" letter-spacing="-2">SC</text>
+      <!-- Outer circle -->
+      <circle cx="120" cy="52" r="30" stroke="white" stroke-width="2.5" fill="none"/>
+      <!-- Inner ring -->
+      <circle cx="120" cy="52" r="12" stroke="white" stroke-width="2" fill="none"/>
+      <!-- Red dot -->
+      <circle cx="120" cy="52" r="4" fill="#D42038"/>
+      <!-- Crosshair — gap in middle to reveal inner ring -->
+      <line x1="120" y1="22" x2="120" y2="37" stroke="#D42038" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="120" y1="67" x2="120" y2="82" stroke="#D42038" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="90" y1="52" x2="105" y2="52" stroke="#D42038" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="135" y1="52" x2="150" y2="52" stroke="#D42038" stroke-width="2.5" stroke-linecap="round"/>
+      <text x="150" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" letter-spacing="-2">RRED</text>
+    </svg>
+  </div>
+
+  <!-- On light bg -->
+  <div>
+    <div class="ey" style="margin-bottom:16px;color:#2A2A2A">Light background · A · with reversed RR · 60px</div>
+    <div style="background:#F2EFE9;border-radius:16px;padding:28px 36px;display:inline-block">
+      <!-- SC≈70, O cx=88 cy=38 r=18, RRED x=107. reversed second R -->
+      <svg width="400" height="70" viewBox="0 0 400 70" fill="none">
+        <text x="0" y="60" font-family="'Geist',system-ui" font-weight="900" font-size="60" fill="#111" letter-spacing="-1.5">SC</text>
+        <circle cx="88" cy="38" r="18" stroke="#111" stroke-width="2.5" fill="none" opacity="0.2"/>
+        <circle cx="88" cy="38" r="11" stroke="#111" stroke-width="2" fill="none" opacity="0.45"/>
+        <circle cx="88" cy="38" r="5" stroke="#111" stroke-width="1.8" fill="none" opacity="0.7"/>
+        <circle cx="88" cy="38" r="2" fill="#D42038"/>
+        <text x="107" y="60" font-family="'Geist',system-ui" font-weight="900" font-size="60" fill="#111" letter-spacing="-1.5">R</text>
+        <g transform="translate(180,0) scale(-1,1)">
+          <text x="0" y="60" font-family="'Geist',system-ui" font-weight="900" font-size="60" fill="#D42038" letter-spacing="-1.5">R</text>
+        </g>
+        <text x="182" y="60" font-family="'Geist',system-ui" font-weight="900" font-size="60" fill="#111" letter-spacing="-1.5">ED</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     4-UP GRID
+     ══════════════════════════════════════════ -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+
+  <!-- CONCEPT 2: Target S icon -->
+  <div style="background:#141414;border-radius:24px;padding:44px 48px">
+    <div class="ey" style="margin-bottom:6px">Concept 2</div>
+    <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:3px">Target S — standalone mark</div>
+    <div style="font-size:12px;color:#444;margin-bottom:32px;line-height:1.6;max-width:400px">S at the bullseye centre — the icon mark. Lockup uses reversed RR wordmark as standard.</div>
+
+    <div style="display:flex;gap:16px;align-items:flex-end;margin-bottom:28px">
+      <div>
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <rect width="100" height="100" rx="22" fill="#D42038"/>
+          <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.18)" stroke-width="3" fill="none"/>
+          <circle cx="50" cy="50" r="28" stroke="rgba(255,255,255,0.38)" stroke-width="3" fill="none"/>
+          <circle cx="50" cy="50" r="16" stroke="rgba(255,255,255,0.62)" stroke-width="2.5" fill="none"/>
+          <text x="50" y="62" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="white">S</text>
+        </svg>
+        <div class="ey" style="text-align:center;margin-top:8px">100 red</div>
+      </div>
+      <div>
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <rect width="100" height="100" rx="22" fill="#1A1A1A" stroke="#282828" stroke-width="1"/>
+          <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.07)" stroke-width="2.5" fill="none"/>
+          <circle cx="50" cy="50" r="26" stroke="rgba(255,255,255,0.13)" stroke-width="2.5" fill="none"/>
+          <circle cx="50" cy="50" r="14" stroke="#D42038" stroke-width="2.5" fill="none"/>
+          <text x="50" y="62" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="white">S</text>
+        </svg>
+        <div class="ey" style="text-align:center;margin-top:8px">100 dark</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:10px;align-items:flex-end">
+          <svg width="64" height="64" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#D42038"/><circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.18)" stroke-width="3.5" fill="none"/><circle cx="50" cy="50" r="26" stroke="rgba(255,255,255,0.42)" stroke-width="3.5" fill="none"/><circle cx="50" cy="50" r="13" stroke="rgba(255,255,255,0.7)" stroke-width="3" fill="none"/><text x="50" y="62" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="white">S</text></svg>
+          <svg width="44" height="44" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#D42038"/><circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.18)" stroke-width="4" fill="none"/><circle cx="50" cy="50" r="23" stroke="rgba(255,255,255,0.55)" stroke-width="4" fill="none"/><circle cx="50" cy="50" r="8" fill="rgba(255,255,255,0.85)"/><text x="50" y="60" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="#D42038">S</text></svg>
+          <svg width="32" height="32" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="#D42038"/><circle cx="50" cy="50" r="38" stroke="rgba(255,255,255,0.22)" stroke-width="5" fill="none"/><circle cx="50" cy="50" r="20" stroke="rgba(255,255,255,0.65)" stroke-width="5" fill="none"/><circle cx="50" cy="50" r="7" fill="white"/></svg>
+        </div>
+        <div class="ey" style="color:#2A2A2A">64 · 44 · 32</div>
+      </div>
+    </div>
+
+    <!-- Lockup with reversed RR -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="padding:16px 22px;background:#0A0A0A;border-radius:13px;display:inline-flex;align-items:center;gap:16px">
+        <svg width="52" height="52" viewBox="0 0 100 100" style="flex-shrink:0;border-radius:13px">
+          <rect width="100" height="100" fill="#D42038"/>
+          <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.18)" stroke-width="3.5" fill="none"/>
+          <circle cx="50" cy="50" r="26" stroke="rgba(255,255,255,0.42)" stroke-width="3.5" fill="none"/>
+          <circle cx="50" cy="50" r="13" stroke="rgba(255,255,255,0.72)" stroke-width="3" fill="none"/>
+          <text x="50" y="62" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="white">S</text>
+        </svg>
+        <svg width="210" height="32" viewBox="0 0 260 32" fill="none">
+          <text x="0" y="26" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="white" letter-spacing="-0.3">SCO</text>
+          <text x="57" y="26" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="white">R</text>
+          <g transform="translate(94,0) scale(-1,1)"><text x="0" y="26" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="#D42038">R</text></g>
+          <text x="96" y="26" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="white" letter-spacing="-0.3">ED</text>
+        </svg>
+      </div>
+      <div style="padding:16px 22px;background:#F2EFE9;border-radius:13px;display:inline-flex;align-items:center;gap:16px">
+        <svg width="52" height="52" viewBox="0 0 100 100" style="flex-shrink:0;border-radius:13px">
+          <rect width="100" height="100" fill="#D42038"/>
+          <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.18)" stroke-width="3.5" fill="none"/>
+          <circle cx="50" cy="50" r="26" stroke="rgba(255,255,255,0.42)" stroke-width="3.5" fill="none"/>
+          <circle cx="50" cy="50" r="13" stroke="rgba(255,255,255,0.72)" stroke-width="3" fill="none"/>
+          <text x="50" y="62" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="white">S</text>
+        </svg>
+        <svg width="210" height="32" viewBox="0 0 260 32" fill="none">
+          <text x="0" y="26" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="#111" letter-spacing="-0.3">SCO</text>
+          <text x="57" y="26" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="#111">R</text>
+          <g transform="translate(94,0) scale(-1,1)"><text x="0" y="26" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="#D42038">R</text></g>
+          <text x="96" y="26" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="#111" letter-spacing="-0.3">ED</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 3: Grade O -->
+  <div style="background:#141414;border-radius:24px;padding:44px 48px">
+    <div class="ey" style="margin-bottom:6px">Concept 3</div>
+    <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:3px">Grade O</div>
+    <div style="font-size:12px;color:#444;margin-bottom:32px;line-height:1.6;max-width:400px">The O is a grade badge (A+, PSA 10). Circle is same cap-height, same baseline — reads as an O substitute.</div>
+
+    <div style="margin-bottom:20px">
+      <div class="ey" style="margin-bottom:14px;color:#2A2A2A">A+ grade · 82px · single SVG</div>
+      <svg width="500" height="96" viewBox="0 0 500 96" fill="none">
+        <text x="0" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" letter-spacing="-2">SC</text>
+        <circle cx="120" cy="52" r="29" fill="#D42038"/>
+        <text x="120" y="47" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="white">A</text>
+        <text x="133" y="40" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="13" fill="white">+</text>
+        <text x="146" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" letter-spacing="-2">RRED</text>
+      </svg>
+    </div>
+
+    <div>
+      <div class="ey" style="margin-bottom:14px;color:#2A2A2A">PSA 10 · 82px · with reversed RR</div>
+      <svg width="500" height="96" viewBox="0 0 500 96" fill="none">
+        <text x="0" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" letter-spacing="-2">SC</text>
+        <circle cx="120" cy="52" r="29" fill="#D42038"/>
+        <text x="120" y="61" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="30" fill="white" letter-spacing="-1">10</text>
+        <!-- R normal -->
+        <text x="146" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" letter-spacing="-2">R</text>
+        <!-- R reversed -->
+        <g transform="translate(260,0) scale(-1,1)">
+          <text x="0" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="#D42038">R</text>
+        </g>
+        <text x="262" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" letter-spacing="-2">ED</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- CONCEPT 4: Wax seal O -->
+  <div style="background:#141414;border-radius:24px;padding:44px 48px">
+    <div class="ey" style="margin-bottom:6px">Concept 4</div>
+    <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:3px">Wax Seal O + standalone</div>
+    <div style="font-size:12px;color:#444;margin-bottom:32px;line-height:1.6;max-width:400px">The O is a notched wax seal — provenance and authentication. Circle aligns to cap-height.</div>
+
+    <div style="margin-bottom:24px">
+      <div class="ey" style="margin-bottom:14px;color:#2A2A2A">Seal in wordmark · 82px</div>
+      <svg width="520" height="96" viewBox="0 0 520 96" fill="none">
+        <text x="0" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" letter-spacing="-2">SC</text>
+        <!-- Notched seal at O position -->
+        <circle cx="120" cy="52" r="29" fill="#D42038"/>
+        <circle cx="120" cy="52" r="29" fill="none" stroke="#B02030" stroke-width="7" stroke-dasharray="5 3.8"/>
+        <circle cx="120" cy="52" r="19" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+        <text x="120" y="58" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="20" fill="white">S</text>
+        <!-- R normal -->
+        <text x="146" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" letter-spacing="-2">R</text>
+        <!-- R reversed -->
+        <g transform="translate(260,0) scale(-1,1)">
+          <text x="0" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="#D42038">R</text>
+        </g>
+        <text x="262" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" letter-spacing="-2">ED</text>
+      </svg>
+    </div>
+
+    <!-- Standalone seal icon lockup -->
+    <div class="ey" style="margin-bottom:12px;color:#2A2A2A">Seal as icon mark · lockup</div>
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <svg width="90" height="90" viewBox="0 0 100 100">
+        <g transform="translate(50,50)">
+          <circle r="46" fill="#D42038"/>
+          <circle r="36" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
+          <circle r="46" fill="none" stroke="#C03030" stroke-width="9" stroke-dasharray="5 4.6"/>
+          <text y="12" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="34" fill="white">S</text>
+        </g>
+      </svg>
+      <div style="padding:14px 20px;background:#0A0A0A;border-radius:12px;display:inline-flex;align-items:center;gap:14px">
+        <svg width="46" height="46" viewBox="0 0 100 100" style="flex-shrink:0;border-radius:50%">
+          <g transform="translate(50,50)"><circle r="46" fill="#D42038"/><circle r="36" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2"/><circle r="46" fill="none" stroke="#C03030" stroke-width="9" stroke-dasharray="5 4.6"/><text y="12" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="30" fill="white">S</text></g>
+        </svg>
+        <svg width="210" height="30" viewBox="0 0 260 30" fill="none">
+          <text x="0" y="24" font-family="'Geist',system-ui" font-weight="900" font-size="24" fill="white" letter-spacing="-0.3">SCO</text>
+          <text x="52" y="24" font-family="'Geist',system-ui" font-weight="900" font-size="24" fill="white">R</text>
+          <g transform="translate(88,0) scale(-1,1)"><text x="0" y="24" font-family="'Geist',system-ui" font-weight="900" font-size="24" fill="#D42038">R</text></g>
+          <text x="90" y="24" font-family="'Geist',system-ui" font-weight="900" font-size="24" fill="white" letter-spacing="-0.3">ED</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 5: Grail tag -->
+  <div style="background:#141414;border-radius:24px;padding:44px 48px">
+    <div class="ey" style="margin-bottom:6px">Concept 5</div>
+    <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:3px">Grail Tag</div>
+    <div style="font-size:12px;color:#444;margin-bottom:32px;line-height:1.6;max-width:400px">S on a collector price tag. Tagged = catalogued, valued, scored. With reversed RR wordmark.</div>
+
+    <div style="margin-bottom:28px">
+      <div class="ey" style="margin-bottom:14px;color:#2A2A2A">Tag wordmark · reversed RR</div>
+      <svg width="440" height="120" viewBox="0 0 440 120" fill="none">
+        <path d="M 18 10 L 340 10 Q 356 10 356 26 L 356 56 L 380 80 L 356 104 Q 356 114 340 114 L 18 114 Q 4 114 4 100 L 4 24 Q 4 10 18 10 Z" fill="#D42038"/>
+        <circle cx="32" cy="62" r="10" fill="#0C0C0C"/>
+        <text x="60" y="76" font-family="'Geist',system-ui" font-weight="900" font-size="52" fill="white" letter-spacing="-1.5">SCO</text>
+        <!-- R normal -->
+        <text x="195" y="76" font-family="'Geist',system-ui" font-weight="900" font-size="52" fill="white" letter-spacing="-1.5">R</text>
+        <!-- R reversed -->
+        <g transform="translate(260,0) scale(-1,1)">
+          <text x="0" y="76" font-family="'Geist',system-ui" font-weight="900" font-size="52" fill="rgba(255,255,255,0.4)" letter-spacing="-1.5">R</text>
+        </g>
+        <text x="262" y="76" font-family="'Geist',system-ui" font-weight="900" font-size="52" fill="white" letter-spacing="-1.5">ED</text>
+        <line x1="20" y1="62" x2="2" y2="40" stroke="#555" stroke-width="1.5" stroke-dasharray="3 2"/>
+      </svg>
+    </div>
+
+    <div style="display:flex;gap:14px;align-items:center">
+      <svg width="48" height="66" viewBox="0 0 72 100" fill="none">
+        <path d="M 10 8 L 56 8 Q 66 8 66 18 L 66 56 L 78 72 L 66 88 Q 66 96 56 96 L 10 96 Q 2 96 2 88 L 2 16 Q 2 8 10 8 Z" fill="#D42038"/>
+        <circle cx="14" cy="52" r="7" fill="#0C0C0C"/>
+        <text x="42" y="64" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="40" fill="white">S</text>
+      </svg>
+      <div style="padding:14px 20px;background:#0A0A0A;border-radius:12px;display:inline-flex;align-items:center;gap:14px">
+        <svg width="36" height="50" viewBox="0 0 72 100" fill="none" style="flex-shrink:0">
+          <path d="M 10 8 L 56 8 Q 66 8 66 18 L 66 56 L 78 72 L 66 88 Q 66 96 56 96 L 10 96 Q 2 96 2 88 L 2 16 Q 2 8 10 8 Z" fill="#D42038"/>
+          <circle cx="14" cy="52" r="7" fill="#0C0C0C"/>
+          <text x="42" y="64" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="40" fill="white">S</text>
+        </svg>
+        <svg width="210" height="30" viewBox="0 0 260 30" fill="none">
+          <text x="0" y="24" font-family="'Geist',system-ui" font-weight="900" font-size="24" fill="white" letter-spacing="-0.3">SCO</text>
+          <text x="52" y="24" font-family="'Geist',system-ui" font-weight="900" font-size="24" fill="white">R</text>
+          <g transform="translate(88,0) scale(-1,1)"><text x="0" y="24" font-family="'Geist',system-ui" font-weight="900" font-size="24" fill="#D42038">R</text></g>
+          <text x="90" y="24" font-family="'Geist',system-ui" font-weight="900" font-size="24" fill="white" letter-spacing="-0.3">ED</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ══ STANDING RULE — reversed RR + tick ══ -->
+<div style="background:#141414;border-radius:24px;padding:48px 56px">
+  <div class="ey" style="margin-bottom:6px">Standing rule · every direction</div>
+  <div style="font-size:22px;font-weight:700;color:#fff;font-family:'Geist',system-ui;margin-bottom:4px">Reversed RR + Tick — always included</div>
+  <div style="font-size:13px;color:#444;margin-bottom:44px;max-width:640px;line-height:1.6">Every lockup carries: (A) reversed second R — SCOR<span style="color:#D42038">Я</span>ED, and (B) the tick — either above the S icon or floating above the RR. Together they complete the Scorred visual language.</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+
+    <!-- Reversed RR wordmarks -->
+    <div style="background:#0F0F0F;border-radius:18px;padding:32px 36px">
+      <div class="ey" style="margin-bottom:18px;color:#2A2A2A">A · Reversed RR · three backgrounds</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+
+        <div style="padding:16px 20px;background:#0A0A0A;border-radius:12px;display:inline-flex;align-items:center;gap:14px">
+          <div style="width:48px;height:48px;border-radius:12px;background:#D42038;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="30" height="36" viewBox="0 0 52 60" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="50" fill="white">S</text></svg>
+          </div>
+          <svg width="210" height="28" viewBox="0 0 260 28" fill="none">
+            <text x="0" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="white" letter-spacing="-0.3">SCO</text>
+            <text x="47" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="white">R</text>
+            <g transform="translate(78,0) scale(-1,1)"><text x="0" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="#D42038">R</text></g>
+            <text x="80" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="white" letter-spacing="-0.3">ED</text>
+          </svg>
+        </div>
+
+        <div style="padding:16px 20px;background:#F2EFE9;border-radius:12px;display:inline-flex;align-items:center;gap:14px">
+          <div style="width:48px;height:48px;border-radius:12px;background:#D42038;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="30" height="36" viewBox="0 0 52 60" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="50" fill="white">S</text></svg>
+          </div>
+          <svg width="210" height="28" viewBox="0 0 260 28" fill="none">
+            <text x="0" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="#111" letter-spacing="-0.3">SCO</text>
+            <text x="47" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="#111">R</text>
+            <g transform="translate(78,0) scale(-1,1)"><text x="0" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="#D42038">R</text></g>
+            <text x="80" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="#111" letter-spacing="-0.3">ED</text>
+          </svg>
+        </div>
+
+        <div style="padding:16px 20px;background:#D42038;border-radius:12px;display:inline-flex;align-items:center;gap:14px">
+          <div style="width:48px;height:48px;border-radius:12px;background:rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="30" height="36" viewBox="0 0 52 60" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="50" fill="white">S</text></svg>
+          </div>
+          <svg width="210" height="28" viewBox="0 0 260 28" fill="none">
+            <text x="0" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="white" letter-spacing="-0.3">SCO</text>
+            <text x="47" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="white">R</text>
+            <g transform="translate(78,0) scale(-1,1)"><text x="0" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="rgba(255,255,255,0.35)">R</text></g>
+            <text x="80" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="white" letter-spacing="-0.3">ED</text>
+          </svg>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Tick variants -->
+    <div style="background:#0F0F0F;border-radius:18px;padding:32px 36px">
+      <div class="ey" style="margin-bottom:18px;color:#2A2A2A">B · Tick · three placements</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+
+        <!-- S+tick icon -->
+        <div style="padding:16px 20px;background:#0A0A0A;border-radius:12px;display:inline-flex;align-items:center;gap:14px">
+          <div style="width:48px;height:48px;border-radius:12px;background:#D42038;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="36" height="44" viewBox="0 0 52 64" fill="none">
+              <text x="26" y="58" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="50" fill="white">S</text>
+              <polyline points="16,6 25,16 42,3" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <svg width="210" height="28" viewBox="0 0 260 28" fill="none">
+            <text x="0" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="white" letter-spacing="-0.3">SCO</text>
+            <text x="47" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="white">R</text>
+            <g transform="translate(78,0) scale(-1,1)"><text x="0" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="#D42038">R</text></g>
+            <text x="80" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="white" letter-spacing="-0.3">ED</text>
+          </svg>
+        </div>
+
+        <!-- Tick above RR in wordmark -->
+        <div style="padding:16px 20px;background:#0A0A0A;border-radius:12px;display:inline-flex;align-items:center;gap:14px">
+          <div style="width:48px;height:48px;border-radius:12px;background:#D42038;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="30" height="36" viewBox="0 0 52 60" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="50" fill="white">S</text></svg>
+          </div>
+          <svg width="210" height="38" viewBox="0 0 260 38" fill="none">
+            <polyline points="50,4 57,11 70,2" fill="none" stroke="#D42038" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="0" y="34" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="white" letter-spacing="-0.3">SCO</text>
+            <text x="47" y="34" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="white">R</text>
+            <g transform="translate(78,12) scale(-1,1)"><text x="0" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="#D42038">R</text></g>
+            <text x="80" y="34" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="white" letter-spacing="-0.3">ED</text>
+          </svg>
+        </div>
+
+        <!-- Bullseye tick O + reversed RR -->
+        <div style="padding:16px 20px;background:#0A0A0A;border-radius:12px;display:inline-block">
+          <svg width="320" height="38" viewBox="0 0 380 38" fill="none">
+            <text x="0" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="white" letter-spacing="-0.8">SC</text>
+            <!-- Bullseye at O position (sc≈62px, O cx=78, r=15, cy=19) -->
+            <circle cx="78" cy="19" r="15" stroke="white" stroke-width="2" fill="none" opacity="0.25"/>
+            <circle cx="78" cy="19" r="9" stroke="white" stroke-width="1.8" fill="none" opacity="0.55"/>
+            <!-- Tick as bullseye -->
+            <polyline points="70,19 75,25 86,12" fill="none" stroke="#D42038" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- R normal -->
+            <text x="94" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="white" letter-spacing="-0.8">R</text>
+            <!-- R reversed -->
+            <g transform="translate(164,0) scale(-1,1)"><text x="0" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="#D42038" letter-spacing="-0.8">R</text></g>
+            <text x="166" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="white" letter-spacing="-0.8">ED</text>
+          </svg>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Hero combo: S+tick · bullseye O · reversed RR -->
+  <div style="background:#0A0A0A;border-radius:16px;padding:36px 40px">
+    <div class="ey" style="margin-bottom:24px;color:#2A2A2A">Full language · S+tick icon · bullseye O · reversed RR · single SVG baseline</div>
+
+    <div style="display:flex;align-items:center;gap:22px;margin-bottom:28px">
+      <div style="width:72px;height:72px;border-radius:18px;background:#D42038;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="48" height="56" viewBox="0 0 52 64" fill="none">
+          <text x="26" y="58" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="50" fill="white">S</text>
+          <polyline points="16,6 25,16 42,3" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <!-- Single SVG: SC + bullseye O + R + reversed R + ED -->
+      <svg width="460" height="70" viewBox="0 0 520 70" fill="none">
+        <text x="0" y="60" font-family="'Geist',system-ui" font-weight="900" font-size="60" fill="white" letter-spacing="-1.5">SC</text>
+        <!-- O: sc≈70px, O cx=88, cy=38, r=18 -->
+        <circle cx="88" cy="38" r="18" stroke="white" stroke-width="2.5" fill="none" opacity="0.22"/>
+        <circle cx="88" cy="38" r="11" stroke="white" stroke-width="2" fill="none" opacity="0.5"/>
+        <circle cx="88" cy="38" r="5" stroke="white" stroke-width="1.8" fill="none" opacity="0.8"/>
+        <!-- Tick in bullseye -->
+        <polyline points="80,38 85,44 96,30" fill="none" stroke="#D42038" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- R normal -->
+        <text x="108" y="60" font-family="'Geist',system-ui" font-weight="900" font-size="60" fill="white" letter-spacing="-1.5">R</text>
+        <!-- R reversed -->
+        <g transform="translate(182,0) scale(-1,1)">
+          <text x="0" y="60" font-family="'Geist',system-ui" font-weight="900" font-size="60" fill="#D42038" letter-spacing="-1.5">R</text>
+        </g>
+        <text x="184" y="60" font-family="'Geist',system-ui" font-weight="900" font-size="60" fill="white" letter-spacing="-1.5">ED</text>
+      </svg>
+    </div>
+
+    <!-- Same at 38px -->
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="width:44px;height:44px;border-radius:11px;background:#D42038;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="32" height="38" viewBox="0 0 52 64" fill="none">
+          <text x="26" y="58" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="50" fill="white">S</text>
+          <polyline points="16,6 25,16 42,3" fill="none" stroke="white" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <svg width="290" height="44" viewBox="0 0 360 44" fill="none">
+        <text x="0" y="38" font-family="'Geist',system-ui" font-weight="900" font-size="38" fill="white" letter-spacing="-1">SC</text>
+        <circle cx="55" cy="24" r="12" stroke="white" stroke-width="2" fill="none" opacity="0.22"/>
+        <circle cx="55" cy="24" r="7" stroke="white" stroke-width="1.8" fill="none" opacity="0.55"/>
+        <polyline points="49,24 53,28 61,18" fill="none" stroke="#D42038" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="68" y="38" font-family="'Geist',system-ui" font-weight="900" font-size="38" fill="white" letter-spacing="-1">R</text>
+        <g transform="translate(114,0) scale(-1,1)"><text x="0" y="38" font-family="'Geist',system-ui" font-weight="900" font-size="38" fill="#D42038" letter-spacing="-1">R</text></g>
+        <text x="116" y="38" font-family="'Geist',system-ui" font-weight="900" font-size="38" fill="white" letter-spacing="-1">ED</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

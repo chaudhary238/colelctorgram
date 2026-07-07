@@ -8,7 +8,7 @@ import { Avatar, TierChip, Button } from "@/components/ui";
 
 /* Relation taxonomy — mirrors v3 ProfileView VOUCH_RELATIONS / VouchView REL. */
 export const VOUCH_RELATIONS: { id: string; label: string; icon: React.ReactNode }[] = [
-  { id: "app", label: "Traded on CollectorHub", icon: <Repeat size={18} /> },
+  { id: "app", label: "Traded on Scorred", icon: <Repeat size={18} /> },
   { id: "offapp", label: "Traded off-app", icon: <ShoppingBag size={18} /> },
   { id: "person", label: "Met in person", icon: <Users size={18} /> },
   { id: "community", label: "Known from a community", icon: <Globe size={18} /> },
@@ -98,7 +98,7 @@ export function VouchGiveSheet({
         <div style={{ display: "flex", gap: 10, padding: "12px 14px", background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", borderRadius: 12 }}>
           <Shield size={18} style={{ color: "var(--verified-teal)", flexShrink: 0, marginTop: 1 }} />
           <p style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
-            A vouch is your personal endorsement — it doesn&apos;t need a sale or trade. Vouch for anyone you trust, including people you know from outside CollectorHub.
+            A vouch is your personal endorsement — it doesn&apos;t need a sale or trade. Vouch for anyone you trust, including people you know from outside Scorred.
           </p>
         </div>
 

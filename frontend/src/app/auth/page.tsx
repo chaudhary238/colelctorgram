@@ -1,40 +1,48 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { enterGuest } from "@/lib/api";
+import { SealMark, ScorredWordmark } from "@/components/ui";
 
-// Splash (v3 Onboarding.jsx Splash) — the unauthenticated landing (DF-37a).
+// Splash (v6 Onboarding.jsx) — the unauthenticated landing.
 export default function SplashPage() {
   const router = useRouter();
-
-  function exploreAsGuest() {
-    enterGuest();
-    window.location.assign("/feed"); // full load so the shell mounts in guest state
-  }
 
   return (
     <div
       className="min-h-screen flex flex-col relative overflow-hidden"
       style={{ background: "var(--paper)" }}
     >
+      <style>{`
+        @keyframes scr-fade-up { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes scr-pop { 0% { opacity: 0; transform: scale(0.72) rotate(-6deg); } 70% { transform: scale(1.08) rotate(2deg); } 100% { opacity: 1; transform: scale(1) rotate(0deg); } }
+        .scr-pop  { animation: scr-pop 0.55s cubic-bezier(.34,1.56,.64,1) both; }
+        .scr-fu-1 { animation: scr-fade-up 0.5s 0.3s ease both; }
+        .scr-fu-2 { animation: scr-fade-up 0.5s 0.45s ease both; }
+        .scr-fu-3 { animation: scr-fade-up 0.5s 0.6s ease both; }
+      `}</style>
+
+      {/* Ambient bg glow */}
       <div
         className="absolute inset-0"
-        style={{ backgroundImage: "radial-gradient(circle at 22% 18%, rgba(255,36,66,0.07), transparent 55%), radial-gradient(circle at 84% 86%, rgba(20,17,15,0.05), transparent 55%)" }}
+        style={{ pointerEvents: "none", backgroundImage: "radial-gradient(circle at 50% 38%, rgba(255,36,66,0.10), transparent 60%), radial-gradient(circle at 85% 90%, rgba(20,17,15,0.04), transparent 50%)" }}
       />
-      <div className="flex-1 flex flex-col items-center justify-center gap-6 relative px-8">
-        <div
-          style={{ width: 96, height: 96, borderRadius: 22, background: "var(--stamp-red)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 58, transform: "rotate(-4deg)", boxShadow: "var(--shadow-stamp)" }}
+
+      <div className="flex-1 flex flex-col items-center justify-center relative px-8" style={{ gap: 14 }}>
+        <div className="scr-pop flex justify-center">
+          <SealMark size={96} />
+        </div>
+        <div className="scr-fu-1 flex justify-center">
+          <ScorredWordmark fontSize={38} />
+        </div>
+        <p
+          className="scr-fu-2"
+          style={{ fontSize: 15.5, color: "var(--ink-mute)", lineHeight: 1.55, margin: 0, maxWidth: 264, textAlign: "center" }}
         >
-          C
-        </div>
-        <div className="text-center">
-          <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 38, letterSpacing: "-0.035em", margin: 0, color: "var(--ink)" }}>CollectorHub</h1>
-          <p style={{ fontSize: 16, color: "var(--ink-mute)", lineHeight: 1.5, margin: "12px auto 0", maxWidth: 280 }}>
-            The home for collectors. Showcase what you own, find your niche, and trade with people you can trust.
-          </p>
-        </div>
+          Track, trade &amp; network — Score every grail on India&apos;s #1 collectibles platform.
+        </p>
       </div>
-      <div className="relative flex flex-col gap-3" style={{ padding: "0 24px 40px", maxWidth: 420, width: "100%", marginLeft: "auto", marginRight: "auto" }}>
+
+      <div className="scr-fu-3 relative flex flex-col gap-2.5" style={{ padding: "0 24px 44px", maxWidth: 420, width: "100%", marginLeft: "auto", marginRight: "auto" }}>
         <button
           onClick={() => router.push("/auth/signup")}
           className="w-full py-3 rounded-xl font-semibold text-sm"
@@ -48,13 +56,6 @@ export default function SplashPage() {
           style={{ background: "var(--paper-soft)", color: "var(--ink)", border: "1px solid var(--border-strong)" }}
         >
           I already have an account
-        </button>
-        <button
-          onClick={exploreAsGuest}
-          className="mt-0.5 py-2 font-semibold text-sm"
-          style={{ background: "none", border: "none", color: "var(--ink-faint)", cursor: "pointer" }}
-        >
-          Explore as guest →
         </button>
       </div>
     </div>

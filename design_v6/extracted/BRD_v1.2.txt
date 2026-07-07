@@ -1,0 +1,1188 @@
+CollectorHub
+Business Requirements Document (BRD)
+A community-first social platform for collectors — showcase, discover, connect, and trade.
+Document
+Business Requirements Document — Phase 1 & Phase 2
+Version
+Draft v1.2
+Date
+4 June 2026
+Owners
+Product (RC – Build) · Content & Marketing (SA, AV)
+Status
+Revised after stakeholder (AV & SA) screen review
+Table of Contents
+Right-click and select 'Update Field' to generate the table of contents.
+1. Document Control & Purpose
+This Business Requirements Document (BRD) defines the product vision, scope, functional requirements, and phased delivery plan for CollectorHub — a community-oriented social platform for hobby collectors. It is intended to align the product, engineering, content, and marketing workstreams on what we are building, for whom, in what order, and how success will be measured.
+The document is deliberately phased. Phase 1 targets an initial community of 10,000 engaged users across four collectible categories; Phase 2 expands categories, monetisation, and platform depth once retention and liquidity are proven.
+1.1 Intended Audience
+Engineering / build team (RC) — to scope and sequence the application build.
+Content & Marketing (SA, AV) — to plan seeding, content calendars, and go-to-market.
+Founders / stakeholders — to confirm scope, priorities, and the phasing decision.
+1.2 Revision History
+Version
+Date
+Author
+Summary of changes
+v1.0 (Draft)
+31 May 2026
+Product
+Initial BRD: vision, market, competitive analysis, features, screen specs, phasing, KPIs.
+v1.1 (Draft)
+31 May 2026
+Product
+Design review revisions: introduced the Item / Listing / Post / Deal data model (§8.1); collection-first selling; Deal completion + transaction-linked trust; catalogue + tiered ownership verification (§8.3); wishlist-to-marketplace matching; follow as a first-class action; simplified post types; updated screens; added §18 Reasoning for Changes.
+v1.2 (Draft)
+4 June 2026
+Product (per AV & SA)
+Stakeholder screen review incorporated: profile-first onboarding with Scale/Universe sub-interests & 'Others' feedback (9.2); in-feed follow, hide-listings filter, inline comments (9.3); mandatory add-to-collection fields (9.4); chart/calendar/collage portfolio views (9.5); post-type-first composer + poll (9.6); condition list, seller terms, optional purchase date/price, anonymous price feedback, safe-trade disclaimer (9.9); opt-in public DM threads (9.10); follow counts, online status, ownership stats (9.11); guidelines-accept gate, open/approval posting, member count, visible admin (9.12); free QR-code event tickets (9.13).
+1.3 How to Read This Document
+Sections 2–5 set strategic context (vision, market, competitors, users). Section 6 resolves the open category question. Section 7 gives the phase-by-phase feature matrix. Section 8 holds the core requirements — and opens with §8.1, the data model (Item / Listing / Post / Deal) that the rest of the spec depends on — followed by Section 9, a detailed screen-by-screen functional specification. Sections 10–12 cover the engagement (return loop), content seeding, and other strategy. Sections 13–17 cover non-functional requirements, trust & safety, KPIs, risks, and next steps. Section 18 explains the reasoning behind the v1.1 revisions.
+2. Executive Summary
+Collecting is a large, fast-growing, and deeply social hobby — yet collectors today are scattered across general-purpose tools that were never built for them: Instagram for showcasing, WhatsApp and Facebook Groups for community and buy/sell/trade, eBay and marketplace apps for transactions, and Discord/Reddit for discussion. No single product combines identity, community, discovery, and trusted peer-to-peer trading in one place tuned to a collector's specific interests.
+CollectorHub closes that gap. A collector creates a profile, selects their interests, and builds a collection portfolio — adding items quickly from a built-in catalogue (search or barcode scan) and confirming what they actually own with an in-app photo. Any owned item can be listed for sale or trade in a tap; pre-orders carry a value and timeline. A personalised master feed surfaces new releases, community discussions, marketplace listings, and events relevant to them. They join communities, message other collectors directly to transact, confirm completed deals, and build reputation through transaction-linked trust signals — not just a popularity count — so trading feels safe.
+Phase 1 launches with four categories — Action Figures, Designer Toys & Blind Boxes, Model Kits & Lego, and Diecast — and a target of 10,000 engaged users. Early content and activity are seeded by admin and managed dummy accounts (new releases, news, discussions), with a deliberate, measured shift to user-generated content as the community reaches critical mass. The product is built around a clear daily return loop: new release posts, marketplace listings, event announcements, community discussions, and collection showcases — all amplified by system-driven notifications.
+The core bet
+Collectors will return daily if the platform reliably delivers two things general tools cannot: (1) a feed tuned precisely to what they collect, and (2) a trusted place to trade with people whose reputation they can verify. Everything in Phase 1 serves those two outcomes.
+3. Product Vision & Objectives
+3.1 Vision Statement
+To be the home for collectors — the single place where any collector can showcase what they own, discover what's new in their niche, find their community, and trade with people they trust.
+3.2 Mission (Phase 1)
+Build a focused, high-trust community across four collectible categories that proves collectors will return daily and transact peer-to-peer, before broadening categories and monetisation.
+3.3 Strategic Objectives
+#
+Objective
+What success looks like in Phase 1
+1
+Reach critical community mass
+10,000 registered users; a self-sustaining base of daily-active collectors.
+2
+Establish the daily return loop
+Multiple weekly sessions per active user driven by feed, marketplace, and notifications.
+3
+Prove trusted peer trading
+A working vouch/reputation system and a steady volume of marketplace listings and DMs.
+4
+Shift to user-generated content
+Declining reliance on admin/dummy seeding as the share of organic posts rises.
+5
+Validate category-fit
+Evidence of which categories drive the most engagement and trade, to guide Phase 2.
+3.4 Design Principles
+Interest-first. Interest-first, not follower-first. The experience is organised around what you collect, so a brand-new user with zero followers still gets a rich, relevant feed on day one.
+Trust is a feature. Trust is a feature. Reputation, vouches, and visible seller history are first-class, because peer trading lives or dies on trust.
+Seed, then step back. Seed, then step back. Admin and dummy accounts prime the pump; the product is engineered to hand the microphone to real users as fast as possible.
+Realistic to build. Realistic to build. Phase 1 is intentionally scoped to a shippable MVP; ambitious capabilities (live streams, grading, escrow, in-app payments) are deferred to Phase 2.
+4. Market Context & Opportunity
+The collectibles category has moved from niche hobby to mainstream cultural and economic phenomenon. The designer-toy / blind-box secondary market alone was valued at over US$1.8 billion in 2025, propelled by phenomena such as Pop Mart's Labubu. In India — a priority market given the community focus (e.g. communities like 'Indian Toy Maniacs') — the toys market was valued at roughly US$2.77 billion in 2025 and the broader collectibles market is forecast to grow at ~10% CAGR through 2033.
+Across these markets, collector behaviour is consistent: people want to show off what they own, learn about new and upcoming releases, find others who share their niche, and buy/sell/trade — increasingly peer-to-peer. Today they stitch this together across Instagram, WhatsApp, Facebook Groups, Discord, Reddit, eBay, and category marketplaces. That fragmentation is the opportunity.
+4.1 Why Now
+Mainstreaming of collecting — blind boxes, Lego adult sets (e.g. Lego x Pokémon from 2026), diecast, and designer toys are pulling in new adult collectors.
+Secondary-market momentum — strong resale demand makes a trusted peer marketplace genuinely valuable.
+Community fragmentation — collectors are underserved by general social tools; no dominant collector-native social network exists in the target geographies.
+Trust deficit — peer trading on Facebook/WhatsApp is rife with scam risk; a reputation/vouch layer is a clear differentiator.
+5. Competitive Landscape
+Several products touch parts of the collector journey, but each leans toward a single mode — showcase, marketplace, livestream, or a brand's own catalogue. CollectorHub's wedge is combining interest-based social feed + community + trusted peer marketplace, tuned to specific collectible niches.
+5.1 Key Players
+Player
+What it is
+Strengths
+Gaps CollectorHub exploits
+Connectible
+Social app for collectors with chronological feed + commission-free marketplace and customisable galleries ('AppSpace').
+Collector-native; free P2P marketplace; many communities.
+Chronological (not interest-ranked) feed; limited reputation/trust layer; broad rather than niche-tuned.
+Mantel
+Collector social network (sports cards, TCG, comics, sneakers, watches) with a digital display case and gamification (streaks, polls, badges).
+Strong showcase + gamified engagement; backed/visible.
+Card-skewed; less focus on toys/designer/diecast; marketplace/trade not the core.
+hobbyDB / Pop Price Guide
+Collection-management + price guide + showcase + marketplace, with barcode/image recognition and value tracking.
+Deep catalogue & price data; portfolio value tracking; followable brands/designers.
+Database-first, not social/community-first; discovery & discussion are secondary.
+Whatnot / Collektr
+Livestream-led buy/sell of collectibles.
+High-energy live commerce; strong for sellers.
+Livestream-centric; not a daily social/community home; heavier to operate.
+Pop Mart app
+Brand app + trading for its own IP.
+Owns demand for its IP; official.
+Single-brand; not a cross-brand community or open marketplace.
+Facebook Groups / WhatsApp / Discord
+Where most P2P community & trade happens today.
+Ubiquitous; zero onboarding.
+No collector identity/portfolio; no reputation; no structured listings; poor discovery; high scam risk.
+5.2 Feature Gap Analysis
+Reading: ✓ = strong / native, ◐ = partial, ✗ = absent. CollectorHub column reflects Phase 1 + Phase 2 intent.
+Capability
+Connectible
+Mantel
+hobbyDB
+Whatnot
+FB/WA
+CollectorHub
+Interest-based personalised feed
+◐
+◐
+◐
+✗
+✗
+✓
+Collection portfolio (with value & pre-order timeline)
+◐
+◐
+✓
+✗
+✗
+✓
+Reputation / vouch trust layer
+◐
+◐
+◐
+◐
+✗
+✓
+Peer marketplace (sale + trade)
+✓
+◐
+✓
+✓
+◐
+✓
+Communities (interest groups)
+✓
+◐
+◐
+✗
+✓
+✓
+Events (admin + user-created)
+✗
+✗
+✗
+◐
+◐
+✓
+Niche tuning (toys/designer/diecast/kits)
+◐
+✗
+✓
+◐
+◐
+✓
+Direct messaging for trade
+✓
+◐
+◐
+◐
+✓
+✓
+Positioning statement
+For collectors who are tired of juggling Instagram, WhatsApp groups, and marketplace apps, CollectorHub is the interest-first collector network where you showcase your collection, follow exactly the niches you care about, join your community, and trade with people whose reputation you can see — in one place.
+6. Scope & Category Strategy
+6.1 Phase 1 Categories
+Phase 1 launches with four categories, chosen for strong showcase appeal, active secondary markets, and engaged existing communities:
+Category
+Why it fits Phase 1
+Return-loop strength
+Action Figures
+Large established collector base; constant new releases; high showcase + trade activity.
+High — releases + trade
+Designer Toys & Blind Boxes
+Explosive growth (Labubu/Pop Mart); blind-box mechanic drives discovery, trading of duplicates, and chase-figure hunting.
+Very high — releases + trade
+Model Kits & Lego
+Build-in-progress content is highly visual and discussion-rich; strong AFOL/Gunpla communities.
+High — showcase + discussion
+Diecast
+Dedicated adult collectors; limited editions; strong in India (e.g. scale model cars).
+Medium-high — showcase + trade
+6.2 The Open Question: Trading Cards & Sneakers — Phase 1 or Phase 2?
+You asked whether to delay Trading Cards and Sneakers to Phase 2. Below is a neutral trade-off analysis for the decision; a recommendation is intentionally not imposed.
+Option A — Delay Cards & Sneakers to Phase 2
+Pros
+Cons / risks
+Tighter focus → better feed relevance and community density with a smaller audience.
+Misses two of the largest, most liquid collector markets early.
+Lower build & moderation scope for MVP; faster to ship.
+Cards & sneakers have the most direct, well-funded competitors (Mantel, StockX, GOAT) — ceding ground.
+Avoids categories that demand heavy trust infrastructure (grading, authentication, escrow) on day one.
+Some users collect across categories; absence may feel incomplete.
+Cleaner signal on which of the four toy-led categories truly drive retention.
+Re-engaging card/sneaker communities later costs marketing effort twice.
+Option B — Include Cards & Sneakers in Phase 1
+Pros
+Cons / risks
+Captures the biggest collector audiences from launch; faster path to 10,000 users.
+These categories expect authentication/grading & condition standards that are hard to do well at MVP.
+More marketplace liquidity and trade volume early.
+Higher scam/counterfeit exposure (esp. sneakers) → trust risk before reputation system matures.
+Broad appeal for cross-category collectors.
+Dilutes focus; harder to seed quality content across six categories with limited admin/dummy capacity.
+Suggested decision framing (for you to confirm)
+A defensible middle path: launch Phase 1 with the four toy-led categories to perfect the feed, community, and vouch mechanics on a manageable scope, while running a lightweight 'interest waitlist' toggle for Cards and Sneakers to measure latent demand. Promote whichever shows the strongest pull into early Phase 2 — by which point the trust infrastructure (reputation, condition standards) they require will be more mature. The BRD is structured so either decision can be slotted in without rework.
+6.3 In Scope vs Out of Scope (Phase 1)
+In scope (Phase 1)
+Out of scope (Phase 1 → Phase 2+)
+Profiles, interests, follow (users/brands/communities), trust signals & tiers
+In-app payments / escrow / checkout
+Collection portfolio + catalogue (search/barcode) + tiered ownership verification (Claimed/Shown/Verified)
+Automated genuineness authentication / grading
+Personalised master feed (interest + behaviour)
+Live streaming / live commerce
+Text & image posts (Showcase / Discussion / Review); sell is an item action
+Image-recognition matching, NFC verification, batch shelf-scan
+Marketplace listings (from collection items) + Deal completion + DM to transact
+Shipping & logistics integration
+Wishlist-to-marketplace match notifications
+Price-guide / valuation engine (auto)
+1:1 direct messaging (with item-offer attachments)
+Public web profiles / SEO pages
+Communities (admin-created + invite, then form-approval)
+Ads / monetisation, subscriptions
+Events (admin-listed + user-created, approval-based)
+Structured trade-proposal object; group DM
+System-driven notifications; admin & dummy-account seeding
+Trading Cards & Sneakers categories (pending §6.2)
+7. Phasing Overview
+The feature matrix below shows what ships in each phase. Phase 1 is the trust-and-retention MVP; Phase 2 adds depth, monetisation, and scale once the return loop and liquidity are proven.
+Area
+Phase 1 (Target: 10K users)
+Phase 2 (Scale & monetise)
+Categories
+Action Figures; Designer Toys & Blind Boxes; Model Kits & Lego; Diecast
++ Trading Cards, Sneakers (per §6.2); sub-categories & brand pages
+Profile & Trust
+Profile, interests, follow, transaction-linked trust signals (trades, rating, response time, join date) + trust tiers
+Reputation scoring algorithm, badge tiers, public web profile, follower analytics
+Collection & Catalogue
+Catalogue add (search + barcode scan), portfolio (owned/wishlist/pre-order + value/timeline), tiered ownership verification
+Image-recognition matching, NFC verification, batch shelf-scan, auto-valuation
+Feed
+Interest + follow + behaviour-optimised ranking; sort & filter; admin/community/user posts
+Advanced ML ranking, topic clustering, trending, personalised digests
+Posting
+Text/image posts (Showcase / Discussion / Review); posts can reference items/listings
+Carousels, video, polls, drafts/scheduling, rich ratings
+Marketplace
+Listings created from collection items; Deal completion (mark sold + mutual rating); DM to transact
+In-app payments/escrow, offers/bidding, shipping & order tracking, condition standards
+Messaging
+1:1 DM (buy/sell/trade) with item-offer attachments + Deal completion
+Group DM, message requests, structured trade-proposal object
+Community
+Admin-created + invite-based, then form/approval-based
+Community roles & tools, sub-forums, community-run events & shops, moderation suite
+Events
+Admin-listed + user-created (approval-based; waivable for super-users/admins)
+RSVP/ticketing, calendar sync, maps, organiser tools, sponsorships
+Content
+Admin + dummy-account seeding → shift to UGC
+Creator/outsourced partners, community-driven release calendar
+Notifications
+System-driven across return-loop events incl. wishlist-match alerts
+Smart batching, channel preferences, re-engagement campaigns
+Trust & Safety
+Trust tiers, ownership verification, duplicate-photo detection, reporting, manual moderation
+Reputation scoring, genuineness/NFC verification, dispute resolution, escrow, fraud detection, seller KYC
+8. Functional Requirements
+This section specifies requirements feature by feature. Each requirement carries a priority: Must (M) — required for Phase 1 launch; Should (S) — strongly desired in Phase 1; Could (C) — Phase 1 if capacity allows; Won't-now (W) — explicitly Phase 2.
+8.1 Core Data Model & Object Relationships
+Before the feature requirements, this subsection defines the four core objects the product is built on. Keeping these separate (rather than treating a 'post' as the unit everything derives from) is the structural foundation for the sell flow, marketplace, trust, and metrics. See §18 for the reasoning.
+Object
+What it is
+Key relationships & lifecycle
+Item
+A single collectible in a user's collection — the source of truth for what a user owns or wants. Created from the catalogue (search/scan) or free-text, with an ownership-verification status.
+Belongs to one user. Status: owned / wishlist / pre-order. An owned Item can be offered as a Listing. Persists after sale as 'previously owned' (trade history).
+Listing
+An Item offered for sale or trade. Holds price, condition, quantity, trade-willingness, status.
+Derived from one owned Item. Status: available / reserved / sold / closed. Closing/selling updates the parent Item. Surfaced in the Marketplace and (optionally) announced via a Post.
+Post
+Social content (Showcase / Discussion / Review). Drives feed discovery and conversation.
+Authored by a user; may reference an Item or Listing; may be posted into a Community. Deleting a Post does not delete the underlying Item/Listing.
+Deal
+A record that a transaction occurred between two users (Phase 1 completes off-platform).
+Links a buyer, a seller, and a Listing/Item. Created when a party marks 'sold to @user' and the other confirms. Closes the Listing, writes trade history, and unlocks mutual rating/vouch.
+In short: the Item is the atomic unit. Listings and Posts both reference Items; Deals record what actually changed hands. This decoupling means selling is an action on an item (not a content-creation act), trust is built from completed Deals, and a wishlist Item can be matched against incoming Listings.
+8.2 Profile, Identity & Trust
+ID
+Requirement
+Pri.
+PR-01
+User can sign up / log in (email + social login) and create a basic profile: display name, handle, avatar, bio, location (optional).
+M
+PR-02
+During onboarding the user selects interests — categories and sub-interests (brands, lines, characters) — used to seed the feed and communities.
+M
+PR-03
+User can edit interests at any time; changes immediately re-tune the feed.
+M
+PR-04
+Follow is a first-class action: a user can follow other users, brands/lines, and communities, and save searches. The feed is driven by the union of interests + follows + behaviour.
+M
+PR-05
+Profile surfaces transaction-linked trust signals at a glance: completed deals, buyer/seller rating, response time, account age (join date), and active-listing count.
+M
+PR-06
+Vouch is transaction-aware: a 'trade vouch' can be left only after a confirmed Deal between the two users; a separate, clearly-labelled 'social endorsement' is allowed but weighted lower and capped to limit gaming.
+M
+PR-07
+Trust tier is shown on profiles and listings, derived from verified ownership, completed deals, and ratings (see §8.3 for ownership tiers; full reputation scoring is Phase 2).
+S
+PR-08
+Profile shows the Collection Portfolio (see §8.3) with owned / wishlist / pre-order tabs, aggregate value, and trade history.
+M
+PR-09
+Privacy controls: portfolio items and value can be set public / followers-only / private.
+S
+PR-10
+Verified / tiered badges (super-user, community admin, trusted seller) and full reputation scoring.
+W
+8.3 Collection, Catalogue & Ownership Verification
+Cataloguing must be fast (so portfolios fill up) and trustworthy (so we know a user actually owns an item). These are solved separately: the catalogue answers 'what is it' quickly; an in-app capture proves 'do you have it'. Verification is tiered so friction lands only where it matters — see §18.
+ID
+Requirement
+Pri.
+CO-01
+Add to collection via a built-in catalogue: search by name or scan a barcode/SKU to identify the item and auto-fill metadata + a canonical reference image. Free-text fallback when not in catalogue.
+M
+CO-02
+Catalogue is seeded for the top SKUs across the four Phase 1 categories; new/unknown items can be submitted to grow the catalogue (admin-reviewed).
+S
+CO-03
+Ownership verification tiers per item: Claimed (catalogue only, no photo), Shown (one in-app live photo), Verified (live photo + a system-specified challenge shot, recent).
+M
+CO-04
+The ownership photo for Shown/Verified must be captured via the in-app camera (no gallery upload), so a stock or someone else's image cannot be used. Gallery upload is allowed for additional showcase photos only.
+M
+CO-05
+Creating a Listing requires the item to be at least Verified; high-value items prompt for the challenge shot.
+M
+CO-06
+Duplicate-image detection: perceptual-hash uploaded photos and flag the same image reused across accounts/listings (anti photo-theft).
+M
+CO-07
+Verified photos are watermarked with handle + timestamp to deter reuse and to provenance listing images.
+S
+CO-08
+Portfolio statuses: owned / wishlist / pre-order; pre-orders carry a timeline (order date, expected release/ship) with reminders. Aggregate (and 'verified') collection value is shown.
+M
+CO-09
+Wishlist items create an implicit saved search that notifies the user when a matching Listing appears (see §8.10).
+M
+CO-10
+Image-recognition match of the captured photo to the catalogue SKU; NFC 'tap to verify' for supported lines (e.g. Pop Mart 2026); batch shelf-scan; auto-valuation.
+W
+CO-11
+Possession is not genuineness: the Verified badge denotes proof of possession, not authenticity; counterfeit detection is addressed via tells, NFC, and partnerships in Phase 2.
+M
+8.4 Master Feed
+ID
+Requirement
+Pri.
+FE-01
+Feed is personalised from selected interests at first load (cold-start), so new users see relevant content immediately.
+M
+FE-02
+Feed is driven by the union of interests + follows (users/brands/communities) + behaviour (views, likes, comments, dwell, saves, listings tapped) over time.
+M
+FE-03
+Feed aggregates: user posts & discussions, admin posts (news/releases), listing announcements, and posts from communities the user has joined.
+M
+FE-04
+Sorting options: e.g. For You (ranked), Latest (chronological), Top.
+M
+FE-05
+Filtering options: by category/interest, post type (showcase / review / discussion), source (following / communities / admin), and listings-only.
+M
+FE-06
+Each feed card shows author + trust indicator, content, post-type tag, and quick actions (like, comment, save, share, message).
+M
+FE-07
+A listing announcement card shows price/condition + seller trust indicator and links into the Listing (§8.6).
+M
+FE-08
+Feed supports pull-to-refresh and infinite scroll with pagination.
+M
+FE-09
+Trending / topic clusters and personalised digests.
+W
+8.5 Posting & Content Creation
+ID
+Requirement
+Pri.
+PO-01
+User can create a Text-only post or a post with one or more images.
+M
+PO-02
+Post type is one of: Showcase, Discussion/Question, or Review. (Selling is NOT a post type — it is an action on a collection Item; see §8.6.)
+M
+PO-03
+A post may reference an Item from the user's collection (e.g. to showcase it) or a Listing (to announce it); a listing announcement is auto-offered when a Listing is created.
+M
+PO-04
+Review posts capture the referenced item and a written review (and, Phase 1.x, a rating).
+S
+PO-05
+Posts can be tagged to relevant interests/categories and (optionally) posted into a community the user belongs to.
+M
+PO-06
+User can edit or delete their own posts; deleting a post does not delete the underlying Item or Listing.
+M
+PO-07
+Posting supports image upload, basic crop, and capture from camera; client-side validation of size/format.
+M
+PO-08
+Multi-image carousels, video, polls, and draft/scheduled posts.
+W
+8.6 Marketplace & Transactions
+ID
+Requirement
+Pri.
+MK-01
+A user lists an item by opening it in their collection and choosing 'Sell / Trade'; fields are pre-filled from the Item. A 'quick list' creates a lightweight Item on the fly when not already catalogued.
+M
+MK-02
+Listing fields: price, condition, quantity, willing-to-trade flag, location, notes. The item must be at least Verified (§8.3) to publish.
+M
+MK-03
+Browse buy & sell/trade Listings; search & filter by category, price range, condition, location, and trade-only.
+M
+MK-04
+Listing detail shows item info, images, price, condition, and the seller's profile with trust signals (§8.2).
+M
+MK-05
+Buyer can tap the seller's profile to review trust signals, completed deals, and ratings before transacting.
+M
+MK-06
+Buyer initiates a transaction by Direct Message (buy or trade) — Phase 1 transactions complete off-platform.
+M
+MK-07
+Seller can set a Listing status: available / reserved / sold / closed; sold/closed Listings drop out of active browse and update the parent Item.
+M
+MK-08
+Deal completion: from the DM, either party can mark 'sold/traded to @user'; the other confirms. A confirmed Deal closes the Listing, records trade history on both profiles, and prompts both for a mutual rating + trade vouch.
+M
+MK-09
+Save / watch a Listing and get notified on price or status change; wishlist Items auto-match incoming Listings (§8.3 CO-09, §8.10).
+S
+MK-10
+In-app payments, escrow, offers/bidding, shipping & order tracking, condition/grading standards.
+W
+8.7 Direct Messaging
+ID
+Requirement
+Pri.
+DM-01
+1:1 direct messaging between users, primarily to negotiate buying, selling, and trading.
+M
+DM-02
+A DM can be started from a Listing or a profile, carrying listing context into the conversation.
+M
+DM-03
+A user can attach Items from their own collection to a message as a trade offer ('I'll give X for your Y').
+S
+DM-04
+Mark-as-sold / confirm-deal controls are available in-thread, creating the Deal (§8.6 MK-08).
+M
+DM-05
+Inbox lists conversations with unread indicators; messages support text and images.
+M
+DM-06
+Push + in-app notifications for new messages.
+M
+DM-07
+Block & report a user from within a conversation.
+M
+DM-08
+Group DM, message requests/filtering, and a fully structured trade-proposal object.
+W
+8.8 Communities
+ID
+Requirement
+Pri.
+CM-01
+Initial set of communities is created by admin (seeded around categories and geographies, e.g. 'Indian Toy Maniacs').
+M
+CM-02
+Users join communities; joined-community posts flow into the master feed.
+M
+CM-03
+Invite-based membership for select communities at launch.
+M
+CM-04
+Later, users can request to create/join communities via a submitted form, approved by admin.
+S
+CM-05
+Community page shows description, member count, rules, and its post stream; users can post within a community.
+M
+CM-06
+Community discovery/search by category and interest.
+S
+CM-07
+Community roles & moderation tools, sub-forums, community-run events/shops.
+W
+Information architecture note. Interests and Communities are distinct: Interests are lightweight personalisation tags (many per user) that tune the feed; Communities are social spaces with membership, rules, and their own stream (few per user). A post is tagged with Interests and may optionally be posted into a Community — this avoids confusion about where content lives and where to post.
+8.9 Events
+ID
+Requirement
+Pri.
+EV-01
+Admin can list events (title, description, date/time, location/online, category, image).
+M
+EV-02
+Users can create events; user-created events are approval-based by default.
+S
+EV-03
+Approval can be waived for super-users / community admins.
+S
+EV-04
+Events surface in a dedicated Events screen and in the feed; users can express interest / save.
+M
+EV-05
+Event reminders via notifications as the date approaches.
+S
+EV-06
+RSVP/ticketing, calendar sync, maps, organiser dashboards.
+W
+8.10 Notifications
+ID
+Requirement
+Pri.
+NT-01
+System-driven notifications across all return-loop events (see §10): new releases in your interests/follows, event announcements, community activity, and showcase interactions.
+M
+NT-02
+Wishlist match: when a Listing matches a user's wishlist Item or saved search, notify them ('the [item] you want is now listed for ₹X'). This is a primary daily-return driver (§8.3 CO-09).
+M
+NT-03
+Deal / trade notifications: deal-confirmation requests, completed deals, and rating/vouch prompts.
+M
+NT-04
+Social notifications: new follower, trade vouch, likes/comments on your posts, replies, and new DMs.
+M
+NT-05
+Pre-order timeline reminders (item releasing/shipping soon).
+S
+NT-06
+In-app notification centre + push notifications; basic per-type on/off controls.
+M
+NT-07
+Smart batching, quiet hours, channel preferences, and re-engagement campaigns.
+W
+8.11 Admin & Content Operations
+ID
+Requirement
+Pri.
+AD-01
+Admin console to publish news/new-release posts, create communities, and list events.
+M
+AD-02
+Managed dummy/seed accounts to drive initial posts, discussions, and interactions, with controls to taper as UGC grows.
+M
+AD-03
+Moderation: review reports, remove content, suspend/ban users, approve community/event submissions.
+M
+AD-04
+Basic analytics dashboard: users, DAU/WAU, posts, listings, DMs, community activity, retention.
+S
+AD-05
+Content scheduling and a release-calendar pipeline (admin → community/outsourced).
+S
+9. Screen-by-Screen Functional Specification
+Each screen below lists its purpose, key components, primary user actions, states/edge cases, and the Phase split. Screens are written for a mobile-first app.
+9.1 Splash & Authentication
+Purpose. Get the user into the app and authenticated quickly with minimal friction.
+Key components & features
+Splash/branding screen.
+Sign up & log in via email and social login.
+Password reset / magic link.
+Basic ToS & privacy acceptance.
+Primary user actions
+Create account or log in.
+Recover access.
+Proceed to onboarding (new users) or feed (returning).
+States & edge cases
+Invalid credentials; existing email; network error; resend verification.
+Returning user skips straight to the feed.
+Phase: P1: email + social login. P2: phone/OTP, additional providers.
+9.2 Onboarding & Interest Selection
+Purpose. Capture interests so the feed and community suggestions are relevant from the very first session (solving cold-start). Order: profile creation first, then category & sub-interest selection, then optional community suggestions.
+Key components & features
+Step 1 — Profile basics (avatar, display name). Optional city field (powers a future 'nearby' feature).
+Step 2 — Category picker (the Phase 1 four categories) with visual cards; minimum one, multiple allowed.
+Step 3 — Sub-interest selection per category (brands, lines, characters), plus Scale and Universe as sub-categories.
+Sub-category lists are pre-built at launch; an 'Others' option opens a mandatory text box capturing the user's suggested addition (feedback for catalogue growth).
+Step 4 — Suggested communities based on selections (optional to join).
+Primary user actions
+Create profile.
+Select at least one category and any sub-interests (incl. Scale / Universe).
+Use 'Others' + text box to suggest a missing sub-category.
+Optionally join suggested communities.
+Finish → land on a pre-populated feed.
+States & edge cases
+No category selected → enforce the one-category minimum.
+'Others' chosen but text box empty → block until filled.
+Allow 'skip' on communities and city; nudge later.
+Re-entry to edit interests from settings.
+Phase: P1: profile-first onboarding, multi-category (min 1), Scale/Universe sub-interests, 'Others' feedback capture, optional communities & city. P2: smarter recommendations from behaviour.
+9.3 Master Feed (Home)
+Purpose. The daily destination: a personalised stream that gives every user a reason to return multiple times a day.
+Key components & features
+Ranked 'For You' feed from interests + follows + behaviour.
+Sort control (For You / Latest / Top).
+Filter control (category/interest, post type, source).
+Decision: listings appear in the feed by default; a 'hide listings' filter lets users who prefer marketplace-only opt out.
+Mixed cards: user posts, discussions, admin news/releases, joined-community posts, listing announcement cards, event cards.
+Per-card author with a Follow button next to the author name; trust indicator, post-type tag.
+Quick actions (like, comment, save, share, message). Comments expand inline within the feed — they do NOT navigate to a separate post page.
+Pull-to-refresh; infinite scroll.
+Primary user actions
+Scroll, refresh, sort, filter (incl. hide listings).
+Follow an author directly from the feed.
+Engage; expand and add comments inline.
+Tap into post / listing / community / event / profile.
+Create a new post (FAB / compose entry).
+States & edge cases
+Cold-start (new user) → interest-seeded content.
+Empty/quiet niche → blend in popular & admin content.
+Low connectivity → cached feed + skeleton loaders.
+Content removed/closed → graceful placeholder.
+Phase: P1: interest + behaviour ranking, sort/filter, in-feed follow, inline comments, hide-listings filter. P2: ML ranking, trending, digests.
+9.4 Add to Collection (Catalogue Search / Scan)
+Purpose. Make adding items fast so portfolios fill up — the input that feeds showcase, value, listings, and wishlist matching.
+Key components & features
+Search bar + barcode/SKU scanner to identify an item from the seeded catalogue.
+Catalogue result with canonical reference image and auto-filled metadata (title, category, brand/line, year).
+Required fields per item (catalogue pre-fills where possible): Category; Title* (mandatory); Brand* (defined list + 'Others'); Scale* (defined list + 'Others'); Description / Fun Fact; Estimated value (INR); at least 1 image*. Asterisked fields are mandatory.
+Status selector: owned / wishlist / pre-order (pre-order adds order + expected dates).
+Free-text fallback when an item is not in the catalogue (with optional 'submit to catalogue').
+Prompt to capture an in-app ownership photo (sets Shown/Verified tier).
+Primary user actions
+Search or scan to find an item; confirm and add.
+Complete mandatory fields (Title, Brand, Scale, image); use 'Others' where the list lacks a value.
+Set status; for pre-orders, set the timeline.
+Capture ownership photo now or add as 'Claimed' and verify later.
+Add multiple items in a session.
+States & edge cases
+Mandatory field missing → block save and highlight it.
+'Others' selected for Brand/Scale → require a text entry.
+Item not in catalogue → free-text + submit.
+No camera permission → add as Claimed, nudge to verify.
+Pre-order date in past → prompt to mark received.
+Barcode unrecognised → fall back to search.
+Phase: P1: catalogue search + barcode scan + mandatory fields + status + ownership photo. P2: image-recognition add, NFC, batch shelf-scan.
+9.5 Item Detail (in Collection)
+Purpose. The home of a single owned/wished item — and the entry point for selling or trading it.
+Key components & features
+Item images (reference + user's verified photos), metadata, ownership-verification tier badge.
+Status & value; pre-order timeline if applicable.
+Primary action: 'Sell / Trade' (creates a Listing pre-filled from the item).
+For wishlist items: 'Notify me when listed' toggle (saved search).
+Edit / remove item; set privacy.
+Portfolio views (collection-level, surfaced here and on the profile): chart view by type/value, calendar view for pre-orders, collage view for showcase. The user can set visibility independently for each view.
+Primary user actions
+Mark for Sell/Trade → go to listing creation.
+Capture/upgrade verification photo.
+Toggle wishlist alerts.
+Switch portfolio view (chart / calendar / collage) and set per-view visibility.
+Edit status, value, timeline; remove.
+States & edge cases
+Not yet Verified → prompt verification before listing.
+Already listed → show listing status + manage.
+Sold item → shown in history as 'previously owned'.
+A view set to private is hidden from other viewers while remaining visible to the owner.
+Phase: P1: item detail + Sell/Trade action + verification + wishlist alert + chart/calendar/collage portfolio views with per-view visibility. P2: value history, NFC twin, provenance.
+9.6 Post Composer
+Purpose. Let users contribute social content quickly. (Selling is NOT here — it is an action on a collection item, §9.5.)
+Key components & features
+Post-type selector is the first action when the user taps 'New post': Showcase / Discussion (Question) / Review / Poll.
+Single compose surface — text with optional image(s); no separate text-vs-image toggle. Image upload is optional with a size limit.
+Poll option: question + multiple answer choices.
+Optional 'reference an item/listing' picker (e.g. showcase an owned item or announce a listing).
+Interest/category tags; optional 'post to community' selector.
+Image picker/camera with crop.
+Primary user actions
+Pick a post type first, then compose.
+Add text and optionally attach image(s) within the size limit.
+Create a poll; optionally reference an item/listing, tag, select community, publish.
+Save edits / delete own post.
+States & edge cases
+Oversized/invalid image → client-side check against the size limit.
+Poll with fewer than two choices → block publish.
+Deleting a post does not delete the referenced item/listing.
+Draft loss on exit → confirm prompt.
+Phase: P1: post-type-first composer (Showcase/Discussion/Review/Poll) + optional sized image + item reference. P2: carousels, video, drafts/scheduling, ratings.
+9.7 Post Detail & Discussion
+Purpose. Deepen engagement on a single post and its conversation.
+Key components & features
+Full post content & images.
+Author + trust indicator.
+Comment thread with replies.
+Quick actions; if the post references a listing, a clear 'view listing / message seller' path.
+Share & save.
+Primary user actions
+Read, comment, reply, like, save, share.
+Open author profile or referenced item/listing.
+Report content.
+States & edge cases
+Deleted post (referenced item/listing unaffected).
+Long threads → pagination.
+Self-post → edit/delete controls.
+Phase: P1: comments, replies, actions. P2: rich reactions, nested moderation tools.
+9.8 Marketplace (Browse)
+Purpose. A trusted place to discover items for sale or trade, tuned to the user's interests.
+Key components & features
+Listing grid/list (Listings are created from collection items, §9.5).
+Search bar; filters: category, price range, condition, location, trade-only.
+Sort: newest, price, relevance.
+Listing cards: image, title, price, condition, seller trust signal.
+Saved searches / watchlist; wishlist-match entry point.
+Primary user actions
+Search, filter, sort.
+Open listing detail.
+Save/watch a listing or save a search.
+Jump to seller profile.
+States & edge cases
+No results → suggest broader filters.
+Sold/closed listing → hidden/labelled.
+Location not set → prompt or default region.
+Phase: P1: browse, search, filter, save + wishlist match. P2: offers/bidding, condition standards, in-app checkout.
+9.9 Listing Detail
+Purpose. Give buyers everything needed to assess the item and the seller, then start a conversation.
+Key components & features
+Image gallery (verified ownership photos); item info (title, category, qty); verification-tier badge.
+Condition from a predefined list (e.g. Mint, Back in box, Loose, Minor defects).
+Price and trade-willingness. Optional purchase date and purchase price fields.
+Seller's Terms tab: free/structured terms such as 'no return once sold', 'shipping covered / not covered', etc.
+Seller card: trust signals — completed deals, rating, response time, account age (§8.2).
+Anonymous price-feedback mechanism: any viewer can suggest an ideal price; results are shown only to the seller as aggregated/anonymous feedback (helps pricing; engages non-buyers).
+'Message seller' (buy) and 'Propose trade' (DM, with item-offer attach) actions; tapping 'Message seller' first shows a safe-trade / due-diligence disclaimer.
+Status badge: Available / Reserved / Sold; for Sold listings, optionally show the final price.
+Save/watch; report listing.
+Primary user actions
+Review item, condition, terms & seller trust signals.
+Submit anonymous price feedback.
+Acknowledge the safe-trade disclaimer, then message seller to buy or trade.
+Save/watch; share.
+Open full seller profile.
+States & edge cases
+Sold/reserved → disable contact or show status (sold price optional).
+Seller is self → show manage controls + the aggregated price feedback.
+Reported/removed listing → placeholder.
+Phase: P1: full detail + condition list + seller terms + anonymous price feedback + safe-trade disclaimer + DM to transact. P2: in-app payment/escrow, offers, shipping.
+9.10 Direct Messages (Inbox & Thread)
+Purpose. Enable the conversations that close buys, sells, and trades — and record the outcome.
+Key components & features
+Inbox: conversation list with unread badges, last-message preview.
+Thread: text + image messages, listing context header when started from a listing.
+Attach Items from your collection as a trade offer.
+Deal controls in-thread: 'Mark sold/traded to @user' → counterpart confirms → Deal recorded, rating/vouch prompt.
+'Make thread public' option: when both parties opt in, the conversation is published on the listing post — saves the seller repeating answers, adds a trust layer, and creates useful content for other readers.
+Block & report from thread.
+Primary user actions
+Start a DM from listing/profile.
+Send text/images; attach item offers; negotiate.
+Mutually opt in to make the thread public on the listing.
+Mark sold / confirm deal; leave rating & trade vouch.
+Block/report.
+States & edge cases
+First message from stranger → safety guidance.
+Public-thread requires both parties' consent; either can revoke.
+Deal confirmation declined/ignored → listing stays open.
+Image-only message; failed send/retry.
+Blocked user → no delivery.
+Phase: P1: 1:1 DM + item-offer attach + Deal completion + opt-in public threads. P2: group DM, message requests, structured trade proposals.
+9.11 Profile (Own & Others)
+Purpose. Express collector identity and serve as the trust surface for trading.
+Key components & features
+Header: avatar, name, handle, bio, location, trust tier.
+Following / Followers counts (tappable to see who); online status with 'active X mins ago'.
+Ownership stats in the header, e.g. 'XX action figures · XX diecast · portfolio value ₹XX'.
+Trust signals at a glance: completed deals, rating, response time, account age, active listings.
+Tabs: Posts, Collection Portfolio (owned/wishlist/pre-order), Communities, Trade history & vouches.
+Portfolio items show verification-tier badges; aggregate (and verified) value.
+Actions on others' profiles: follow, trade-vouch (post-deal) / endorse, message, report.
+Privacy controls on own portfolio.
+Primary user actions
+Edit profile, interests & follows (own).
+View following/followers lists.
+Add/edit portfolio items via catalogue; set status, value, timeline.
+Follow / message / vouch (others).
+Adjust privacy.
+States & edge cases
+Empty portfolio → prompt to add first item from catalogue.
+Private portfolio → hidden to non-permitted viewers.
+Online status respects a privacy toggle.
+Social endorsement capped; trade vouch requires a confirmed Deal.
+Phase: P1: profile, follow counts/lists, online status, ownership stats, portfolio, trust signals, transaction-linked vouch. P2: badge tiers, public web profile, analytics.
+9.12 Communities (Directory, Detail, Create)
+Purpose. Give collectors a home within their niche and a reason to post and return.
+Key components & features
+Directory: admin-seeded + joined communities; search/discovery by category.
+Community detail: description, guidelines, total member count, post stream, join/leave.
+Guidelines acceptance gate: every member must read and accept the community guidelines before joining.
+Posting mode set by the community admin: open posting or approval-based posting.
+Visible admin/ownership indicator so members can see who runs and moderates the community.
+Invite-based join flow for select communities.
+'Request a community' submission form (later, approval-based).
+Post-to-community from composer.
+Primary user actions
+Browse/search communities; view member count.
+Accept guidelines, then join.
+Post & discuss (directly, or submitted for approval per the community's mode).
+Accept invite; submit a creation/join request.
+Leave a community.
+States & edge cases
+Guidelines not accepted → join blocked.
+Approval-based mode → post enters a pending queue for the admin.
+Not a member → limited/preview view.
+Invite-only → request access.
+Empty community → admin/dummy-seeded starter posts.
+Phase: P1: admin-created + invite, guidelines-accept gate, open/approval posting modes, member count, visible admin. P2: roles, moderation tools, sub-forums, community shops/events.
+9.13 Events (List, Detail, Create)
+Purpose. Surface what's happening so collectors keep checking in and meet up.
+Key components & features
+Events list: upcoming events with date, location/online, category, image.
+Event detail: full info, interested/save, reminders.
+Admin-listed events; user 'create event' flow (approval-based; waivable for super-users/community admins).
+QR-code ticket option (free initially): attendees get a QR ticket to show at the event for entry/check-in.
+Events also appear as feed cards.
+Primary user actions
+Browse events; express interest / save.
+Get a QR ticket and present it at the event.
+Create an event (submit for approval).
+Get reminders as the date nears.
+States & edge cases
+Pending approval → visible only to creator/admin.
+QR ticket unique per attendee; check-in marks it used.
+Past events → archived.
+No events in region → show online/national events.
+Phase: P1: admin + user-created (approval, waivable) + free QR-code tickets. P2: paid RSVP/ticketing, calendar sync, maps, organiser tools.
+9.14 Notifications Centre
+Purpose. Pull users back in with timely, relevant, system-driven prompts.
+Key components & features
+Unified notification feed across return-loop + social events (see §8.10, §10).
+Highlights wishlist-match alerts and deal/rating prompts.
+Grouping by type; unread state.
+Per-type enable/disable in settings.
+Deep links to the relevant item/listing/post/event/community/DM.
+Primary user actions
+Read & clear notifications.
+Tap through to source.
+Confirm a deal / leave a rating from a prompt.
+Manage notification preferences.
+States & edge cases
+Notification overload → basic grouping & per-type controls.
+Stale deep link (deleted content) → graceful handling.
+Phase: P1: system + social + wishlist + deal notifications, basic controls. P2: batching, quiet hours, channels, campaigns.
+9.15 Search (Global)
+Purpose. Help users find items, people, communities, and events fast — and feed the add-to-collection flow.
+Key components & features
+Unified search across catalogue items, listings, profiles, communities, events.
+Recent & suggested searches; filter by type.
+Result tabs by entity type; 'add to collection' from a catalogue result.
+Primary user actions
+Search and filter by type.
+Open any result; add a catalogue item to collection.
+Save a search (marketplace/wishlist).
+States & edge cases
+No results → suggestions / submit-to-catalogue.
+Ambiguous query → tabbed results.
+Phase: P1: keyword search across entities incl. catalogue. P2: barcode/image recognition, semantic search.
+9.16 Admin Console (Web)
+Purpose. Operate the platform: seed content, moderate, and measure.
+Key components & features
+Publish news/new-release posts; manage admin posts.
+Create & manage communities; approve community/event submissions.
+List & manage events.
+Manage dummy/seed accounts and taper controls.
+Moderation queue: reports, content removal, user suspension.
+Analytics dashboard (users, DAU/WAU, posts, listings, DMs, retention).
+Primary user actions
+Create/publish/schedule content.
+Approve/reject submissions.
+Moderate reported content & users.
+Monitor KPIs.
+States & edge cases
+High report volume → prioritised queue.
+Accidental bulk action → confirm/undo.
+Seed-content tapering as UGC rises.
+Phase: P1: publishing, moderation, basic analytics, seed management. P2: scheduling pipeline, advanced analytics, fraud tooling.
+10. The Return Loop — Why Users Come Back Daily
+Retention is the core design problem. The return loop defines the recurring reasons a collector opens the app multiple times a day, who produces each type of content over time, and how notifications close the loop by pulling users back.
+Return driver
+Why it brings users back
+Source at launch
+Source as UGC matures
+New release posts
+Collectors must not miss drops, restocks, and announcements in their niche.
+Admin (primary)
+Users / communities / outsourced partners
+Marketplace listings
+Fresh items to buy, sell, or trade — the strongest transactional pull.
+User-driven
+User-driven (growing volume)
+Event announcements
+Meetups, fairs, conventions, and online drops they can attend.
+Admin (primary)
+Users / communities / outsourced
+Community discussions
+Belonging and conversation in their specific niche.
+Admin + dummy accounts
+Users / communities
+Collection showcase posts
+Pride in showing off, plus inspiration and discovery from others.
+User-driven
+User-driven
+Notifications
+Timely nudges that re-open the app for any of the above.
+System-driven (from day one)
+System-driven (smarter over time)
+10.1 The Loop, Step by Step
+A relevant event occurs (a drop in your interest, a new listing matching your saved search, a comment on your showcase, a new event nearby).
+A system-driven notification surfaces it.
+The user opens the app and lands on a feed already full of relevant content.
+They engage — comment, save, message a seller, list an item, RSVP to an event.
+Their engagement creates new content/signals that feed others' loops — and refines their own ranking.
+Engagement guardrail
+Notifications drive the loop but must stay relevant and respectful. Per-type controls (Phase 1) and smart batching/quiet hours (Phase 2) protect against fatigue. The metric to watch is sessions per DAU rising without notification opt-outs rising.
+11. Content & Community Seeding Strategy
+A social product is empty until it isn't. The launch strategy deliberately seeds content and activity, then transfers ownership to the community as fast as quality allows. This is a core dependency for the Content & Marketing workstream (SA, AV).
+11.1 Three Stages of Content Ownership
+Stage
+Who creates content
+Goal
+Exit signal
+Seed
+Admin posts (news/releases/events) + managed dummy accounts (posts, discussions, interactions).
+Make the app feel alive and demonstrate norms of quality.
+Real users begin posting & commenting unprompted.
+Mix
+Admin/dummy taper; real users + early communities contribute a growing share.
+Hand the microphone to users while maintaining a quality bar.
+Majority of feed content is organic; communities self-sustain discussion.
+UGC-led
+Users, community admins, and outsourced/creator partners.
+Self-sustaining content engine; admin focuses on curation & release calendar.
+Stable organic posting & trade volume across categories.
+11.2 Seeding Guardrails
+Dummy accounts are clearly governed internally and tapered deliberately; the aim is to model good behaviour, not to deceive at scale.
+Seed quality sets community norms — invest in genuinely useful release/news posts and well-formed showcases.
+Track the organic-share metric (% of posts/comments from real users) as the primary exit signal between stages.
+Prioritise seeding in the categories and communities with the most latent demand (e.g. 'Indian Toy Maniacs').
+12. Non-Functional Requirements
+Area
+Requirement
+Platforms
+Mobile-first (iOS & Android). Admin console is web. Responsive web app is Phase 2.
+Performance
+Feed first paint under ~2s on a typical connection; smooth infinite scroll; image lazy-loading & compression.
+Scalability
+Architecture supports growth from launch to 10K+ users and beyond without re-platforming; media stored on CDN-backed object storage.
+Reliability
+Target ~99.5% uptime in Phase 1; graceful offline/cached states for feed and messages.
+Security
+Secure auth, encrypted credentials, TLS in transit; least-privilege admin access; rate limiting on posting/DM/listing.
+Privacy
+User control over portfolio visibility and value; compliance with applicable data-protection norms; clear data handling & deletion.
+Accessibility
+Legible typography, sufficient contrast, scalable text, and accessible tap targets.
+Observability
+Event analytics for KPIs (§15), crash reporting, and basic funnel instrumentation from day one.
+Localisation
+English at launch; content/UX structured to allow regional communities and (Phase 2) localisation.
+13. Trust & Safety
+Because CollectorHub facilitates peer-to-peer trading, trust and safety is a product pillar, not an afterthought. Phase 1 establishes the human-moderated foundation; Phase 2 adds automated and financial protections.
+13.1 Phase 1 Foundations
+Transaction-linked trust. Trust is built from completed Deals — trade vouches require a confirmed transaction; raw social endorsements are weighted lower and capped. Profiles surface transaction-linked signals (deals, rating, response time, account age).
+Ownership verification. Tiered ownership verification (Claimed / Shown / Verified) with in-app-only live capture; listing requires Verified. Possession is not genuineness (§8.3 CO-11).
+Photo integrity. Perceptual-hash duplicate-image detection (anti photo-theft) and watermarking of verified photos.
+Reporting & blocking. Report content & users from items, listings, posts, profiles, and DMs; block users from conversations; peer 'this is a stock photo' reporting.
+Moderation. Admin moderation queue to review reports, remove content, and suspend/ban bad actors.
+Transaction clarity. Clear guidance that Phase 1 transactions complete off-platform, with safety tips for meet-ups and payments.
+13.2 Phase 2 Enhancements
+Reputation scoring algorithm over the Deal/rating graph; verified/tiered badges.
+Genuineness verification (item tells, NFC 'tap to verify', expert/grading partnerships) — distinct from possession.
+Dispute resolution flow and (with in-app payments) escrow protection.
+Fraud/scam detection and seller KYC for higher-value categories.
+14. Success Metrics & KPIs
+Phase 1 success is defined by reaching community mass and proving the return loop and trusted trading — not by revenue. Suggested targets are starting points for the team to ratify.
+Metric
+What it tells us
+Phase 1 target (indicative)
+Registered users
+Top-line reach
+10,000
+DAU / MAU ratio
+Stickiness of the return loop
+≥ 20–25%
+Sessions per DAU
+'Multiple times a day' goal
+≥ 3 / day for engaged users
+D1 / D7 / D30 retention
+Habit formation
+Healthy curve flattening by D30
+Items added to collection / active user
+Catalogue adoption (the data spine)
+Rising; majority of actives catalogue ≥ 1 item
+% items at Shown or Verified tier
+Authenticity of the catalogue
+Majority of listable items photo-backed
+Posts per active user / week
+Content vitality
+Rising; majority organic over time
+Organic content share
+Seed → UGC transition
+Majority organic by end of Phase 1
+Active marketplace listings
+Trade liquidity
+Steady growth; fresh daily inventory
+Listing → DM → completed Deal funnel
+Real transaction conversion, not just intent
+Healthy step-through; growing completed Deals
+Completed Deals / week
+Actual trading volume
+Rising week over week
+Trade-vouches per active trader
+Transaction-backed trust density
+Growing (each tied to a confirmed Deal)
+Wishlist saved-searches & match-to-action rate
+Strength of the retention loop
+Rising matches; healthy match → open → offer rate
+Communities joined per user
+Niche belonging
+≥ 2 on average
+Notification → open rate
+Loop effectiveness
+Healthy CTR without opt-out spikes
+15. Risks, Assumptions & Mitigations
+Risk / assumption
+Impact
+Mitigation
+Cold-start: empty feed/communities deter early users.
+High
+Interest-based cold-start feed; admin + dummy seeding; concentrate density in a few communities first.
+Marketplace lacks liquidity early.
+High
+Seed listings; focus categories with active resale; make listing frictionless; saved-search notifications.
+Trust failures / scams damage reputation.
+High
+Transaction-linked vouch (tied to confirmed Deals), tiered ownership verification (Claimed/Shown/Verified), trust signals on profiles, reporting/blocking, active moderation; escrow in Phase 2.
+Verification friction deters cataloguing/listing.
+Med
+Catalogue-from-database to keep the common path fast; reserve in-app camera capture for the listing step only; verify lazily, not up front.
+Faked ownership photos / image reuse.
+Med
+In-app live camera only (no gallery upload), challenge shots, perceptual-hash duplicate detection, watermarking; NFC / image-recognition in Phase 2 (§8.3, §13).
+Over-reliance on / mismanagement of dummy accounts.
+Med
+Clear internal governance; deliberate tapering; track organic-share exit signal.
+Notification fatigue causes opt-outs.
+Med
+Per-type controls in P1; batching/quiet hours in P2; monitor opt-out rate.
+Scope creep delays the MVP.
+Med
+Strict Must/Should/Could/Won't prioritisation; defer payments, livestream, grading to P2.
+Category-fit uncertainty (incl. Cards/Sneakers).
+Med
+Launch focused four; measure latent demand via interest waitlist; let data drive Phase 2 (§6.2).
+Moderation load grows faster than capacity.
+Med
+Community-led norms; report prioritisation; plan moderation tooling for P2.
+16. Roadmap & Next Steps
+The immediate priority is to finalise the user flow and design, after which the build and the content/marketing workstreams run in parallel with weekly alignment on timelines and budget.
+16.1 Workstream Owners & Actions
+Owner
+Workstream
+Immediate next steps
+Product / Design
+User flow & design
+Finalise end-to-end user flows and UI for the Phase 1 screens (§9); confirm the §6.2 category decision.
+RC
+Application build
+Begin building the app against finalised flows/design; sequence by Must-priority requirements (§8).
+SA & AV
+Content & marketing
+Develop the content seeding plan (§11) and go-to-market/marketing plan; align on timelines & budget at least weekly.
+Admin / Ops
+Seeding & moderation
+Prepare admin content, communities (incl. seeded geos), and dummy-account governance; stand up moderation process.
+16.2 Indicative Sequence
+Finalise user flow & design; ratify category decision and KPI targets.
+Build Phase 1 MVP (Must requirements) while content & seeding plans are prepared in parallel.
+Seed content/communities and run a closed/early-access launch; instrument KPIs.
+Open launch; drive toward 10K users; taper seeding as organic share rises.
+Review KPIs and category-fit data; scope and prioritise Phase 2 (categories, payments, depth).
+16.3 Open Questions for the Team
+Category decision: confirm Option A (delay Cards & Sneakers) or Option B per §6.2.
+Sale-post fields: confirm the exact required fields for a listing (drives marketplace & composer).
+Geography focus at launch (e.g. India-first) and which communities to seed first.
+Event details: what fields/types of events to support, and the super-user approval-waiver rules.
+Ratify Phase 1 KPI targets (§14).
+17. Appendix — Glossary
+Term
+Definition
+Master Feed
+The personalised home stream combining interest- and behaviour-ranked posts, admin content, and joined-community posts.
+Vouch
+A peer trust endorsement of a user's profile, used as a reputation signal for trading.
+Collection Portfolio
+A user's showcased items (owned / wishlist / pre-order) with photos, value, and pre-order timelines.
+Pre-order timeline
+Order and expected release/ship dates for an item not yet received, with reminder notifications.
+Item
+A catalogue-level collectible record a user owns or wants (the data spine); carries the ownership-verification tier.
+Listing
+A sale/trade offer attached to a collection Item and surfaced in the marketplace — created as an action on the Item, not a post type.
+Deal
+A confirmed transaction between two users; the object that unlocks mutual rating and transaction-backed trade-vouch.
+Ownership tier
+An Item's verification level: Claimed (self-asserted), Shown (in-app live photo), or Verified (passed integrity/challenge checks); listing requires Verified.
+Post type
+Classification of a post: Showcase, Discussion, or Review (selling is an Item action, not a post type).
+Seed content
+Admin- and dummy-account-generated content used to make the platform feel active before UGC scales.
+UGC
+User-generated content — the target steady state for posts, discussions, and listings.
+Return loop
+The set of recurring reasons (releases, listings, events, discussions, showcases, notifications) that bring users back daily.
+Super-user
+A trusted/high-reputation user who may receive elevated privileges (e.g. event approval waiver).
+Sources referenced for market & competitive context: Connectible (PR Newswire), Mantel (TechCrunch), hobbyDB / Pop Price Guide (hobbyDB blog & app listings), Collektr, Pop Mart secondary-market & India market data (Alibaba SmartBuy, Wikipedia, Expert Market Research / Grand View Research). Full links provided alongside this document.
+18. Reasoning for Changes (v1.1)
+This section documents why v1.1 departs from the originally specified flows. The brief was reviewed not just for completeness but for whether each flow was the optimal way to achieve the goal. The changes below cluster around two findings: (1) the original model conflated content with commerce, and (2) cataloguing needed to be both faster and able to prove real ownership. Each change is stated as Problem → Change → Why.
+18.1 Separated the data model into Item / Listing / Post / Deal
+Problem — The original spec treated a 'sale' as a type of post. That couples three different lifecycles: what a user owns, what they are selling, and what they say. A sold item's post becomes stale, the same item can't be relisted cleanly, and the marketplace can't reason about inventory.
+Change — Four first-class objects: an Item (catalogue record of what you own/want), a Listing (a sale/trade offer attached to an Item), a Post (social content — showcase/discussion/review), and a Deal (a confirmed transaction). See §8.1.
+Why — Decoupling lets each object have its own lifecycle and state. Items persist and power the collection, trust tiers, and wishlist matching; Listings open and close without destroying content; Posts stay evergreen; Deals give us a verifiable record of who actually traded with whom — the anchor for trust (§18.4).
+18.2 Selling is an action on a collection Item, not a new post
+Problem — The open question 'should a user create a post to sell, or mark a collection item as for sale?' exposed redundant data entry: a seller would re-describe and re-photograph an item they had already catalogued.
+Change — Listing is initiated from the Item in the user's collection ('Sell' / 'Open to trade'); the marketplace is populated from Items, not from parsing posts (§8.6, screens §9.5).
+Why — It removes duplicate effort, guarantees listings carry structured, consistent data, and ties every listing to a verifiable owned Item — which is what makes verification and anti-fraud possible at all.
+18.3 Catalogue-first cataloguing for speed
+Problem — Manual cataloguing (type everything, upload photos) is too slow and was the main adoption risk for the data spine the whole app depends on.
+Change — Users add Items by searching/scanning a product catalogue (search, barcode/box scan) that pre-fills name, image, release, and reference value; manual entry is the fallback, not the default (§8.3, screen §9.4).
+Why — The fast path turns cataloguing from data-entry into recognition-and-confirm, which is what makes a large, clean collection realistic — and a clean catalogue is what powers feed relevance, wishlist matching, and pricing.
+18.4 Tiered ownership verification (Claimed / Shown / Verified) and transaction-linked trust
+Problem — Catalogue data alone proves nothing about real possession, and the original vouch could be farmed by social endorsement (including by seeded/dummy accounts), inflating trust without any real trade.
+Change — Items carry a verification tier: Claimed (self-asserted), Shown (in-app live photo), Verified (passed integrity/challenge checks). Listing requires Verified. Photo capture is in-app live camera only — no gallery upload — backed by challenge shots, perceptual-hash duplicate detection, and watermarking. The trade-vouch now requires a confirmed Deal; social endorsement is capped and weighted lower. Profiles surface concrete trust signals (completed Deals, rating, response time, account age, active listings). NFC and image-recognition verification are Phase 2 (§8.2, §8.3, §13).
+Why — This separates the two questions verification actually answers — 'do you hold this item?' (possession) and 'is it genuine?' (authenticity) — and makes the easy path (Shown) cheap while reserving heavier checks for the moment they matter (listing). Anchoring trust to Deals means reputation reflects real trading and can't be manufactured by the seeding strategy, resolving a direct conflict between the dummy-account plan and the vouch system.
+18.5 Wishlist → saved-search → match notification as the retention loop
+Problem — The return loop relied mostly on broadcast (new releases, events). It lacked a personal, high-intent reason to return that the user themselves had primed.
+Change — Wishlist Items become saved searches; when a matching Listing appears, the wishing user is notified (§8.3, §8.10). 
+Why — A user-declared want matched to live inventory is the strongest, most personal re-engagement trigger and directly feeds marketplace liquidity — buyers arrive pre-qualified.
+18.6 Follow as a first-class action; Interests vs Communities clarified
+Problem — The original information architecture blurred 'interests' (topics that tune the feed) with 'communities' (groups you belong to), and offered no lightweight way to track a user, brand, or search.
+Change — Follow is a first-class action across users, brands, communities, and saved-searches; Interests tune ranking while Communities are explicit memberships (§8.2, §8.4, §8.8).
+Why — Following is lower-commitment than joining and produces a richer personalisation signal, while a clean Interests/Communities split keeps the feed legible and the navigation predictable.
+18.7 Post types simplified to Showcase / Discussion / Review
+Problem — With selling moved to the Item, a 'Sale' post type was redundant and confusing.
+Change — Posts are Showcase, Discussion, or Review; commerce lives in Listings (§8.5).
+Why — Each post type now maps to a distinct social intent, and there is exactly one place to sell, removing ambiguity for both posters and the feed-ranking logic.
+18.8 Deal completion drives mutual rating and vouch
+Problem — There was no defined moment at which a transaction was 'done', so ratings and trust had no trigger.
+Change — Either party can mark a Deal complete from the listing or DM thread; completion unlocks mutual rating and the transaction-backed trade-vouch (§8.6 MK-08, §8.7).
+Why — A concrete completion event is what makes reputation measurable and the §14 transaction funnel (listing → DM → completed Deal) trackable, replacing the weaker 'DMs initiated' and 'vouches issued' proxies.

@@ -13,7 +13,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CollectorHub",
+  title: "Scorred",
   description: "Community-first platform for hobby collectors — showcase, discover, connect, trade.",
 };
 

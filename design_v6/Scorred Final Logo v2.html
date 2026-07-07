@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="design_doc_mode" content="canvas">
+<title>Scorred — Final Logo v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0C0C0C;font-family:'Montserrat',system-ui,sans-serif}
+.canvas{width:1480px;margin:0 auto;padding:72px 48px 120px}
+.ey{font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#333;font-family:system-ui}
+/*
+  ICON: cx=50 cy=50 r=38 in a 100×100 viewBox
+  Gap at top-right: arc from 330° to 240° (SVG), clockwise, 300° sweep
+    Start 330°: (82.9, 31)
+    End   240°: (31,   17.1)
+  Tick: (29,52) → (50,65) → (74,35)
+  Stroke: 3.8px circle, 3.5px tick, rounded caps
+*/
+</style>
+</head>
+<body>
+<div class="canvas">
+
+<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:60px">
+  <div>
+    <div class="ey" style="margin-bottom:10px">Final logo · v2 · matching reference</div>
+    <div style="font-size:36px;font-weight:700;letter-spacing:-0.03em;color:#fff;font-family:system-ui">SC[✓]RRED</div>
+  </div>
+  <div style="background:#C41230;color:#fff;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;padding:7px 16px;border-radius:999px">Final ✓</div>
+</div>
+
+<!-- WHITE BG — matches reference exactly -->
+<div style="background:#fff;border-radius:28px;padding:72px 80px;margin-bottom:16px">
+  <div class="ey" style="margin-bottom:60px;color:#ccc">White · as reference</div>
+
+  <!-- 1. Icon only — large -->
+  <div style="display:flex;justify-content:center;margin-bottom:80px">
+    <img src="uploads/RRED.png" style="width:160px;height:160px;object-fit:contain"/>
+  </div>
+
+  <!-- 2. Icon + RED (crop top third of the PNG which is just the icon) -->
+  <div style="display:flex;align-items:center;justify-content:center;gap:24px;margin-bottom:80px">
+    <img src="uploads/RRED.png" style="width:100px;height:100px;object-fit:contain"/>
+    <span style="font-family:'Montserrat',system-ui;font-weight:900;font-size:72px;color:#C41230;letter-spacing:-0.02em;line-height:1">RED</span>
+  </div>
+
+  <!-- 3. Full wordmark from PNG -->
+  <div style="display:flex;justify-content:center">
+    <img src="uploads/RRED.png" style="width:640px;object-fit:contain"/>
+  </div>
+</div>
+
+<!-- DARK BG -->
+<div style="background:#111;border-radius:28px;padding:64px 80px;margin-bottom:16px">
+  <div class="ey" style="margin-bottom:40px;color:#2A2A2A">Dark</div>
+
+  <div style="display:flex;justify-content:center;margin-bottom:32px">
+    <svg id="wm-dark" height="88" fill="none" style="display:block;overflow:visible"></svg>
+  </div>
+  <div style="display:flex;justify-content:center">
+    <svg id="wm-dark-sm" height="52" fill="none" style="display:block;overflow:visible"></svg>
+  </div>
+</div>
+
+<!-- BLACK BG -->
+<div style="background:#000;border-radius:28px;padding:64px 80px;margin-bottom:16px">
+  <div class="ey" style="margin-bottom:40px;color:#222">Black</div>
+  <div style="display:flex;justify-content:center">
+    <svg id="wm-black" height="88" fill="none" style="display:block;overflow:visible"></svg>
+  </div>
+</div>
+
+<!-- ICON SIZES -->
+<div style="background:#141414;border-radius:28px;padding:56px 72px;margin-bottom:16px">
+  <div class="ey" style="margin-bottom:32px;color:#2A2A2A">Icon · all sizes · all backgrounds</div>
+  <div id="icon-strip" style="display:flex;gap:20px;align-items:flex-end;flex-wrap:wrap"></div>
+</div>
+
+<!-- LOCKUPS -->
+<div style="background:#0A0A0A;border-radius:28px;padding:56px 72px">
+  <div class="ey" style="margin-bottom:32px;color:#2A2A2A">Lockups · icon + wordmark</div>
+  <div id="lockups" style="display:flex;flex-direction:column;gap:16px"></div>
+</div>
+
+</div>
+
+<script>
+const RED = '#C41230';
+
+// Icon SVG content — open circle arc + tick
+// viewBox 0 0 100 100, circle r=38 cx=50 cy=50
+// Gap at top-right: arc from 330° (82.9,31) to 240° (31,17.1) clockwise 300°
+function iconSVG(bg, strokeColor, size, radius) {
+  return `<div style="width:${size}px;height:${size}px;border-radius:${Math.round(size*0.22)}px;background:${bg};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
+    <img src="uploads/RRED.png" style="width:${Math.round(size*0.65)}px;height:${Math.round(size*0.65)}px;object-fit:contain"/>
+  </div>`;
+}
+
+// Build wordmark SVG — measures text with getComputedTextLength, positions circle precisely
+function buildWordmark(svgEl, fontSize, scColor, rColor, redColor) {
+  const fs = fontSize;
+  // Approximate cap height for Montserrat 900 ≈ 72% of font-size
+  const capH = fs * 0.72;
+  const r = capH / 2 * 0.98; // circle radius = cap-height / 2
+  const baseline = fs * 0.88; // approximate baseline
+  const svgH = fs * 1.1;
+
+  // Measure SC, R widths using a temp element
+  const ns = 'http://www.w3.org/2000/svg';
+  const tmp = document.createElementNS(ns, 'svg');
+  tmp.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
+  document.body.appendChild(tmp);
+
+  function mw(str) {
+    const t = document.createElementNS(ns, 'text');
+    t.setAttribute('font-family', "'Montserrat',system-ui");
+    t.setAttribute('font-weight', '900');
+    t.setAttribute('font-size', fs);
+    t.textContent = str;
+    tmp.appendChild(t);
+    const w = t.getComputedTextLength();
+    tmp.removeChild(t);
+    return w;
+  }
+
+  const wSC  = mw('SC');
+  const wR   = mw('R');
+  const wRED = mw('RED');
+  document.body.removeChild(tmp);
+
+  const gap = fs * 0.015; // tiny gap between text and circle
+  const xSC = 0;
+  const xCircle = wSC + gap;
+  const cx = xCircle + r;
+  const cy = svgH / 2 + fs * 0.01;
+  const xR = xCircle + r * 2 + gap;
+  const xRED = xR + wR + gap * 0.5;
+  const totalW = xRED + wRED;
+
+  svgEl.setAttribute('width', Math.ceil(totalW));
+  svgEl.setAttribute('height', Math.ceil(svgH));
+  svgEl.setAttribute('viewBox', `0 0 ${Math.ceil(totalW)} ${Math.ceil(svgH)}`);
+
+  // Scale circle path from 100×100 viewBox to actual circle size
+  // Original arc: center (50,50), r=38 in 100×100
+  // Scale factor = r / 38
+  const scale = r / 38;
+  const off_x = cx - 50 * scale;
+  const off_y = cy - 50 * scale;
+
+  function tp(x, y) { return `${(x * scale + off_x).toFixed(2)},${(y * scale + off_y).toFixed(2)}`; }
+  function tr(rx) { return (rx * scale).toFixed(2); }
+
+  const ts = `font-family="'Montserrat',system-ui" font-weight="900" font-size="${fs}"`;
+  const iconSize = r * 2;
+  const iconX = xCircle;
+  const iconY = cy - r;
+
+  svgEl.innerHTML = `
+    <text x="${xSC}" y="${baseline}" ${ts} fill="${scColor}" letter-spacing="-0.5">SC</text>
+    <image href="uploads/RRED.png" x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}"/>
+    <text x="${xR}" y="${baseline}" ${ts} fill="${rColor}" letter-spacing="-0.5">R</text>
+    <text x="${xRED}" y="${baseline}" ${ts} fill="${redColor}" letter-spacing="-0.5">RED</text>
+  `;
+}
+
+function buildIcons() {
+  const strip = document.getElementById('icon-strip');
+  const configs = [
+    { size: 120, bg: '#fff',    stroke: RED,    border: '#E0DDD7', label: '120 white' },
+    { size: 120, bg: '#111',    stroke: RED,    label: '120 dark' },
+    { size: 120, bg: '#000',    stroke: RED,    label: '120 black' },
+    null,
+    { size: 80,  bg: '#111',    stroke: RED,    label: '80' },
+    { size: 60,  bg: '#111',    stroke: RED,    label: '60' },
+    { size: 44,  bg: '#111',    stroke: RED,    label: '44' },
+    { size: 32,  bg: '#111',    stroke: RED,    label: '32' },
+    { size: 20,  bg: '#111',    stroke: RED,    label: '20' },
+  ];
+  configs.forEach(cfg => {
+    if (!cfg) {
+      const d = document.createElement('div');
+      d.style.cssText = 'width:1px;background:#222;align-self:stretch;margin:0 8px';
+      strip.appendChild(d); return;
+    }
+    const w = document.createElement('div');
+    w.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:8px';
+    w.innerHTML = iconSVG(cfg.bg, cfg.stroke, cfg.size, cfg.size * 0.36) + `<div class="ey">${cfg.label}</div>`;
+    if (cfg.border) w.querySelector('svg rect').setAttribute('stroke', cfg.border);
+    strip.appendChild(w);
+  });
+}
+
+function buildLockups() {
+  const container = document.getElementById('lockups');
+  const configs = [
+    { bg: '#111', border: '1px solid #1E1E1E', scColor: 'white',  rColor: 'white',  redColor: RED,   iconBg: '#111' },
+    { bg: '#F2EFE9', border: 'none',           scColor: '#111',   rColor: '#111',   redColor: RED,   iconBg: '#F2EFE9', iconBorder: '#E0DDD7' },
+    { bg: '#000', border: 'none',              scColor: 'white',  rColor: 'white',  redColor: RED,   iconBg: '#000' },
+  ];
+  configs.forEach(cfg => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = `padding:20px 28px;background:${cfg.bg};border-radius:18px;display:inline-flex;align-items:center;gap:20px;border:${cfg.border}`;
+
+    // Icon
+    wrap.innerHTML = iconSVG(cfg.iconBg, RED, 52, 52 * 0.36);
+    if (cfg.iconBorder) wrap.querySelector('svg rect').setAttribute('stroke', cfg.iconBorder);
+
+    // Wordmark
+    const wsvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    wsvg.style.overflow = 'visible';
+    wrap.appendChild(wsvg);
+    container.appendChild(wrap);
+
+    buildWordmark(wsvg, 42, cfg.scColor, cfg.rColor, cfg.redColor);
+  });
+}
+
+document.fonts.load("900 88px 'Montserrat'").then(() => {
+  buildWordmark(document.getElementById('wm-white'),   88, '#111',  '#111',  RED);
+  buildWordmark(document.getElementById('wm-dark'),    88, 'white', 'white', RED);
+  buildWordmark(document.getElementById('wm-dark-sm'), 52, 'white', 'white', RED);
+  buildWordmark(document.getElementById('wm-black'),   88, 'white', 'white', RED);
+  buildIcons();
+  buildLockups();
+});
+</script>
+</body>
+</html>

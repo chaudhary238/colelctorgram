@@ -18,6 +18,34 @@ interface UploadUrlResponse {
   public_url: string;
 }
 
+// DV6-13 — downscale + re-encode client-side before upload. A 12MP phone photo (~4–6MB)
+// becomes ~200–350KB: ~15× less storage/bandwidth and a much faster upload on mobile.
+// Falls back to the original file if the canvas path fails or doesn't help.
+const MAX_EDGE = 1600;
+const JPEG_QUALITY = 0.82;
+
+async function compressImage(file: File): Promise<Blob> {
+  // Only recompress raster photos; leave GIF/SVG untouched (animation/vector).
+  if (file.type === "image/gif" || file.type === "image/svg+xml") return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+    const w = Math.round(bitmap.width * scale);
+    const h = Math.round(bitmap.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", JPEG_QUALITY));
+    return blob && blob.size < file.size ? blob : file;
+  } catch {
+    return file;
+  }
+}
+
 export function ImageUploader({ onUpload, label = "Upload image", accept = "image/*", previewUrl }: ImageUploaderProps) {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -33,15 +61,17 @@ export function ImageUploader({ onUpload, label = "Upload image", accept = "imag
     setError(null);
     setUploading(true);
     try {
-      // 1. Get presigned URL
+      // 1. Downscale/compress, then get a presigned URL for the resulting type.
+      const blob = await compressImage(file);
+      const contentType = blob.type || file.type;
       const meta = await api.post<UploadUrlResponse>(
-        `/media/upload-url?prefix=uploads&content_type=${encodeURIComponent(file.type)}`
+        `/media/upload-url?prefix=uploads&content_type=${encodeURIComponent(contentType)}`
       );
-      // 2. PUT directly to R2
+      // 2. PUT the compressed bytes directly to R2
       await fetch(meta.upload_url, {
         method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
+        body: blob,
+        headers: { "Content-Type": contentType },
       });
       // 3. Show preview + call back
       setPreview(meta.public_url);

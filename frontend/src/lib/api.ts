@@ -5,26 +5,12 @@ export function storeTokens(access: string, refresh: string) {
   localStorage.setItem("ch_refresh_token", refresh);
   // Write refresh token as a cookie so proxy.ts can see the session (30-day TTL)
   document.cookie = `ch_refresh_token=${refresh}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`;
-  clearGuest(); // a real session supersedes guest browsing
 }
 
 export function clearTokens() {
   localStorage.removeItem("ch_access_token");
   localStorage.removeItem("ch_refresh_token");
   document.cookie = "ch_refresh_token=; path=/; max-age=0";
-}
-
-/* Guest mode (DF-37a) — "Explore as guest". A cookie proxy.ts can read so it
-   lets guests browse the public surfaces; cleared the moment they sign in. */
-export function enterGuest() {
-  document.cookie = `ch_guest=1; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
-}
-export function clearGuest() {
-  if (typeof document !== "undefined") document.cookie = "ch_guest=; path=/; max-age=0";
-}
-export function isGuest(): boolean {
-  if (typeof document === "undefined") return false;
-  return document.cookie.includes("ch_guest=1") && !localStorage.getItem("ch_access_token");
 }
 
 function getToken(): string | null {

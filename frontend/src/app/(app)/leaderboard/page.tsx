@@ -106,7 +106,7 @@ export default function LeaderboardPage() {
                         <div style={{ borderRadius: "50%", padding: 3, background: medal }}>
                           <Avatar name={r.name} size={first ? 68 : 54} photo={r.avatar_url} />
                         </div>
-                        <div style={{ position: "absolute", bottom: -7, left: "50%", transform: "translateX(-50%)", width: 23, height: 23, borderRadius: "50%", background: medal, color: rank === 1 ? "var(--ink)" : "var(--paper)", border: "2px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 11.5 }}>{rank}</div>
+                        <div style={{ position: "absolute", bottom: -7, left: "50%", transform: "translateX(-50%)", width: 23, height: 23, borderRadius: "50%", background: medal, color: rank === 1 ? "var(--ink)" : "var(--paper)", border: "2px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>{["🥇", "🥈", "🥉"][rank - 1]}</div>
                       </div>
                       <div style={{ marginTop: 7, fontSize: 13, fontWeight: 700, color: "var(--ink)", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.is_me ? "You" : r.name.split(" ")[0]}</div>
                       <div style={{ display: "flex", alignItems: "center", gap: 5 }}>

@@ -8,8 +8,8 @@ import {
   Bell, PlusCircle, Settings, User, MessageSquare, Bookmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SealMark } from "@/components/ui";
-import { api, isGuest } from "@/lib/api";
+import { SealMark, ScorredWordmark } from "@/components/ui";
+import { api } from "@/lib/api";
 
 // Order mirrors the DF-12 header: create+search cluster up top (mobile top-left),
 // Messages paired directly with Notifications (mobile top-right: message btn + bell).
@@ -18,20 +18,19 @@ type NavDef = {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
-  guest: boolean;
   badgeKey?: "msgs" | "notifs";
 };
 const NAV: NavDef[] = [
-  { href: "/feed",          label: "Home",          icon: Home,       guest: true },
-  { href: "/search",        label: "Search",        icon: Search,     guest: true },
-  { href: "/compose",       label: "Create",        icon: PlusCircle, guest: false },
-  { href: "/market",        label: "Market",        icon: ShoppingBag, guest: true },
-  { href: "/community",     label: "Community",     icon: Users,      guest: true },
-  { href: "/events",        label: "Events",        icon: Calendar,   guest: true },
-  { href: "/inbox",         label: "Messages",      icon: MessageSquare, guest: false, badgeKey: "msgs" as const },
-  { href: "/notifications", label: "Notifications", icon: Bell,       guest: false, badgeKey: "notifs" as const },
-  { href: "/saved",         label: "Saved",         icon: Bookmark,   guest: false },
-  { href: "/profile",       label: "Profile",       icon: User,       guest: false },
+  { href: "/feed",          label: "Home",          icon: Home },
+  { href: "/search",        label: "Search",        icon: Search },
+  { href: "/compose",       label: "Create",        icon: PlusCircle },
+  { href: "/market",        label: "Market",        icon: ShoppingBag },
+  { href: "/community",     label: "Community",     icon: Users },
+  { href: "/events",        label: "Events",        icon: Calendar },
+  { href: "/inbox",         label: "Messages",      icon: MessageSquare, badgeKey: "msgs" as const },
+  { href: "/notifications", label: "Notifications", icon: Bell,       badgeKey: "notifs" as const },
+  { href: "/saved",         label: "Saved",         icon: Bookmark },
+  { href: "/profile",       label: "Profile",       icon: User },
 ];
 
 function NavItem({
@@ -73,15 +72,9 @@ function NavItem({
 
 export function Sidebar() {
   const pathname = usePathname();
-  // Resolve guest state after mount (cookie/localStorage are client-only) to
-  // avoid a hydration mismatch — defaults to the full nav, then narrows.
-  const [guest, setGuest] = useState(false);
   // Live unread counts (DF-38) — replaces the old hardcoded badge:3.
   const [unread, setUnread] = useState<{ msgs: number; notifs: number }>({ msgs: 0, notifs: 0 });
   useEffect(() => {
-    const g = isGuest();
-    setGuest(g);
-    if (g) return; // guests have no inbox/notifications
     Promise.all([
       api.get<{ unread: number }[]>("/threads").catch(() => []),
       api.get<{ is_read: boolean }[]>("/notifications").catch(() => []),
@@ -92,7 +85,7 @@ export function Sidebar() {
       });
     });
   }, [pathname]);
-  const items = guest ? NAV.filter((n) => n.guest) : NAV;
+  const items = NAV;
 
   return (
     <nav
@@ -105,11 +98,8 @@ export function Sidebar() {
         className="flex items-center gap-2.5 px-3 pt-1.5 pb-1 mb-[22px]"
       >
         <SealMark size={30} />
-        <span
-          className="ch-nav-label text-[23px] font-extrabold text-[var(--ink)]"
-          style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.035em" }}
-        >
-          CollectorHub
+        <span className="ch-nav-label">
+          <ScorredWordmark fontSize={20} />
         </span>
       </Link>
 
@@ -126,17 +116,7 @@ export function Sidebar() {
         ))}
       </div>
 
-      {guest ? (
-        <Link
-          href="/auth/signup"
-          className="flex items-center justify-center gap-2 rounded-xl px-3 py-[11px] font-semibold text-sm"
-          style={{ background: "var(--stamp-red)", color: "#fff" }}
-        >
-          <span className="ch-nav-label">Sign up to interact</span>
-        </Link>
-      ) : (
-        <NavItem href="/settings" label="Settings" icon={Settings} />
-      )}
+      <NavItem href="/settings" label="Settings" icon={Settings} />
     </nav>
   );
 }

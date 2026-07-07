@@ -263,7 +263,7 @@ export default function SettingsPage() {
       <Row icon={<Flag size={17} />} label="Report a bug" onClick={() => flash("Bug report — coming soon")} />
       <Row icon={<FileText size={17} />} label="Terms of service" onClick={() => flash("Terms of service — coming soon")} />
       <Row icon={<ShieldQuestion size={17} />} label="Privacy policy" onClick={() => flash("Privacy policy — coming soon")} />
-      <Row icon={<Star size={17} />} label="Rate CollectorHub" onClick={() => flash("Thanks for the love! ⭐")} />
+      <Row icon={<Star size={17} />} label="Rate Scorred" onClick={() => flash("Thanks for the love! ⭐")} />
 
       {/* ── Account actions ───────────────────────────────── */}
       <SectionHeader>Account</SectionHeader>

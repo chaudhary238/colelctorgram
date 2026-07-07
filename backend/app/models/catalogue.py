@@ -16,6 +16,10 @@ class Catalogue(Base):
 
     sku: Mapped[str] = mapped_column(String(64), primary_key=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
+    # DV6-12 — normalized title (lower/accent-folded/punctuation-stripped) for fuzzy
+    # de-dup search + the resolve-or-create write guard. Keep in sync with title via
+    # app.services.catalogue.norm_title on every insert/update.
+    norm_title: Mapped[str | None] = mapped_column(Text, nullable=True)
     brand: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str] = mapped_column(String(32), nullable=False)  # figures | designer | kits | diecast | tcg
     scale: Mapped[str | None] = mapped_column(String(16), nullable=True)
@@ -26,6 +30,11 @@ class Catalogue(Base):
 
     submitted_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     is_approved: Mapped[bool] = mapped_column(Boolean, default=True)
+    # DV6-13 — trust-by-default moderation. Community entries are live immediately;
+    # `is_official` is an admin-blessed badge (not a gate); `status` supports reactive
+    # takedown ('live' | 'removed'). Visibility = status != 'removed'.
+    is_official: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="live", nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)

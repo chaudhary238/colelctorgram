@@ -4,14 +4,14 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutGrid, BarChart3, CalendarDays, Eye, EyeOff,
-  Settings, MessageCircle, Plus, ShieldCheck, Bookmark, Camera,
+  Gift, MessageCircle, Plus, ShieldCheck, Bookmark, Camera,
   MoreHorizontal, UserCheck, UserPlus, Check, ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AuthUser, useUser } from "@/lib/auth-context";
 import {
   Avatar, Money, Segmented, ProductPhoto, VerifyBadge,
-  Tag, Stars, EmptyNote, Button, IconButton,
+  Tag, EmptyNote, Button, IconButton,
 } from "@/components/ui";
 import { PostCard, CommunityCard, type ApiPost, type ApiCommunity } from "@/components/cards";
 import { EditProfileSheet } from "@/components/EditProfileSheet";
@@ -32,7 +32,6 @@ interface ProfileUser {
   avatar_url: string | null;
   tier: string;
   interests: string[];
-  deals_count: number;
   rating: number;
   rating_count: number;
   followers_count: number;
@@ -78,18 +77,8 @@ interface RawPost {
   created_at: string;
 }
 
-interface TradeDeal {
-  id: string;
-  direction: string;
-  deal_type: string;
-  item: string;
-  with: { handle: string; name: string; avatar_url: string | null };
-  when: string | null;
-  rating: number | null;
-  vouched: boolean;
-}
 
-type Tab = "collection" | "posts" | "communities" | "trades" | "saved";
+type Tab = "collection" | "posts" | "communities";
 type CollView = "grid" | "chart" | "calendar";
 
 /* Presence label from last_active_at (DF-36a) — "Online now" within 5 min. */
@@ -146,13 +135,11 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   const [posts, setPosts] = useState<RawPost[] | null>(null);
   const [collection, setCollection] = useState<CollectionItem[] | null>(null);
   const [communities, setCommunities] = useState<ApiCommunity[] | null>(null);
-  const [trades, setTrades] = useState<TradeDeal[] | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showFollowModal, setShowFollowModal] = useState<"followers" | "following" | null>(null);
   const [showAddCollection, setShowAddCollection] = useState(false);
-  const [savedPosts, setSavedPosts] = useState<ApiPost[] | null>(null);
   const [showVouchGive, setShowVouchGive] = useState(false);
   const [showVouchList, setShowVouchList] = useState<"received" | "given" | null>(null);
   const [showVouchRequest, setShowVouchRequest] = useState(false);
@@ -177,6 +164,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
 
   // Deep-link from Settings: /profile?edit=profile|avatar opens the edit sheet (DF-22/23);
   // /profile?vouch=request opens the vouch-request flow (v4 Settings "Vouches & endorsements").
+  // /profile?show=following opens the Following list (Rewards "Vouch for a collector" earn row).
   useEffect(() => {
     if (!isOwn || typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -185,6 +173,21 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
       window.history.replaceState(null, "", window.location.pathname);
     } else if (params.get("vouch") === "request") {
       setShowVouchRequest(true);
+      window.history.replaceState(null, "", window.location.pathname);
+    } else if (params.get("show") === "following" || params.get("show") === "followers") {
+      setShowFollowModal(params.get("show") as "following" | "followers");
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [isOwn]);
+
+  // Deep-link from a chat's "Leave a vouch" CTA (DV6-07): /profile/<handle>?vouch=give
+  // opens the give-vouch sheet on another collector's profile.
+  useEffect(() => {
+    if (isOwn || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("vouch") === "give") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot deep-link read on mount
+      setShowVouchGive(true);
       window.history.replaceState(null, "", window.location.pathname);
     }
   }, [isOwn]);
@@ -199,14 +202,8 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
     } else if (t === "communities" && communities === null) {
       const data = await api.get<{ items: ApiCommunity[] }>(`/users/${handle}/communities`).catch(() => ({ items: [] }));
       setCommunities(data.items);
-    } else if (t === "trades" && trades === null) {
-      const data = await api.get<{ items: TradeDeal[] }>(`/users/${handle}/deals`).catch(() => ({ items: [] }));
-      setTrades(data.items);
-    } else if (t === "saved" && savedPosts === null) {
-      const data = await api.get<{ items: ApiPost[] }>(`/users/me/saved`).catch(() => ({ items: [] }));
-      setSavedPosts(data.items);
     }
-  }, [handle, posts, collection, communities, trades, savedPosts]);
+  }, [handle, posts, collection, communities]);
 
   useEffect(() => {
     if (!loading) loadTab(tab);
@@ -294,8 +291,6 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
     { id: "collection", label: "Collection" },
     { id: "posts", label: "Posts" },
     { id: "communities", label: "Communities" },
-    { id: "trades", label: "Trades" },
-    ...(isOwn ? [{ id: "saved" as Tab, label: "Saved" }] : []),
   ];
 
   const avatarEl = profile.avatar_url ? (
@@ -333,7 +328,6 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
           </div>
 
           <div style={{ flex: 1, display: "flex", justifyContent: "space-around", alignItems: "flex-start" }}>
-            <StatTop n={profile.deals_count} label="Deals" />
             <StatTop n={profile.followers_count} label="Followers" onClick={() => setShowFollowModal("followers")} />
             <StatTop n={profile.vouches_received_count} label="Vouches" onClick={() => setShowVouchList("received")} />
           </div>
@@ -398,10 +392,10 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
 
         {/* actions */}
         {isOwn ? (
-          <div style={{ display: "flex", gap: 9, marginTop: 14 }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
             <Button variant="dark" style={{ flex: 1, justifyContent: "center" }} onClick={() => setShowEdit(true)}>Edit profile</Button>
-            <Button variant="secondary" icon={<Plus size={17} />} onClick={() => setShowAddCollection(true)}>Add item</Button>
-            <IconButton icon={<Settings size={18} />} onClick={() => router.push("/settings")} />
+            <Button variant="secondary" style={{ flex: 1, justifyContent: "center" }} icon={<Plus size={17} />} onClick={() => setShowAddCollection(true)}>Add item</Button>
+            <IconButton icon={<Gift size={18} />} onClick={() => router.push("/refer")} />
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 14 }}>
@@ -460,19 +454,6 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
           </div>
         )}
 
-        {tab === "trades" && <TradesTab trades={trades} />}
-
-        {tab === "saved" && isOwn && (
-          savedPosts === null ? (
-            <SkeletonRows />
-          ) : savedPosts.length === 0 ? (
-            <EmptyNote>No saved posts yet — tap the bookmark on any post to save it here.</EmptyNote>
-          ) : (
-            <div style={{ margin: "0 -16px" }}>
-              {savedPosts.map((p) => <PostCard key={p.id} post={p} />)}
-            </div>
-          )
-        )}
       </div>
 
       {/* Overlays */}
@@ -514,9 +495,8 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   );
 }
 
-/* ── Top stat tile (Deals / Followers / Vouches) ─────────────────── */
+/* ── Top stat tile (Followers / Vouches) ─────────────────────────── */
 const STAT_TOP_META: Record<string, { emoji: string; bg: string }> = {
-  Deals: { emoji: "🤝", bg: "var(--rose-tint-bg)" },
   Followers: { emoji: "👥", bg: "var(--sky-soft)" },
   Vouches: { emoji: "🛡️", bg: "rgba(139,92,246,0.10)" },
 };
@@ -566,7 +546,8 @@ function StatDivider() {
 
 /* ── Collection tab (grid / chart / calendar / collage) ─────────── */
 function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] | null; isOwn: boolean; viewPrivacy?: Record<string, "public" | "private"> }) {
-  const [seg, setSeg] = useState<"owned" | "wishlist" | "preorder">("owned");
+  // DV6-11e — v6 drops the Wishlist segment and adds "DB Contributions" (status:'intel').
+  const [seg, setSeg] = useState<"owned" | "preorder" | "intel">("owned");
   const [view, setView] = useState<CollView>("grid");
   // Seed per-view visibility from the server (eye toggle is persisted in
   // privacy_prefs.collection_views). Falls back to public.
@@ -586,7 +567,9 @@ function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] 
     );
   }
 
-  const owned = items.filter((i) => i.status !== "wishlist");
+  // "owned" set powers Portfolio Value/count + the chart — exclude wishlist AND intel (DV6-11f),
+  // otherwise unowned DB-contribution items would inflate the portfolio.
+  const owned = items.filter((i) => i.status !== "wishlist" && i.status !== "intel");
   const ownedValue = paiseToRupees(items.filter((i) => i.status === "owned").reduce((s, i) => s + i.value, 0));
   const filtered = items.filter((i) => i.status === seg);
 
@@ -671,15 +654,19 @@ function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] 
                 onChange={setSeg}
                 options={[
                   { id: "owned", label: "Owned" },
-                  { id: "wishlist", label: "Wishlist" },
                   { id: "preorder", label: "Pre-order" },
+                  { id: "intel", label: "DB Contributions" },
                 ]}
               />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11, marginTop: 14 }}>
                 {filtered.map((it) => <ItemTile key={it.id} item={it} isOwn={isOwn} />)}
               </div>
               {filtered.length === 0 && (
-                <EmptyNote>{isOwn ? "Nothing here yet — add from the catalogue." : "Private or empty."}</EmptyNote>
+                <EmptyNote>
+                  {seg === "intel"
+                    ? (isOwn ? "No DB contributions yet — add an item that's new to Scorred to help the community." : "No DB contributions yet.")
+                    : (isOwn ? "Nothing here yet — add from the catalogue." : "Private or empty.")}
+                </EmptyNote>
               )}
             </>
           )}
@@ -988,45 +975,6 @@ function PostsTab({ posts, profile, isOwn }: { posts: RawPost[] | null; profile:
   return (
     <div style={{ margin: "0 -16px" }}>
       {enriched.map((p) => <PostCard key={p.id} post={p} />)}
-    </div>
-  );
-}
-
-/* ── Trades tab ─────────────────────────────────────────────────── */
-function TradesTab({ trades }: { trades: TradeDeal[] | null }) {
-  if (trades === null) return <SkeletonRows />;
-  if (trades.length === 0) return <EmptyNote>No confirmed trades yet.</EmptyNote>;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-      {trades.map((d, i) => (
-        <div
-          key={d.id}
-          style={{
-            display: "flex", alignItems: "center", gap: 12, padding: "12px 0",
-            borderBottom: i < trades.length - 1 ? "1px solid var(--border)" : "none",
-          }}
-        >
-          {d.with.avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={d.with.avatar_url} alt={d.with.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
-          ) : (
-            <Avatar name={d.with.name} size={40} />
-          )}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>
-              {d.direction} · {d.item}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-              with @{d.with.handle}
-              {d.when ? ` · ${new Date(d.when).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` : ""}
-            </div>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
-            {d.rating != null && <Stars n={d.rating} size={12} />}
-            {d.vouched && <Tag kind="vouch" style={{ fontSize: 9 }}>Vouched</Tag>}
-          </div>
-        </div>
-      ))}
     </div>
   );
 }

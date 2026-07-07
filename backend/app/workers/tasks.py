@@ -46,23 +46,6 @@ async def dispatch_wishlist_notifications(listing_id: str):
         await db.commit()
 
 
-async def cancel_expired_deals():
-    """Auto-cancel unconfirmed deals older than 72h."""
-    from datetime import datetime, timezone, timedelta
-    from app.database import AsyncSessionLocal
-    from app.models.deal import Deal
-    from sqlalchemy import update
-
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=72)
-    async with AsyncSessionLocal() as db:
-        await db.execute(
-            update(Deal)
-            .where(Deal.status == "pending", Deal.created_at < cutoff)
-            .values(status="cancelled")
-        )
-        await db.commit()
-
-
 async def send_preorder_reminders():
     """B-65: Notify users 7d and 1d before their preorder ETA."""
     from datetime import datetime, timezone, timedelta
@@ -244,7 +227,6 @@ def schedule_background_workers(app_state: dict | None = None):
     Call from FastAPI lifespan after the app starts.
     """
     loop = asyncio.get_event_loop()
-    loop.create_task(_run_periodic(cancel_expired_deals,   interval_seconds=3600,       name="cancel_expired_deals"))
     loop.create_task(_run_periodic(send_preorder_reminders, interval_seconds=3600 * 6,  name="send_preorder_reminders"))
     loop.create_task(_run_periodic(send_event_reminders,    interval_seconds=3600,       name="send_event_reminders"))
     loop.create_task(_run_periodic(reconcile_counters,      interval_seconds=3600 * 12, name="reconcile_counters"))

@@ -24,8 +24,10 @@ class Report(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     reporter_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    target_type: Mapped[str] = mapped_column(String(16), nullable=False)  # user | post | listing | comment
-    target_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(16), nullable=False)  # user | post | listing | comment | catalogue
+    target_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    # DV6-13 — string-keyed targets (e.g. a catalogue SKU) use target_ref instead of target_id.
+    target_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | reviewed | actioned | dismissed

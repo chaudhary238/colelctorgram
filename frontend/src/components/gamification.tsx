@@ -15,7 +15,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Box, Sparkles, Medal, Gem, Flame, Crown, Star, Camera, Heart,
-  User, Shield, Calendar, MessageCircle, Gift, Zap,
+  User, Shield, Calendar, MessageCircle, Gift, Zap, Database,
   ChevronRight, Trophy, X, type LucideIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -79,8 +79,12 @@ export const FIRST_START_VIS: Record<string, { color: string; emoji: string; lab
   pioneer:        { color: "var(--plum)",      emoji: "🔥", label: "Pioneer" },
 };
 const EARN_ICON: Record<string, LucideIcon> = {
-  profile: User, refer: Gift, showcase: Camera, review: Star,
+  profile: User, refer: Gift, db_new: Database, showcase: Camera, review: Star,
   vouch: Shield, rsvp: Calendar, comment: MessageCircle, like: Heart, checkin: Zap,
+};
+/* Season-badge emoji medals by tier (v6 DV6-02 — replaces the Lucide Medal). */
+export const TIER_MEDAL: Record<string, string> = {
+  gold: "🥇", silver: "🥈", bronze: "🥉", finalist: "🏅",
 };
 export const BADGE_TIER: Record<string, { fill: string; ink: string; ring: string; label: string }> = {
   gold:     { fill: "#F0C04A", ink: "#5A3D00", ring: "#CE991C", label: "1st place" },
@@ -99,6 +103,55 @@ export const FRAME_GOLD = "#E8A33D";
 export const FRAME_HALO = "#FEF3C7";
 
 const fmt = (n: number) => n.toLocaleString("en-IN");
+
+/* ── fireXpToast — imperative "+N XP" toast (v6 DV6-04) ──────────────────────
+   Appended to <body> so it outlives a client-side route change (e.g. compose
+   navigates to /feed right after publishing). No provider wiring needed. */
+export function fireXpToast(xp: number, label = "XP earned") {
+  if (typeof document === "undefined" || xp <= 0) return;
+  const el = document.createElement("div");
+  el.setAttribute("role", "status");
+  el.style.cssText = [
+    "position:fixed", "left:50%", "bottom:28px", "transform:translateX(-50%) translateY(8px)",
+    "z-index:80", "display:flex", "align-items:center", "gap:8px",
+    "padding:10px 16px", "border-radius:999px", "background:var(--ink)", "color:var(--paper)",
+    "font-family:var(--font-body)", "font-size:13.5px", "font-weight:600",
+    "box-shadow:var(--shadow-3)", "opacity:0", "transition:opacity 200ms ease, transform 200ms ease",
+    "pointer-events:none",
+  ].join(";");
+  el.innerHTML = `<span style="font-family:var(--font-mono);font-weight:800;color:var(--grail-gold)">+${xp}</span><span>${label}</span>`;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => { el.style.opacity = "1"; el.style.transform = "translateX(-50%) translateY(0)"; });
+  setTimeout(() => {
+    el.style.opacity = "0";
+    el.style.transform = "translateX(-50%) translateY(8px)";
+    setTimeout(() => el.remove(), 250);
+  }, 1900);
+}
+
+/* ── fireToast — plain imperative toast (no XP styling); same lifecycle as fireXpToast.
+   Used e.g. when a free-text add is auto-linked to an existing catalogue entry (DV6-12). */
+export function fireToast(message: string) {
+  if (typeof document === "undefined" || !message) return;
+  const el = document.createElement("div");
+  el.setAttribute("role", "status");
+  el.style.cssText = [
+    "position:fixed", "left:50%", "bottom:28px", "transform:translateX(-50%) translateY(8px)",
+    "z-index:80", "display:flex", "align-items:center", "gap:8px",
+    "padding:10px 16px", "border-radius:999px", "background:var(--ink)", "color:var(--paper)",
+    "font-family:var(--font-body)", "font-size:13.5px", "font-weight:600",
+    "box-shadow:var(--shadow-3)", "opacity:0", "transition:opacity 200ms ease, transform 200ms ease",
+    "pointer-events:none", "max-width:min(90vw,360px)", "text-align:center",
+  ].join(";");
+  el.textContent = message;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => { el.style.opacity = "1"; el.style.transform = "translateX(-50%) translateY(0)"; });
+  setTimeout(() => {
+    el.style.opacity = "0";
+    el.style.transform = "translateX(-50%) translateY(8px)";
+    setTimeout(() => el.remove(), 250);
+  }, 2200);
+}
 
 /* ── TierBadge — coloured rank tile (rounded square) ────────────────────── */
 export function TierBadge({ tierId, size = 40, locked = false }: { tierId: string; size?: number; locked?: boolean }) {
@@ -132,19 +185,18 @@ export function FirstStartTile({ code, size = 40 }: { code: string; size?: numbe
   );
 }
 
-/* ── SeasonBadge — circular metal medallion (v3 §1: metallic circle shape) ── */
+/* ── SeasonBadge — circular metal medallion with an emoji medal (v6 DV6-02) ── */
 export function SeasonBadge({ badge, size = 40 }: { badge: SeasonBadgeT; size?: number }) {
   const m = BADGE_TIER[badge.tier] ?? BADGE_TIER.finalist;
-  const k = BADGE_KIND[badge.kind] ?? BADGE_KIND.weekly;
-  const Icon = k.Icon;
+  const medal = TIER_MEDAL[badge.tier] ?? "🏅";
   return (
     <div title={`${badge.title} · ${badge.period}`} style={{
       width: size, height: size, borderRadius: "50%", flexShrink: 0, position: "relative",
-      display: "flex", alignItems: "center", justifyContent: "center", background: m.fill, color: m.ink,
+      display: "flex", alignItems: "center", justifyContent: "center", background: m.fill,
       boxShadow: `inset 0 0 0 ${Math.max(1.5, size * 0.055)}px ${m.ring}, 0 1px 5px ${m.ring}55`,
     }}>
       <span style={{ position: "absolute", top: "8%", left: "14%", width: "46%", height: "38%", borderRadius: "50%", background: "rgba(255,255,255,0.4)", filter: "blur(1px)" }} />
-      <Icon size={Math.round(size * 0.46)} strokeWidth={2.2} style={{ position: "relative" }} />
+      <span style={{ position: "relative", fontSize: Math.round(size * 0.55), lineHeight: 1 }}>{medal}</span>
     </div>
   );
 }
@@ -217,15 +269,15 @@ export function FeedBadge({ badge, size = "sm" }: { badge: FeedBadgeT | null | u
 
 /* ── BadgeSheet — bottom-sheet explaining a tapped badge (v3 §4) ─────────── */
 const FIRST_START_DESC: Record<string, string> = {
-  founding: "One of the founding members of CollectorHub. Permanently and manually assigned — never expires.",
-  early_believer: "One of the first collectors to join CollectorHub. Permanent — never expires.",
-  pioneer: "One of the earliest beta collectors on CollectorHub. Permanent — never expires.",
+  founding: "One of the founding members of Scorred. Permanently and manually assigned — never expires.",
+  early_believer: "One of the first collectors to join Scorred. Permanent — never expires.",
+  pioneer: "One of the earliest beta collectors on Scorred. Permanent — never expires.",
 };
 export function BadgeSheet({ badge, onClose }: { badge: FeedBadgeT; onClose: () => void }) {
   const isFirst = badge.kind === "first_start";
   const typeLabel = isFirst ? "Permanent badge" : "Rank badge";
   const desc = isFirst
-    ? (FIRST_START_DESC[badge.code] ?? "A permanent First Start badge, manually assigned by the CollectorHub team.")
+    ? (FIRST_START_DESC[badge.code] ?? "A permanent First Start badge, manually assigned by the Scorred team.")
     : (() => {
         const t = REWARD_TIERS.find((r) => r.id === badge.code);
         return t ? `Your current rank, earned from ${t.at.toLocaleString("en-IN")}+ lifetime Collector XP. It updates automatically as you level up.` : "Your current collector rank, from lifetime XP.";
@@ -358,21 +410,22 @@ export function BadgeShelf({ handle, style }: { handle: string; style?: React.CS
   const fs = d.first_start;
   const total = d.count + (fs ? 1 : 0);
   if (total === 0) return null;
-  // First Start badge first, then up to 4 season badges (v3 §2.1 — max 5 shown).
-  const shownSeason = d.badges.slice(0, fs ? 3 : 4);
+  // v6 (DV6-02) — group season badges by tier with a count; First Start badge
+  // takes a priority slot, then the top season tiers. Max 3 shelf slots.
+  const slots = groupBadgeSlots(fs, d.badges).slice(0, 3);
   return (
     <button onClick={() => router.push(`/profile/${handle}/badges`)} style={{
       display: "inline-flex", alignItems: "center", gap: 8, marginTop: 9, padding: "4px 9px 4px 4px",
       background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 999, cursor: "pointer", ...style }}>
       <span style={{ display: "flex" }}>
-        {fs && (
-          <span style={{ borderRadius: 7, boxShadow: "0 0 0 2px var(--paper-soft)" }}>
-            <FirstStartTile code={fs.id} size={24} />
-          </span>
-        )}
-        {shownSeason.map((b, i) => (
-          <span key={b.id} style={{ marginLeft: (i || fs) ? -9 : 0, borderRadius: "50%", boxShadow: "0 0 0 2px var(--paper-soft)" }}>
-            <SeasonBadge badge={b} size={24} />
+        {slots.map((slot, i) => (
+          <span key={slot.key} style={{ marginLeft: i ? -9 : 0, borderRadius: slot.kind === "first" ? 7 : "50%", boxShadow: "0 0 0 2px var(--paper-soft)", position: "relative" }}>
+            {slot.kind === "first"
+              ? <FirstStartTile code={slot.code} size={24} />
+              : <SeasonBadge badge={slot.badge} size={24} />}
+            {slot.count > 1 && (
+              <span style={{ position: "absolute", top: -4, right: -4, minWidth: 14, height: 14, borderRadius: 999, background: "var(--stamp-red)", color: "#fff", fontSize: 8, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", border: "1.5px solid var(--paper-soft)", lineHeight: 1 }}>{slot.count}</span>
+            )}
           </span>
         ))}
       </span>
@@ -380,6 +433,25 @@ export function BadgeShelf({ handle, style }: { handle: string; style?: React.CS
       <ChevronRight size={14} style={{ color: "var(--ink-ghost)" }} />
     </button>
   );
+}
+
+/* Group badges into shelf slots: First Start (priority, one slot per badge) then
+   season badges collapsed by tier with a count (v6 DV6-02). */
+export type BadgeSlot =
+  | { key: string; kind: "first"; code: string; count: number }
+  | { key: string; kind: "season"; badge: SeasonBadgeT; count: number };
+export function groupBadgeSlots(fs: FirstStart | null, badges: SeasonBadgeT[]): BadgeSlot[] {
+  const slots: BadgeSlot[] = [];
+  if (fs) slots.push({ key: "first-" + fs.id, kind: "first", code: fs.id, count: 1 });
+  const byTier = new Map<string, { badge: SeasonBadgeT; count: number }>();
+  for (const b of badges) {
+    const tier = b.tier || "finalist";
+    const g = byTier.get(tier);
+    if (g) g.count++;
+    else byTier.set(tier, { badge: b, count: 1 });
+  }
+  for (const [tier, g] of byTier) slots.push({ key: "season-" + tier, kind: "season", badge: g.badge, count: g.count });
+  return slots;
 }
 
 /* ── resetInfo — leaderboard reset clock (v3 §9) ────────────────────────── */

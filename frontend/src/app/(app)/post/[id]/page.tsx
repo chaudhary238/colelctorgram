@@ -104,7 +104,7 @@ export default function PostDetailPage() {
     const url = `${window.location.origin}/post/${id}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "CollectorHub", url });
+        await navigator.share({ title: "Scorred", url });
       } else {
         await navigator.clipboard.writeText(url);
         setShared(true);

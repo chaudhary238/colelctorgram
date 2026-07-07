@@ -9,6 +9,8 @@ from sqlalchemy import select, or_, func
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.catalogue import Catalogue
+from app.services.catalogue import norm_title, MATCH_MEDIUM
+from app.services.gamification import award_xp
 
 router = APIRouter(prefix="/catalogue", tags=["catalogue"])
 
@@ -24,7 +26,7 @@ class SubmitCatalogueBody(BaseModel):
     thumbnail_url: Optional[str] = None
 
 
-def _hit(c: Catalogue) -> dict:
+def _hit(c: Catalogue, score: float | None = None) -> dict:
     return {
         "sku": c.sku,
         "title": c.title,
@@ -34,6 +36,12 @@ def _hit(c: Catalogue) -> dict:
         "year": c.year,
         "est_retail_price": c.est_retail_price,
         "thumbnail_url": c.thumbnail_url,
+        # DV6-12 — de-dup search surfaces pending (unreviewed) community entries too,
+        # flagged so the UI can badge them; `score` is the fuzzy match strength (0..1).
+        "pending": not c.is_approved,
+        "score": round(score, 3) if score is not None else None,
+        # DV6-13 — Official = admin-blessed (a badge, not a gate); everything else is community.
+        "is_official": c.is_official,
     }
 
 
@@ -48,7 +56,7 @@ async def popular_catalogue(
     Prefers the caller's interest categories when provided, then fills with other approved items.
     """
     cats = [c.strip() for c in category.split(",") if c.strip()] if category else []
-    stmt = select(Catalogue).where(Catalogue.is_approved == True)
+    stmt = select(Catalogue).where(Catalogue.is_approved == True, Catalogue.status != "removed")
     if cats:
         stmt = stmt.order_by(Catalogue.category.in_(cats).desc(), Catalogue.est_retail_price.desc())
     else:
@@ -62,13 +70,23 @@ async def popular_catalogue(
 async def search_catalogue(
     q: str = Query(..., min_length=1),
     category: Optional[str] = None,
+    brand: Optional[str] = None,
+    scale: Optional[str] = None,
     limit: int = Query(10, le=30),
     db: AsyncSession = Depends(get_db),
 ):
+    """Central-catalogue de-dup search (DV6-12). Ranks by trigram similarity on the
+    normalized title, filtered by category/brand/scale, and INCLUDES pending
+    community entries so a second contributor links to an existing entry instead of
+    creating a duplicate. Falls back to a substring match so short/partial queries
+    still surface obvious hits."""
+    q_norm = norm_title(q)
     pattern = f"%{q.lower()}%"
-    stmt = select(Catalogue).where(
-        Catalogue.is_approved == True,
+    score = func.similarity(Catalogue.norm_title, q_norm)
+    stmt = select(Catalogue, score.label("score")).where(
+        Catalogue.status != "removed",  # DV6-13 — hide reactively-removed entries
         or_(
+            score >= MATCH_MEDIUM,
             func.lower(Catalogue.title).like(pattern),
             func.lower(Catalogue.brand).like(pattern),
             func.lower(Catalogue.sku).like(pattern),
@@ -76,10 +94,30 @@ async def search_catalogue(
     )
     if category:
         stmt = stmt.where(Catalogue.category == category)
-    stmt = stmt.limit(limit)
-    result = await db.execute(stmt)
-    items = result.scalars().all()
-    return {"hits": [_hit(c) for c in items], "query": q}
+    if brand:
+        stmt = stmt.where(func.lower(Catalogue.brand) == brand.lower())
+    if scale:
+        stmt = stmt.where(Catalogue.scale == scale)
+    # Best matches first (NULL similarity = substring-only hit → last); approved wins ties.
+    stmt = stmt.order_by(score.desc().nullslast(), Catalogue.is_approved.desc()).limit(limit)
+    rows = (await db.execute(stmt)).all()
+    return {"hits": [_hit(c, s) for c, s in rows], "query": q}
+
+
+@router.get("/brands")
+async def catalogue_brands(
+    category: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Distinct brands present in the catalogue (optionally within a category), for
+    the brand dropdown. The frontend unions these with its canonical CAT_BRANDS list
+    (DV6-12). Includes pending entries so newly-added brands appear immediately."""
+    stmt = select(Catalogue.brand).where(Catalogue.brand.isnot(None)).distinct()
+    if category:
+        stmt = stmt.where(Catalogue.category == category)
+    rows = (await db.execute(stmt)).scalars().all()
+    brands = sorted({b.strip() for b in rows if b and b.strip()}, key=str.lower)
+    return {"brands": brands}
 
 
 @router.post("", status_code=201)
@@ -95,6 +133,7 @@ async def submit_catalogue(
     item = Catalogue(
         sku=body.sku,
         title=body.title,
+        norm_title=norm_title(body.title),
         brand=body.brand,
         category=body.category,
         scale=body.scale,
@@ -106,4 +145,7 @@ async def submit_catalogue(
     )
     db.add(item)
     await db.flush()
+    # DV6-02 — first collector to add this item to the shared DB earns +50 XP.
+    # Deduped per item (ref_id) so re-submits never double-award.
+    await award_xp(db, current_user, "db_new", ref_id=item.sku, ref_type="catalogue")
     return {"sku": item.sku, "pending_approval": not item.is_approved}

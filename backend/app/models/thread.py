@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    UUID, Boolean, DateTime, Integer, String, Text,
+    UUID, DateTime, Integer, String, Text,
     ForeignKey, Index, UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -44,7 +44,6 @@ class Message(Base):
     body: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     offer_item_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("items.id"), nullable=True)
-    is_deal_init: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     thread: Mapped["Thread"] = relationship("Thread", back_populates="messages")

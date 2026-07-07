@@ -436,7 +436,7 @@ export default function OnboardingPage() {
                 ? "Continue"
                 : step === 1
                   ? `Continue${interests.length ? ` · ${interests.length} picked` : ""}`
-                  : "Enter CollectorHub"}
+                  : "Enter Scorred"}
           </button>
         </div>
       </div>

@@ -1,5 +1,4 @@
 import { Sidebar } from "@/components/Sidebar";
-import { GuestBanner } from "@/components/GuestBanner";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,7 +8,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Single scroll area on a uniform background. Each page centers its
           own content (Instagram-style) and chooses its own column count. */}
       <main className="flex-1 min-w-0 h-screen overflow-y-auto">
-        <GuestBanner />
         {children}
       </main>
     </div>

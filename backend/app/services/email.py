@@ -51,18 +51,18 @@ async def send_otp_email(to: str, code: str) -> bool:
     <div style="font-family:system-ui,-apple-system,sans-serif;max-width:420px;margin:0 auto;padding:24px">
       <h2 style="color:#14110F;margin:0 0 8px">Confirm your email</h2>
       <p style="color:#5C544C;font-size:15px;line-height:1.5;margin:0 0 20px">
-        Enter this code in CollectorHub to confirm your account. It expires in 10 minutes.
+        Enter this code in Scorred to confirm your account. It expires in 10 minutes.
       </p>
       <div style="font-family:ui-monospace,monospace;font-size:32px;font-weight:700;letter-spacing:6px;
                   color:#14110F;background:#F4EFE6;border-radius:12px;padding:16px;text-align:center">
         {code}
       </div>
       <p style="color:#8B8178;font-size:12.5px;margin:20px 0 0">
-        Didn't create a CollectorHub account? You can safely ignore this email.
+        Didn't create a Scorred account? You can safely ignore this email.
       </p>
     </div>
     """
-    return await send_email(to, f"{code} is your CollectorHub code", html)
+    return await send_email(to, f"{code} is your Scorred code", html)
 
 
 async def send_password_reset_email(to: str, reset_url: str) -> bool:
@@ -82,4 +82,4 @@ async def send_password_reset_email(to: str, reset_url: str) -> bool:
       </p>
     </div>
     """
-    return await send_email(to, "Reset your CollectorHub password", html)
+    return await send_email(to, "Reset your Scorred password", html)

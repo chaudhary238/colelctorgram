@@ -6,7 +6,7 @@
 // (default ON) hides interspersed listing cards from For You.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Globe, Home, UserPlus, Check } from "lucide-react";
+import { Globe, Home, UserPlus, Check, SlidersHorizontal } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser, AuthUser } from "@/lib/auth-context";
 import { PostCard, ListingFeedCard, FeedEventCard, ApiPost, ApiListing, ApiEvent } from "@/components/cards";
@@ -19,7 +19,7 @@ type StreamItem =
   | { t: "event"; key: string; data: ApiEvent };
 
 const TABS = [
-  { id: "foryou", label: "For You", icon: Home, caret: true },
+  { id: "foryou", label: "For You", icon: Home },
   { id: "explore", label: "Explore", icon: Globe },
   { id: "following", label: "Following", icon: UserPlus },
 ] as const;
@@ -300,7 +300,7 @@ export default function FeedPage() {
     const showEvents = showExtras && tab !== "following";
     for (let i = 0; i < posts.length; i++) {
       const p = posts[i];
-      // CollectorHub/official posts render as normal posts (same as any user) —
+      // Scorred/official posts render as normal posts (same as any user) —
       // the AdminCard "release" format is no longer used in the feed.
       base.push({ t: "post", key: `p-${p.id}`, data: p });
       if (showListings && (i + 1) % 3 === 0 && li < listings.length) {
@@ -319,39 +319,43 @@ export default function FeedPage() {
     <div className="flex justify-start gap-8">
       <div className="w-full max-w-[600px] min-h-screen border-r border-[var(--slate-200)] bg-[var(--canvas)]">
         <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]" style={{ padding: "12px 16px" }}>
-          {/* feed tabs: For You (customisable) · Explore · Following (DF-07) */}
+          {/* feed sort tabs (plain) + trailing Customise chip (DV6-08) */}
           <div className="relative">
-            <div className="flex gap-1 bg-[var(--slate-100)] rounded-[14px] p-1">
-              {TABS.map((t) => {
-                const on = tab === t.id;
-                const Icon = t.icon;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      if (t.id === "foryou" && on) setCustomOpen((o) => !o);
-                      else { setTab(t.id); setCustomOpen(false); }
-                    }}
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-1.5 rounded-[10px] py-2 px-1.5 text-[13.5px] whitespace-nowrap cursor-pointer border-none transition-all duration-150",
-                      on
-                        ? "bg-[var(--paper)] text-[var(--ink)] font-bold shadow-[var(--shadow-2)]"
-                        : "bg-transparent text-[var(--slate-500)] font-medium"
-                    )}
-                  >
-                    <Icon size={16} strokeWidth={on ? 2.3 : 1.9} />
-                    {t.label}
-                    {"caret" in t && t.caret && (
-                      <ChevronDown
-                        size={13}
-                        strokeWidth={2.4}
-                        className="transition-transform duration-150 -ml-px"
-                        style={{ transform: customOpen ? "rotate(180deg)" : "none" }}
-                      />
-                    )}
-                  </button>
-                );
-              })}
+            <div className="flex items-center gap-2">
+              <div className="flex-1 flex gap-1 bg-[var(--slate-100)] rounded-[14px] p-1">
+                {TABS.map((t) => {
+                  const on = tab === t.id;
+                  const Icon = t.icon;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => { setTab(t.id); setCustomOpen(false); }}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-1.5 rounded-[10px] py-2 px-1.5 text-[13.5px] whitespace-nowrap cursor-pointer border-none transition-all duration-150",
+                        on
+                          ? "bg-[var(--paper)] text-[var(--ink)] font-bold shadow-[var(--shadow-2)]"
+                          : "bg-transparent text-[var(--slate-500)] font-medium"
+                      )}
+                    >
+                      <Icon size={16} strokeWidth={on ? 2.3 : 1.9} />
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setCustomOpen((o) => !o)}
+                aria-label="Customise feed"
+                className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full py-2 px-3 text-[13px] font-semibold whitespace-nowrap cursor-pointer transition-all duration-150"
+                style={{
+                  border: `1px solid ${customOpen ? "var(--stamp-red)" : "var(--slate-200)"}`,
+                  background: customOpen ? "var(--stamp-red-soft)" : "var(--card-surface)",
+                  color: customOpen ? "var(--stamp-red)" : "var(--slate-500)",
+                }}
+              >
+                <SlidersHorizontal size={14} strokeWidth={2.1} />
+                Customise
+              </button>
             </div>
 
             {customOpen && (

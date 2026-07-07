@@ -24,6 +24,7 @@ Award model (see models/gamification.XpEvent):
 """
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import datetime, timezone, timedelta
 
@@ -56,15 +57,15 @@ REWARD_TIERS = [
 FIRST_START = {
     "founding": {
         "id": "founding", "name": "Founding Member", "emoji": "⭐", "frame": False,
-        "description": "One of the founding members of CollectorHub. Permanently and manually assigned — never expires.",
+        "description": "One of the founding members of Scorred. Permanently and manually assigned — never expires.",
     },
     "early_believer": {
         "id": "early_believer", "name": "Early Believer", "emoji": "🌱", "frame": True,
-        "description": "One of the first collectors to join CollectorHub. Permanent — never expires.",
+        "description": "One of the first collectors to join Scorred. Permanent — never expires.",
     },
     "pioneer": {
         "id": "pioneer", "name": "Pioneer", "emoji": "🔥", "frame": True,
-        "description": "One of the earliest beta collectors on CollectorHub. Permanent — never expires.",
+        "description": "One of the earliest beta collectors on Scorred. Permanent — never expires.",
     },
 }
 # Feed/shelf priority order for First Start badges (v3 §2.1, §3).
@@ -85,6 +86,9 @@ def first_start_payload(code: str | None) -> dict | None:
 EARN_RULES = {
     "profile":  {"points": 100, "freq": "once",   "cap": None, "label": "Complete your profile", "icon": "user"},
     "refer":    {"points": 150, "freq": "repeat", "cap": None, "label": "Refer a friend",        "icon": "gift"},
+    # v6 (DV6-02) — first collector to add a new item to the shared catalogue DB.
+    # Deduped per item via ref_id; the /day cap stops bulk-add farming.
+    "db_new":   {"points": 50,  "freq": "repeat", "cap": 5,    "label": "Add new item to Scorred DB", "icon": "database"},
     "showcase": {"points": 25,  "freq": "repeat", "cap": 5,    "label": "Post a showcase",       "icon": "camera"},
     "review":   {"points": 15,  "freq": "repeat", "cap": 3,    "label": "Write a review",        "icon": "star"},
     "vouch":    {"points": 15,  "freq": "repeat", "cap": 3,    "label": "Vouch for a collector", "icon": "shield"},
@@ -92,7 +96,13 @@ EARN_RULES = {
     "comment":  {"points": 10,  "freq": "repeat", "cap": 10,   "label": "Comment on a post",     "icon": "comment"},
     "checkin":  {"points": 5,   "freq": "daily",  "cap": 1,    "label": "Daily check-in",        "icon": "zap"},
     "like":     {"points": 1,   "freq": "repeat", "cap": 50,   "label": "Like a post",           "icon": "heart"},
+    # v6 (DV6-04) — small +2 micro-reward on following a collector. Deduped per
+    # target (one grant per person ever); NOT shown on the "ways to earn" list.
+    "follow":   {"points": 2,   "freq": "repeat", "cap": 20,   "label": "Follow a collector",    "icon": "user"},
 }
+# Earn actions rendered separately (not in the "ways to earn" list): the daily
+# check-in has its own card, and follow is an invisible micro-reward (v6 §DV6-04).
+HIDDEN_EARN = {"checkin", "follow"}
 
 # Leaderboard-badge bonus XP banked toward lifetime rank (v3 §6.2).
 SEASON_REWARD = {"gold": 300, "silver": 200, "bronze": 120, "finalist": 50}
@@ -293,6 +303,98 @@ async def _windowed_xp(db: AsyncSession, user_id: uuid.UUID, since: datetime) ->
     return int(res.scalar() or 0)
 
 
+# ── Referral (v6 DV6-05) ─────────────────────────────────────────────────────
+# Unambiguous alphabet (no 0/O/1/I) for the SCOR-XXXXX share code.
+_REF_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def _gen_referral_code() -> str:
+    return "SCOR-" + "".join(secrets.choice(_REF_ALPHABET) for _ in range(5))
+
+
+async def ensure_referral_code(db: AsyncSession, user: User) -> str:
+    """Return the user's stable SCOR-XXXXX code, generating one on first access.
+    Lazy so pre-existing / seed accounts (raw inserts, NULL code) get one the
+    first time they open Rewards or the referral dashboard."""
+    if user.referral_code:
+        return user.referral_code
+    for _ in range(6):  # retry on the (unlikely) unique-code collision
+        code = _gen_referral_code()
+        clash = await db.execute(select(User.id).where(User.referral_code == code))
+        if clash.first() is None:
+            user.referral_code = code
+            await db.flush()
+            return code
+    # Extremely unlikely: fall back to a code seeded from the user id.
+    user.referral_code = "SCOR-" + str(user.id).replace("-", "")[:5].upper()
+    await db.flush()
+    return user.referral_code
+
+
+async def inviter_for_code(db: AsyncSession, code: str | None) -> User | None:
+    """Resolve a SCOR-XXXXX referral code to the inviting user, or None."""
+    if not code:
+        return None
+    norm = code.strip().upper()
+    if not norm.startswith("SCOR-"):
+        norm = "SCOR-" + norm
+    res = await db.execute(select(User).where(User.referral_code == norm))
+    return res.scalar_one_or_none()
+
+
+async def resolve_referral(db: AsyncSession, invitee: User) -> None:
+    """Credit the inviter +150 XP once `invitee` adds their first collection item
+    (v6 DV6-05 — the reward fires on first item, not signup). Idempotent:
+    award_xp dedups on (inviter, "refer", invitee_id), so this is safe to call on
+    every add. `referred_by` is retained so the invite stays on the inviter's
+    dashboard; the resolved/pending status is derived from the XpEvent ledger."""
+    if invitee.referred_by is None:
+        return
+    inviter = (await db.execute(select(User).where(User.id == invitee.referred_by))).scalar_one_or_none()
+    if inviter is None or inviter.id == invitee.id:
+        return
+    granted = await award_xp(db, inviter, "refer", ref_id=str(invitee.id), ref_type="user")
+    if granted:
+        db.add(Notification(
+            user_id=inviter.id,
+            actor_id=invitee.id,
+            kind="referral",
+            title="Your invite paid off!",
+            body=f"@{invitee.handle} joined and added their first item — +{EARN_RULES['refer']['points']} XP.",
+            ref_type="user",
+            ref_id=str(invitee.id),
+        ))
+
+
+async def referrals_list(db: AsyncSession, inviter: User) -> list[dict]:
+    """The inviter's referral dashboard rows: each invitee with pending/joined
+    status and the XP earned (v6 DV6-05 GET /users/me/referrals)."""
+    invitees = (await db.execute(
+        select(User).where(User.referred_by == inviter.id).order_by(User.created_at.desc())
+    )).scalars().all()
+    if not invitees:
+        return []
+    # Which invitees have already resolved (credited the inviter +150)?
+    resolved = set((await db.execute(
+        select(XpEvent.ref_id).where(and_(
+            XpEvent.user_id == inviter.id,
+            XpEvent.action == "refer",
+        ))
+    )).scalars().all())
+    reward = EARN_RULES["refer"]["points"]
+    rows = []
+    for u in invitees:
+        joined = str(u.id) in resolved
+        rows.append({
+            "handle": u.handle,
+            "name": u.name,
+            "avatar_url": u.avatar_url,
+            "status": "joined" if joined else "pending",
+            "xp": reward if joined else 0,
+        })
+    return rows
+
+
 # ── Rewards screen payload (§9.17) ───────────────────────────────────────────
 async def rewards_summary(db: AsyncSession, user: User) -> dict:
     xp = user.xp or 0
@@ -308,8 +410,8 @@ async def rewards_summary(db: AsyncSession, user: User) -> dict:
 
     earn = []
     for action, rule in EARN_RULES.items():
-        if action == "checkin":
-            continue  # rendered separately at top of the screen
+        if action in HIDDEN_EARN:
+            continue  # check-in has its own card; follow is an invisible micro-reward
         row = {"id": action, "label": rule["label"], "xp": rule["points"],
                "icon": rule["icon"], "freq": rule["freq"], "cap": rule["cap"]}
         if action == "profile":
@@ -326,8 +428,8 @@ async def rewards_summary(db: AsyncSession, user: User) -> dict:
             "xp": EARN_RULES["checkin"]["points"],
             "streak": await checkin_streak(db, user.id),
         },
-        # v3 §7 referral: the share code is the handle; count = friends credited.
-        "referral": {"code": user.handle, "count": referral_count, "xp": EARN_RULES["refer"]["points"]},
+        # v6 DV6-05 referral: stable SCOR-XXXXX code; count = friends credited.
+        "referral": {"code": await ensure_referral_code(db, user), "count": referral_count, "xp": EARN_RULES["refer"]["points"]},
     }
 
 

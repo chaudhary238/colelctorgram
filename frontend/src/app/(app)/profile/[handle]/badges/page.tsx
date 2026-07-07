@@ -10,9 +10,11 @@ import { ChevronLeft, Trophy, Info, Download, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button, SectionLabel } from "@/components/ui";
 import {
-  SeasonBadge, FirstStartTile, BadgeSheet, BADGE_TIER, BADGE_KIND,
+  SeasonBadge, FirstStartTile, BadgeSheet, BADGE_TIER, BADGE_KIND, groupBadgeSlots,
   type TrophyCaseData, type SeasonBadgeT, type FirstStart, type FeedBadgeT,
 } from "@/components/gamification";
+
+const TIER_LABEL: Record<string, string> = { gold: "Gold", silver: "Silver", bronze: "Bronze", finalist: "Finalist" };
 
 /* §9.19 P2 — shareable badge card. Renders the badge to an offscreen canvas and
  * shares it (Web Share API with files) or downloads a PNG. CSS-var colours are
@@ -59,7 +61,7 @@ async function exportBadge(badge: SeasonBadgeT) {
   ctx.fillStyle = resolveColor("var(--verified-teal)"); ctx.font = "700 28px system-ui, sans-serif";
   ctx.fillText(`+${badge.bonus_xp} bonus XP`, cx, 596);
   ctx.fillStyle = resolveColor("var(--stamp-red)"); ctx.font = `800 26px ${disp}, system-ui, sans-serif`;
-  ctx.fillText("CollectorHub", cx, 742);
+  ctx.fillText("Scorred", cx, 742);
   cv.toBlob(async (blob) => {
     if (!blob) return;
     const file = new File([blob], `badge-${badge.period.replace(/\s+/g, "-")}.png`, { type: "image/png" });
@@ -91,6 +93,10 @@ export default function BadgesPage() {
   const fs = d?.first_start ?? null;
   const totalCount = (d?.count ?? 0) + (fs ? 1 : 0);
   const topSeason = d?.badges[0];
+  // v6 (DV6-02) — featured stats + grouped season shelf.
+  const seasonSlots = d ? groupBadgeSlots(fs, d.badges).filter((s) => s.kind === "season") : [];
+  const badgeTypes = d ? groupBadgeSlots(fs, d.badges).length : 0; // First Start + distinct season tiers
+  const seasonWins = d?.badges.length ?? 0;
 
   return (
     <div className="w-full max-w-[600px] min-h-screen border-r border-[var(--border)]">
@@ -127,10 +133,9 @@ export default function BadgesPage() {
                   <FirstStartTile code={fs.id} size={76} />
                   <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 21, letterSpacing: "-0.01em", marginTop: 13 }}>{fs.name}</div>
                   <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 3 }}>Permanent badge · never expires</div>
-                  <div style={{ display: "flex", gap: 18, marginTop: 16 }}>
-                    <Stat n={totalCount} label="Badges" />
-                    <div style={{ width: 1, background: "var(--border)" }} />
-                    <Stat n={d.bonus_xp_total} label="Bonus XP" />
+                  <div style={{ display: "flex", gap: 28, marginTop: 16 }}>
+                    <Stat n={badgeTypes} label="Badge types" />
+                    <Stat n={seasonWins} label="Season wins" />
                   </div>
                 </button>
               ) : topSeason && (() => {
@@ -161,14 +166,19 @@ export default function BadgesPage() {
                     <div style={{ marginTop: 9, fontSize: 11, fontWeight: 700, color: "var(--verified-teal)" }}>Never expires</div>
                   </button>
                 )}
-                {d.badges.map((b) => {
-                  const k = BADGE_KIND[b.kind] ?? BADGE_KIND.weekly;
+                {seasonSlots.map((slot) => {
+                  const b = slot.badge;
+                  const tier = b.tier || "finalist";
                   return (
-                    <button key={b.id} onClick={() => setSelected(b)} style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "16px 12px", borderRadius: 14, border: "1px solid var(--border)", background: "var(--paper-soft)", cursor: "pointer" }}>
-                      <SeasonBadge badge={b} size={48} />
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)", marginTop: 10 }}>{b.title}</div>
-                      <div style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>{k.label} · {b.period}</div>
-                      <div style={{ marginTop: 9, fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, color: "var(--verified-teal)" }}>+{b.bonus_xp} XP</div>
+                    <button key={slot.key} onClick={() => setSelected(b)} style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "16px 12px", borderRadius: 14, border: "1px solid var(--border)", background: "var(--paper-soft)", cursor: "pointer" }}>
+                      <div style={{ position: "relative", display: "inline-flex" }}>
+                        <SeasonBadge badge={b} size={48} />
+                        {slot.count > 1 && (
+                          <span style={{ position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 999, background: "var(--stamp-red)", color: "#fff", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", border: "2px solid var(--paper-soft)" }}>{slot.count}</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)", marginTop: 10 }}>{TIER_LABEL[tier] ?? "Season"} Badge</div>
+                      <div style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>{slot.count} badge{slot.count === 1 ? "" : "s"} · season</div>
                     </button>
                   );
                 })}

@@ -13,7 +13,7 @@ interface CommunityDetail extends ApiCommunity {
   member_role: string | null;
   admins: { handle: string; name: string; avatar_url: string | null; role: string }[];
 }
-interface JoinRequest { handle: string; name: string; avatar_url: string | null; tier: string; deals: number; vouches: number; }
+interface JoinRequest { handle: string; name: string; avatar_url: string | null; tier: string; vouches: number; }
 interface PendingPost { id: string; handle: string; name: string; avatar_url: string | null; type: string; body: string; images: string[]; created_at: string; }
 interface Member { handle: string; name: string; avatar_url: string | null; tier: string; role: string; }
 
@@ -202,7 +202,7 @@ export default function CommunityManagePage() {
                     <Avatar name={r.name} size={40} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 14 }}>{r.name}</div>
-                      <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{r.handle} · {r.deals} deals · {r.vouches} vouches</div>
+                      <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{r.handle} · {r.vouches} vouches</div>
                     </div>
                     <button onClick={() => actReq(r.handle, "reject")} disabled={busy === r.handle} aria-label="Decline" style={{ width: 34, height: 34, borderRadius: 9, border: "1px solid var(--border-strong)", background: "var(--paper)", color: "var(--ink-mute)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><X size={15} /></button>
                     <button onClick={() => actReq(r.handle, "approve")} disabled={busy === r.handle} aria-label="Approve" style={{ width: 34, height: 34, borderRadius: 9, border: "1px solid var(--forest)", background: "var(--forest)", color: "var(--paper)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Check size={16} /></button>

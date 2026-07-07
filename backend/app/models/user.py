@@ -53,8 +53,15 @@ class User(Base):
     # priority, the profile badge shelf, and the gold avatar frame (§2.2).
     first_start_badge: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
+    # Referral (v6 DV6-05). `referral_code` is a stable SCOR-XXXXX share code,
+    # generated lazily on first access (nullable so seed raw-inserts still work).
+    # `referred_by` records the inviter at signup; the +150 XP credit fires when
+    # this user adds their first collection item (resolve_referral), deriving the
+    # resolved/pending status from the XpEvent ledger — no separate flag.
+    referral_code: Mapped[str | None] = mapped_column(String(16), unique=True, nullable=True)
+    referred_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+
     # Trust signals
-    deals_count: Mapped[int] = mapped_column(Integer, default=0)
     rating: Mapped[float] = mapped_column(Numeric(3, 2), default=0)
     rating_count: Mapped[int] = mapped_column(Integer, default=0)
     response_time_min: Mapped[int | None] = mapped_column(Integer, nullable=True)

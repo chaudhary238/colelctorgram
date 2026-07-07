@@ -30,7 +30,7 @@ const SCOPES = [
 interface TrendTerm { rank: number; term: string; count: number; hot: boolean }
 
 interface SearchResult {
-  users: { id: string; handle: string; name: string; tier: string; deals_count: number; vouches_count: number }[];
+  users: { id: string; handle: string; name: string; tier: string; vouches_count: number }[];
   posts: { id: string; type: string; snippet: string; handle: string; name: string; community: string | null }[];
   catalogue: { sku: string; title: string; brand: string; category: string; thumbnail_url: string | null }[];
   communities: { id: string; name: string; description: string | null; category: string; member_count: number }[];
@@ -240,7 +240,7 @@ export default function SearchPage() {
                         onClick={() => router.push(`/profile/${u.handle}`)}
                         media={<Avatar name={u.name ?? u.handle} size={40} verified={u.tier !== "verified"} />}
                         title={u.name}
-                        sub={`@${u.handle} · ${u.deals_count} deals · ${u.vouches_count} vouches`}
+                        sub={`@${u.handle} · ${u.vouches_count} vouches`}
                       />
                     ))}
                   </ResGroup>

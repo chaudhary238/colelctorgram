@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="design_doc_mode" content="canvas">
+<title>Scorred — Logo v11 · Final Direction</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0C0C0C;font-family:'Geist',system-ui,sans-serif}
+.canvas{width:1480px;margin:0 auto;padding:72px 48px 120px}
+.ey{font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#333;font-family:system-ui}
+/*
+  SPACING RULE — every wordmark below uses textLength to force
+  exact pixel widths per segment, so the circle O always sits
+  flush with adjacent letters.
+
+  At 82px Geist 900:
+    SC  → textLength 106
+    O   → cx = 133, r = 27  (spans 106–160)
+    R   → x=162, textLength 52
+    RED → x=216, textLength 168  (fill #D42038, normal R, no reversal)
+*/
+</style>
+</head>
+<body>
+<div class="canvas">
+
+<!-- ═══════════════════════════════════
+     DARK BACKGROUND — primary
+     ═══════════════════════════════════ -->
+<div style="background:#111;border-radius:28px;padding:64px 72px;margin-bottom:16px">
+  <div class="ey" style="margin-bottom:40px;color:#2A2A2A">Dark background · primary</div>
+
+  <!-- HERO 82px — perfectly spaced via textLength -->
+  <svg width="440" height="96" viewBox="0 0 440 96" fill="none" style="display:block;margin-bottom:52px">
+    <text x="0" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" textLength="106" lengthAdjust="spacingAndGlyphs">SC</text>
+    <!-- O: textLength forces SC to end at exactly x=106; circle spans 106–160, center 133 -->
+    <circle cx="133" cy="50" r="27" stroke="#D42038" stroke-width="5.5" fill="none"/>
+    <polyline points="119,50 130,62 150,36" fill="none" stroke="#D42038" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- R white (first R) -->
+    <text x="162" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" textLength="52" lengthAdjust="spacingAndGlyphs">R</text>
+    <!-- RED red (normal, no reversal) -->
+    <text x="216" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="#D42038" textLength="168" lengthAdjust="spacingAndGlyphs">RED</text>
+  </svg>
+
+  <!-- Scale range -->
+  <div style="display:flex;flex-direction:column;gap:24px">
+
+    <!-- 60px: SC=78, r=20 cx=98, R=38, total ~290px -->
+    <svg width="320" height="70" viewBox="0 0 320 70" fill="none">
+      <text x="0" y="60" font-family="'Geist',system-ui" font-weight="900" font-size="60" fill="white" textLength="78" lengthAdjust="spacingAndGlyphs">SC</text>
+      <circle cx="97" cy="37" r="19" stroke="#D42038" stroke-width="4" fill="none"/>
+      <polyline points="86,37 95,47 110,27" fill="none" stroke="#D42038" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="118" y="60" font-family="'Geist',system-ui" font-weight="900" font-size="60" fill="white" textLength="38" lengthAdjust="spacingAndGlyphs">R</text>
+      <text x="158" y="60" font-family="'Geist',system-ui" font-weight="900" font-size="60" fill="#D42038" textLength="122" lengthAdjust="spacingAndGlyphs">RED</text>
+    </svg>
+
+    <!-- 44px: SC=57, r=14 cx=71, R=28, total ~210px -->
+    <svg width="230" height="52" viewBox="0 0 230 52" fill="none">
+      <text x="0" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="white" textLength="57" lengthAdjust="spacingAndGlyphs">SC</text>
+      <circle cx="71" cy="27" r="14" stroke="#D42038" stroke-width="3.5" fill="none"/>
+      <polyline points="62,27 70,36 82,20" fill="none" stroke="#D42038" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="87" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="white" textLength="28" lengthAdjust="spacingAndGlyphs">R</text>
+      <text x="117" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="#D42038" textLength="89" lengthAdjust="spacingAndGlyphs">RED</text>
+    </svg>
+
+    <!-- 30px: SC=39, r=10 cx=49, R=19, total ~145px -->
+    <svg width="160" height="36" viewBox="0 0 160 36" fill="none">
+      <text x="0" y="30" font-family="'Geist',system-ui" font-weight="900" font-size="30" fill="white" textLength="39" lengthAdjust="spacingAndGlyphs">SC</text>
+      <circle cx="49" cy="18" r="10" stroke="#D42038" stroke-width="2.5" fill="none"/>
+      <polyline points="42,18 48,24 57,12" fill="none" stroke="#D42038" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="61" y="30" font-family="'Geist',system-ui" font-weight="900" font-size="30" fill="white" textLength="19" lengthAdjust="spacingAndGlyphs">R</text>
+      <text x="82" y="30" font-family="'Geist',system-ui" font-weight="900" font-size="30" fill="#D42038" textLength="61" lengthAdjust="spacingAndGlyphs">RED</text>
+    </svg>
+
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     WHITE BACKGROUND
+     ═══════════════════════════════════ -->
+<div style="background:#F2EFE9;border-radius:28px;padding:64px 72px;margin-bottom:16px">
+  <div class="ey" style="margin-bottom:40px;color:#BBB5AD">White background</div>
+
+  <svg width="440" height="96" viewBox="0 0 440 96" fill="none" style="display:block;margin-bottom:40px">
+    <text x="0" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="#111" textLength="106" lengthAdjust="spacingAndGlyphs">SC</text>
+    <circle cx="133" cy="50" r="27" stroke="#D42038" stroke-width="5.5" fill="none"/>
+    <polyline points="119,50 130,62 150,36" fill="none" stroke="#D42038" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="162" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="#111" textLength="52" lengthAdjust="spacingAndGlyphs">R</text>
+    <text x="216" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="#D42038" textLength="168" lengthAdjust="spacingAndGlyphs">RED</text>
+  </svg>
+
+  <!-- Small scale on white -->
+  <svg width="230" height="52" viewBox="0 0 230 52" fill="none">
+    <text x="0" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="#111" textLength="57" lengthAdjust="spacingAndGlyphs">SC</text>
+    <circle cx="71" cy="27" r="14" stroke="#D42038" stroke-width="3.5" fill="none"/>
+    <polyline points="62,27 70,36 82,20" fill="none" stroke="#D42038" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="87" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="#111" textLength="28" lengthAdjust="spacingAndGlyphs">R</text>
+    <text x="117" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="#D42038" textLength="89" lengthAdjust="spacingAndGlyphs">RED</text>
+  </svg>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     BLACK BACKGROUND
+     ═══════════════════════════════════ -->
+<div style="background:#000;border-radius:28px;padding:64px 72px;margin-bottom:16px">
+  <div class="ey" style="margin-bottom:40px;color:#2A2A2A">Black background</div>
+
+  <svg width="440" height="96" viewBox="0 0 440 96" fill="none" style="display:block;margin-bottom:40px">
+    <text x="0" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" textLength="106" lengthAdjust="spacingAndGlyphs">SC</text>
+    <circle cx="133" cy="50" r="27" stroke="#D42038" stroke-width="5.5" fill="none"/>
+    <polyline points="119,50 130,62 150,36" fill="none" stroke="#D42038" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="162" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="white" textLength="52" lengthAdjust="spacingAndGlyphs">R</text>
+    <text x="216" y="82" font-family="'Geist',system-ui" font-weight="900" font-size="82" fill="#D42038" textLength="168" lengthAdjust="spacingAndGlyphs">RED</text>
+  </svg>
+
+  <svg width="230" height="52" viewBox="0 0 230 52" fill="none">
+    <text x="0" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="white" textLength="57" lengthAdjust="spacingAndGlyphs">SC</text>
+    <circle cx="71" cy="27" r="14" stroke="#D42038" stroke-width="3.5" fill="none"/>
+    <polyline points="62,27 70,36 82,20" fill="none" stroke="#D42038" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="87" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="white" textLength="28" lengthAdjust="spacingAndGlyphs">R</text>
+    <text x="117" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="#D42038" textLength="89" lengthAdjust="spacingAndGlyphs">RED</text>
+  </svg>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     ICON
+     ═══════════════════════════════════ -->
+<div style="background:#141414;border-radius:28px;padding:56px 72px;margin-bottom:16px">
+  <div class="ey" style="margin-bottom:36px;color:#2A2A2A">Icon mark · red circle + tick on dark · all sizes</div>
+
+  <div style="display:flex;gap:20px;align-items:flex-end;margin-bottom:40px">
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+      <svg width="120" height="120" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#111"/><circle cx="50" cy="50" r="32" stroke="#D42038" stroke-width="5.5" fill="none"/><polyline points="36,50 46,62 66,38" fill="none" stroke="#D42038" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="ey">120 dark</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+      <svg width="120" height="120" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#000"/><circle cx="50" cy="50" r="32" stroke="#D42038" stroke-width="5.5" fill="none"/><polyline points="36,50 46,62 66,38" fill="none" stroke="#D42038" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="ey">120 black</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+      <svg width="120" height="120" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#F2EFE9"/><circle cx="50" cy="50" r="32" stroke="#D42038" stroke-width="5.5" fill="none"/><polyline points="36,50 46,62 66,38" fill="none" stroke="#D42038" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="ey">120 white</div>
+    </div>
+
+    <div style="width:1px;background:#222;align-self:stretch;margin:0 8px"></div>
+
+    <div style="display:flex;gap:14px;align-items:flex-end">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <svg width="80" height="80" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="#111"/><circle cx="50" cy="50" r="32" stroke="#D42038" stroke-width="5.5" fill="none"/><polyline points="36,50 46,62 66,38" fill="none" stroke="#D42038" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="ey">80</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <svg width="60" height="60" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#111"/><circle cx="50" cy="50" r="32" stroke="#D42038" stroke-width="6" fill="none"/><polyline points="36,50 46,62 66,38" fill="none" stroke="#D42038" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="ey">60</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <svg width="44" height="44" viewBox="0 0 100 100"><rect width="100" height="100" rx="16" fill="#111"/><circle cx="50" cy="50" r="32" stroke="#D42038" stroke-width="6.5" fill="none"/><polyline points="34,50 45,63 68,36" fill="none" stroke="#D42038" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="ey">44</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <svg width="32" height="32" viewBox="0 0 100 100"><rect width="100" height="100" rx="14" fill="#111"/><circle cx="50" cy="50" r="33" stroke="#D42038" stroke-width="7.5" fill="none"/><polyline points="33,50 44,63 69,35" fill="none" stroke="#D42038" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="ey">32</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <svg width="20" height="20" viewBox="0 0 100 100"><rect width="100" height="100" rx="10" fill="#111"/><circle cx="50" cy="50" r="33" stroke="#D42038" stroke-width="10" fill="none"/><polyline points="32,50 43,63 70,33" fill="none" stroke="#D42038" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="ey">20</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     LOCKUPS
+     ═══════════════════════════════════ -->
+<div style="background:#0A0A0A;border-radius:28px;padding:56px 72px">
+  <div class="ey" style="margin-bottom:36px;color:#2A2A2A">Lockups · icon + wordmark · three backgrounds</div>
+
+  <div style="display:flex;flex-direction:column;gap:16px">
+
+    <!-- Dark -->
+    <div style="padding:22px 30px;background:#111;border-radius:18px;display:inline-flex;align-items:center;gap:20px;border:1px solid #1E1E1E">
+      <svg width="52" height="52" viewBox="0 0 100 100" style="flex-shrink:0;border-radius:13px">
+        <rect width="100" height="100" fill="#111"/>
+        <circle cx="50" cy="50" r="32" stroke="#D42038" stroke-width="5.5" fill="none"/>
+        <polyline points="36,50 46,62 66,38" fill="none" stroke="#D42038" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <svg width="264" height="38" viewBox="0 0 330 38" fill="none">
+        <text x="0" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="white" textLength="42" lengthAdjust="spacingAndGlyphs">SC</text>
+        <circle cx="53" cy="19" r="11" stroke="#D42038" stroke-width="2.5" fill="none"/>
+        <polyline points="46,19 52,25 61,12" fill="none" stroke="#D42038" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="65" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="white" textLength="21" lengthAdjust="spacingAndGlyphs">R</text>
+        <text x="87" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="#D42038" textLength="66" lengthAdjust="spacingAndGlyphs">RED</text>
+      </svg>
+    </div>
+
+    <!-- White -->
+    <div style="padding:22px 30px;background:#F2EFE9;border-radius:18px;display:inline-flex;align-items:center;gap:20px">
+      <svg width="52" height="52" viewBox="0 0 100 100" style="flex-shrink:0;border-radius:13px">
+        <rect width="100" height="100" fill="#F2EFE9" stroke="#E0DDD7" stroke-width="1"/>
+        <circle cx="50" cy="50" r="32" stroke="#D42038" stroke-width="5.5" fill="none"/>
+        <polyline points="36,50 46,62 66,38" fill="none" stroke="#D42038" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <svg width="264" height="38" viewBox="0 0 330 38" fill="none">
+        <text x="0" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="#111" textLength="42" lengthAdjust="spacingAndGlyphs">SC</text>
+        <circle cx="53" cy="19" r="11" stroke="#D42038" stroke-width="2.5" fill="none"/>
+        <polyline points="46,19 52,25 61,12" fill="none" stroke="#D42038" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="65" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="#111" textLength="21" lengthAdjust="spacingAndGlyphs">R</text>
+        <text x="87" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="#D42038" textLength="66" lengthAdjust="spacingAndGlyphs">RED</text>
+      </svg>
+    </div>
+
+    <!-- Black -->
+    <div style="padding:22px 30px;background:#000;border-radius:18px;display:inline-flex;align-items:center;gap:20px">
+      <svg width="52" height="52" viewBox="0 0 100 100" style="flex-shrink:0;border-radius:13px">
+        <rect width="100" height="100" fill="#000"/>
+        <circle cx="50" cy="50" r="32" stroke="#D42038" stroke-width="5.5" fill="none"/>
+        <polyline points="36,50 46,62 66,38" fill="none" stroke="#D42038" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <svg width="264" height="38" viewBox="0 0 330 38" fill="none">
+        <text x="0" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="white" textLength="42" lengthAdjust="spacingAndGlyphs">SC</text>
+        <circle cx="53" cy="19" r="11" stroke="#D42038" stroke-width="2.5" fill="none"/>
+        <polyline points="46,19 52,25 61,12" fill="none" stroke="#D42038" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="65" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="white" textLength="21" lengthAdjust="spacingAndGlyphs">R</text>
+        <text x="87" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="#D42038" textLength="66" lengthAdjust="spacingAndGlyphs">RED</text>
+      </svg>
+    </div>
+
+  </div>
+</div>
+
+</div>
+</body>
+</html>

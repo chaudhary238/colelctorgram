@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* ── CollectorHub design tokens (v3 "New frontend" — RED / Xiaohongshu) ──────
+/* ── Scorred design tokens (v3 "New frontend" — RED / Xiaohongshu) ──────
    Source of truth: design_v3/colors_and_type.css (claude_design 90a2c099…).
    Token NAMES are reused across the app, so re-valuing them re-themes every
    page at once (DF-28). The next/font wiring in layout.tsx is preserved — the

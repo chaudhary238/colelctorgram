@@ -164,7 +164,7 @@ export default function EventsPage() {
           </div>
 
           <div style={{ padding: "20px 20px 28px", textAlign: "center", fontSize: 11.5, color: "var(--ink-faint)" }}>
-            Events are reviewed by CollectorHub before they go live.
+            Events are reviewed by Scorred before they go live.
           </div>
         </>
       ) : tab === "going" ? (

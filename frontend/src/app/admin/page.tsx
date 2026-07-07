@@ -20,7 +20,7 @@ const QUICK_LINKS = [
 export default function AdminDashboard() {
   return (
     <div style={{ maxWidth: 900 }}>
-      <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, letterSpacing: "-0.03em", margin: "0 0 6px" }}>CollectorHub Admin</h1>
+      <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, letterSpacing: "-0.03em", margin: "0 0 6px" }}>Scorred Admin</h1>
       <p style={{ color: "var(--ink-faint)", fontSize: 14, margin: "0 0 28px" }}>Overview · Phase 1 · {new Date().toLocaleDateString("en-IN", { dateStyle: "long" })}</p>
 
       {/* KPI grid */}

@@ -13,6 +13,7 @@ import { X, Check, Camera, ChevronLeft, ChevronRight, Plus, Smile, Star, Edit3, 
 import { api } from "@/lib/api";
 import { ApiCommunity } from "@/components/cards";
 import { Avatar, Segmented, SectionLabel } from "@/components/ui";
+import { fireXpToast } from "@/components/gamification";
 import { ADD_CATEGORIES } from "@/lib/catalog";
 
 type ComposeType = "post" | "iso" | "poll" | "review";
@@ -166,6 +167,8 @@ export default function ComposePage() {
         community_id: targetCommunities[0] ?? null,
         to_feed: postTo.includes("feed"),
       });
+      // DV6-04 — surface the XP earned (review +15; showcase/poll/ISO +25).
+      fireXpToast(type === "review" ? 15 : 25);
       // Held for mod review and not on the feed → land the author in the community.
       if (res?.status === "pending" && targetCommunities[0]) {
         router.push(`/community/${targetCommunities[0]}`);
@@ -183,7 +186,7 @@ export default function ComposePage() {
   if (stage === "choose") {
     const OPTIONS = [
       { id: "post", label: "Create a Post", desc: "Showcase, ask, review or poll the community.", color: "var(--plum)", icon: Edit3 },
-      { id: "listing", label: "Add an item", desc: "Add to your shelf — and list it for sale if you like.", color: "var(--stamp-red)", icon: TagIcon },
+      { id: "listing", label: "Add an item", desc: "Add to your shelf — in hand, pre-order, or DB contribution.", color: "var(--stamp-red)", icon: TagIcon },
     ] as const;
     return (
       <div className="w-full max-w-[680px] flex flex-col" style={{ minHeight: "100vh", background: "var(--canvas)" }}>

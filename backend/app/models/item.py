@@ -29,7 +29,7 @@ class Item(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     category: Mapped[str | None] = mapped_column(Text, nullable=True)     # figures | diecast | kits | designer (custom items)
 
-    status: Mapped[str] = mapped_column(String(16), default="owned", nullable=False)  # owned | wishlist | preorder
+    status: Mapped[str] = mapped_column(String(16), default="owned", nullable=False)  # owned | wishlist | preorder | intel (v6 DB Contribution — unowned catalogue seed)
     verify_tier: Mapped[str] = mapped_column(String(16), default="claimed", nullable=False)  # claimed | shown | verified
     value: Mapped[int] = mapped_column(Integer, default=0)  # estimated value, in minor units of value_currency
     value_currency: Mapped[str] = mapped_column(String(3), default="INR", nullable=False)  # DV4-05
@@ -75,6 +75,9 @@ class ItemPhoto(Base):
     item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False)
     url: Mapped[str] = mapped_column(Text, nullable=False)
     phash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # DV6-13 — personal photos are PRIVATE by default; opting in ("share to catalogue")
+    # flips this true so the photo can back the item's shared reference image.
+    is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_verify_photo: Mapped[bool] = mapped_column(Boolean, default=False)
     is_challenge_shot: Mapped[bool] = mapped_column(Boolean, default=False)
     watermarked: Mapped[bool] = mapped_column(Boolean, default=False)

@@ -14,7 +14,6 @@ from app.models.user import User, Follow
 from app.models.listing import Listing
 from app.models.catalogue import Catalogue
 from app.models.item import Item
-from app.models.deal import Deal
 
 router = APIRouter(prefix="/threads", tags=["messages"])
 
@@ -29,7 +28,6 @@ class SendMessageBody(BaseModel):
     body: Optional[str] = None
     image_url: Optional[str] = None
     offer_item_id: Optional[uuid.UUID] = None
-    is_deal_init: bool = False
 
 
 @router.get("")
@@ -176,23 +174,6 @@ async def get_messages(
                 "status": lst.status, "seller_id": str(lst.seller_id),
             }
 
-    # Latest deal between these two participants for this listing (if any)
-    deal_context = None
-    if thread.listing_id:
-        deal_res = await db.execute(
-            select(Deal)
-            .where(
-                Deal.listing_id == thread.listing_id,
-                Deal.seller_id.in_([thread.participant_a, thread.participant_b]),
-                Deal.buyer_id.in_([thread.participant_a, thread.participant_b]),
-            )
-            .order_by(Deal.created_at.desc())
-            .limit(1)
-        )
-        deal = deal_res.scalar_one_or_none()
-        if deal:
-            deal_context = _deal_dict(deal)
-
     stmt = select(Message).where(Message.thread_id == thread_id)\
         .order_by(Message.created_at.desc())\
         .offset((page - 1) * limit).limit(limit)
@@ -208,7 +189,6 @@ async def get_messages(
     return {
         "thread_id": str(thread.id),
         "viewer_id": str(current_user.id),
-        "deal": deal_context,
         "other_user": {
             "id": str(other_user.id),
             "handle": other_user.handle,
@@ -216,7 +196,6 @@ async def get_messages(
             "avatar_url": other_user.avatar_url,
             "tier": other_user.tier,
             "rating": float(other_user.rating),
-            "deals_count": other_user.deals_count,
         } if other_user else None,
         "listing": listing_context,
         "unread": thread.unread_a if thread.participant_a == current_user.id else thread.unread_b,
@@ -241,66 +220,12 @@ async def send_message(
         body=body.body,
         image_url=body.image_url,
         offer_item_id=body.offer_item_id,
-        is_deal_init=body.is_deal_init,
     )
     db.add(msg)
     _bump_unread(thread, current_user.id)
     thread.last_message_at = datetime.now(timezone.utc)
     await db.flush()
     return _msg_dict(msg)
-
-
-@router.post("/{thread_id}/deal", status_code=201)
-async def init_thread_deal(
-    thread_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Seller marks the thread's listing as sold/traded to the other participant."""
-    thread = await _get_thread(thread_id, current_user.id, db)
-    if not thread.listing_id:
-        raise HTTPException(status_code=400, detail="This conversation isn't about a listing")
-
-    lst = (await db.execute(select(Listing).where(Listing.id == thread.listing_id))).scalar_one_or_none()
-    if not lst:
-        raise HTTPException(status_code=404, detail="Listing not found")
-    if lst.seller_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the seller can mark this sold")
-
-    buyer_id = thread.participant_b if thread.participant_a == current_user.id else thread.participant_a
-
-    # Reuse an existing pending deal rather than stacking duplicates
-    existing = (await db.execute(
-        select(Deal).where(
-            Deal.listing_id == lst.id,
-            Deal.seller_id == current_user.id,
-            Deal.buyer_id == buyer_id,
-            Deal.status == "pending",
-        ).order_by(Deal.created_at.desc()).limit(1)
-    )).scalar_one_or_none()
-    if existing:
-        return _deal_dict(existing)
-
-    deal = Deal(
-        listing_id=lst.id,
-        item_id=lst.item_id,
-        seller_id=current_user.id,
-        buyer_id=buyer_id,
-        agreed_price=lst.price,
-        deal_type="sale",
-        initiated_by="seller",
-    )
-    db.add(deal)
-    db.add(Message(
-        thread_id=thread.id,
-        sender_id=current_user.id,
-        body="Marked as sold — waiting for the buyer to confirm.",
-        is_deal_init=True,
-    ))
-    _bump_unread(thread, current_user.id)
-    thread.last_message_at = datetime.now(timezone.utc)
-    await db.flush()
-    return _deal_dict(deal)
 
 
 async def _get_thread(thread_id, user_id, db):
@@ -346,26 +271,11 @@ def _thread_dict_full(
             "avatar_url": other.avatar_url,
             "tier": other.tier,
             "rating": float(other.rating),
-            "deals_count": other.deals_count,
         } if other else None,
         "listing": listing,
         "last_message": last.body if last else None,
         "last_message_at": t.last_message_at.isoformat(),
         "unread": t.unread_a if t.participant_a == me else t.unread_b,
-    }
-
-
-def _deal_dict(d: Deal) -> dict:
-    return {
-        "id": str(d.id),
-        "status": d.status,
-        "deal_type": d.deal_type,
-        "agreed_price": d.agreed_price,
-        "seller_id": str(d.seller_id),
-        "buyer_id": str(d.buyer_id),
-        "initiated_by": d.initiated_by,
-        "seller_vouch_done": d.seller_vouch_done,
-        "buyer_vouch_done": d.buyer_vouch_done,
     }
 
 
@@ -377,6 +287,5 @@ def _msg_dict(m: Message) -> dict:
         "body": m.body,
         "image_url": m.image_url,
         "offer_item_id": str(m.offer_item_id) if m.offer_item_id else None,
-        "is_deal_init": m.is_deal_init,
         "created_at": m.created_at.isoformat(),
     }

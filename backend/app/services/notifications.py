@@ -17,7 +17,6 @@ from app.models.user import User
 NOTIF_KIND_PREF = {
     "follow": "followers",
     "message": "messages",
-    "deal": "trade_requests",
     "listing_save": "listing_activity",
     "listing_watch": "listing_activity",
     "event_reminder": "event_reminders",

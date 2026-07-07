@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CollectorHub — Rewards & Badge System BRD v3</title>
+<style>
+  doc-page:not(:defined){visibility:hidden}
+  doc-page {
+    --ink: #1A1A1A;
+    --ink-soft: #444;
+    --ink-mute: #666;
+    --ink-faint: #999;
+    --red: #D92E3F;
+    --gold: #B07A22;
+    --gold-bg: #FEF3C7;
+    --teal: #1D6F6A;
+    --teal-bg: #CCEBE8;
+    --forest: #2D5F3F;
+    --forest-bg: #DCEDE0;
+    --blue: #1D4ED8;
+    --blue-bg: #DBEAFE;
+    --border: #E2E8F0;
+    --bone: #F8FAFC;
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: 11pt;
+    line-height: 1.65;
+    color: var(--ink);
+  }
+
+  /* Typography */
+  h1 { font-size: 22pt; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6pt; color: var(--ink); font-family: 'Arial', sans-serif; }
+  h2 { font-size: 14pt; font-weight: 700; font-family: 'Arial', sans-serif; margin: 24pt 0 6pt; padding-bottom: 4pt; border-bottom: 1.5pt solid var(--ink); color: var(--ink); break-after: avoid; }
+  h3 { font-size: 11pt; font-weight: 700; font-family: 'Arial', sans-serif; margin: 14pt 0 4pt; color: var(--ink); break-after: avoid; }
+  p { margin: 0 0 8pt; color: var(--ink-soft); }
+  ul, ol { margin: 0 0 8pt; padding-left: 18pt; color: var(--ink-soft); }
+  li { margin-bottom: 3pt; }
+  strong { color: var(--ink); font-weight: 700; }
+  code { font-family: 'Courier New', monospace; font-size: 9pt; background: var(--bone); padding: 1pt 4pt; border-radius: 3pt; color: var(--red); }
+
+  /* Header block */
+  .doc-header { border: 1pt solid var(--border); border-radius: 6pt; padding: 16pt 18pt; margin-bottom: 20pt; background: var(--bone); break-inside: avoid; }
+  .doc-header h1 { margin-bottom: 4pt; }
+  .doc-header .sub { font-size: 10pt; color: var(--ink-mute); font-family: 'Arial', sans-serif; margin-bottom: 10pt; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6pt; }
+  .chip { font-family: 'Arial', sans-serif; font-size: 8pt; font-weight: 700; padding: 2pt 8pt; border-radius: 99pt; background: var(--bone); border: 1pt solid var(--border); color: var(--ink-mute); }
+  .chip.red { background: #FEE2E2; border-color: #FCA5A5; color: var(--red); }
+  .chip.green { background: var(--forest-bg); border-color: #86EFAC; color: var(--forest); }
+  .chip.gold { background: var(--gold-bg); border-color: #FCD34D; color: var(--gold); }
+
+  /* Section numbers */
+  .sec-num { display: inline-block; width: 18pt; height: 18pt; background: var(--ink); color: #fff; border-radius: 4pt; text-align: center; line-height: 18pt; font-size: 9pt; font-weight: 700; font-family: 'Arial', sans-serif; margin-right: 6pt; vertical-align: middle; }
+  h2 .label { vertical-align: middle; }
+
+  /* Tables */
+  .tbl-wrap { margin: 8pt 0 14pt; break-inside: avoid; }
+  table { width: 100%; border-collapse: collapse; font-size: 10pt; font-family: 'Arial', sans-serif; }
+  thead th { background: #F1F5F9; padding: 5pt 8pt; text-align: left; font-weight: 700; font-size: 8pt; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-mute); border: 1pt solid var(--border); }
+  tbody td { padding: 6pt 8pt; border: 1pt solid var(--border); vertical-align: top; color: var(--ink-soft); font-size: 10pt; }
+  tbody tr:nth-child(even) td { background: #FAFBFC; }
+  td strong { color: var(--ink); }
+
+  /* Callouts */
+  .callout { border-radius: 5pt; padding: 9pt 11pt; margin: 8pt 0 12pt; font-size: 10pt; font-family: 'Arial', sans-serif; break-inside: avoid; border-left: 3pt solid; }
+  .callout p, .callout ul, .callout li { margin: 0; font-size: 10pt; }
+  .callout ul { margin-top: 4pt; }
+  .callout .label { font-size: 7.5pt; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.65; margin-bottom: 3pt; font-family: 'Arial', sans-serif; }
+  .note { background: var(--gold-bg); border-color: #E8A33D; color: #78350F; }
+  .tip { background: var(--blue-bg); border-color: #3B82F6; color: #1E3A8A; }
+  .pick { background: var(--forest-bg); border-color: #16A34A; color: #14532D; }
+  .fix { background: #FEE2E2; border-color: #EF4444; color: #7F1D1D; }
+  .new { background: var(--teal-bg); border-color: #0D9488; color: #0F4C47; }
+
+  /* Badge pills */
+  .pill { display: inline-block; padding: 2pt 8pt; border-radius: 99pt; font-size: 9pt; font-weight: 700; font-family: 'Arial', sans-serif; line-height: 1.4; }
+  .pill-found { background: #1A1A1A; color: #fff; }
+  .pill-early { background: #2D5F3F; color: #fff; }
+  .pill-pio { background: #6B3656; color: #fff; }
+  .pill-gold { background: linear-gradient(135deg,#FFD770,#E8A33D); color: #5C3900; }
+  .pill-silver { background: linear-gradient(135deg,#E8E8E8,#B0B0B0); color: #3A3A3A; }
+  .pill-bronze { background: linear-gradient(135deg,#E8B88A,#C47B3A); color: #4A2200; }
+  .pill-rank { background: #F1F5F9; color: var(--ink-mute); border: 1pt solid var(--border); }
+
+  /* Rank ladder */
+  .rank-ladder { border: 1pt solid var(--border); border-radius: 5pt; overflow: hidden; margin: 8pt 0 14pt; font-family: 'Arial', sans-serif; break-inside: avoid; }
+  .rank-row { display: flex; align-items: center; gap: 10pt; padding: 7pt 12pt; border-bottom: 1pt solid var(--border); font-size: 10pt; }
+  .rank-row:last-child { border-bottom: none; }
+  .rank-row:nth-child(even) { background: #FAFBFC; }
+  .rdot { width: 10pt; height: 10pt; border-radius: 50%; flex-shrink: 0; }
+  .rname { flex: 1; font-weight: 600; color: var(--ink); }
+  .rxp { font-family: 'Courier New', monospace; font-size: 9pt; color: var(--ink-faint); }
+
+  /* Avatar frame diagram */
+  .frame-demo { display: flex; gap: 20pt; align-items: flex-end; margin: 10pt 0; }
+  .frame-demo-item { display: flex; flex-direction: column; align-items: center; gap: 5pt; }
+  .avatar-ring { width: 44pt; height: 44pt; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16pt; font-weight: 700; font-family: 'Arial', sans-serif; color: #fff; }
+  .avatar-ring.gold-frame { border: 3pt solid #E8A33D; box-shadow: 0 0 0 2pt #FEF3C7, 0 0 0 4pt #E8A33D; }
+  .frame-label { font-size: 8pt; font-family: 'Arial', sans-serif; font-weight: 700; color: var(--gold); text-align: center; }
+  .frame-label.muted { color: var(--ink-faint); font-weight: 400; }
+
+  /* Page header/footer */
+  .running-header { font-family: 'Arial', sans-serif; font-size: 8pt; color: var(--ink-faint); display: flex; justify-content: space-between; align-items: center; width: 100%; }
+  .running-header strong { color: var(--ink-mute); }
+
+  /* Divider */
+  hr { border: none; border-top: 1pt solid var(--border); margin: 18pt 0; }
+</style>
+</head>
+<body>
+<doc-page size="a4" margin="0.85in">
+
+  <div slot="header">
+    <div class="running-header">
+      <strong>CollectorHub — Rewards &amp; Badge System BRD</strong>
+      <span>v3 · July 2026 · Confidential</span>
+    </div>
+  </div>
+
+  <div slot="footer">
+    <div class="running-header">
+      <span>Internal use only — subject to change</span>
+      <span>CollectorHub Product Team</span>
+    </div>
+  </div>
+
+  <!-- Cover -->
+  <div class="doc-header">
+    <h1>Rewards &amp; Badge System</h1>
+    <p class="sub">Business Requirements Document &nbsp;·&nbsp; CollectorHub &nbsp;·&nbsp; Version 3</p>
+    <div class="chips">
+      <span class="chip red">v3 · July 2026</span>
+      <span class="chip green">Implemented ✓</span>
+      <span class="chip gold">2 badge types</span>
+      <span class="chip">Rank names locked</span>
+      <span class="chip">XP values locked</span>
+      <span class="chip">Weekly + Lifetime leaderboards</span>
+    </div>
+  </div>
+
+  <!-- §1 System Overview -->
+  <h2><span class="sec-num">1</span><span class="label">System Overview</span></h2>
+  <p>Two distinct badge types serve different roles. They are <strong>not the same</strong> — one is permanently rare, one builds over lifetime XP. Each looks visually different so users and other collectors can tell them apart instantly.</p>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>#</th><th>Badge Type</th><th>How Earned</th><th>Expires?</th><th>Visual Shape</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>1</strong></td>
+        <td><strong>First Start Badges</strong></td>
+        <td>Manually assigned by the CollectorHub team to founding members and earliest users. No XP required. Pioneers &amp; Early Believers also receive a gold avatar frame on their profile.</td>
+        <td>Never — permanent forever</td>
+        <td>Rounded square with emoji</td>
+      </tr>
+      <tr>
+        <td><strong>2</strong></td>
+        <td><strong>XP / Season Badges</strong></td>
+        <td>(a) Rank badge — from lifetime XP milestones. (b) Leaderboard badge — from weekly or lifetime league placements.</td>
+        <td>Rank badge updates as you level up. Season (league) badges are permanent once earned.</td>
+        <td>Circle (metallic finish)</td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <!-- §2 Badge Display Rules -->
+  <h2><span class="sec-num">2</span><span class="label">Badge Display Rules — Where &amp; How Many</span></h2>
+
+  <div class="callout new">
+    <div class="label">Design principle</div>
+    <p>Badge display differs by surface. Profile shows the full shelf (all badges). Feed shows exactly one badge to avoid clutter. The one badge shown in the feed follows a strict priority rule (see §3).</p>
+  </div>
+
+  <h3>2.1 Profile — Full Badge Shelf</h3>
+  <ul>
+    <li>Shows up to <strong>5 badges</strong> overlapping, then a "+N" overflow button.</li>
+    <li>Each badge is <strong>individually tappable</strong> → opens BadgeSheet explaining that specific badge.</li>
+    <li>"X badges →" text button navigates to full Trophy Case.</li>
+    <li>Order: First Start badges first → Season badges (chronological within each type).</li>
+    <li>Pioneers and Early Believers show a <strong>gold avatar frame</strong> around their profile picture.</li>
+  </ul>
+
+  <h3>2.2 Avatar Frame — Pioneers &amp; Early Believers Only</h3>
+  <p>A gold ring border is applied to the profile avatar for Pioneer and Early Believer badge holders. This is the only surface where the frame appears.</p>
+
+  <div class="frame-demo">
+    <div class="frame-demo-item">
+      <div class="avatar-ring gold-frame" style="background:#6B3656">P</div>
+      <div class="frame-label">🔥 Pioneer</div>
+    </div>
+    <div class="frame-demo-item">
+      <div class="avatar-ring gold-frame" style="background:#2D5F3F">E</div>
+      <div class="frame-label">🌱 Early Believer</div>
+    </div>
+    <div class="frame-demo-item">
+      <div class="avatar-ring" style="background:#2D8F87">S</div>
+      <div class="frame-label muted">Standard user<br>(no frame)</div>
+    </div>
+  </div>
+
+  <ul>
+    <li>Frame colour: <code>#E8A33D</code> (gold) with inner halo <code>#FEF3C7</code>.</li>
+    <li><strong>Founding Members</strong> do not receive the frame — their <span class="pill pill-found">⭐ Founding Member</span> pill is already the highest-visibility treatment.</li>
+    <li>Frame is shown on the profile page only. Feed and leaderboard avatars are plain.</li>
+  </ul>
+
+  <h3>2.3 Leaderboard — Single Badge Per Row</h3>
+  <p>Each leaderboard entry shows the user's priority badge (see §3) next to their name inline. The full shelf is accessible via their profile tap.</p>
+
+  <h3>2.4 Feed — Exactly ONE Badge Per Post</h3>
+  <ul>
+    <li>Only <strong>one badge</strong> shown next to the author name. No stacking.</li>
+    <li>Keeps the author line clean — long badge names don't break the layout.</li>
+    <li>Badge is tappable → opens BadgeSheet.</li>
+    <li>Which badge shows follows the priority rule in §3.</li>
+  </ul>
+
+  <div class="callout note">
+    <div class="label">Design rationale</div>
+    <p>Multiple badges next to a name in the feed creates a noisy, badge-collector-game feel. One badge is a clear signal of that person's identity. The full collection lives on their profile.</p>
+  </div>
+
+  <!-- §3 Badge Priority -->
+  <h2><span class="sec-num">3</span><span class="label">Feed Badge Priority Rule</span></h2>
+  <p>When a user has multiple badge types, the feed shows one according to this priority order:</p>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Priority</th><th>Badge Type</th><th>Rationale</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>1st</strong></td>
+        <td><strong>First Start Badge</strong><br><span style="font-size:9pt;color:#666">Founding Member / Early Believer / Pioneer</span></td>
+        <td>The rarest badges — permanently assigned by the team. They signal who believed earliest and should always be the primary identity marker.</td>
+      </tr>
+      <tr>
+        <td><strong>2nd</strong></td>
+        <td><strong>Rank Badge</strong><br><span style="font-size:9pt;color:#666">Rookie, Hunter, Collector, etc.</span></td>
+        <td>Everyone has one. Universal fallback so no author is ever badge-less in the feed.</td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <div class="callout pick">
+    <div class="label">Key rule</div>
+    <p>If a user has a First Start badge → always shows that in feed, even if they also have season badges. The permanent badge takes precedence. This makes Founding Members, Early Believers, and Pioneers instantly identifiable throughout the app.</p>
+  </div>
+
+  <!-- §4 Clickable Badges -->
+  <h2><span class="sec-num">4</span><span class="label">Clickable Badges — BadgeSheet</span></h2>
+  <p>Every badge across the entire app is tappable. Tapping any badge opens a <strong>BadgeSheet</strong> — a bottom sheet popup that explains what the badge is and how it was earned.</p>
+
+  <h3>BadgeSheet Contents</h3>
+  <ul>
+    <li><strong>Badge icon</strong> (large, 76px) — emoji square for First Start, metallic circle for Season</li>
+    <li><strong>Badge type label</strong> — "Permanent badge" / "Rank badge" / "Season badge" (small caps)</li>
+    <li><strong>Badge name</strong> (bold, large) — e.g. "Founding Member"</li>
+    <li><strong>Description</strong> — plain English explanation of how it's earned and whether it expires</li>
+    <li><strong>Got it button</strong> — closes the sheet</li>
+  </ul>
+
+  <h3>Surfaces Where Badges Are Tappable</h3>
+  <ul>
+    <li><strong>Feed</strong> — the single feed badge pill next to the author name</li>
+    <li><strong>Profile header</strong> — each badge in the BadgeShelf individually</li>
+    <li><strong>Leaderboard</strong> — the feed badge pill next to each user's name</li>
+    <li><strong>Trophy Case</strong> — each badge row in the full badge list</li>
+  </ul>
+
+  <!-- §5 Rank Names -->
+  <h2><span class="sec-num">5</span><span class="label">Rank Names — Final Decision ✓</span></h2>
+  <p><strong>Collector Journey</strong> naming confirmed. Ladder is open-ended — no ceiling.</p>
+
+  <div class="rank-ladder">
+    <div class="rank-row"><span class="rdot" style="background:#94A3B8"></span><span class="rname">Rookie</span><span class="rxp">0 XP — everyone starts here</span></div>
+    <div class="rank-row"><span class="rdot" style="background:#2D5F3F"></span><span class="rname">Hunter</span><span class="rxp">300 XP</span></div>
+    <div class="rank-row"><span class="rdot" style="background:#2D8F87"></span><span class="rname">Collector</span><span class="rxp">1,000 XP</span></div>
+    <div class="rank-row"><span class="rdot" style="background:#6B3656"></span><span class="rname">Curator</span><span class="rxp">3,000 XP</span></div>
+    <div class="rank-row"><span class="rdot" style="background:#B07A22"></span><span class="rname">Archivist</span><span class="rxp">7,500 XP</span></div>
+    <div class="rank-row"><span class="rdot" style="background:#D92E3F"></span><span class="rname">Legend</span><span class="rxp">15,000 XP</span></div>
+    <div class="rank-row"><span class="rdot" style="background:#1A1A1A"></span><span class="rname">Icon</span><span class="rxp">30,000 XP</span></div>
+    <div class="rank-row" style="opacity:0.45"><span class="rdot" style="background:#ccc"></span><em class="rname">Continues… new ranks added as community scales</em><span class="rxp">+20,000 XP per rank</span></div>
+  </div>
+
+  <div class="callout note">
+    <div class="label">Note</div>
+    <p>As the community grows and users approach Icon, new ranks will be introduced. The ladder is intentionally open-ended with no ceiling.</p>
+  </div>
+
+  <!-- §6 Badge Names -->
+  <h2><span class="sec-num">6</span><span class="label">Badge Names — Final Decision ✓</span></h2>
+
+  <h3>6.1 First Start Badges (Permanent)</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Badge</th><th>Who Gets It</th><th>Expires?</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="pill pill-found">⭐ Founding Member</span></td>
+        <td>First founding members only. Manually assigned by team. Badge description reads: "One of the founding members of CollectorHub. Permanently and manually assigned — never expires."</td>
+        <td>Never</td>
+      </tr>
+      <tr>
+        <td><span class="pill pill-early">🌱 Early Believer</span></td>
+        <td>First 100–300 users who joined the platform. Receives gold avatar frame.</td>
+        <td>Never</td>
+      </tr>
+      <tr>
+        <td><span class="pill pill-pio">🔥 Pioneer</span></td>
+        <td>First beta users — 100–200 broadly. Receives gold avatar frame.</td>
+        <td>Never</td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <h3>6.2 Leaderboard Badges (Season)</h3>
+  <p>Awarded at the end of each weekly league cycle. All earned badges are permanent and stack in the Trophy Case.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Badge</th><th>Placement</th><th>Bonus XP</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill pill-gold">🥇 Gold</span></td><td>1st place</td><td>+300 XP (permanent, added to lifetime)</td></tr>
+      <tr><td><span class="pill pill-silver">🥈 Silver</span></td><td>2nd place</td><td>+200 XP</td></tr>
+      <tr><td><span class="pill pill-bronze">🥉 Bronze</span></td><td>3rd place</td><td>+120 XP</td></tr>
+      <tr><td><span class="pill pill-rank">✦ Finalist</span></td><td>Top 10</td><td>+50 XP</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- §7 XP Points System -->
+  <h2><span class="sec-num">7</span><span class="label">XP Points System — Final Values ✓</span></h2>
+  <p>XP earned from actions accumulates in two places simultaneously: the <strong>weekly leaderboard total</strong> (resets every Monday) and the <strong>lifetime total</strong> (never resets, drives rank).</p>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Action</th><th>XP Earned</th><th>Daily Limit</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Complete your profile</strong></td><td><strong>100 XP</strong></td><td>Once ever</td></tr>
+      <tr><td><strong>Refer a friend</strong> (friend signs up)</td><td><strong>150 XP</strong></td><td>No limit</td></tr>
+      <tr><td><strong>Post a showcase</strong></td><td><strong>25 XP</strong></td><td>5 / day</td></tr>
+      <tr><td><strong>Write a review</strong></td><td><strong>15 XP</strong></td><td>3 / day</td></tr>
+      <tr><td><strong>Vouch for a collector</strong></td><td><strong>15 XP</strong></td><td>3 / day</td></tr>
+      <tr><td><strong>RSVP to an event</strong></td><td><strong>10 XP</strong></td><td>3 / day</td></tr>
+      <tr><td><strong>Comment on a post</strong></td><td><strong>10 XP</strong></td><td>10 / day</td></tr>
+      <tr><td><strong>Daily check-in</strong></td><td><strong>5 XP</strong></td><td>1 / day</td></tr>
+      <tr><td><strong>Like a post</strong></td><td><strong>1 XP</strong></td><td>50 / day</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="callout tip">
+    <div class="label">Tuning guide</div>
+    <ul>
+      <li>Daily actives low → raise "Daily check-in" to 10 XP.</li>
+      <li>Spam posting → lower daily showcase limit from 5 → 3.</li>
+    </ul>
+  </div>
+
+  <!-- §8 Rank Thresholds -->
+  <h2><span class="sec-num">8</span><span class="label">Rank Thresholds — Final Values ✓</span></h2>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Rank #</th><th>Name</th><th>XP Required</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Rookie</td><td>0 XP</td></tr>
+      <tr><td>2</td><td>Hunter</td><td>300 XP</td></tr>
+      <tr><td>3</td><td>Collector</td><td>1,000 XP</td></tr>
+      <tr><td>4</td><td>Curator</td><td>3,000 XP</td></tr>
+      <tr><td>5</td><td>Archivist</td><td>7,500 XP</td></tr>
+      <tr><td>6</td><td>Legend</td><td>15,000 XP</td></tr>
+      <tr><td>7</td><td>Icon</td><td>30,000 XP</td></tr>
+      <tr><td>8+</td><td>Continues…</td><td>+20,000 XP per rank — no ceiling</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- §9 Leaderboards -->
+  <h2><span class="sec-num">9</span><span class="label">Leaderboards</span></h2>
+  <p>Two leaderboards are active. Monthly leaderboard has been removed.</p>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Board</th><th>Ranks By</th><th>Resets</th><th>End-of-cycle Prize</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Weekly</strong></td>
+        <td>XP earned in the current week</td>
+        <td>Every Monday at midnight</td>
+        <td>Top 3 earn Gold/Silver/Bronze badge + bonus XP added permanently to lifetime total</td>
+      </tr>
+      <tr>
+        <td><strong>Lifetime</strong></td>
+        <td>Total XP ever accumulated</td>
+        <td>Never resets</td>
+        <td>Permanent ranking — no seasonal badge, reflects rank ladder position</td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <div class="callout pick">
+    <div class="label">How weekly XP flows to lifetime</div>
+    <p>Every XP point earned during the week adds to <em>both</em> the weekly leaderboard total and the lifetime total simultaneously. When the week resets, the weekly score returns to zero — but the lifetime total keeps everything, including any end-of-cycle bonus XP from placing in the top 3.</p>
+  </div>
+
+  <!-- §10 T&C -->
+  <h2><span class="sec-num">10</span><span class="label">Terms &amp; Conditions Note</span></h2>
+  <div class="callout fix">
+    <div class="label">Required — include in T&amp;C before launch</div>
+    <p>All badges, XP values, rank thresholds, leaderboard structure, and related rewards mechanisms are subject to change at any time at the sole discretion of CollectorHub. We reserve the right to modify, discontinue, or reset any part of the rewards system without notice.</p>
+  </div>
+
+  <!-- §11 Change Log -->
+  <h2><span class="sec-num">11</span><span class="label">Change Log — v3 vs v2</span></h2>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Area</th><th>Change in v3</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Avatar frame</strong></td>
+        <td>Gold ring frame added for Pioneers and Early Believers on profile only. Founding Members retain badge pill treatment. Feed and leaderboard avatars are plain (no frame).</td>
+      </tr>
+      <tr>
+        <td><strong>Badge types</strong></td>
+        <td>Reduced from 3 to 2. Monthly Activity Badges removed entirely. System now has Permanent (First Start) and XP/Season badges only.</td>
+      </tr>
+      <tr>
+        <td><strong>Monthly badges removed</strong></td>
+        <td>Removed: Top Showcaser, Comment King, Share Master, Top Contributor, Haul King. No contribution-based badge mechanism of any kind.</td>
+      </tr>
+      <tr>
+        <td><strong>Feed badge priority</strong></td>
+        <td>Simplified from 3 tiers to 2: 1st = First Start badge, 2nd = Rank badge. Monthly tier removed.</td>
+      </tr>
+      <tr>
+        <td><strong>Leaderboards</strong></td>
+        <td>Monthly XP leaderboard removed. Only Weekly and Lifetime boards remain.</td>
+      </tr>
+      <tr>
+        <td><strong>XP earn actions</strong></td>
+        <td>Removed "Add a verified item". Removed "Complete a deal". No trader / deal / verified-item references remain anywhere.</td>
+      </tr>
+      <tr>
+        <td><strong>Rank ladder</strong></td>
+        <td>Removed rank benefit/perk descriptions. Removed estimated time-to-rank column. Ladder shows name and XP threshold only.</td>
+      </tr>
+      <tr>
+        <td><strong>Founding Member description</strong></td>
+        <td>Removed specific count ("first 3"). Now reads: "One of the founding members of CollectorHub."</td>
+      </tr>
+    </tbody>
+  </table></div>
+
+</doc-page>
+<script src="doc-page.js"></script>
+</body>
+</html>

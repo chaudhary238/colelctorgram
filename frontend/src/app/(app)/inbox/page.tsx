@@ -13,7 +13,6 @@ interface ThreadUser {
   avatar_url: string | null;
   tier: string;
   rating: number;
-  deals_count: number;
 }
 
 interface ThreadListing {

@@ -68,7 +68,7 @@ export default function EventDetailPage() {
   async function share() {
     const url = `${window.location.origin}/events/${id}`;
     try {
-      if (navigator.share) await navigator.share({ title: event?.title ?? "CollectorHub", url });
+      if (navigator.share) await navigator.share({ title: event?.title ?? "Scorred", url });
       else { await navigator.clipboard.writeText(url); setShared(true); setTimeout(() => setShared(false), 1600); }
     } catch { /* cancelled */ }
   }

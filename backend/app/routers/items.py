@@ -6,12 +6,14 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.item import Item, ItemPhoto
 from app.models.user import Follow, User
+from app.services.gamification import resolve_referral
+from app.services.catalogue import resolve_or_create
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,8 @@ class AddItemBody(BaseModel):
     preorder_total: Optional[int] = None
     preorder_deposit: Optional[int] = None
     wishlist_alert_enabled: bool = False
+    # DV6-13 — mandatory public reference image when this add CREATES a new catalogue entry.
+    cover_url: Optional[str] = None
 
 
 class UpdateItemBody(BaseModel):
@@ -92,6 +96,16 @@ class ItemOut(BaseModel):
     preorder_deposit: Optional[int] = None
     privacy: str
     created_at: datetime
+    # v6 DV6-02 — XP awarded for contributing this as a new item to the shared
+    # catalogue DB (0 when it linked to an existing SKU or the daily cap was hit).
+    db_new_xp: int = 0
+    # v6 DV6-12 — True when a free-text add was auto-linked to an existing catalogue
+    # entry by the resolve-or-create guard (no duplicate row was created).
+    catalogue_matched: bool = False
+    # v6 DV6-11h — owner identity for the "DB Contribution by @handle" attribution
+    # on the item detail page (populated by get_item; None on create/update responses).
+    owner_handle: Optional[str] = None
+    owner_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -132,7 +146,28 @@ async def add_item(
     )
     db.add(item)
     await db.flush()
-    return _item_out(item)
+    # DV6-05 — adding a first collection item resolves a pending referral,
+    # crediting the inviter +150 XP (idempotent; no-op if not referred).
+    await resolve_referral(db, current_user)
+    # DV6-12 — a free-text add is resolved against the central catalogue: a strong
+    # fuzzy match links to the existing entry (no duplicate); otherwise a new pending
+    # entry is created and the first contributor earns +50 XP. Either way the personal
+    # item ends up linked to a real catalogue SKU.
+    db_new_xp = 0
+    catalogue_matched = False
+    if not body.sku and body.custom_title:
+        sku, db_new_xp, catalogue_matched = await resolve_or_create(
+            db, current_user,
+            title=body.custom_title, brand=body.brand, category=body.category,
+            scale=body.scale, release_year=body.release_year, value=body.value,
+            cover_url=body.cover_url,
+        )
+        item.sku = sku
+        await db.flush()
+    out = _item_out(item)
+    out["db_new_xp"] = db_new_xp
+    out["catalogue_matched"] = catalogue_matched
+    return out
 
 
 class WishlistToggleOut(BaseModel):
@@ -259,7 +294,13 @@ async def get_item(
             raise HTTPException(status_code=404, detail="Item not found")
 
     photos = (await db.execute(select(ItemPhoto).where(ItemPhoto.item_id == item.id))).scalars().all()
-    return _item_out(item, photos)
+    out = _item_out(item, photos)
+    # DV6-11h — attach the owner's identity for the "DB Contribution by @handle" attribution.
+    owner = await db.get(User, item.user_id)
+    if owner:
+        out["owner_handle"] = owner.handle
+        out["owner_name"] = owner.name
+    return out
 
 
 @router.patch("/{item_id}", response_model=ItemOut)
@@ -319,11 +360,16 @@ async def verify_item(
     return {"verify_tier": "verified"}
 
 
+# DV6-13 — a collector's shelf holds at most 4 personal (non-verify) photos per item.
+MAX_ITEM_PHOTOS = 4
+
+
 @router.post("/{item_id}/photos", status_code=201)
 async def add_photo(
     item_id: uuid.UUID,
     url: str,
     is_verify_photo: bool = False,
+    is_public: bool = False,  # DV6-13 — personal photos default private ("share to catalogue" opts in)
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -332,7 +378,17 @@ async def add_photo(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    photo = ItemPhoto(item_id=item.id, url=url, is_verify_photo=is_verify_photo)
+    # Cap personal photos at 4 (verify/challenge shots are ownership proofs, not counted).
+    if not is_verify_photo:
+        n = await db.scalar(
+            select(func.count()).select_from(ItemPhoto).where(
+                ItemPhoto.item_id == item.id, ItemPhoto.is_verify_photo == False
+            )
+        )
+        if (n or 0) >= MAX_ITEM_PHOTOS:
+            raise HTTPException(status_code=400, detail=f"Up to {MAX_ITEM_PHOTOS} photos per item.")
+
+    photo = ItemPhoto(item_id=item.id, url=url, is_verify_photo=is_verify_photo, is_public=is_public)
     db.add(photo)
     item.photo_count += 1
 

@@ -521,7 +521,6 @@ async def list_join_requests(
             "name": u.name,
             "avatar_url": u.avatar_url,
             "tier": u.tier,
-            "deals": getattr(u, "deals_count", 0),
             "vouches": vouches,
             "created_at": r.created_at.isoformat(),
         }

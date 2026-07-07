@@ -199,7 +199,7 @@ export default function EventManagePage() {
               <div style={{ width: 40, height: 40, borderRadius: 11, flexShrink: 0, background: "var(--grail-gold)", color: "var(--ink)", display: "flex", alignItems: "center", justifyContent: "center" }}><Clock size={20} /></div>
               <div>
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "var(--grail-gold-deep)" }}>Waiting for review</div>
-                <div style={{ fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.5, marginTop: 5 }}>Only you can see this event until CollectorHub approves it. We review for safety and accuracy — usually within a day.</div>
+                <div style={{ fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.5, marginTop: 5 }}>Only you can see this event until Scorred approves it. We review for safety and accuracy — usually within a day.</div>
               </div>
             </div>
             <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden", margin: "16px 0" }}>

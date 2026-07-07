@@ -15,7 +15,7 @@ import {
   Avatar, TierChip, PostTypeTag, Stars, Money, ProductPhoto, SealMark,
   Badge, Button, IconButton, GlassPill, LocationTag, statusLabel,
 } from "@/components/ui";
-import { FeedBadge } from "@/components/gamification";
+import { FeedBadge, fireXpToast } from "@/components/gamification";
 
 /* ── API response shapes ────────────────────────────────────────── */
 
@@ -95,7 +95,6 @@ export interface ApiListing {
   avatar_url: string | null;
   tier: string;
   rating: number;
-  deals_count: number;
   vouches_count?: number;
   price: number;
   currency?: string;
@@ -246,7 +245,7 @@ function AuthorLine({ post, showFollow }: { post: ApiPost; showFollow?: boolean 
     setFollowing(next);          // optimistic
     setBusy(true);
     try {
-      if (next) await api.post(`/users/${post.handle}/follow`);
+      if (next) { await api.post(`/users/${post.handle}/follow`); fireXpToast(2); }
       else await api.delete(`/users/${post.handle}/follow`);
     } catch {
       setFollowing(!next);       // revert on error
@@ -709,7 +708,7 @@ export function PostCard({ post, showFollow = false }: { post: ApiPost; showFoll
     const url = `${window.location.origin}/post/${post.id}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "CollectorHub", text: post.body.slice(0, 80), url });
+        await navigator.share({ title: "Scorred", text: post.body.slice(0, 80), url });
       } else {
         await navigator.clipboard.writeText(url);
         setShared(true);
@@ -811,7 +810,7 @@ function ISOCard({ post }: { post: ApiPost }) {
     const url = `${window.location.origin}/post/${post.id}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "CollectorHub", text: `ISO: ${post.iso_item ?? post.body.slice(0, 80)}`, url });
+        await navigator.share({ title: "Scorred", text: `ISO: ${post.iso_item ?? post.body.slice(0, 80)}`, url });
       } else {
         await navigator.clipboard.writeText(url);
         setShared(true);
@@ -904,7 +903,7 @@ export function AdminCard({ post }: { post: ApiPost }) {
         <SealMark size={30} />
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontWeight: 600, fontSize: 14 }}>CollectorHub</span>
+            <span style={{ fontWeight: 600, fontSize: 14 }}>Scorred</span>
             <Badge variant="dark" style={{ borderRadius: 5 }}>Official</Badge>
           </div>
           <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>New release · {timeAgo(post.created_at)}</div>

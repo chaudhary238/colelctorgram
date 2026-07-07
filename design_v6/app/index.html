@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="App · Scorred" subtitle="Full click-through — 5-tab IA, onboarding, listings, trades, deals" viewport="480x940" -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scorred · App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bone); overflow: hidden;
+    font-family: var(--font-body); color: var(--ink); }
+  #root { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center;
+    background:
+      radial-gradient(circle at 18% 16%, rgba(20,17,15,0.045), transparent 60%),
+      radial-gradient(circle at 84% 84%, rgba(20,17,15,0.05), transparent 60%),
+      var(--bone);
+    position: relative; }
+  .stage-eyebrow { position: absolute; left: 26px; top: 24px; font-family: var(--font-body); font-weight: 600;
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint);
+    display: flex; align-items: center; gap: 10px; }
+  .stage-eyebrow .seal { width: 22px; height: 22px; border-radius: 5px; background: var(--stamp-red); color: var(--paper);
+    display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-display);
+    font-weight: 800; font-size: 13px; box-shadow: var(--shadow-stamp); transform: rotate(-4deg); }
+  .stage-meta { position: absolute; right: 26px; top: 24px; font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-faint); letter-spacing: 0.04em; }
+  .stage-tip { position: absolute; right: 28px; bottom: 26px; max-width: 232px; font-size: 12px;
+    color: var(--ink-mute); line-height: 1.55; text-align: right; }
+  .stage-tip strong { color: var(--ink); font-weight: 600; }
+
+  @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes pop { 0% { transform: translateX(-50%) scale(0.7); opacity: 0; } 60% { transform: translateX(-50%) scale(1.06); opacity: 1; } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
+  @keyframes heartBeat { 0% { transform: scale(1); } 25% { transform: scale(1.35); } 50% { transform: scale(0.92); } 75% { transform: scale(1.12); } 100% { transform: scale(1); } }
+  @keyframes badgePop { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+  @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+  button { -webkit-tap-highlight-color: transparent; }
+  * { -webkit-tap-highlight-color: transparent; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="stage-eyebrow">Scorred · app</div>
+  <div class="stage-meta">v1.1 · BRD build</div>
+  <div class="stage-tip">
+    <strong>Try it.</strong> Tap + (top-left) to post · search & alerts top-right · open a listing → message a seller → mark the deal done. Switch tabs below.
+  </div>
+  <div id="phone-mount"></div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- device frame + primitives -->
+<script type="text/babel" src="IOSFrame.jsx"></script>
+<script type="text/babel" src="shared.jsx"></script>
+<script type="text/babel" src="data.jsx"></script>
+
+<!-- chrome + nav -->
+<script type="text/babel" src="Nav.jsx"></script>
+<script type="text/babel" src="Chrome.jsx"></script>
+<script type="text/babel" src="Cards.jsx"></script>
+
+<!-- root tab views -->
+<script type="text/babel" src="FeedView.jsx"></script>
+<script type="text/babel" src="MarketView.jsx"></script>
+<script type="text/babel" src="CommunityView.jsx"></script>
+<script type="text/babel" src="EventsView.jsx"></script>
+<script type="text/babel" src="ProfileView.jsx"></script>
+<script type="text/babel" src="ProfileCollection.jsx"></script>
+<script type="text/babel" src="ProfileSettings.jsx"></script>
+<script type="text/babel" src="Rewards.jsx"></script>
+<script type="text/babel" src="ReferView.jsx"></script>
+
+<!-- detail screens -->
+<script type="text/babel" src="ListingView.jsx"></script>
+<script type="text/babel" src="PostDetail.jsx"></script>
+<script type="text/babel" src="ItemDetail.jsx"></script>
+<script type="text/babel" src="AddToCollection.jsx"></script>
+<script type="text/babel" src="AddListing.jsx"></script>
+<script type="text/babel" src="ProfileEdit.jsx"></script>
+<script type="text/babel" src="CommunityDetail.jsx"></script>
+<script type="text/babel" src="CreateCommunity.jsx"></script>
+<script type="text/babel" src="CommunityManage.jsx"></script>
+<script type="text/babel" src="EventDetail.jsx"></script>
+<script type="text/babel" src="EventCreate.jsx"></script>
+<script type="text/babel" src="EventManage.jsx"></script>
+<script type="text/babel" src="Chat.jsx"></script>
+
+<!-- overlays -->
+<script type="text/babel" src="Overlays.jsx"></script>
+
+<!-- onboarding flow (splash · auth · interest selection) -->
+<script type="text/babel" src="Onboarding.jsx"></script>
+
+<!-- boot -->
+<script type="text/babel" src="App.jsx"></script>
+</body>
+</html>

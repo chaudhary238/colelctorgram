@@ -1,44 +1,61 @@
 "use client";
 
 /* ─────────────────────────────────────────────────────────────
-   CollectorHub — shared UI primitives
+   Scorred — shared UI primitives
    Ported 1:1 from design/mobile/app/shared.jsx so the Next.js web
    app matches the design's sizes, colors, and type exactly.
    ───────────────────────────────────────────────────────────── */
 
 import React from "react";
 
-/* ── Brand mark (logo-stamp.svg) ─────────────────────────────── */
-export function SealMark({ size = 30 }: { size?: number }) {
+/* ── Scorred icon mark (brand/icon-crop.png) ─────────────────── */
+export function SealMark({ size = 30, bg = null }: { size?: number; bg?: string | null }) {
+  const img = (
+    <img
+      src="/brand/icon-crop.png"
+      width={size}
+      height={size}
+      alt="Scorred"
+      style={{ objectFit: "contain", display: "block", flexShrink: 0 }}
+    />
+  );
+  if (!bg) return img;
   return (
-    <svg width={size} height={size} viewBox="0 0 144 144" style={{ flexShrink: 0 }}>
-      <g transform="translate(72 72) rotate(-4)">
-        <rect x={-72} y={-72} width={144} height={144} rx={14} fill="#D93324" />
-        <rect
-          x={-58}
-          y={-58}
-          width={116}
-          height={116}
-          rx={8}
-          fill="none"
-          stroke="rgba(244,239,230,0.35)"
-          strokeWidth={2}
-          strokeDasharray="5 5"
-        />
-        <text
-          x={0}
-          y={22}
-          textAnchor="middle"
-          fontFamily="var(--font-display)"
-          fontWeight={800}
-          fontSize={96}
-          fill="#F4EFE6"
-          letterSpacing={-4}
-        >
-          C
-        </text>
-      </g>
-    </svg>
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: Math.round(size * 0.22),
+        background: bg,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      <img
+        src="/brand/icon-crop-white.png"
+        width={size * 0.72}
+        height={size * 0.72}
+        alt="Scorred"
+        style={{ objectFit: "contain", display: "block" }}
+      />
+    </div>
+  );
+}
+
+/* ── Scorred wordmark (brand/wordmark-crop.png) ──────────────── */
+export function ScorredWordmark({ fontSize = 22 }: { fontSize?: number }) {
+  const h = Math.max(22, Math.round(fontSize * 1.15));
+  const w = Math.round(h * (3487 / 842)); // natural aspect ratio
+  return (
+    <img
+      src="/brand/wordmark-crop.png"
+      width={w}
+      height={h}
+      alt="Scorred"
+      style={{ objectFit: "contain", display: "block", flexShrink: 0 }}
+    />
   );
 }
 
@@ -220,7 +237,7 @@ export function VerifyBadge({ tier = "claimed", size = "sm" }: { tier?: string; 
         alignItems: "center",
         gap: 4,
         padding: pad,
-        borderRadius: 5,
+        borderRadius: 6,
         background: m.bg,
         color: m.c,
         fontFamily: "var(--font-body)",
@@ -280,14 +297,14 @@ export function TierChip({ tier }: { tier: string }) {
    Ported from design/mobile/app/shared.jsx. Only renders the metrics
    that are provided, so it degrades gracefully when the API lacks one. */
 export function TrustSignals({
-  deals,
+  vouches,
   rating,
   ratingCount,
   response,
   joined,
   compact = false,
 }: {
-  deals?: number | null;
+  vouches?: number | null;
   rating?: number | null;
   ratingCount?: number | null;
   response?: string | null;
@@ -295,12 +312,12 @@ export function TrustSignals({
   compact?: boolean;
 }) {
   const items: { v: string; l: string }[] = [];
-  if (deals != null) items.push({ v: String(deals), l: "deals" });
+  if (vouches != null) items.push({ v: String(vouches), l: "vouches" });
   if (rating != null && (ratingCount ?? 0) > 0)
     items.push({ v: `${rating.toFixed(1)}★`, l: `${ratingCount} ratings` });
   if (response) items.push({ v: response, l: "replies" });
   if (joined) items.push({ v: joined, l: "joined" });
-  if (items.length === 0) items.push({ v: "New", l: "no deals yet" });
+  if (items.length === 0) items.push({ v: "New", l: "new seller" });
   return (
     <div
       style={{
@@ -431,7 +448,7 @@ export function Stamp({ children, color = "var(--stamp-red)", rotate = 2, style 
         background: color,
         color: "var(--paper)",
         padding: "4px 8px",
-        borderRadius: 4,
+        borderRadius: 6,
         fontFamily: "var(--font-display)",
         fontWeight: 800,
         fontSize: 11,
@@ -533,7 +550,14 @@ export function SectionLabel({ children }: { children: React.ReactNode }) {
 
 /* ── Empty note ──────────────────────────────────────────────── */
 export function EmptyNote({ children }: { children: React.ReactNode }) {
-  return <div style={{ padding: "20px 0", textAlign: "center", color: "var(--ink-faint)", fontSize: 13 }}>{children}</div>;
+  return (
+    <div style={{ padding: "28px 0", textAlign: "center" }}>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 10, opacity: 0.16 }}>
+        <SealMark size={40} />
+      </div>
+      <div style={{ color: "var(--ink-faint)", fontSize: 13 }}>{children}</div>
+    </div>
+  );
 }
 
 /* ── Initials helper ─────────────────────────────────────────── */

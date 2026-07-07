@@ -13,7 +13,7 @@ from app.workers.tasks import schedule_background_workers
 
 from app.routers import (
     auth, users, feed, catalogue, items, posts,
-    listings, deals, communities, events,
+    listings, communities, events,
     threads, notifications, search, media, admin, rewards,
 )
 from app.routers.moderation import router as moderation_router
@@ -36,7 +36,7 @@ if settings.sentry_dsn:
     )
 
 app = FastAPI(
-    title="CollectorHub API",
+    title="Scorred API",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -58,7 +58,6 @@ app.include_router(items.router)
 app.include_router(posts.router)
 app.include_router(comments_router)
 app.include_router(listings.router)
-app.include_router(deals.router)
 app.include_router(communities.router)
 app.include_router(events.router)
 app.include_router(threads.router)

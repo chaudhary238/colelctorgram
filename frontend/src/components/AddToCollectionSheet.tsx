@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, Search, Plus, ScanLine, Camera, Check, Clock } from "lucide-react";
+import { X, Search, Plus, ScanLine, Camera, Check, Clock, Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
 import { Segmented, SectionLabel, CategoryChip, ProductPhoto } from "@/components/ui";
+import { fireXpToast } from "@/components/gamification";
 import { ImageUploader } from "@/components/ImageUploader";
 import { ReleaseWindowPicker } from "@/components/forms";
 import { ADD_CATEGORIES, buildPoEta, type PoPrecision } from "@/lib/catalog";
@@ -140,6 +141,10 @@ export function AddToCollectionSheet({ onClose, onAdded, initialPick }: AddToCol
   const missTitle = !title.trim();
   const missBrand = brand === "Others" && !brandOther.trim();
   const missScale = scale === "Others" && !scaleOther.trim();
+  const brandFilled = brand === "Others" ? brandOther.trim().length > 0 : brand.length > 0;
+  // v6 (DV6-02) "DB Contribution" — a free-text item (not linked to a catalogue
+  // hit) that has a real title + brand is new to the shared DB → +50 XP.
+  const isNewToDb = !picked && title.trim().length >= 5 && brandFilled;
   // Photo is the ownership-proof gate — required for OWNED items; optional for wishlist/pre-order.
   const missPhoto = status === "owned" && photos.length === 0;
   const invalid = missTitle || missBrand || missScale || missPhoto;
@@ -150,7 +155,7 @@ export function AddToCollectionSheet({ onClose, onAdded, initialPick }: AddToCol
     setError("");
     try {
       const isPreorder = status === "preorder";
-      const item = await api.post<{ id: string }>("/items", {
+      const item = await api.post<{ id: string; db_new_xp?: number }>("/items", {
         sku: picked?.sku ?? undefined,
         custom_title: picked ? undefined : title.trim(),
         brand: brand === "Others" ? brandOther.trim() : brand,
@@ -170,6 +175,8 @@ export function AddToCollectionSheet({ onClose, onAdded, initialPick }: AddToCol
       for (const url of photos) {
         await api.post(`/items/${item.id}/photos?url=${encodeURIComponent(url)}`);
       }
+      // DV6-02 — surface the +50 XP when this was the first contribution to the DB.
+      if (item.db_new_xp && item.db_new_xp > 0) fireXpToast(item.db_new_xp, "XP · added to Scorred DB");
       onAdded();
       onClose();
     } catch (err: unknown) {
@@ -230,7 +237,7 @@ export function AddToCollectionSheet({ onClose, onAdded, initialPick }: AddToCol
             </div>
             {scanHint && (
               <div className="mt-2 text-xs text-[var(--ink-faint)] leading-relaxed px-1">
-                Barcode scanning auto-fills the form — it&rsquo;s available in the CollectorHub app. On web, search by name/SKU or add it manually below.
+                Barcode scanning auto-fills the form — it&rsquo;s available in the Scorred app. On web, search by name/SKU or add it manually below.
               </div>
             )}
 
@@ -272,8 +279,13 @@ export function AddToCollectionSheet({ onClose, onAdded, initialPick }: AddToCol
               onClick={pickCustom}
               className="w-full flex items-center justify-center gap-2 h-11 mt-4 rounded-xl border border-dashed border-[var(--border-strong)] text-[var(--ink-mute)] text-sm font-semibold hover:text-[var(--ink)] transition-colors"
             >
-              Can&rsquo;t find it? Add free-text item
+              <Sparkles size={15} className="text-[var(--verified-teal)]" />
+              Can&rsquo;t find it? Add it to the DB
             </button>
+            <p className="text-[11.5px] text-[var(--ink-faint)] leading-relaxed mt-2 px-1 text-center">
+              Spotted something new? Share the brand, scale &amp; title so other collectors can track and
+              discover it — you earn <b className="text-[var(--verified-teal)]">+50 XP</b> for being first to add it to Scorred.
+            </p>
           </div>
         )}
 
@@ -294,6 +306,12 @@ export function AddToCollectionSheet({ onClose, onAdded, initialPick }: AddToCol
               {reqLabel("Title", missTitle)}
               <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Item title"
                 style={{ ...fieldStyle, borderColor: missTitle && tried ? "var(--stamp-red)" : "var(--border-strong)" }} />
+              {isNewToDb && (
+                <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 9, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)" }}>
+                  <Sparkles size={13} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: "var(--verified-teal)", fontWeight: 600 }}>New to Scorred DB — you&rsquo;ll earn +50 XP as first contributor</span>
+                </div>
+              )}
 
               {/* Category */}
               <div style={{ marginTop: 18 }}><SectionLabel>Category</SectionLabel></div>

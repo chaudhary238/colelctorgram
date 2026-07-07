@@ -13,11 +13,13 @@ from app.models.user import User, Follow
 from app.models.item import Item, ItemPhoto
 from app.models.listing import Listing
 from app.models.post import Post, PostLike, PostSave
-from app.models.deal import Deal, Vouch, VouchRequest
+from app.models.deal import Vouch, VouchRequest
 from app.models.community import Community, CommunityMember
 from app.routers.communities import _community_dict
 from app.services.notifications import notify
-from app.services.gamification import award_xp, maybe_award_profile_complete
+from app.services.gamification import (
+    award_xp, maybe_award_profile_complete, ensure_referral_code, referrals_list,
+)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -32,7 +34,6 @@ class ProfileOut(BaseModel):
     tier: str
     interests: list[str]
     sub_interests: Optional[dict] = None  # per-category chips from onboarding (DV4-06)
-    deals_count: int
     rating: float
     rating_count: int
     followers_count: int
@@ -142,6 +143,26 @@ async def get_me(current_user: User = Depends(get_current_user)):
     out = _fill_pref_defaults(ProfileOut.model_validate(current_user))
     out.collection_view_privacy = _collection_views(current_user)
     return out
+
+
+@router.get("/me/referrals")
+async def get_my_referrals(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """DV6-05 referral dashboard: the viewer's share code, headline stats, and the
+    per-invitee list with pending/joined status and XP earned."""
+    code = await ensure_referral_code(db, current_user)
+    rows = await referrals_list(db, current_user)
+    joined = [r for r in rows if r["status"] == "joined"]
+    return {
+        "code": code,
+        "invited": len(rows),
+        "joined": len(joined),
+        "xp_earned": sum(r["xp"] for r in rows),
+        "reward_xp": 150,
+        "referrals": rows,
+    }
 
 
 @router.get("/me/suggested", response_model=list[SuggestedUserOut])
@@ -427,6 +448,8 @@ async def follow_user(
     db.add(Follow(follower_id=current_user.id, following_type="user", following_id=target_user.id))
     target_user.followers_count += 1
     current_user.following_count += 1
+    # DV6-04 — +2 XP micro-reward, deduped per followed collector.
+    await award_xp(db, current_user, "follow", ref_id=str(target_user.id), ref_type="user")
     await notify(
         db,
         user_id=target_user.id,
@@ -887,60 +910,6 @@ async def get_user_communities(
     }
 
 
-@router.get("/{handle}/deals")
-async def get_user_deals(
-    handle: str,
-    db: AsyncSession = Depends(get_db),
-    page: int = Query(1, ge=1),
-    limit: int = Query(24, le=60),
-):
-    """Confirmed trade history (from this user's perspective) — profile Trades tab."""
-    target = await db.execute(select(User).where(User.handle == handle.lower()))
-    target_user = target.scalar_one_or_none()
-    if not target_user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    stmt = (
-        select(Deal, Item, User)
-        .join(Item, Deal.item_id == Item.id)
-        .join(
-            User,
-            User.id == func.coalesce(
-                func.nullif(Deal.seller_id, target_user.id),
-                Deal.buyer_id,
-            ),
-        )
-        .where(
-            Deal.status == "confirmed",
-            (Deal.seller_id == target_user.id) | (Deal.buyer_id == target_user.id),
-        )
-        .order_by(Deal.confirmed_at.desc().nullslast())
-        .offset((page - 1) * limit)
-        .limit(limit)
-    )
-    result = await db.execute(stmt)
-
-    items = []
-    for deal, item, other in result:
-        is_seller = deal.seller_id == target_user.id
-        # rating this user received, and whether the counterparty vouched for them
-        received_rating = deal.seller_rating if is_seller else deal.buyer_rating
-        vouched = deal.buyer_vouch_done if is_seller else deal.seller_vouch_done
-        items.append({
-            "id": str(deal.id),
-            "direction": "Sold" if is_seller else "Bought",
-            "deal_type": deal.deal_type,
-            "item": item.custom_title or item.sku or "Item",
-            "with": {
-                "handle": other.handle,
-                "name": other.name,
-                "avatar_url": other.avatar_url,
-            },
-            "when": deal.confirmed_at.isoformat() if deal.confirmed_at else None,
-            "rating": received_rating,
-            "vouched": vouched,
-        })
-    return {"page": page, "items": items}
 
 
 @router.delete("/{handle}/follow", status_code=204)

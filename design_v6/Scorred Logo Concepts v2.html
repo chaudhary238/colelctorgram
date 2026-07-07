@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="design_doc_mode" content="canvas">
+<title>Scorred — Logo Concepts v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800;900&family=Syne:wght@700;800&family=Barlow+Condensed:wght@700;900&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#E8E8E6;min-height:100vh;font-family:'Outfit',system-ui,sans-serif}
+
+.canvas{width:1560px;margin:0 auto;padding:72px 40px 100px}
+
+/* Page header */
+.ph{margin-bottom:52px}
+.ph-eyebrow{font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#999;margin-bottom:8px}
+.ph-title{font-size:36px;font-weight:900;letter-spacing:-0.04em;color:#1A1A1A;line-height:1}
+.ph-sub{font-size:13.5px;color:#888;margin-top:7px}
+
+/* Concept grid */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+
+/* Concept card */
+.card{background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 1px 0 rgba(0,0,0,0.06),0 4px 20px rgba(0,0,0,0.06)}
+
+/* Card header label */
+.card-label{padding:22px 28px 0;display:flex;align-items:baseline;gap:10px}
+.card-letter{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#ccc}
+.card-name{font-size:18px;font-weight:800;letter-spacing:-0.03em;color:#1A1A1A}
+.card-desc{font-size:12px;color:#aaa;margin-top:3px;padding:0 28px;letter-spacing:0}
+
+/* Light panel */
+.panel-light{padding:36px 40px 28px;display:flex;flex-direction:column;gap:24px}
+
+/* Dark panel */
+.panel-dark{padding:28px 40px;display:flex;align-items:center;gap:48px}
+
+/* Icons row */
+.icons-row{padding:14px 28px 18px;border-top:1px solid #f2f2f2;display:flex;align-items:center;gap:10px}
+.icons-row-label{font-size:9.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc;margin-right:6px;white-space:nowrap}
+
+/* App icon: rounded square helper */
+.app-icon{border-radius:22%;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+
+/* Divider between lockup and wordmark-only */
+.divider{width:1px;height:32px;background:#f0f0f0;flex-shrink:0}
+
+/* Flex helpers */
+.row{display:flex;align-items:center;gap:14px}
+.col{display:flex;flex-direction:column;gap:20px}
+
+/* ── Tagline style ── */
+.tagline{font-size:8.5px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase}
+</style>
+</head>
+<body>
+<div class="canvas">
+
+  <div class="ph">
+    <div class="ph-eyebrow">Brand Identity</div>
+    <div class="ph-title">Scorred — Logo Concepts</div>
+    <div class="ph-sub">4 fresh directions · S lettermark · red hero · shown on light + dark + app icon</div>
+  </div>
+
+  <div class="grid">
+
+    <!-- ══════════════════════════════════════════
+         CONCEPT A — SCORER
+         Outfit 900 · red rounded square mark
+    ══════════════════════════════════════════ -->
+    <div class="card">
+      <div class="card-label">
+        <span class="card-letter">A</span>
+        <span class="card-name">Scorer</span>
+      </div>
+      <div class="card-desc">Bold geometric · clean app-first · energetic</div>
+
+      <!-- Light panel -->
+      <div class="panel-light">
+        <!-- Horizontal lockup -->
+        <div class="row">
+          <!-- Icon -->
+          <div style="width:56px;height:56px;background:#FF2442;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 12px rgba(255,36,66,0.30)">
+            <span style="font-family:'Outfit';font-weight:900;font-size:38px;color:#fff;line-height:1;margin-top:1px">S</span>
+          </div>
+          <!-- Wordmark -->
+          <div>
+            <div style="font-family:'Outfit';font-weight:900;font-size:34px;color:#1A1A1A;letter-spacing:-0.05em;line-height:1">scorred</div>
+            <div class="tagline" style="color:#FF2442;margin-top:4px;letter-spacing:0.14em">for collectors</div>
+          </div>
+        </div>
+
+        <!-- Separator -->
+        <div style="height:1px;background:#f5f5f5"></div>
+
+        <!-- Wordmark only + icon solo -->
+        <div class="row" style="gap:36px;align-items:flex-start">
+          <div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc;margin-bottom:8px">Wordmark</div>
+            <div style="font-family:'Outfit';font-weight:900;font-size:40px;color:#1A1A1A;letter-spacing:-0.05em;line-height:1">scorred</div>
+          </div>
+          <div style="width:1px;height:52px;background:#f0f0f0;margin-top:26px"></div>
+          <div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc;margin-bottom:8px">Mark</div>
+            <div class="row" style="gap:10px">
+              <div style="width:52px;height:52px;background:#FF2442;border-radius:13px;display:flex;align-items:center;justify-content:center;">
+                <span style="font-family:'Outfit';font-weight:900;font-size:35px;color:#fff;line-height:1">S</span>
+              </div>
+              <div style="width:52px;height:52px;background:#1A1A1A;border-radius:13px;display:flex;align-items:center;justify-content:center;">
+                <span style="font-family:'Outfit';font-weight:900;font-size:35px;color:#FF2442;line-height:1">S</span>
+              </div>
+              <div style="width:52px;height:52px;background:#fff;border-radius:13px;display:flex;align-items:center;justify-content:center;border:1.5px solid #eee">
+                <span style="font-family:'Outfit';font-weight:900;font-size:35px;color:#FF2442;line-height:1">S</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dark panel -->
+      <div class="panel-dark" style="background:#1A1A1A">
+        <div class="row">
+          <div style="width:48px;height:48px;background:#FF2442;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <span style="font-family:'Outfit';font-weight:900;font-size:32px;color:#fff;line-height:1">S</span>
+          </div>
+          <div style="font-family:'Outfit';font-weight:900;font-size:30px;color:#fff;letter-spacing:-0.05em;line-height:1">scorred</div>
+        </div>
+        <div style="font-family:'Outfit';font-weight:900;font-size:30px;color:#fff;letter-spacing:-0.05em;line-height:1;opacity:0.35">scorred</div>
+      </div>
+
+      <!-- App icons -->
+      <div class="icons-row">
+        <span class="icons-row-label">App icon</span>
+        <div class="app-icon" style="width:64px;height:64px;background:#FF2442">
+          <span style="font-family:'Outfit';font-weight:900;font-size:42px;color:#fff;line-height:1">S</span>
+        </div>
+        <div class="app-icon" style="width:48px;height:48px;background:#FF2442">
+          <span style="font-family:'Outfit';font-weight:900;font-size:32px;color:#fff;line-height:1">S</span>
+        </div>
+        <div class="app-icon" style="width:36px;height:36px;background:#FF2442">
+          <span style="font-family:'Outfit';font-weight:900;font-size:24px;color:#fff;line-height:1">S</span>
+        </div>
+        <div class="app-icon" style="width:24px;height:24px;background:#FF2442">
+          <span style="font-family:'Outfit';font-weight:900;font-size:16px;color:#fff;line-height:1">S</span>
+        </div>
+        <div style="font-size:11px;color:#ccc;margin-left:4px">64 · 48 · 36 · 24 px</div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         CONCEPT B — PROVENANCE
+         Playfair Display 900 · circular seal mark
+    ══════════════════════════════════════════ -->
+    <div class="card">
+      <div class="card-label">
+        <span class="card-letter">B</span>
+        <span class="card-name">Provenance</span>
+      </div>
+      <div class="card-desc">Serif editorial · hallmark seal · premium heritage</div>
+
+      <div class="panel-light" style="background:#FDFAF7">
+        <div class="row">
+          <!-- Circular seal icon -->
+          <div style="width:58px;height:58px;border-radius:50%;border:2.5px solid #C8312A;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">
+            <span style="font-family:'Playfair Display';font-weight:900;font-size:30px;color:#C8312A;line-height:1">S</span>
+            <!-- Thin inner ring -->
+            <div style="position:absolute;inset:4px;border-radius:50%;border:0.75px solid rgba(200,49,42,0.25)"></div>
+          </div>
+          <div>
+            <div style="font-family:'Playfair Display';font-weight:900;font-size:34px;color:#1A1A1A;letter-spacing:-0.02em;line-height:1">Scorred</div>
+            <div class="tagline" style="color:#C8312A;margin-top:5px">for collectors</div>
+          </div>
+        </div>
+
+        <div style="height:1px;background:rgba(0,0,0,0.06)"></div>
+
+        <div class="row" style="gap:36px;align-items:flex-start">
+          <div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc;margin-bottom:8px">Wordmark</div>
+            <div style="font-family:'Playfair Display';font-weight:900;font-size:42px;color:#1A1A1A;letter-spacing:-0.02em;line-height:1">Scorred</div>
+          </div>
+          <div style="width:1px;height:52px;background:rgba(0,0,0,0.06);margin-top:26px"></div>
+          <div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc;margin-bottom:8px">Mark</div>
+            <div class="row" style="gap:10px">
+              <div style="width:52px;height:52px;border-radius:50%;border:2.5px solid #C8312A;display:flex;align-items:center;justify-content:center;position:relative">
+                <span style="font-family:'Playfair Display';font-weight:900;font-size:28px;color:#C8312A;line-height:1">S</span>
+                <div style="position:absolute;inset:4px;border-radius:50%;border:0.75px solid rgba(200,49,42,0.2)"></div>
+              </div>
+              <div style="width:52px;height:52px;border-radius:50%;background:#C8312A;display:flex;align-items:center;justify-content:center">
+                <span style="font-family:'Playfair Display';font-weight:900;font-size:28px;color:#fff;line-height:1">S</span>
+              </div>
+              <div style="width:52px;height:52px;border-radius:50%;background:#1A1A1A;display:flex;align-items:center;justify-content:center">
+                <span style="font-family:'Playfair Display';font-weight:900;font-size:28px;color:#fff;line-height:1">S</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dark panel (deep wine) -->
+      <div class="panel-dark" style="background:#1C0A09">
+        <div class="row">
+          <div style="width:48px;height:48px;border-radius:50%;border:2px solid #C8312A;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">
+            <span style="font-family:'Playfair Display';font-weight:900;font-size:26px;color:#C8312A;line-height:1">S</span>
+            <div style="position:absolute;inset:4px;border-radius:50%;border:0.75px solid rgba(200,49,42,0.3)"></div>
+          </div>
+          <div style="font-family:'Playfair Display';font-weight:900;font-size:30px;color:#F5EDE8;letter-spacing:-0.02em;line-height:1">Scorred</div>
+        </div>
+        <div style="font-family:'Playfair Display';font-weight:900;font-size:30px;color:#F5EDE8;letter-spacing:-0.02em;line-height:1;opacity:0.22">Scorred</div>
+      </div>
+
+      <div class="icons-row">
+        <span class="icons-row-label">App icon</span>
+        <div class="app-icon" style="width:64px;height:64px;background:#1C0A09;border:2px solid rgba(255,255,255,0)">
+          <span style="font-family:'Playfair Display';font-weight:900;font-size:38px;color:#C8312A;line-height:1">S</span>
+        </div>
+        <div class="app-icon" style="width:48px;height:48px;background:#C8312A">
+          <span style="font-family:'Playfair Display';font-weight:900;font-size:28px;color:#fff;line-height:1">S</span>
+        </div>
+        <div class="app-icon" style="width:36px;height:36px;background:#1C0A09">
+          <span style="font-family:'Playfair Display';font-weight:900;font-size:22px;color:#C8312A;line-height:1">S</span>
+        </div>
+        <div class="app-icon" style="width:24px;height:24px;background:#C8312A">
+          <span style="font-family:'Playfair Display';font-weight:900;font-size:15px;color:#fff;line-height:1">S</span>
+        </div>
+        <div style="font-size:11px;color:#ccc;margin-left:4px">64 · 48 · 36 · 24 px</div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         CONCEPT C — DOUBLE-R
+         Barlow Condensed 900 · RR highlight mark
+         Typographic — wordmark IS the logo
+    ══════════════════════════════════════════ -->
+    <div class="card">
+      <div class="card-label">
+        <span class="card-letter">C</span>
+        <span class="card-name">Double-R</span>
+      </div>
+      <div class="card-desc">Typographic · bold condensed · the RR is the mark</div>
+
+      <div class="panel-light" style="background:#F8F8F8">
+        <!-- SCORRED with RR in red -->
+        <div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc;margin-bottom:10px">Primary wordmark</div>
+          <div style="font-family:'Barlow Condensed';font-weight:900;font-size:62px;letter-spacing:0.01em;line-height:1">
+            <span style="color:#1A1A1A">SCO</span><span style="color:#FF2442">RR</span><span style="color:#1A1A1A">ED</span>
+          </div>
+        </div>
+
+        <div style="height:1px;background:#eee"></div>
+
+        <!-- Variations -->
+        <div class="col" style="gap:14px">
+          <div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc;margin-bottom:6px">Compact / lockup</div>
+            <div class="row" style="gap:12px">
+              <!-- RR icon block -->
+              <div style="width:52px;height:52px;background:#FF2442;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <span style="font-family:'Barlow Condensed';font-weight:900;font-size:26px;color:#fff;line-height:1;letter-spacing:-0.02em">RR</span>
+              </div>
+              <div style="font-family:'Barlow Condensed';font-weight:900;font-size:34px;letter-spacing:0.01em;line-height:1">
+                <span style="color:#1A1A1A">SCO</span><span style="color:#FF2442">RR</span><span style="color:#1A1A1A">ED</span>
+              </div>
+            </div>
+          </div>
+          <div class="row" style="gap:36px;align-items:center">
+            <!-- Small wordmark -->
+            <div>
+              <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc;margin-bottom:5px">Small</div>
+              <div style="font-family:'Barlow Condensed';font-weight:900;font-size:22px;letter-spacing:0.01em">
+                <span style="color:#1A1A1A">SCO</span><span style="color:#FF2442">RR</span><span style="color:#1A1A1A">ED</span>
+              </div>
+            </div>
+            <div style="width:1px;height:30px;background:#eee"></div>
+            <div>
+              <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc;margin-bottom:5px">With tagline</div>
+              <div>
+                <div style="font-family:'Barlow Condensed';font-weight:900;font-size:28px;letter-spacing:0.01em;line-height:1">
+                  <span style="color:#1A1A1A">SCO</span><span style="color:#FF2442">RR</span><span style="color:#1A1A1A">ED</span>
+                </div>
+                <div class="tagline" style="color:#999;margin-top:3px">for collectors</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dark panel -->
+      <div class="panel-dark" style="background:#111">
+        <div style="font-family:'Barlow Condensed';font-weight:900;font-size:46px;letter-spacing:0.01em;line-height:1">
+          <span style="color:#fff">SCO</span><span style="color:#FF2442">RR</span><span style="color:#fff">ED</span>
+        </div>
+        <div class="row" style="gap:10px">
+          <div style="width:44px;height:44px;background:#FF2442;border-radius:9px;display:flex;align-items:center;justify-content:center">
+            <span style="font-family:'Barlow Condensed';font-weight:900;font-size:22px;color:#fff;line-height:1">RR</span>
+          </div>
+          <div style="font-family:'Barlow Condensed';font-weight:900;font-size:28px;letter-spacing:0.01em;line-height:1">
+            <span style="color:#fff;opacity:0.4">SCO</span><span style="color:#FF2442">RR</span><span style="color:#fff;opacity:0.4">ED</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="icons-row">
+        <span class="icons-row-label">App icon</span>
+        <div class="app-icon" style="width:64px;height:64px;background:#FF2442">
+          <span style="font-family:'Barlow Condensed';font-weight:900;font-size:30px;color:#fff;line-height:1;letter-spacing:-0.01em">RR</span>
+        </div>
+        <div class="app-icon" style="width:48px;height:48px;background:#111">
+          <span style="font-family:'Barlow Condensed';font-weight:900;font-size:30px;color:#FF2442;line-height:1">S</span>
+        </div>
+        <div class="app-icon" style="width:36px;height:36px;background:#FF2442">
+          <span style="font-family:'Barlow Condensed';font-weight:900;font-size:22px;color:#fff;line-height:1">S</span>
+        </div>
+        <div class="app-icon" style="width:24px;height:24px;background:#111">
+          <span style="font-family:'Barlow Condensed';font-weight:900;font-size:15px;color:#FF2442;line-height:1">S</span>
+        </div>
+        <div style="font-size:11px;color:#ccc;margin-left:4px">RR block or S mono · 64 · 48 · 36 · 24 px</div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         CONCEPT D — IMPRESSION
+         Syne 800 · offset/shadow stamp · dark-first
+         Premium × nerdy-cool
+    ══════════════════════════════════════════ -->
+    <div class="card">
+      <div class="card-label">
+        <span class="card-letter">D</span>
+        <span class="card-name">Impression</span>
+      </div>
+      <div class="card-desc">Dark-first · offset stamp effect · collector prestige</div>
+
+      <!-- Dark panel is hero here -->
+      <div style="padding:36px 40px 28px;background:#111;display:flex;flex-direction:column;gap:24px">
+        <!-- Primary lockup -->
+        <div class="row">
+          <!-- Icon: black rounded square, S with red offset shadow -->
+          <div style="width:58px;height:58px;background:#1E1E1E;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #2E2E2E">
+            <span style="font-family:'Syne';font-weight:800;font-size:36px;color:#fff;line-height:1;text-shadow:3px 3px 0 #FF2442">S</span>
+          </div>
+          <div>
+            <div style="font-family:'Syne';font-weight:800;font-size:32px;color:#fff;letter-spacing:0.04em;line-height:1">SCORRED</div>
+            <div class="tagline" style="color:#FF2442;margin-top:5px;letter-spacing:0.18em">for collectors</div>
+          </div>
+        </div>
+
+        <div style="height:1px;background:#2A2A2A"></div>
+
+        <!-- Wordmark only + mark solo -->
+        <div class="row" style="gap:32px;align-items:flex-start">
+          <div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#444;margin-bottom:8px">Wordmark</div>
+            <div style="font-family:'Syne';font-weight:800;font-size:38px;color:#fff;letter-spacing:0.04em;line-height:1">SCORRED</div>
+          </div>
+          <div style="width:1px;height:50px;background:#2A2A2A;margin-top:26px"></div>
+          <div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#444;margin-bottom:8px">Mark</div>
+            <div class="row" style="gap:8px">
+              <div style="width:52px;height:52px;background:#1E1E1E;border-radius:13px;display:flex;align-items:center;justify-content:center;border:1px solid #2E2E2E">
+                <span style="font-family:'Syne';font-weight:800;font-size:34px;color:#fff;line-height:1;text-shadow:3px 3px 0 #FF2442">S</span>
+              </div>
+              <div style="width:52px;height:52px;background:#FF2442;border-radius:13px;display:flex;align-items:center;justify-content:center">
+                <span style="font-family:'Syne';font-weight:800;font-size:34px;color:#fff;line-height:1;text-shadow:-2px -2px 0 rgba(0,0,0,0.3)">S</span>
+              </div>
+              <div style="width:52px;height:52px;background:#fff;border-radius:13px;display:flex;align-items:center;justify-content:center">
+                <span style="font-family:'Syne';font-weight:800;font-size:34px;color:#1A1A1A;line-height:1;text-shadow:2px 2px 0 #FF2442">S</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Light reverse panel -->
+      <div class="panel-light" style="background:#fff;padding:22px 40px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc;margin-bottom:10px">Light version</div>
+        <div class="row">
+          <div style="width:48px;height:48px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1.5px solid #E8E8E8">
+            <span style="font-family:'Syne';font-weight:800;font-size:30px;color:#1A1A1A;line-height:1;text-shadow:2px 2px 0 #FF2442">S</span>
+          </div>
+          <div style="font-family:'Syne';font-weight:800;font-size:28px;color:#1A1A1A;letter-spacing:0.04em;line-height:1">SCORRED</div>
+        </div>
+      </div>
+
+      <div class="icons-row">
+        <span class="icons-row-label">App icon</span>
+        <div class="app-icon" style="width:64px;height:64px;background:#111">
+          <span style="font-family:'Syne';font-weight:800;font-size:42px;color:#fff;line-height:1;text-shadow:4px 4px 0 #FF2442">S</span>
+        </div>
+        <div class="app-icon" style="width:48px;height:48px;background:#111">
+          <span style="font-family:'Syne';font-weight:800;font-size:30px;color:#fff;line-height:1;text-shadow:3px 3px 0 #FF2442">S</span>
+        </div>
+        <div class="app-icon" style="width:36px;height:36px;background:#FF2442">
+          <span style="font-family:'Syne';font-weight:800;font-size:22px;color:#fff;line-height:1">S</span>
+        </div>
+        <div class="app-icon" style="width:24px;height:24px;background:#111">
+          <span style="font-family:'Syne';font-weight:800;font-size:15px;color:#fff;line-height:1;text-shadow:2px 2px 0 #FF2442">S</span>
+        </div>
+        <div style="font-size:11px;color:#ccc;margin-left:4px">64 · 48 · 36 · 24 px</div>
+      </div>
+    </div>
+
+  </div><!-- end grid -->
+
+  <!-- ═══════ Quick comparison strip ═══════ -->
+  <div style="margin-top:32px;background:#fff;border-radius:20px;padding:28px 40px;box-shadow:0 1px 0 rgba(0,0,0,0.06),0 4px 20px rgba(0,0,0,0.06)">
+    <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#ccc;margin-bottom:20px">Side-by-side at 48 px icon + wordmark</div>
+    <div style="display:flex;gap:48px;align-items:center;flex-wrap:wrap">
+
+      <!-- A -->
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+        <div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc">A — Scorer</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:40px;height:40px;background:#FF2442;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <span style="font-family:'Outfit';font-weight:900;font-size:26px;color:#fff;line-height:1">S</span>
+          </div>
+          <span style="font-family:'Outfit';font-weight:900;font-size:24px;color:#1A1A1A;letter-spacing:-0.04em">scorred</span>
+        </div>
+      </div>
+
+      <div style="width:1px;height:40px;background:#f0f0f0"></div>
+
+      <!-- B -->
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+        <div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc">B — Provenance</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:40px;height:40px;border-radius:50%;border:2px solid #C8312A;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <span style="font-family:'Playfair Display';font-weight:900;font-size:22px;color:#C8312A;line-height:1">S</span>
+          </div>
+          <span style="font-family:'Playfair Display';font-weight:900;font-size:24px;color:#1A1A1A;letter-spacing:-0.02em">Scorred</span>
+        </div>
+      </div>
+
+      <div style="width:1px;height:40px;background:#f0f0f0"></div>
+
+      <!-- C -->
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+        <div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc">C — Double-R</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:40px;height:40px;background:#FF2442;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <span style="font-family:'Barlow Condensed';font-weight:900;font-size:20px;color:#fff;line-height:1">RR</span>
+          </div>
+          <div style="font-family:'Barlow Condensed';font-weight:900;font-size:28px;letter-spacing:0.01em;line-height:1">
+            <span style="color:#1A1A1A">SCO</span><span style="color:#FF2442">RR</span><span style="color:#1A1A1A">ED</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:1px;height:40px;background:#f0f0f0"></div>
+
+      <!-- D -->
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+        <div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#ccc">D — Impression</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:40px;height:40px;background:#111;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <span style="font-family:'Syne';font-weight:800;font-size:26px;color:#fff;line-height:1;text-shadow:2px 2px 0 #FF2442">S</span>
+          </div>
+          <span style="font-family:'Syne';font-weight:800;font-size:24px;color:#1A1A1A;letter-spacing:0.04em">SCORRED</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

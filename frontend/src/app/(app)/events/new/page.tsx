@@ -229,7 +229,7 @@ export default function CreateEventPage() {
         </div>
 
         <Label required missing={tried && miss.venue}>{online ? "Stream / link name" : "Venue"}</Label>
-        <input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder={online ? "e.g. CollectorHub Live" : "e.g. Phoenix Marketcity, Kurla"} style={{ ...fieldStyle, borderColor: tried && miss.venue ? "var(--stamp-red)" : "var(--border-strong)" }} />
+        <input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder={online ? "e.g. Scorred Live" : "e.g. Phoenix Marketcity, Kurla"} style={{ ...fieldStyle, borderColor: tried && miss.venue ? "var(--stamp-red)" : "var(--border-strong)" }} />
 
         {!online && (
           <>
@@ -351,7 +351,7 @@ export default function CreateEventPage() {
           <Shield size={18} />{submitting ? "Submitting…" : "Submit for approval"}
         </button>
         <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8 }}>
-          CollectorHub reviews every event before it&rsquo;s public.
+          Scorred reviews every event before it&rsquo;s public.
         </div>
       </div>
     </div>

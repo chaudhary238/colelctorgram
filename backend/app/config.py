@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     # Until a domain is verified in Resend, only `onboarding@resend.dev` works as
     # sender and it only delivers to the Resend account owner's email.
-    email_from: str = "CollectorHub <onboarding@resend.dev>"
+    email_from: str = "Scorred <onboarding@resend.dev>"
 
     # Expo Push
     expo_push_url: str = "https://exp.host/--/api/v2/push/send"

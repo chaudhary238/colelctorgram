@@ -140,7 +140,7 @@ export default function CommunityDetailPage() {
   async function share() {
     const url = `${window.location.origin}/community/${id}`;
     try {
-      if (navigator.share) await navigator.share({ title: community?.name ?? "CollectorHub", url });
+      if (navigator.share) await navigator.share({ title: community?.name ?? "Scorred", url });
       else { await navigator.clipboard.writeText(url); setShared(true); setTimeout(() => setShared(false), 1600); }
     } catch { /* cancelled */ }
   }

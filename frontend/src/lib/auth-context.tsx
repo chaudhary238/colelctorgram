@@ -13,7 +13,6 @@ export interface AuthUser {
   tier: string;
   interests: string[];
   sub_interests?: Record<string, string[]> | null; // per-category chips (DV4-06)
-  deals_count: number;
   rating: number;
   rating_count: number;
   followers_count: number;

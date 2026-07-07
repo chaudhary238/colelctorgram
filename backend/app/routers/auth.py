@@ -50,7 +50,8 @@ class SignUpBody(BaseModel):
     name: str
     email: EmailStr
     password: str
-    # GM-05 referral: the inviter's handle, captured from a ?ref=<handle> link.
+    # DV6-05 referral: the inviter's SCOR-XXXXX code, from a ?ref=<code> link or
+    # the signup form. The +150 credit fires on this user's first item, not now.
     referral_code: str | None = None
 
 
@@ -107,7 +108,7 @@ async def signup(body: SignUpBody, db: AsyncSession = Depends(get_db)):
     except IntegrityError:
         # concurrent-signup race on the unique index — surface as the same 400
         raise HTTPException(status_code=400, detail="Email or handle already taken")
-    await _credit_referral(db, body.referral_code, invitee=user)
+    await _record_referral(db, body.referral_code, invitee=user)
 
     code = _issue_otp(user)
     await send_otp_email(user.email, code)  # never raises; logs when no API key
@@ -119,36 +120,18 @@ async def signup(body: SignUpBody, db: AsyncSession = Depends(get_db)):
     )
 
 
-async def _credit_referral(db: AsyncSession, code: str | None, *, invitee: User) -> None:
-    """GM-05: credit the inviter +40 XP when a referred friend creates an account.
+async def _record_referral(db: AsyncSession, code: str | None, *, invitee: User) -> None:
+    """DV6-05: record a *pending* referral at signup — store the inviter on
+    ``invitee.referred_by``. No XP is awarded here; the inviter is credited +150
+    only when the invitee adds their first collection item (resolve_referral).
+    Never blocks signup — an unknown or self-referral code is silently ignored."""
+    from app.services.gamification import inviter_for_code
 
-    The referral code is just the inviter's handle (?ref=<handle>). Idempotent and
-    repeatable: award_xp dedups on (inviter, "refer", invitee_id), so one credit per
-    referred friend, +40 per distinct friend. Never blocks signup — an unknown or
-    self-referral code is silently ignored."""
-    if not code:
-        return
-    handle = code.lower().strip().lstrip("@")
-    if not handle:
-        return
-    inviter = (await db.execute(select(User).where(User.handle == handle))).scalar_one_or_none()
+    inviter = await inviter_for_code(db, code)
     if inviter is None or inviter.id == invitee.id:
         return
-
-    from app.models.notification import Notification
-    from app.services.gamification import award_xp
-
-    granted = await award_xp(db, inviter, "refer", ref_id=str(invitee.id), ref_type="user")
-    if granted:
-        db.add(Notification(
-            user_id=inviter.id,
-            actor_id=invitee.id,
-            kind="referral",
-            title="Your invite paid off!",
-            body=f"@{invitee.handle} joined with your invite — +40 XP.",
-            ref_type="user",
-            ref_id=str(invitee.id),
-        ))
+    invitee.referred_by = inviter.id
+    await db.flush()
 
 
 class VerifyEmailBody(BaseModel):

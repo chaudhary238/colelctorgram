@@ -111,7 +111,6 @@ async def global_search(
             User.handle,
             User.name,
             User.tier,
-            User.deals_count,
             func.coalesce(vouch_sq.c.vouches, 0).label("vouches"),
         )
         .outerjoin(vouch_sq, vouch_sq.c.to_user_id == User.id)
@@ -125,7 +124,6 @@ async def global_search(
             "handle": r.handle,
             "name": r.name,
             "tier": r.tier,
-            "deals_count": r.deals_count or 0,
             "vouches_count": r.vouches or 0,
         }
         for r in users_q

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { api, storeTokens } from "@/lib/api";
 import { SocialButtons } from "@/components/SocialButtons";
+import { SealMark, ScorredWordmark } from "@/components/ui";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -34,13 +35,9 @@ export default function SignInPage() {
     <div className="min-h-screen flex items-center justify-center bg-[var(--bone)] px-4">
       <div className="w-full max-w-sm bg-[var(--paper)] rounded-2xl shadow-[var(--shadow-3)] p-8">
         {/* Logo */}
-        <div className="flex items-center gap-2 mb-8">
-          <span className="w-9 h-9 rounded-full bg-[var(--stamp-red)] flex items-center justify-center text-white font-black text-sm shrink-0">
-            CH
-          </span>
-          <span className="text-2xl font-extrabold tracking-tight" style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>
-            CollectorHub
-          </span>
+        <div className="flex items-center gap-2.5 mb-8">
+          <SealMark size={34} />
+          <ScorredWordmark fontSize={22} />
         </div>
 
         <h2 className="text-[26px] font-bold mb-1" style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>
@@ -94,7 +91,7 @@ export default function SignInPage() {
         <SocialButtons onError={setError} />
 
         <p className="text-sm text-[var(--ink-faint)] text-center mt-6">
-          New to CollectorHub?{" "}
+          New to Scorred?{" "}
           <Link href="/auth/signup" className="text-[var(--stamp-red)] font-medium hover:underline">
             Sign up
           </Link>

@@ -133,8 +133,9 @@ async def create_post(
         db.add(PostCommunity(post_id=post.id, community_id=cid, status=cstatus))
     await db.flush()
 
-    # XP: showcases (+15) and reviews (+15) earn; dedup'd on post id (GM-05).
-    if body.type == "showcase":
+    # XP (dedup'd on post id): showcase/poll/ISO posts all earn the +25 showcase
+    # award (v6 DV6-04); reviews earn +15.
+    if body.type in ("showcase", "poll", "iso"):
         await award_xp(db, current_user, "showcase", ref_id=str(post.id), ref_type="post")
     elif body.type == "review":
         await award_xp(db, current_user, "review", ref_id=str(post.id), ref_type="post")

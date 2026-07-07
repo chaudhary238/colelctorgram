@@ -58,10 +58,12 @@ export const CAT_META: Record<string, { label: string; titleEg: string; brandEg:
   tcg: { label: "Trading card / set", titleEg: "e.g. Pokémon SV 151 Booster Box (EN)", brandEg: "Pokémon, One Piece TCG, MTG…" },
 };
 
-// ── TCG-specific option lists (DV4-01b). ──
-export const TCG_LANGUAGES = ["EN", "JP", "KR", "TW", "Other"] as const;
-export const TCG_PRODUCT_TYPES = ["Single Card", "Booster Pack", "Booster Box", "Elite Trainer Box", "Collection Box", "Case"] as const;
-export const TCG_GRADERS = ["PSA", "BGS", "CGC"] as const;
+// ── TCG-specific option lists (DV4-01b; reconciled to design_v6 AddListing in DV6-11c —
+// broader language set + design's product types unioned with existing ones to avoid orphaning
+// already-seeded values like "Case" / "Collection Box"). ──
+export const TCG_LANGUAGES = ["EN", "JP", "KR", "TW", "FR", "DE", "IT", "PT", "ES"] as const;
+export const TCG_PRODUCT_TYPES = ["Single Card", "Booster Pack", "Booster Box", "Elite Trainer Box", "Collection Box", "Sealed Set", "Bundle", "Case"] as const;
+export const TCG_GRADERS = ["PSA", "BGS", "CGC", "ACE"] as const;
 
 // ── Pre-order release-window helpers (DV4-03a). ──
 export const PO_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;

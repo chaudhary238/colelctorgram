@@ -110,7 +110,7 @@ export function RightRail() {
       <div className="px-1.5 pt-7 text-[11.5px] text-[var(--ink-ghost)]" style={{ lineHeight: 1.7 }}>
         About · Help · Press · API · Communities · Events · Privacy · Terms
         <br />
-        <span style={{ letterSpacing: "0.04em" }}>© 2026 CollectorHub</span>
+        <span style={{ letterSpacing: "0.04em" }}>© 2026 Scorred</span>
       </div>
     </aside>
   );

@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 const SEED_ACCOUNTS = [
-  { handle: "collectohub_admin", name: "CollectorHub Official", role: "Admin" },
+  { handle: "collectohub_admin", name: "Scorred Official", role: "Admin" },
   { handle: "figurehead", name: "Figurehead", role: "Seed" },
   { handle: "blindbox_queen", name: "Blindbox Queen", role: "Seed" },
 ];

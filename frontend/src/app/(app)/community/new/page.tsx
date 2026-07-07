@@ -200,7 +200,7 @@ export default function CreateCommunityPage() {
           <Shield size={18} />{submitting ? "Submitting…" : "Submit for review"}
         </button>
         <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8 }}>
-          CollectorHub reviews new communities before they&rsquo;re public.
+          Scorred reviews new communities before they&rsquo;re public.
         </div>
       </div>
     </div>
