@@ -340,8 +340,9 @@ export default function AddListingPage() {
     setPhotoPublic((v) => v.filter((_, idx) => idx !== i));
   };
   const togglePhotoPublic = (i: number) => setPhotoPublic((v) => v.map((x, idx) => (idx === i ? !x : x)));
-  // A new entry's first photo is the mandatory public reference; otherwise honor the toggle.
-  const isPhotoPublic = (i: number) => (!linkedSku && i === 0) || !!photoPublic[i];
+  // A new entry's first photo is the mandatory public reference; a listed item's photos are
+  // public by nature (it's a public sale); otherwise honor the per-photo toggle (DV6-13).
+  const isPhotoPublic = (i: number) => (!linkedSku && i === 0) || forSale || !!photoPublic[i];
 
   const submit = async () => {
     if (invalid) { setTried(true); return; }

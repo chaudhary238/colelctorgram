@@ -403,9 +403,13 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
     items = {i.id: i for i in items_result.scalars().all()}
 
     # Real uploaded photos (DF-17) — grouped by item, ordered oldest→newest so the
-    # first photo the seller added is the cover.
+    # first photo the seller added is the cover. DV6-13: a public marketplace only shows
+    # PUBLIC photos (listing photos are public by nature); items with none fall back to the
+    # shared catalogue reference image below.
     photos_result = await db.execute(
-        select(ItemPhoto).where(ItemPhoto.item_id.in_(item_ids)).order_by(ItemPhoto.uploaded_at)
+        select(ItemPhoto)
+        .where(ItemPhoto.item_id.in_(item_ids), ItemPhoto.is_public == True)
+        .order_by(ItemPhoto.uploaded_at)
     )
     photos_by_item: dict = {}
     for p in photos_result.scalars().all():
@@ -459,7 +463,10 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
         title = (cat.title if cat else None) or (item.custom_title if item else None) or l.sku or "Unknown item"
         category = (cat.category if cat else None) or (item.category if item else None)
         verify_tier = item.verify_tier if item else "claimed"
+        # DV6-13 — inherit the shared catalogue reference image when the seller has no public photo.
         item_photos = photos_by_item.get(l.item_id, [])
+        if not item_photos and cat and cat.thumbnail_url:
+            item_photos = [cat.thumbnail_url]
 
         out.append({
             "id": str(l.id),
