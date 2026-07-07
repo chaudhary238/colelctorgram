@@ -9,6 +9,7 @@ from sqlalchemy import select, or_, func
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.catalogue import Catalogue
+from app.models.trust import Report
 from app.services.catalogue import norm_title, MATCH_MEDIUM
 from app.services.gamification import award_xp
 
@@ -118,6 +119,47 @@ async def catalogue_brands(
     rows = (await db.execute(stmt)).scalars().all()
     brands = sorted({b.strip() for b in rows if b and b.strip()}, key=str.lower)
     return {"brands": brands}
+
+
+class ReportCatalogueBody(BaseModel):
+    reason: str
+    notes: Optional[str] = None
+
+
+@router.post("/{sku}/report", status_code=201)
+async def report_catalogue(
+    sku: str,
+    body: ReportCatalogueBody,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Reactive moderation (DV6-13): flag a catalogue entry (wrong info, duplicate,
+    bad/NSFW image, counterfeit…). Goes to the admin reports queue; the entry stays
+    live until an admin acts. Deduped per (reporter, sku)."""
+    entry = (await db.execute(select(Catalogue).where(Catalogue.sku == sku))).scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Item not found")
+    existing = (await db.execute(
+        select(Report).where(
+            Report.reporter_id == current_user.id,
+            Report.target_type == "catalogue",
+            Report.target_ref == sku,
+            Report.status == "pending",
+        )
+    )).scalar_one_or_none()
+    if existing:
+        return {"id": str(existing.id), "already_reported": True}
+    report = Report(
+        reporter_id=current_user.id,
+        target_type="catalogue",
+        target_ref=sku,
+        reason=body.reason.strip() or "unspecified",
+        notes=(body.notes or "").strip() or None,
+        status="pending",
+    )
+    db.add(report)
+    await db.flush()
+    return {"id": str(report.id), "already_reported": False}
 
 
 @router.post("", status_code=201)

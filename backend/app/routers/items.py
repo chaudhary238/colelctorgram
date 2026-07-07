@@ -11,6 +11,7 @@ from sqlalchemy import select, func
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.item import Item, ItemPhoto
+from app.models.catalogue import Catalogue
 from app.models.user import Follow, User
 from app.services.gamification import resolve_referral
 from app.services.catalogue import resolve_or_create
@@ -106,6 +107,8 @@ class ItemOut(BaseModel):
     # on the item detail page (populated by get_item; None on create/update responses).
     owner_handle: Optional[str] = None
     owner_name: Optional[str] = None
+    # v6 DV6-13 — Official badge from the linked catalogue entry (admin-blessed).
+    catalogue_is_official: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -294,7 +297,18 @@ async def get_item(
             raise HTTPException(status_code=404, detail="Item not found")
 
     photos = (await db.execute(select(ItemPhoto).where(ItemPhoto.item_id == item.id))).scalars().all()
-    out = _item_out(item, photos)
+    # DV6-13 — privacy: a non-owner only sees the owner's PUBLIC photos.
+    is_owner = item.user_id == current_user.id
+    visible = photos if is_owner else [p for p in photos if p.is_public]
+    out = _item_out(item, visible)
+    # DV6-13 — cover fallback + Official badge from the linked catalogue entry: if the
+    # viewer has no visible photo, show the shared reference image instead of a blank.
+    cat = await db.get(Catalogue, item.sku) if item.sku else None
+    if cat:
+        out["catalogue_is_official"] = cat.is_official
+        if not out.get("images") and cat.thumbnail_url:
+            out["images"] = [cat.thumbnail_url]
+            out["image_url"] = cat.thumbnail_url
     # DV6-11h — attach the owner's identity for the "DB Contribution by @handle" attribution.
     owner = await db.get(User, item.user_id)
     if owner:

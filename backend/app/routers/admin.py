@@ -43,13 +43,57 @@ async def list_reports(
             "id": str(r.id),
             "reporter_id": str(r.reporter_id),
             "target_type": r.target_type,
-            "target_id": str(r.target_id),
+            "target_id": str(r.target_id) if r.target_id else None,
+            "target_ref": r.target_ref,  # DV6-13 — string-keyed targets (e.g. catalogue SKU)
             "reason": r.reason,
+            "notes": r.notes,
             "status": r.status,
             "created_at": r.created_at.isoformat(),
         }
         for r in reports
     ]
+
+
+@router.patch("/reports/{report_id}/resolve", status_code=204)
+async def resolve_report(
+    report_id: str,
+    action: str = Query("dismissed", pattern="^(dismissed|actioned)$"),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Close a report from the queue (DV6-13). 'dismissed' = no issue; 'actioned' = handled."""
+    r = (await db.execute(select(Report).where(Report.id == report_id))).scalar_one_or_none()
+    if r:
+        r.status = action
+        r.reviewed_by = admin.id
+
+
+@router.patch("/catalogue/{sku}/remove", status_code=204)
+async def remove_catalogue(
+    sku: str,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    """Reactively take a catalogue entry down (DV6-13) — hidden from search/resolve; its
+    linked items fall back to their own photos. Reversible via /restore."""
+    item = (await db.execute(select(Catalogue).where(Catalogue.sku == sku))).scalar_one_or_none()
+    if item:
+        item.status = "removed"
+
+
+@router.patch("/catalogue/{sku}/official", status_code=204)
+async def mark_catalogue_official(
+    sku: str,
+    official: bool = Query(True),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    """Toggle the admin-blessed 'Official' badge on a catalogue entry (DV6-13)."""
+    item = (await db.execute(select(Catalogue).where(Catalogue.sku == sku))).scalar_one_or_none()
+    if item:
+        item.is_official = official
+        if official and item.status == "removed":
+            item.status = "live"
 
 
 @router.get("/catalogue/pending")

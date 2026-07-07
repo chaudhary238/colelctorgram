@@ -11,6 +11,7 @@ from app.database import get_db
 from app.dependencies import get_current_user, get_optional_user
 from app.models.user import User, Follow
 from app.models.item import Item, ItemPhoto
+from app.models.catalogue import Catalogue
 from app.models.listing import Listing
 from app.models.post import Post, PostLike, PostSave
 from app.models.deal import Vouch, VouchRequest
@@ -799,16 +800,28 @@ async def get_collection(
         return False
 
     # Cover photo per item (first non-verify upload), fetched in one query for the page.
+    # DV6-13 — a non-owner only sees PUBLIC photos; items with no visible photo fall back
+    # to the shared catalogue reference image so grids never show a blank tile.
+    is_owner_view = bool(viewer and viewer.id == target_user.id)
     covers: dict = {}
     item_ids = [i.id for i in items]
     if item_ids:
-        photo_rows = await db.execute(
-            select(ItemPhoto.item_id, ItemPhoto.url)
-            .where(ItemPhoto.item_id.in_(item_ids))
-            .order_by(ItemPhoto.item_id, ItemPhoto.is_verify_photo.asc(), ItemPhoto.uploaded_at.asc())
-        )
-        for iid, url in photo_rows.all():
+        cover_q = select(ItemPhoto.item_id, ItemPhoto.url).where(ItemPhoto.item_id.in_(item_ids))
+        if not is_owner_view:
+            cover_q = cover_q.where(ItemPhoto.is_public == True)
+        cover_q = cover_q.order_by(ItemPhoto.item_id, ItemPhoto.is_verify_photo.asc(), ItemPhoto.uploaded_at.asc())
+        for iid, url in (await db.execute(cover_q)).all():
             covers.setdefault(iid, url)  # first row per item = cover
+        # Catalogue-reference fallback for items with no (visible) cover.
+        missing_skus = {i.sku for i in items if i.sku and i.id not in covers}
+        if missing_skus:
+            cat_rows = await db.execute(
+                select(Catalogue.sku, Catalogue.thumbnail_url).where(Catalogue.sku.in_(missing_skus))
+            )
+            cat_thumb = {sku: url for sku, url in cat_rows.all() if url}
+            for i in items:
+                if i.id not in covers and i.sku and cat_thumb.get(i.sku):
+                    covers[i.id] = cat_thumb[i.sku]
 
     return {
         "page": page,

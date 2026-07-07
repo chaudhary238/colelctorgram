@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Tag, PlusCircle, Shield, Clock, Plus, Check, Eye, ChevronRight, Search, Sparkles, Info } from "lucide-react";
+import { X, Tag, PlusCircle, Shield, Clock, Plus, Check, Eye, ChevronRight, Search, Sparkles, Info, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { fireXpToast, fireToast } from "@/components/gamification";
@@ -19,7 +19,7 @@ type AcqMode = "inhand" | "preorder" | "intel";
 interface CatalogueHit {
   sku: string; title: string; brand: string; category: string;
   scale?: string | null; thumbnail_url: string | null;
-  pending?: boolean; score?: number | null;
+  pending?: boolean; score?: number | null; is_official?: boolean;
 }
 
 // v6 "What are you adding?" mode picker (design_v6/app/AddListing.jsx → AcqModePicker).
@@ -75,6 +75,104 @@ function ModePicker({ onPick, onClose }: { onPick: (m: AcqMode) => void; onClose
   );
 }
 
+// DV6-13 — search-first step: find the item in the shared catalogue before adding. Picking a
+// hit links the SKU (you inherit its reference image); "Add new" opens the full form.
+function SearchStep({ onPick, onAddNew, onBack }: { onPick: (h: CatalogueHit) => void; onAddNew: () => void; onBack: () => void }) {
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState<CatalogueHit[]>([]);
+  const [loading, setLoading] = useState(false);
+  const deb = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (deb.current) clearTimeout(deb.current);
+    const query = q.trim();
+    deb.current = setTimeout(async () => {
+      if (query.length < 3) { setHits([]); setLoading(false); return; }
+      setLoading(true);
+      try {
+        const data = await api.get<{ hits: CatalogueHit[] }>(`/catalogue/search?q=${encodeURIComponent(query)}`);
+        setHits(data.hits.slice(0, 12));
+      } catch { setHits([]); } finally { setLoading(false); }
+    }, 280);
+    return () => { if (deb.current) clearTimeout(deb.current); };
+  }, [q]);
+
+  const typed = q.trim().length >= 3;
+
+  return (
+    <div className="w-full max-w-[680px] flex flex-col pb-8">
+      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={onBack} aria-label="Back" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "transparent", cursor: "pointer" }}>
+            <ChevronRight size={18} style={{ transform: "rotate(180deg)" }} />
+          </button>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Find it in the catalogue</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Search first so we don&rsquo;t create a duplicate</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: "14px 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, height: 48, padding: "0 14px", borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>
+          <Search size={18} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by title or brand…"
+            style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)" }} />
+          {q && (
+            <button type="button" onClick={() => setQ("")} aria-label="Clear" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)", display: "flex", padding: 0 }}>
+              <X size={15} />
+            </button>
+          )}
+        </div>
+
+        {typed && (
+          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+            {loading && hits.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-faint)", padding: "8px 2px" }}>Searching…</div>}
+            {hits.map((h) => (
+              <button key={h.sku} type="button" onClick={() => onPick(h)} style={{
+                display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", cursor: "pointer",
+                background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 12, padding: 10,
+              }}>
+                <div style={{ width: 48, height: 48, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
+                  <ProductPhoto tone="ink" src={h.thumbnail_url ?? undefined} ratio="1/1" rounded={8} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.title}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{h.brand}{h.scale && h.scale !== "—" ? ` · ${h.scale}` : ""}</span>
+                    {h.is_official
+                      ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: "var(--verified-teal)" }}><ShieldCheck size={10} />Official</span>
+                      : h.pending
+                        ? <span style={{ fontSize: 10, fontWeight: 700, color: "var(--grail-gold-deep)" }}>Pending review</span>
+                        : null}
+                  </div>
+                </div>
+                <ChevronRight size={18} style={{ color: "var(--ink-ghost)", flexShrink: 0 }} />
+              </button>
+            ))}
+            {!loading && hits.length === 0 && (
+              <div style={{ fontSize: 13, color: "var(--ink-faint)", padding: "8px 2px" }}>No matches in the catalogue.</div>
+            )}
+          </div>
+        )}
+
+        {/* Can't find it → add new (full form). The first photo you add becomes the shared reference. */}
+        <button type="button" onClick={onAddNew} style={{
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, marginTop: 16,
+          borderRadius: 12, border: "1px dashed var(--verified-teal)", background: "var(--verified-teal-soft)",
+          color: "var(--verified-teal)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14.5, cursor: "pointer",
+        }}>
+          <Plus size={17} />
+          {typed ? `Can’t find it — add “${q.trim()}” as new` : "Not in the catalogue? Add it new"}
+        </button>
+        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", textAlign: "center", marginTop: 8, lineHeight: 1.5 }}>
+          Adding new needs one photo — it becomes the shared reference and earns you <b style={{ color: "var(--verified-teal)" }}>+50 XP</b>.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Condition ladder → canonical listing condition keys (CONDITION_LABEL in cards.tsx).
 const CONDITIONS = [
   { id: "sealed_misb", label: "Sealed", sub: "Factory sealed, never opened" },
@@ -112,10 +210,13 @@ export default function AddListingPage() {
   const hasSku = !!params?.get("sku");
   const initAcq: AcqMode = preMode === "preorder" || preMode === "intel" ? preMode : "inhand";
   const [acq, setAcq] = useState<AcqMode>(initAcq);
-  const [step, setStep] = useState<"pick" | "form">(preMode || hasSku ? "form" : "pick");
+  // DV6-13 — flow is pick (mode) → search (find in catalogue) → form. ?mode/?sku deep-links skip ahead.
+  const [step, setStep] = useState<"pick" | "search" | "form">(hasSku ? "form" : preMode ? "search" : "pick");
 
   const [cat, setCat] = useState("figures");
   const [photos, setPhotos] = useState<string[]>([]);
+  // DV6-13 — per-photo "share to catalogue" visibility (parallel to photos). Private by default.
+  const [photoPublic, setPhotoPublic] = useState<boolean[]>([]);
   const [title, setTitle] = useState("");
   const [brand, setBrand] = useState("");
   const [brandFocus, setBrandFocus] = useState(false);
@@ -234,7 +335,13 @@ export default function AddListingPage() {
   const invalid = Object.values(miss).some(Boolean);
   const condLabel = CONDITIONS.find((c) => c.id === cond)?.label ?? (acq === "preorder" ? "Pre-order" : "");
 
-  const rmPhoto = (i: number) => setPhotos((p) => p.filter((_, idx) => idx !== i));
+  const rmPhoto = (i: number) => {
+    setPhotos((p) => p.filter((_, idx) => idx !== i));
+    setPhotoPublic((v) => v.filter((_, idx) => idx !== i));
+  };
+  const togglePhotoPublic = (i: number) => setPhotoPublic((v) => v.map((x, idx) => (idx === i ? !x : x)));
+  // A new entry's first photo is the mandatory public reference; otherwise honor the toggle.
+  const isPhotoPublic = (i: number) => (!linkedSku && i === 0) || !!photoPublic[i];
 
   const submit = async () => {
     if (invalid) { setTried(true); return; }
@@ -278,8 +385,7 @@ export default function AddListingPage() {
       // Attach uploaded photos (oldest-first = cover order). Personal photos are private by
       // default (DV6-13); the first photo of a NEW catalogue entry is the shared public reference.
       for (let idx = 0; idx < photos.length; idx++) {
-        const isPublicCover = !linkedSku && idx === 0;
-        await api.post(`/items/${item.id}/photos?url=${encodeURIComponent(photos[idx])}${isPublicCover ? "&is_public=true" : ""}`);
+        await api.post(`/items/${item.id}/photos?url=${encodeURIComponent(photos[idx])}${isPhotoPublic(idx) ? "&is_public=true" : ""}`);
       }
       // DV6-10b — surface the +50 XP when this was the first contribution to the shared DB;
       // DV6-12 — otherwise, if the server auto-linked a free-text add to an existing catalogue
@@ -313,8 +419,30 @@ export default function AddListingPage() {
     }
   };
 
+  // DV6-13 — picking a catalogue hit at the search step pre-fills the form and links the SKU
+  // (you inherit its shared reference image; no upload required).
+  const prefillFromHit = (h: CatalogueHit) => {
+    setLinkedSku(h.sku);
+    setTitle(h.title);
+    setBrand(h.brand);
+    if (h.category) setCat(h.category);
+    if (h.scale && h.scale !== "—") setScale(h.scale);
+    setDupes([]);
+    setStep("form");
+  };
+
   if (step === "pick") {
-    return <ModePicker onPick={(m) => { setAcq(m); if (m !== "inhand") setForSale(false); setStep("form"); }} onClose={() => router.push("/market")} />;
+    return <ModePicker onPick={(m) => { setAcq(m); if (m !== "inhand") setForSale(false); setStep("search"); }} onClose={() => router.push("/market")} />;
+  }
+
+  if (step === "search") {
+    return (
+      <SearchStep
+        onPick={prefillFromHit}
+        onAddNew={() => { setLinkedSku(null); setStep("form"); }}
+        onBack={() => setStep("pick")}
+      />
+    );
   }
 
   const mode = ACQ_MODES.find((m) => m.id === acq)!;
@@ -324,7 +452,7 @@ export default function AddListingPage() {
     <div className="w-full max-w-[680px] flex flex-col pb-8">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button onClick={() => setStep("pick")} aria-label="Change what you're adding" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "transparent", cursor: "pointer" }}>
+          <button onClick={() => setStep(hasSku ? "pick" : "search")} aria-label="Back to search" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "transparent", cursor: "pointer" }}>
             <ChevronRight size={18} style={{ transform: "rotate(180deg)" }} />
           </button>
           <div style={{ flex: 1 }}>
@@ -551,8 +679,19 @@ export default function AddListingPage() {
             {photos.map((url, i) => (
               <div key={i} style={{ position: "relative", width: 88, height: 88, flexShrink: 0 }}>
                 <ProductPhoto tone="ink" src={url} ratio="1/1" rounded={13} />
-                {i === 0 && (
-                  <span style={{ position: "absolute", bottom: 6, left: 6, background: "var(--ink)", color: "var(--paper)", fontWeight: 700, fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase", padding: "3px 5px", borderRadius: 4 }}>Cover</span>
+                {/* DV6-13 — visibility chip. New-entry cover is the mandatory public reference (locked). */}
+                {!linkedSku && i === 0 ? (
+                  <span title="Shared reference image — required to add a new item" style={{ position: "absolute", bottom: 6, left: 6, display: "inline-flex", alignItems: "center", gap: 3, background: "var(--verified-teal)", color: "var(--paper)", fontWeight: 700, fontSize: 9, letterSpacing: "0.06em", textTransform: "uppercase", padding: "3px 5px", borderRadius: 4 }}>
+                    <Eye size={9} /> Cover
+                  </span>
+                ) : (
+                  <button type="button" onClick={() => togglePhotoPublic(i)} title={isPhotoPublic(i) ? "Shared to the catalogue — tap to make private" : "Private to you — tap to share to the catalogue"} style={{
+                    position: "absolute", bottom: 6, left: 6, display: "inline-flex", alignItems: "center", gap: 3, cursor: "pointer",
+                    background: isPhotoPublic(i) ? "var(--verified-teal)" : "rgba(15,23,42,0.72)", color: "var(--paper)",
+                    fontWeight: 700, fontSize: 9, letterSpacing: "0.04em", textTransform: "uppercase", padding: "3px 6px", borderRadius: 4, border: "none",
+                  }}>
+                    {isPhotoPublic(i) ? <><Eye size={9} /> Public</> : "Private"}
+                  </button>
                 )}
                 <button type="button" onClick={() => rmPhoto(i)} aria-label="Remove photo" style={{
                   position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: "50%", cursor: "pointer",
@@ -566,7 +705,7 @@ export default function AddListingPage() {
         )}
         {photos.length < photoMax && (
           // Key by count so each add remounts a fresh, empty uploader (it keeps its own preview).
-          <ImageUploader key={photos.length} onUpload={(url) => setPhotos((p) => [...p, url])} label={photos.length ? "Add another photo" : "Add a photo"} />
+          <ImageUploader key={photos.length} onUpload={(url) => { setPhotos((p) => [...p, url]); setPhotoPublic((v) => [...v, false]); }} label={photos.length ? "Add another photo" : "Add a photo"} />
         )}
 
         <Label hint="optional">Description</Label>
