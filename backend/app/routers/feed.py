@@ -79,7 +79,7 @@ async def get_feed(
         )
         followed_ids = {str(r) for r in follows.scalars().all()}
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
     # DF-27 — pending (awaiting-mod-review) community posts never appear in the feed.
     # DF-30h — to_feed gates posts the author chose to keep community-only.
     stmt = select(Post).where(
