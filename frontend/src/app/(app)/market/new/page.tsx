@@ -500,11 +500,8 @@ export default function AddListingPage() {
             <Lock size={14} style={{ color: "var(--verified-teal)", flexShrink: 0, marginTop: 1 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <span style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.45 }}>
-                Linked to the Scorred catalogue — the <b>title, brand, category &amp; year</b> are shared and can&rsquo;t be edited here. Your scale, photos, condition and notes stay yours.
+                Linked to the Scorred catalogue — the <b>title, brand, category &amp; year</b> are shared and can&rsquo;t be edited. Your scale, photos, condition and notes stay yours. To use a different item, go <b>back</b> and search again.
               </span>
-              <button type="button" onClick={() => { setLinkedSku(null); setRefImage(null); }} style={{ display: "block", marginTop: 5, background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "var(--verified-teal)" }}>
-                Unlink to edit / add as new
-              </button>
             </div>
           </div>
         )}
@@ -704,9 +701,6 @@ export default function AddListingPage() {
           <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 9, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)" }}>
             <Check size={13} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
             <span style={{ fontSize: 12, color: "var(--verified-teal)", fontWeight: 600 }}>Linked to catalogue — pre-filled from the Scorred DB</span>
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); setLinkedSku(null); setRefImage(null); }} aria-label="Unlink" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)", padding: 0, display: "flex", marginLeft: "auto" }}>
-              <X size={14} strokeWidth={2} />
-            </button>
           </div>
         )}
         {isNewToDb && (
