@@ -96,6 +96,7 @@ async def global_search(
     q: str = Query(..., min_length=1),
     limit: int = Query(5, le=10),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     pattern = f"%{q}%"
 

@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Heart, MessageCircle, Share2, Bookmark, Send, Tag as TagIcon, MapPin, MessageSquare } from "lucide-react";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
-import { ApiPost } from "@/components/cards";
+import { ApiPost, PollBlock } from "@/components/cards";
 import { BackButton } from "@/components/BackButton";
 import { useUser } from "@/lib/auth-context";
 import { Avatar, Stars, PostTypeTag, ProductPhoto, SectionLabel } from "@/components/ui";
@@ -183,7 +183,9 @@ export default function PostDetailPage() {
               <Avatar name={post.name ?? "?"} size={40} />
             </Link>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{post.name}</div>
+              <Link href={`/profile/${post.handle}`} style={{ textDecoration: "none", color: "inherit" }} className="hover:underline">
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{post.name}</div>
+              </Link>
               <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{post.handle} · {timeAgo(post.created_at)}</div>
             </div>
           </div>
@@ -239,6 +241,12 @@ export default function PostDetailPage() {
         {post.images.length === 0 && post.type === "showcase" && (
           <div style={{ marginBottom: 14 }}>
             <ProductPhoto tone="teal" ratio="3/2" />
+          </div>
+        )}
+
+        {post.type === "poll" && post.poll_options && (
+          <div style={{ margin: "0 -16px 14px" }}>
+            <PollBlock postId={post.id} options={post.poll_options} initialVote={post.my_poll_vote} />
           </div>
         )}
 

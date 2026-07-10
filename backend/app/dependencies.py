@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -14,13 +13,15 @@ from app.services.auth import decode_access_token
 _PRESENCE_THROTTLE = timedelta(seconds=60)
 
 bearer = HTTPBearer()
-optional_bearer = HTTPBearer(auto_error=False)
 
 
-async def get_current_user(
+async def get_current_user_unverified(
     credentials: HTTPAuthorizationCredentials = Depends(bearer),
     db: AsyncSession = Depends(get_db),
 ):
+    """Authenticated user, email verification NOT required. Only for endpoints an
+    unverified account must reach: verify-email, resend-otp, change-password, and
+    GET /users/me (the verify page's session fetch)."""
     from app.models.user import User
 
     token = credentials.credentials
@@ -44,21 +45,16 @@ async def get_current_user(
     return user
 
 
-async def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_bearer),
-    db: AsyncSession = Depends(get_db),
-) -> Optional[object]:
-    from app.models.user import User
-
-    if not credentials:
-        return None
-    payload = decode_access_token(credentials.credentials)
-    if not payload:
-        return None
-    user_id = payload.get("sub")
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    return user if user and not user.is_suspended else None
+async def get_current_user(current_user=Depends(get_current_user_unverified)):
+    """Standard auth dependency: valid token AND verified email. The frontend only
+    routes users past /auth/verify once verified, so a 403 here means the API was
+    hit directly with an unverified account."""
+    if not current_user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email verification required",
+        )
+    return current_user
 
 
 async def get_current_admin(current_user=Depends(get_current_user)):

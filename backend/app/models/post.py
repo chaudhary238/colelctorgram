@@ -101,6 +101,20 @@ class PostSave(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class PollVote(Base):
+    """One vote per user per poll post (post.type == 'poll').
+
+    Votes are locked: once a user has a row here, they cannot switch options.
+    option_index points into the poll_options dict's insertion-ordered keys.
+    """
+    __tablename__ = "poll_votes"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    post_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("posts.id", ondelete="CASCADE"), primary_key=True)
+    option_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class Comment(Base):
     __tablename__ = "comments"
 

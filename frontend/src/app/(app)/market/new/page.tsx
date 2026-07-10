@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Tag, PlusCircle, Shield, Clock, Plus, Check, Eye, ChevronRight, Search, Sparkles, Info, ShieldCheck } from "lucide-react";
+import { X, Tag, PlusCircle, Shield, Clock, Plus, Check, Eye, ChevronRight, Search, Sparkles, Info, ShieldCheck, Lock } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { fireXpToast, fireToast } from "@/components/gamification";
@@ -201,6 +201,16 @@ function Label({ children, required, missing, hint }: {
   );
 }
 
+// DV6-13 — read-only display of a catalogue-owned fact when linked to an existing entry.
+function LockedPill({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 7, minHeight: 46, padding: "0 13px", borderRadius: 11, background: "var(--bone)", border: "1px solid var(--border)", color: "var(--ink-mute)", fontSize: 15, fontWeight: 500 }}>
+      <Lock size={13} style={{ flexShrink: 0, color: "var(--ink-faint)" }} />
+      <span>{children}</span>
+    </div>
+  );
+}
+
 export default function AddListingPage() {
   const router = useRouter();
   const { user } = useUser();
@@ -279,6 +289,9 @@ export default function AddListingPage() {
   const isIntel = acq === "intel"; // DB Contribution — unowned, no condition/sale
   const canSell = acq === "inhand"; // pre-orders & DB contributions can't be listed
   const photoMax = 4; // DV6-13 — up to 4 personal photos per item
+  // DV6-13 — linked to an existing catalogue entry: its facts (title/brand/category/scale/
+  // year/description) are SHARED and read-only here. Editing = unlink and add as new.
+  const locked = !!linkedSku;
 
   const brandList = useMemo(() => {
     const canonical = CAT_BRANDS[cat] ?? CAT_BRANDS.figures;
@@ -481,29 +494,53 @@ export default function AddListingPage() {
       </div>
 
       <div style={{ padding: "4px 20px 16px" }}>
+        {/* DV6-13 — linked to a catalogue entry: its facts are locked (this is a shared record) */}
+        {locked && (
+          <div style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: "10px 12px", marginTop: 14, borderRadius: 11, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)" }}>
+            <Lock size={14} style={{ color: "var(--verified-teal)", flexShrink: 0, marginTop: 1 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.45 }}>
+                Linked to the Scorred catalogue — the <b>title, brand, category &amp; year</b> are shared and can&rsquo;t be edited here. Your scale, photos, condition and notes stay yours.
+              </span>
+              <button type="button" onClick={() => { setLinkedSku(null); setRefImage(null); }} style={{ display: "block", marginTop: 5, background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "var(--verified-teal)" }}>
+                Unlink to edit / add as new
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Category */}
         <Label>Category</Label>
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-          {ADD_CATEGORIES.map((c) => {
-            const on = cat === c.id;
-            return (
-              <button key={c.id} type="button" onClick={() => changeCat(c.id)} style={{
-                display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 999, cursor: "pointer",
-                background: on ? "var(--ink)" : "var(--paper-soft)", color: on ? "var(--paper)" : "var(--ink)",
-                border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
-                fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, lineHeight: 1,
-              }}>
-                {c.label}
-              </button>
-            );
-          })}
-        </div>
-        <div style={{ fontSize: 12, color: "var(--ink-faint)", margin: "9px 2px 0", lineHeight: 1.5 }}>
-          The form adapts to the category — scale, brands and condition are tuned for {meta.label.toLowerCase()}s.
-        </div>
+        {locked ? (
+          <LockedPill>{ADD_CATEGORIES.find((c) => c.id === cat)?.label ?? cat}</LockedPill>
+        ) : (
+          <>
+            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+              {ADD_CATEGORIES.map((c) => {
+                const on = cat === c.id;
+                return (
+                  <button key={c.id} type="button" onClick={() => changeCat(c.id)} style={{
+                    display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 999, cursor: "pointer",
+                    background: on ? "var(--ink)" : "var(--paper-soft)", color: on ? "var(--paper)" : "var(--ink)",
+                    border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
+                    fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, lineHeight: 1,
+                  }}>
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--ink-faint)", margin: "9px 2px 0", lineHeight: 1.5 }}>
+              The form adapts to the category — scale, brands and condition are tuned for {meta.label.toLowerCase()}s.
+            </div>
+          </>
+        )}
 
         {/* Brand — single searchable dropdown (DV6-12): canonical ∪ catalogue brands; no chips */}
         <Label required missing={tried && miss.brand}>Brand</Label>
+        {locked ? (
+          <LockedPill>{brand}</LockedPill>
+        ) : (
         <div style={{ position: "relative" }}>
           <div style={{
             display: "flex", alignItems: "center", gap: 8, height: 46, padding: "0 13px", borderRadius: 11,
@@ -549,6 +586,7 @@ export default function AddListingPage() {
             </div>
           )}
         </div>
+        )}
 
         {/* Scale (or Size for designer) */}
         {usesScale ? (
@@ -633,7 +671,7 @@ export default function AddListingPage() {
 
         {/* Title */}
         <Label required missing={tried && miss.title}>Title</Label>
-        <input value={title} onChange={(e) => { setTitle(e.target.value); setLinkedSku(null); setRefImage(null); }} placeholder={meta.titleEg} style={{ ...fieldStyle, borderColor: tried && miss.title ? "var(--stamp-red)" : "var(--border-strong)" }} />
+        <input value={title} readOnly={locked} onChange={(e) => { setTitle(e.target.value); setLinkedSku(null); setRefImage(null); }} placeholder={meta.titleEg} style={{ ...fieldStyle, borderColor: tried && miss.title ? "var(--stamp-red)" : "var(--border-strong)", ...(locked ? { background: "var(--bone)", color: "var(--ink-mute)", cursor: "default" } : {}) }} />
         {/* Central-catalogue search results — tap to link instead of creating a duplicate (DV6-12) */}
         {!linkedSku && dupes.length > 0 && (
           <div style={{ marginTop: 7, borderRadius: 11, border: "1px solid var(--border-strong)", overflow: "hidden", background: "var(--paper)" }}>
@@ -679,7 +717,7 @@ export default function AddListingPage() {
         )}
 
         <Label hint="optional">Release year</Label>
-        <input value={year} onChange={(e) => setYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))} inputMode="numeric" placeholder="e.g. 2022" style={{ ...fieldStyle, height: 42, fontSize: 14.5, fontFamily: "var(--font-mono)" }} />
+        <input value={year} readOnly={locked} onChange={(e) => setYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))} inputMode="numeric" placeholder="e.g. 2022" style={{ ...fieldStyle, height: 42, fontSize: 14.5, fontFamily: "var(--font-mono)", ...(locked ? { background: "var(--bone)", color: "var(--ink-mute)", cursor: "default" } : {}) }} />
 
         {/* Photos */}
         <Label required missing={tried && miss.photo} hint={refImage ? "your own — optional" : photos.length ? `${photos.length} added · first = cover` : "min 1 · up to 4"}>Photos</Label>

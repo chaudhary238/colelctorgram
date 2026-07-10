@@ -104,6 +104,7 @@ async def create_thread(
         select(Thread).where(Thread.participant_a == a, Thread.participant_b == b)
     )
     thread = existing.scalar_one_or_none()
+    is_new_thread = thread is None
 
     if not thread:
         # Messaging privacy (DF-23): honour the recipient's "who can message me"
@@ -133,7 +134,10 @@ async def create_thread(
         db.add(thread)
         await db.flush()
 
-    if body.initial_message:
+    # Only seed the auto-generated opener on a *brand-new* thread. Re-opening an
+    # existing conversation (e.g. tapping ISO "I have this" a second time) must
+    # NOT keep re-posting the same canned message — just return the thread.
+    if body.initial_message and is_new_thread:
         msg = Message(thread_id=thread.id, sender_id=current_user.id, body=body.initial_message)
         db.add(msg)
         _bump_unread(thread, current_user.id)

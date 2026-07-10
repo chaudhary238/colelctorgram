@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { SealMark } from "@/components/ui";
+import { AdminGuard } from "@/components/AdminGuard";
 
 const ADMIN_NAV = [
   { href: "/admin",              label: "Overview" },
@@ -13,6 +16,7 @@ const ADMIN_NAV = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
+    <AdminGuard>
     <div style={{ display: "flex", width: "100%", minHeight: "100vh", background: "var(--paper)", fontFamily: "var(--font-body)" }}>
       {/* Admin sidebar */}
       <nav style={{ width: 220, flexShrink: 0, height: "100vh", position: "sticky", top: 0, borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", padding: "24px 14px 20px", boxSizing: "border-box" }}>
@@ -42,5 +46,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         .admin-nav-item:hover { background: var(--bone); }
       `}</style>
     </div>
+    </AdminGuard>
   );
 }

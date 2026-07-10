@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 
 from app.database import get_db
-from app.dependencies import get_current_user, get_optional_user
+from app.dependencies import get_current_user
 from app.models.listing import Listing, ListingSave, ListingQuestion, ListingPriceVote
 from app.models.item import Item, ItemPhoto
 from app.models.catalogue import Catalogue
@@ -99,7 +99,7 @@ async def browse_listings(
     saved: bool = False,
     sort: str = "new",
     db: AsyncSession = Depends(get_db),
-    viewer: Optional[User] = Depends(get_optional_user),
+    viewer: User = Depends(get_current_user),
 ):
     # Joins let us search/filter on the item + catalogue + seller (one row per listing).
     category_expr = func.coalesce(Catalogue.category, Item.category)
@@ -161,7 +161,7 @@ async def browse_listings(
 async def get_listing(
     listing_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    viewer: Optional[User] = Depends(get_optional_user),
+    viewer: User = Depends(get_current_user),
 ):
     result = await db.execute(select(Listing).where(Listing.id == listing_id))
     listing = result.scalar_one_or_none()
@@ -229,7 +229,7 @@ class AnswerQuestionBody(BaseModel):
 async def list_questions(
     listing_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    viewer: Optional[User] = Depends(get_optional_user),
+    viewer: User = Depends(get_current_user),
 ):
     result = await db.execute(
         select(ListingQuestion)

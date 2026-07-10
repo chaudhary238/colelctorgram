@@ -20,7 +20,8 @@ function getToken(): string | null {
 
 async function apiFetch<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  isRetry = false
 ): Promise<T> {
   const token = getToken();
   const res = await fetch(`${BASE}${path}`, {
@@ -33,9 +34,11 @@ async function apiFetch<T>(
   });
 
   if (res.status === 401) {
-    // Attempt token refresh
+    // Attempt token refresh — once. A second 401 after a successful refresh means
+    // the rejection isn't expiry (suspended/deleted account), so looping refresh →
+    // retry forever would hammer the API; fall through to signin instead.
     const refresh = localStorage.getItem("ch_refresh_token");
-    if (refresh) {
+    if (refresh && !isRetry) {
       const refreshRes = await fetch(`${BASE}/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -44,7 +47,7 @@ async function apiFetch<T>(
       if (refreshRes.ok) {
         const { access_token, refresh_token } = await refreshRes.json();
         storeTokens(access_token, refresh_token);
-        return apiFetch<T>(path, options); // retry
+        return apiFetch<T>(path, options, true);
       }
     }
     clearTokens();

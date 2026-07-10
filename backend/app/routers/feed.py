@@ -8,9 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
 from app.database import get_db
-from app.dependencies import get_current_user, get_optional_user
+from app.dependencies import get_current_user
 from app.models.user import User, Follow
-from app.models.post import Post, PostLike, PostSave, PostCommunity
+from app.models.post import Post, PostLike, PostSave, PostCommunity, PollVote
 from app.routers.posts import _iso_fields
 
 router = APIRouter(prefix="/feed", tags=["feed"])
@@ -24,7 +24,7 @@ CURATED_TAGS = [
 
 
 @router.get("/tags")
-async def get_popular_tags():
+async def get_popular_tags(current_user: User = Depends(get_current_user)):
     """Popular hashtags for the feed filter slider (curated, Phase 1)."""
     return {"tags": CURATED_TAGS}
 
@@ -58,7 +58,7 @@ async def get_feed(
     sort: str = Query("foryou", pattern="^(foryou|latest|top)$"),
     following_only: bool = False,
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_user),
+    current_user: User = Depends(get_current_user),
 ):
     # Guests (no token) get a non-personalized feed instead of a 401, so
     # "Explore as guest" can actually browse content (DF-37a).
@@ -147,6 +147,19 @@ async def get_feed(
         )
         saved_ids = set(saves_result.scalars().all())
 
+    # Batch the viewer's poll votes for any poll posts on this page (locked votes)
+    poll_votes_by_post: dict = {}
+    if current_user:
+        poll_ids = [p.id for p in page_posts if p.type == "poll"]
+        if poll_ids:
+            pv_result = await db.execute(
+                select(PollVote.post_id, PollVote.option_index).where(
+                    PollVote.user_id == current_user.id,
+                    PollVote.post_id.in_(poll_ids),
+                )
+            )
+            poll_votes_by_post = dict(pv_result.all())
+
     # DF-30h — batch the published community memberships for this page
     pc_result = await db.execute(
         select(PostCommunity.post_id, PostCommunity.community_id).where(
@@ -168,6 +181,7 @@ async def get_feed(
                 p.id in saved_ids,
                 str(p.user_id) in followed_ids,
                 communities_by_post.get(p.id, []),
+                poll_votes_by_post.get(p.id),
             )
             for p in page_posts
         ],
@@ -182,7 +196,7 @@ def _feed_badge(author: Optional[User]) -> Optional[dict]:
     return feed_badge(author)
 
 
-def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, is_following: bool = False, community_ids: Optional[list] = None) -> dict:
+def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, is_following: bool = False, community_ids: Optional[list] = None, my_poll_vote: Optional[int] = None) -> dict:
     return {
         "id": str(p.id),
         "user_id": str(p.user_id),
@@ -204,6 +218,7 @@ def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, 
         **_iso_fields(p),
         "review_rating": p.review_rating,
         "poll_options": p.poll_options,
+        "my_poll_vote": my_poll_vote,
         "is_admin_post": p.is_admin_post,
         "status": p.status,
         "likes_count": p.likes_count,

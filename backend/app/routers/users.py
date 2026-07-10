@@ -8,7 +8,7 @@ from sqlalchemy import select, func
 from typing import Optional
 
 from app.database import get_db
-from app.dependencies import get_current_user, get_optional_user
+from app.dependencies import get_current_user, get_current_user_unverified
 from app.models.user import User, Follow
 from app.models.item import Item, ItemPhoto
 from app.models.catalogue import Catalogue
@@ -64,6 +64,9 @@ class ProfileOut(BaseModel):
     notif_prefs: Optional[dict] = None
     privacy_prefs: Optional[dict] = None
     email_verified: Optional[bool] = None
+    # admin flag — the frontend /admin gate keys off this (data access is still
+    # enforced server-side via get_current_admin)
+    is_admin: Optional[bool] = None
     # Per-view collection visibility (eye toggle) — {grid,chart,calendar: public|private}.
     # Populated for ALL viewers (not nulled for non-owners) so the client can hide
     # views the owner marked private.
@@ -140,7 +143,7 @@ class FollowUserOut(BaseModel):
 
 
 @router.get("/me", response_model=ProfileOut)
-async def get_me(current_user: User = Depends(get_current_user)):
+async def get_me(current_user: User = Depends(get_current_user_unverified)):
     out = _fill_pref_defaults(ProfileOut.model_validate(current_user))
     out.collection_view_privacy = _collection_views(current_user)
     return out
@@ -353,7 +356,7 @@ async def set_collection_view_privacy(
 async def get_profile(
     handle: str,
     db: AsyncSession = Depends(get_db),
-    viewer: Optional[User] = Depends(get_optional_user),
+    viewer: User = Depends(get_current_user),
 ):
     result = await db.execute(select(User).where(User.handle == handle.lower()))
     user = result.scalar_one_or_none()
@@ -388,6 +391,7 @@ async def get_profile(
         out.notif_prefs = None
         out.privacy_prefs = None
         out.email_verified = None
+        out.is_admin = None
         # Presence is opt-out via privacy_prefs.show_online (default on).
         show_online = (user.privacy_prefs or {}).get("show_online", DEFAULT_PRIVACY_PREFS["show_online"])
         if not show_online:
@@ -466,6 +470,7 @@ async def follow_user(
 @router.get("/{handle}/followers", response_model=list[FollowUserOut])
 async def list_followers(
     handle: str,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     limit: int = 40,
     offset: int = 0,
@@ -488,6 +493,7 @@ async def list_followers(
 @router.get("/{handle}/following", response_model=list[FollowUserOut])
 async def list_following(
     handle: str,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     limit: int = 40,
     offset: int = 0,
@@ -620,6 +626,7 @@ async def remove_vouch(
 @router.get("/{handle}/vouches", response_model=list[VouchOut])
 async def list_vouches(
     handle: str,
+    current_user: User = Depends(get_current_user),
     mode: str = Query("received", pattern="^(received|given)$"),
     db: AsyncSession = Depends(get_db),
     limit: int = 40,
@@ -690,6 +697,7 @@ async def request_vouch(
 @router.get("/{handle}/posts")
 async def get_user_posts(
     handle: str,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     page: int = Query(1, ge=1),
     limit: int = Query(20, le=50),
@@ -753,7 +761,7 @@ async def _wishlist_hidden(db: AsyncSession, viewer: Optional[User], target_user
 async def get_collection(
     handle: str,
     db: AsyncSession = Depends(get_db),
-    viewer: Optional[User] = Depends(get_optional_user),
+    viewer: User = Depends(get_current_user),
     status: Optional[str] = None,
     page: int = Query(1, ge=1),
     limit: int = Query(24, le=60),
@@ -848,6 +856,7 @@ async def get_collection(
 @router.get("/{handle}/listings")
 async def get_user_listings(
     handle: str,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     page: int = Query(1, ge=1),
     limit: int = Query(24, le=60),
@@ -888,7 +897,7 @@ async def get_user_listings(
 async def get_user_communities(
     handle: str,
     db: AsyncSession = Depends(get_db),
-    viewer: Optional[User] = Depends(get_optional_user),
+    viewer: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
     limit: int = Query(24, le=60),
 ):

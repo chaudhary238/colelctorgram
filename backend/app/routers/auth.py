@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user_unverified
 from app.models.user import User
 from app.services.auth import (
     create_access_token, create_refresh_token, create_reset_token,
@@ -142,7 +142,7 @@ class VerifyEmailBody(BaseModel):
 async def verify_email(
     body: VerifyEmailBody,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_unverified),
 ):
     """Confirm the 6-digit OTP sent at signup (DF-06 / B-72)."""
     if current_user.email_verified:
@@ -163,7 +163,7 @@ async def verify_email(
 @router.post("/resend-otp")
 async def resend_otp(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_unverified),
 ):
     """Re-issue the email-confirmation code (30s client-side cooldown; server allows on demand)."""
     if current_user.email_verified:
@@ -198,7 +198,7 @@ class ChangePasswordBody(BaseModel):
 async def change_password(
     body: ChangePasswordBody,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_unverified),
 ):
     if not current_user.password_hash or not verify_password(body.current_password, current_user.password_hash):
         raise HTTPException(status_code=400, detail="Current password is incorrect")

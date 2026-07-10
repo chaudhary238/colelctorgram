@@ -52,6 +52,7 @@ async def popular_catalogue(
     category: Optional[str] = Query(None, description="comma-separated categories to prefer (e.g. user interests)"),
     limit: int = Query(6, le=20),
     db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     """Default "Popular in your interests" suggestions for the Add-to-collection form (DV4-02c).
 
@@ -76,6 +77,7 @@ async def search_catalogue(
     scale: Optional[str] = None,
     limit: int = Query(10, le=30),
     db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     """Central-catalogue de-dup search (DV6-12). Ranks by trigram similarity on the
     normalized title, filtered by category/brand/scale, and INCLUDES pending
@@ -110,6 +112,7 @@ async def search_catalogue(
 async def catalogue_brands(
     category: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     """Distinct brands present in the catalogue (optionally within a category), for
     the brand dropdown. The frontend unions these with its canonical CAT_BRANDS list

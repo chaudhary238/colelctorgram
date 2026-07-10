@@ -37,6 +37,8 @@ export interface ApiPost {
   community_ids?: string[];
   review_rating: number | null;
   poll_options: Record<string, unknown> | null;
+  // Viewer's locked poll choice (index into poll_options keys), or null if unvoted.
+  my_poll_vote?: number | null;
   is_admin_post: boolean;
   likes_count: number;
   comments_count: number;
@@ -235,9 +237,12 @@ function ActionBtn({
 
 /* ── Author line ─────────────────────────────────────────────────── */
 function AuthorLine({ post, showFollow }: { post: ApiPost; showFollow?: boolean }) {
+  const { user } = useUser();
   const [following, setFollowing] = useState(post.is_following ?? false);
   const [busy, setBusy] = useState(false);
   const tier = post.tier;
+  // Never offer a Follow button on your own post — you can't follow yourself.
+  const isOwn = !!user && user.id === post.user_id;
 
   async function toggleFollow() {
     if (busy || !post.handle) return;
@@ -260,11 +265,13 @@ function AuthorLine({ post, showFollow }: { post: ApiPost; showFollow?: boolean 
       </Link>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <span style={{ fontWeight: 600, fontSize: 14, color: "var(--ink)" }}>{post.name}</span>
+          <Link href={`/profile/${post.handle ?? "unknown"}`} style={{ textDecoration: "none" }} className="hover:underline">
+            <span style={{ fontWeight: 600, fontSize: 14, color: "var(--ink)" }}>{post.name}</span>
+          </Link>
           {tier && <TierChip tier={tier} />}
           {/* v3 §3: the single rewards badge (First Start badge, else rank badge) */}
           <FeedBadge badge={post.badge} />
-          {showFollow && (
+          {showFollow && !isOwn && (
             <button
               onClick={toggleFollow}
               disabled={busy}
@@ -584,29 +591,62 @@ function CommentThread({ postId, onCountChange }: { postId: string; onCountChang
   );
 }
 
-/* ── Poll block ──────────────────────────────────────────────────── */
-function PollBlock({ options }: { options: Record<string, unknown> }) {
-  const entries = Object.entries(options) as [string, number][];
-  const [vote, setVote] = useState<number | null>(null);
-  const total = entries.reduce((s, [, v]) => s + (v as number), 0) + (vote != null ? 1 : 0);
+/* ── Poll block ──────────────────────────────────────────────────────
+   One vote per user, LOCKED once cast (no switching). The viewer's prior
+   choice arrives as `initialVote` (post.my_poll_vote) so a reload/return shows
+   their selection + results instead of a fresh, votable poll. */
+export function PollBlock({
+  postId, options, initialVote,
+}: {
+  postId: string;
+  options: Record<string, unknown>;
+  initialVote?: number | null;
+}) {
+  const labels = Object.keys(options);
+  const [vote, setVote] = useState<number | null>(initialVote ?? null);
+  // Server counts already include the viewer's vote when initialVote is set.
+  const [counts, setCounts] = useState<number[]>(labels.map((l) => Number(options[l]) || 0));
+  const [busy, setBusy] = useState(false);
+  const voted = vote != null;
+  const total = counts.reduce((s, v) => s + v, 0);
+
+  async function cast(e: React.MouseEvent, i: number) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (voted || busy) return;                     // locked after the first vote
+    setVote(i);
+    setCounts((c) => c.map((v, j) => (j === i ? v + 1 : v)));  // optimistic
+    setBusy(true);
+    try {
+      await api.post(`/posts/${postId}/poll-vote`, { option_index: i });
+    } catch {
+      setVote(null);
+      setCounts((c) => c.map((v, j) => (j === i ? v - 1 : v)));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div style={{ padding: "12px 16px 0", display: "flex", flexDirection: "column", gap: 8 }}>
-      {entries.map(([label, votes], i) => {
-        const v = (votes as number) + (vote === i ? 1 : 0);
+      {labels.map((label, i) => {
+        const v = counts[i];
         const pct = total ? Math.round((v / total) * 100) : 0;
         const picked = vote === i;
         return (
           <button
             key={i}
-            onClick={() => setVote(i)}
+            onClick={(e) => cast(e, i)}
+            disabled={voted || busy}
             style={{
-              position: "relative", overflow: "hidden", textAlign: "left", cursor: "pointer",
+              position: "relative", overflow: "hidden", textAlign: "left",
+              cursor: voted ? "default" : "pointer",
               border: `1px solid ${picked ? "var(--ink)" : "var(--border-strong)"}`,
               borderRadius: 13, background: "var(--paper-soft)", padding: "12px 14px",
               display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
             }}
           >
-            {vote != null && (
+            {voted && (
               <div style={{
                 position: "absolute", inset: 0, width: pct + "%",
                 background: picked ? "var(--plum-soft)" : "var(--bone)",
@@ -614,12 +654,12 @@ function PollBlock({ options }: { options: Record<string, unknown> }) {
               }} />
             )}
             <span style={{ position: "relative", fontSize: 14, fontWeight: picked ? 600 : 500, color: "var(--ink)" }}>{label}</span>
-            {vote != null && <span style={{ position: "relative", fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--ink-mute)" }}>{pct}%</span>}
+            {voted && <span style={{ position: "relative", fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--ink-mute)" }}>{pct}%</span>}
           </button>
         );
       })}
       <div style={{ fontSize: 11.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", marginTop: 2 }}>
-        {total} votes{vote == null ? " · tap to vote" : ""}
+        {total} vote{total === 1 ? "" : "s"}{voted ? "" : " · tap to vote"}
       </div>
     </div>
   );
@@ -772,7 +812,9 @@ export function PostCard({ post, showFollow = false }: { post: ApiPost; showFoll
         </Link>
       )}
 
-      {post.type === "poll" && post.poll_options && <PollBlock options={post.poll_options} />}
+      {post.type === "poll" && post.poll_options && (
+        <PollBlock postId={post.id} options={post.poll_options} initialVote={post.my_poll_vote} />
+      )}
 
       <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "12px 18px 14px" }}>
         <ActionBtn icon={<Heart size={20} strokeWidth={1.8} fill={liked ? "var(--stamp-red)" : "none"} />} label={likes.toLocaleString()} active={liked} onClick={toggleLike} />

@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Plus, Send, Shield, Tag, Share2, MoreHorizontal } from "lucide-react";
+import { Plus, Send, Shield, Tag, Share2, MoreHorizontal } from "lucide-react";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
 import { Avatar, VerifyBadge, Money } from "@/components/ui";
 import { ProfileMoreMenu } from "@/components/ProfileMoreMenu";
+import { BackButton } from "@/components/BackButton";
 
 interface ChatUser {
   id: string;
@@ -176,9 +177,9 @@ export default function ChatPage() {
       {/* Header */}
       <div style={{ flexShrink: 0, background: "var(--paper)", borderBottom: "1px solid var(--border)", padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link href="/inbox" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)" }}>
-            <ArrowLeft size={18} />
-          </Link>
+          {/* Context-aware back: returns to wherever you opened this DM from
+              (e.g. an ISO post), falling back to the inbox on a cold entry. */}
+          <BackButton fallback="/inbox" />
           <Link href={`/profile/${other?.handle}`} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, textDecoration: "none" }}>
             <Avatar name={other?.name ?? "?"} size={36} verified={other?.tier === "top_seller"} />
             <div>

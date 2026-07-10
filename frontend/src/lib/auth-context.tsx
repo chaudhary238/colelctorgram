@@ -29,6 +29,7 @@ export interface AuthUser {
   notif_prefs?: NotifPrefs | null;
   privacy_prefs?: PrivacyPrefs | null;
   email_verified?: boolean | null;
+  is_admin?: boolean | null; // me-only field; gates the /admin console UI
 }
 
 export interface NotifPrefs {

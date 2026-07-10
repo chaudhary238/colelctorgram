@@ -6,7 +6,7 @@
 // (default ON) hides interspersed listing cards from For You.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Globe, Home, UserPlus, Check, SlidersHorizontal } from "lucide-react";
+import { Globe, Home, UserPlus, Check, ChevronDown } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser, AuthUser } from "@/lib/auth-context";
 import { PostCard, ListingFeedCard, FeedEventCard, ApiPost, ApiListing, ApiEvent } from "@/components/cards";
@@ -185,23 +185,111 @@ function CustomizePopover({
   );
 }
 
+// Scroll/state restoration (issue #6): when you open a post and come back, the
+// feed must resume where you left off — same posts, same tab/tag, same scroll —
+// instead of refetching page 1 and jumping to the top. We snapshot the feed to
+// sessionStorage on leave and rehydrate from it on mount (5-min TTL).
+const FEED_SNAPSHOT_KEY = "feed:snapshot";
+const SNAPSHOT_TTL_MS = 5 * 60 * 1000;
+const MAX_SNAPSHOT_POSTS = 100;
+
+interface FeedSnapshot {
+  tab: Tab; tag: string; posts: ApiPost[]; page: number; hasMore: boolean; scrollTop: number; ts: number;
+}
+
+function readFeedSnapshot(): FeedSnapshot | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(FEED_SNAPSHOT_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as FeedSnapshot;
+    if (!s.posts?.length || Date.now() - s.ts > SNAPSHOT_TTL_MS) return null;
+    return s;
+  } catch {
+    return null;
+  }
+}
+
 export default function FeedPage() {
   const { user, setUser } = useUser();
-  const [tab, setTab] = useState<Tab>("foryou");
-  const [tag, setTag] = useState("All");
+  // Read any restore snapshot exactly once (lazy initializer → runs on mount only).
+  const [snap] = useState<FeedSnapshot | null>(readFeedSnapshot);
+
+  const [tab, setTab] = useState<Tab>(snap?.tab ?? "foryou");
+  const [tag, setTag] = useState(snap?.tag ?? "All");
   const [tags, setTags] = useState<string[]>(FALLBACK_TAGS);
   const [customOpen, setCustomOpen] = useState(false);
-  const [posts, setPosts] = useState<ApiPost[]>([]);
+  const [posts, setPosts] = useState<ApiPost[]>(snap?.posts ?? []);
   const [listings, setListings] = useState<ApiListing[]>([]);
   const [events, setEvents] = useState<ApiEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!snap);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(snap?.page ?? 1);
+  const [hasMore, setHasMore] = useState(snap?.hasMore ?? true);
   // bump to refetch after Customize-feed save (For You filter is server-side)
   const [prefsVersion, setPrefsVersion] = useState(0);
+  // When we've rehydrated posts from a snapshot, remember which tab/tag/prefs
+  // combo they belong to so the fetch effect can skip refetching it — kept as a
+  // key (not a one-shot boolean) so React StrictMode's double-invoke doesn't
+  // wipe the restored posts by refetching page 1.
+  const restoredKeyRef = useRef<string | null>(snap ? `${snap.tab}|${snap.tag}|0` : null);
 
   const hideListings = user?.feed_prefs?.hide_listings ?? true;
+
+  // Keep the latest feed state in a ref so the unmount cleanup can snapshot it.
+  const stateRef = useRef({ tab, tag, posts, page, hasMore });
+  useEffect(() => { stateRef.current = { tab, tag, posts, page, hasMore }; });
+  const scrollTopRef = useRef(snap?.scrollTop ?? 0);
+
+  // Track scroll on the <main> scroll container; write a snapshot on leave, and
+  // restore the saved scroll position on a snapshot rehydrate (issue #6).
+  useEffect(() => {
+    const main = document.querySelector("main");
+    if (!main) return;
+    const ac = new AbortController();
+    main.addEventListener("scroll", () => { scrollTopRef.current = main.scrollTop; },
+      { passive: true, signal: ac.signal });
+
+    // Restore the saved scroll position. A single frame isn't enough: the
+    // <main> scroller is shared with the (short) post page, which clamps its
+    // scrollTop to ~0, and the restored list needs a beat to lay out to full
+    // height. So re-apply the target for a short window until it sticks, and
+    // bail the moment the user scrolls themselves.
+    let raf = 0;
+    let userScrolled = false;
+    if (snap && snap.scrollTop > 0) {
+      const target = snap.scrollTop;
+      const deadline = performance.now() + 600;
+      const bail = () => { userScrolled = true; };
+      main.addEventListener("wheel", bail, { passive: true, signal: ac.signal });
+      main.addEventListener("touchmove", bail, { passive: true, signal: ac.signal });
+      const tick = () => {
+        if (userScrolled) return;
+        if (Math.abs(main.scrollTop - target) > 1) main.scrollTop = target;
+        if (performance.now() < deadline && main.scrollTop !== target) {
+          raf = requestAnimationFrame(tick);
+        }
+      };
+      raf = requestAnimationFrame(tick);
+    }
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      ac.abort();
+      const s = stateRef.current;
+      try {
+        sessionStorage.setItem(FEED_SNAPSHOT_KEY, JSON.stringify({
+          tab: s.tab, tag: s.tag,
+          posts: s.posts.slice(0, MAX_SNAPSHOT_POSTS),
+          page: Math.min(s.page, Math.ceil(MAX_SNAPSHOT_POSTS / PAGE_SIZE)),
+          hasMore: s.hasMore,
+          scrollTop: scrollTopRef.current,
+          ts: Date.now(),
+        }));
+      } catch { /* quota / serialization — skip restore next time */ }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Hashtag slider: drag-to-scroll on desktop (DF-09)
   const tagBar = useRef<HTMLDivElement | null>(null);
@@ -238,8 +326,13 @@ export default function FeedPage() {
       .catch(console.error);
   }, []);
 
-  // Posts reload whenever tab/tag/prefs change (server-side).
+  // Posts reload whenever tab/tag/prefs change (server-side). Skip the fetch for
+  // the exact combo we rehydrated from a snapshot (the posts are already there);
+  // any other combo fetches normally.
   useEffect(() => {
+    const key = `${tab}|${tag}|${prefsVersion}`;
+    if (restoredKeyRef.current === key) return;   // restored — keep those posts
+    restoredKeyRef.current = null;                // consumed; future changes refetch
     let cancelled = false;
     setLoading(true);
     setPosts([]);
@@ -319,43 +412,48 @@ export default function FeedPage() {
     <div className="flex justify-start gap-8">
       <div className="w-full max-w-[600px] min-h-screen border-r border-[var(--slate-200)] bg-[var(--canvas)]">
         <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]" style={{ padding: "12px 16px" }}>
-          {/* feed sort tabs (plain) + trailing Customise chip (DV6-08) */}
+          {/* feed sort tabs — "For You" doubles as the Customise control: tapping it
+              while active opens the Customize-feed popover (caret ▾), matching the
+              original design (DF-07). No separate chip. */}
           <div className="relative">
-            <div className="flex items-center gap-2">
-              <div className="flex-1 flex gap-1 bg-[var(--slate-100)] rounded-[14px] p-1">
-                {TABS.map((t) => {
-                  const on = tab === t.id;
-                  const Icon = t.icon;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => { setTab(t.id); setCustomOpen(false); }}
-                      className={cn(
-                        "flex-1 flex items-center justify-center gap-1.5 rounded-[10px] py-2 px-1.5 text-[13.5px] whitespace-nowrap cursor-pointer border-none transition-all duration-150",
-                        on
-                          ? "bg-[var(--paper)] text-[var(--ink)] font-bold shadow-[var(--shadow-2)]"
-                          : "bg-transparent text-[var(--slate-500)] font-medium"
-                      )}
-                    >
-                      <Icon size={16} strokeWidth={on ? 2.3 : 1.9} />
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                onClick={() => setCustomOpen((o) => !o)}
-                aria-label="Customise feed"
-                className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full py-2 px-3 text-[13px] font-semibold whitespace-nowrap cursor-pointer transition-all duration-150"
-                style={{
-                  border: `1px solid ${customOpen ? "var(--stamp-red)" : "var(--slate-200)"}`,
-                  background: customOpen ? "var(--stamp-red-soft)" : "var(--card-surface)",
-                  color: customOpen ? "var(--stamp-red)" : "var(--slate-500)",
-                }}
-              >
-                <SlidersHorizontal size={14} strokeWidth={2.1} />
-                Customise
-              </button>
+            <div className="flex gap-1 bg-[var(--slate-100)] rounded-[14px] p-1">
+              {TABS.map((t) => {
+                const on = tab === t.id;
+                const Icon = t.icon;
+                const isForYou = t.id === "foryou";
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      if (isForYou && on) setCustomOpen((o) => !o);
+                      else { setTab(t.id); setCustomOpen(false); }
+                    }}
+                    aria-label={isForYou ? "For You — tap again to customise feed" : t.label}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1.5 rounded-[10px] py-2 px-1.5 text-[13.5px] whitespace-nowrap cursor-pointer border-none transition-all duration-150",
+                      on
+                        ? "bg-[var(--paper)] text-[var(--ink)] font-bold shadow-[var(--shadow-2)]"
+                        : "bg-transparent text-[var(--slate-500)] font-medium"
+                    )}
+                  >
+                    <Icon size={16} strokeWidth={on ? 2.3 : 1.9} />
+                    {t.label}
+                    {isForYou && (
+                      <ChevronDown
+                        size={14}
+                        strokeWidth={2.2}
+                        style={{
+                          marginLeft: -2,
+                          opacity: on ? 1 : 0.55,
+                          transition: "transform 150ms var(--ease-out)",
+                          transform: customOpen && on ? "rotate(180deg)" : "none",
+                          color: customOpen && on ? "var(--stamp-red)" : undefined,
+                        }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {customOpen && (

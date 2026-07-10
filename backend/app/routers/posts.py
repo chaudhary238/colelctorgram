@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.post import Post, PostLike, PostSave, Comment, CommentLike, PostCommunity
+from app.models.post import Post, PostLike, PostSave, Comment, CommentLike, PostCommunity, PollVote
 from app.models.user import User
 from app.models.item import Item
 from app.models.listing import Listing
@@ -188,6 +188,15 @@ async def get_post(
         select(PostSave).where(PostSave.post_id == post_id, PostSave.user_id == current_user.id)
     )).scalar_one_or_none() is not None
 
+    # Viewer's poll vote (locked once cast) — None if unvoted or not a poll
+    my_poll_vote = None
+    if post.type == "poll":
+        my_poll_vote = (await db.execute(
+            select(PollVote.option_index).where(
+                PollVote.post_id == post_id, PollVote.user_id == current_user.id
+            )
+        )).scalar_one_or_none()
+
     # Referenced item / listing (the "showcasing" chip)
     ref = None
     if post.ref_item_id:
@@ -231,6 +240,7 @@ async def get_post(
         "saves_count": post.saves_count,
         "review_rating": post.review_rating,
         "poll_options": post.poll_options,
+        "my_poll_vote": my_poll_vote,
         "is_liked": liked,
         "is_saved": saved,
         "ref": ref,
@@ -325,6 +335,52 @@ async def toggle_save(
     else:
         db.add(PostSave(user_id=current_user.id, post_id=post_id))
         post.saves_count += 1
+
+
+class PollVoteBody(BaseModel):
+    option_index: int
+
+
+@router.post("/{post_id}/poll-vote")
+async def vote_poll(
+    post_id: uuid.UUID,
+    body: PollVoteBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Cast a one-time, locked vote on a poll post.
+
+    Returns the (updated) tallies plus the viewer's option so the client can
+    reconcile. Voting is idempotent: a second call never changes the counts and
+    never lets the user switch options — it just echoes their existing choice.
+    """
+    post = (await db.execute(select(Post).where(Post.id == post_id))).scalar_one_or_none()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.type != "poll" or not post.poll_options:
+        raise HTTPException(status_code=400, detail="Post is not a poll")
+
+    labels = list(post.poll_options.keys())
+    if not (0 <= body.option_index < len(labels)):
+        raise HTTPException(status_code=400, detail="Invalid poll option")
+
+    existing = (await db.execute(
+        select(PollVote).where(PollVote.post_id == post_id, PollVote.user_id == current_user.id)
+    )).scalar_one_or_none()
+
+    if existing is None:
+        # First vote: record it and bump the chosen option's tally. Reassign the
+        # dict so SQLAlchemy tracks the JSONB mutation.
+        opts = dict(post.poll_options)
+        label = labels[body.option_index]
+        opts[label] = int(opts.get(label) or 0) + 1
+        post.poll_options = opts
+        db.add(PollVote(user_id=current_user.id, post_id=post_id, option_index=body.option_index))
+        my_vote = body.option_index
+    else:
+        my_vote = existing.option_index
+
+    return {"poll_options": post.poll_options, "my_poll_vote": my_vote}
 
 
 @router.post("/{post_id}/comments", status_code=201)

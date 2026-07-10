@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user, get_optional_user
+from app.dependencies import get_current_user
 from app.models.user import User
 from app.services import gamification as gm
 
@@ -44,7 +44,7 @@ async def daily_checkin(
 async def get_leaderboard(
     period: Literal["week", "all"] = Query("week"),
     db: AsyncSession = Depends(get_db),
-    me: Optional[User] = Depends(get_optional_user),
+    me: User = Depends(get_current_user),
 ):
     return await gm.leaderboard(db, period=period, me=me)
 
@@ -54,7 +54,7 @@ async def get_leaderboard(
 async def get_user_rank(
     handle: str,
     db: AsyncSession = Depends(get_db),
-    viewer: Optional[User] = Depends(get_optional_user),
+    viewer: User = Depends(get_current_user),
 ):
     res = await db.execute(select(User).where(User.handle == handle.lower()))
     user = res.scalar_one_or_none()
@@ -71,7 +71,7 @@ async def get_user_rank(
 async def get_user_badges(
     handle: str,
     db: AsyncSession = Depends(get_db),
-    viewer: Optional[User] = Depends(get_optional_user),
+    viewer: User = Depends(get_current_user),
 ):
     res = await db.execute(select(User).where(User.handle == handle.lower()))
     user = res.scalar_one_or_none()

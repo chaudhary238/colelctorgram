@@ -12,6 +12,7 @@
  * ────────────────────────────────────────────────────────────────────────── */
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Box, Sparkles, Medal, Gem, Flame, Crown, Star, Camera, Heart,
@@ -282,7 +283,11 @@ export function BadgeSheet({ badge, onClose }: { badge: FeedBadgeT; onClose: () 
         const t = REWARD_TIERS.find((r) => r.id === badge.code);
         return t ? `Your current rank, earned from ${t.at.toLocaleString("en-IN")}+ lifetime Collector XP. It updates automatically as you level up.` : "Your current collector rank, from lifetime XP.";
       })();
-  return (
+  // Portal to <body>: the feed PostCard applies a CSS transform on hover, which
+  // would otherwise trap this position:fixed sheet inside the card (it'd render
+  // small, just under the author name, and jump around on resize).
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(15,23,42,0.5)" }}>
       <div onClick={(e) => e.stopPropagation()} style={{ position: "relative", width: "100%", maxWidth: 460, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "26px 24px 22px", borderTopLeftRadius: 22, borderTopRightRadius: 22, background: "var(--paper)", boxShadow: "var(--shadow-3)" }}>
         <button onClick={onClose} aria-label="Close" style={{ position: "absolute", top: 12, right: 12, display: "flex", padding: 6, cursor: "pointer", color: "var(--ink-faint)", background: "none", border: "none" }}>
@@ -294,7 +299,8 @@ export function BadgeSheet({ badge, onClose }: { badge: FeedBadgeT; onClose: () 
         <div style={{ fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.55, marginTop: 10, maxWidth: 340 }}>{desc}</div>
         <Button variant="dark" onClick={onClose} style={{ marginTop: 20, width: "100%", justifyContent: "center" }}>Got it</Button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
