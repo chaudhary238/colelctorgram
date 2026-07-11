@@ -41,6 +41,9 @@ class Listing(Base):
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     saves_count: Mapped[int] = mapped_column(Integer, default=0)
+    # Public appreciation (taxonomy 2026-07-11: Heart = like on posts AND listings;
+    # distinct from the private save bookmark).
+    likes_count: Mapped[int] = mapped_column(Integer, default=0)
     watching_count: Mapped[int] = mapped_column(Integer, default=0)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
@@ -56,6 +59,15 @@ class Listing(Base):
 
 class ListingSave(Base):
     __tablename__ = "listing_saves"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    listing_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("listings.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ListingLike(Base):
+    """Public like on a listing (taxonomy 2026-07-11) — one per user per listing."""
+    __tablename__ = "listing_likes"
 
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     listing_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("listings.id", ondelete="CASCADE"), primary_key=True)

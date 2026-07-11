@@ -9,7 +9,9 @@ from sqlalchemy import select, or_, func
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.catalogue import Catalogue
+from app.models.item import Item
 from app.models.trust import Report
+from app.models.user import User
 from app.services.catalogue import norm_title, MATCH_MEDIUM
 from app.services.gamification import award_xp
 
@@ -123,6 +125,120 @@ async def catalogue_brands(
     rows = (await db.execute(stmt)).scalars().all()
     brands = sorted({b.strip() for b in rows if b and b.strip()}, key=str.lower)
     return {"brands": brands}
+
+
+@router.get("/{sku}")
+async def get_catalogue_entry(
+    sku: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Public detail for one Scorred DB entry (the shared library record, not a
+    user's item). Backs the web /db/[sku] page: search results navigate here and
+    the page carries the actions (add to collection / view your item / report).
+
+    Note: this catch-all GET must stay registered AFTER /popular, /search and
+    /brands so those literal paths keep winning the route match.
+    """
+    entry = (await db.execute(
+        select(Catalogue).where(Catalogue.sku == sku, Catalogue.status != "removed")
+    )).scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    # How many collectors actually have it on the shelf (owned/preorder; wishlist
+    # is intent, and `intel` DB contributions are unowned seeds).
+    collectors = (await db.execute(
+        select(func.count(func.distinct(Item.user_id))).where(
+            Item.sku == sku, Item.status.in_(["owned", "preorder"])
+        )
+    )).scalar_one()
+    # Casual demand signal (wishlist taxonomy 2026-07-11) — shown next to the shelf
+    # count; ISO posts are the separate ACTIVE-demand signal.
+    wishlists = (await db.execute(
+        select(func.count(func.distinct(Item.user_id))).where(
+            Item.sku == sku, Item.status == "wishlist"
+        )
+    )).scalar_one()
+
+    # The caller's own copy, if any — same owned > preorder > wishlist priority as
+    # GET /items/by-sku so the page can flip its CTA to "view your item".
+    rows = (await db.execute(
+        select(Item.id, Item.status).where(Item.user_id == current_user.id, Item.sku == sku)
+    )).all()
+    viewer_item = None
+    if rows:
+        priority = {"owned": 0, "preorder": 1, "wishlist": 2}
+        best = min(rows, key=lambda r: priority.get(r.status, 3))
+        viewer_item = {"id": str(best.id), "status": best.status}
+
+    submitted_by_handle = None
+    if entry.submitted_by:
+        submitted_by_handle = (await db.execute(
+            select(User.handle).where(User.id == entry.submitted_by)
+        )).scalar_one_or_none()
+
+    return {
+        **_hit(entry),
+        "tone": entry.tone,
+        "collectors_count": collectors,
+        "wishlists_count": wishlists,
+        "viewer_item": viewer_item,
+        "submitted_by_handle": submitted_by_handle,
+        "created_at": entry.created_at.isoformat() if entry.created_at else None,
+    }
+
+
+@router.post("/{sku}/wishlist")
+async def toggle_catalogue_wishlist(
+    sku: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Toggle the caller's wishlist for a catalogue entry (Star action on the Scorred
+    DB page — wishlist taxonomy 2026-07-11: casual "might want someday" intent, kept
+    in the Saved drawer). Creates/removes a status="wishlist" Item cloned from the
+    entry's shared facts; same shape as the per-item toggle in items.py."""
+    entry = (await db.execute(
+        select(Catalogue).where(Catalogue.sku == sku, Catalogue.status != "removed")
+    )).scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    owned = (await db.execute(
+        select(Item.id).where(
+            Item.user_id == current_user.id, Item.sku == sku,
+            Item.status.in_(["owned", "preorder"]),
+        ).limit(1)
+    )).scalar_one_or_none()
+    if owned:
+        raise HTTPException(status_code=400, detail="Already in your collection")
+
+    existing = (await db.execute(
+        select(Item).where(
+            Item.user_id == current_user.id, Item.sku == sku, Item.status == "wishlist"
+        )
+    )).scalars().first()
+    if existing:
+        await db.delete(existing)
+        return {"wishlisted": False}
+
+    year = int(entry.year) if entry.year and entry.year.isdigit() else None
+    db.add(Item(
+        user_id=current_user.id,
+        sku=entry.sku,
+        custom_title=entry.title,
+        brand=entry.brand,
+        scale=entry.scale,
+        release_year=year,
+        category=entry.category,
+        status="wishlist",
+        verify_tier="claimed",
+        value=entry.est_retail_price or 0,
+        privacy="public",
+        wishlist_alert_enabled=True,
+    ))
+    return {"wishlisted": True}
 
 
 class ReportCatalogueBody(BaseModel):

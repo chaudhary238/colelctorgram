@@ -109,6 +109,9 @@ class ItemOut(BaseModel):
     owner_name: Optional[str] = None
     # v6 DV6-13 — Official badge from the linked catalogue entry (admin-blessed).
     catalogue_is_official: bool = False
+    # Wishlist taxonomy (2026-07-11) — whether the VIEWER has a wishlist copy of this
+    # item's identity (drives the Star toggle's initial state on item detail).
+    is_wishlisted: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -226,6 +229,39 @@ async def toggle_wishlist(
     return WishlistToggleOut(wishlisted=True)
 
 
+@router.get("/wishlist")
+async def my_wishlist(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """The caller's wishlist (status="wishlist" items), newest first, enriched with
+    the linked catalogue entry's thumbnail/title. Feeds the Saved page's Wishlist tab
+    (wishlist taxonomy, 2026-07-11 — wishlist lives in the Saved drawer, not the
+    Collection, which is owned things only per DV6-11e).
+
+    NOTE: literal path — must stay registered before GET /{item_id}.
+    """
+    rows = (await db.execute(
+        select(Item, Catalogue)
+        .outerjoin(Catalogue, Catalogue.sku == Item.sku)
+        .where(Item.user_id == current_user.id, Item.status == "wishlist")
+        .order_by(Item.created_at.desc())
+    )).all()
+    return {"items": [
+        {
+            "id": str(i.id),
+            "sku": i.sku,
+            "title": i.custom_title or (c.title if c else None) or i.sku,
+            "brand": i.brand or (c.brand if c else None),
+            "category": i.category or (c.category if c else None),
+            "value": i.value,
+            "thumbnail_url": c.thumbnail_url if c else None,
+            "created_at": i.created_at.isoformat() if i.created_at else None,
+        }
+        for i, c in rows
+    ]}
+
+
 @router.get("/by-sku/{sku}")
 async def get_my_item_by_sku(
     sku: str,
@@ -314,6 +350,11 @@ async def get_item(
     if owner:
         out["owner_handle"] = owner.handle
         out["owner_name"] = owner.name
+    # Wishlist taxonomy (2026-07-11) — viewer's wishlist state for the Star toggle.
+    if not is_owner:
+        wish_q = select(Item.id).where(Item.user_id == current_user.id, Item.status == "wishlist")
+        wish_q = wish_q.where(Item.sku == item.sku) if item.sku else wish_q.where(Item.custom_title == item.custom_title)
+        out["is_wishlisted"] = bool((await db.execute(wish_q.limit(1))).scalar_one_or_none())
     return out
 
 

@@ -10,7 +10,8 @@ from sqlalchemy import select, func, or_
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.listing import Listing, ListingSave, ListingQuestion, ListingPriceVote
+from app.models.listing import Listing, ListingSave, ListingLike, ListingQuestion, ListingPriceVote
+from app.services.notifications import notify
 from app.models.item import Item, ItemPhoto
 from app.models.catalogue import Catalogue
 from app.models.user import User
@@ -217,6 +218,43 @@ async def toggle_save(
         listing.saves_count += 1
 
 
+@router.post("/{listing_id}/like", status_code=204)
+async def toggle_like(
+    listing_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Public like on a listing (taxonomy 2026-07-11: Heart = like on posts AND
+    listings; the old market heart was the save action, now the Bookmark)."""
+    listing = (await db.execute(select(Listing).where(Listing.id == listing_id))).scalar_one_or_none()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    existing = (await db.execute(
+        select(ListingLike).where(
+            ListingLike.user_id == current_user.id,
+            ListingLike.listing_id == listing_id,
+        )
+    )).scalar_one_or_none()
+    if existing:
+        await db.delete(existing)
+        listing.likes_count = max(0, listing.likes_count - 1)
+    else:
+        db.add(ListingLike(user_id=current_user.id, listing_id=listing_id))
+        listing.likes_count += 1
+        if listing.seller_id != current_user.id:
+            await notify(
+                db,
+                user_id=listing.seller_id,
+                actor_id=current_user.id,
+                kind="like",
+                title="New like",
+                body="liked your listing.",
+                ref_type="listing",
+                ref_id=str(listing.id),
+            )
+
+
 class AskQuestionBody(BaseModel):
     body: str
 
@@ -418,8 +456,9 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
     cats_result = await db.execute(select(Catalogue).where(Catalogue.sku.in_(skus))) if skus else None
     cats = {c.sku: c for c in (cats_result.scalars().all() if cats_result else [])}
 
-    # Which of these listings has the viewer saved?
+    # Which of these listings has the viewer saved / liked?
     saved_ids: set = set()
+    liked_ids: set = set()
     if viewer:
         listing_ids = [l.id for l in listings]
         saves_result = await db.execute(
@@ -429,6 +468,13 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
             )
         )
         saved_ids = set(saves_result.scalars().all())
+        likes_result = await db.execute(
+            select(ListingLike.listing_id).where(
+                ListingLike.user_id == viewer.id,
+                ListingLike.listing_id.in_(listing_ids),
+            )
+        )
+        liked_ids = set(likes_result.scalars().all())
 
     # Which of these listings' underlying item the viewer has wishlisted (DF-24):
     # a status="wishlist" Item the viewer owns, matched by sku when present else
@@ -512,8 +558,10 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
             "terms": l.terms or [],
             "status": l.status,
             "saves_count": l.saves_count,
+            "likes_count": l.likes_count,
             "watching_count": l.watching_count,
             "is_saved": l.id in saved_ids,
+            "is_liked": l.id in liked_ids,
             "is_wishlisted": is_wishlisted,
             "is_mine": bool(viewer and viewer.id == l.seller_id),
             "created_at": l.created_at.isoformat(),
