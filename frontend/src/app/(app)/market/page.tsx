@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Search, SlidersHorizontal, Heart, X, Plus, Send, ShoppingBag, Edit3 } from "lucide-react";
+import { Search, SlidersHorizontal, Bookmark, X, Plus, Send, ShoppingBag, Edit3 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiListing, ApiPost, MarketCard, PostCard } from "@/components/cards";
 import { Segmented } from "@/components/ui";
@@ -85,7 +85,9 @@ function IsoBoard() {
   }, []);
 
   return (
-    <div className="w-full max-w-[640px] mx-auto" style={{ paddingBottom: 24 }}>
+    // Same column treatment as the feed (left-aligned on --canvas, right hairline,
+    // unified 680px width) so ISO posts read exactly like feed posts (2026-07-11).
+    <div className="w-full max-w-[680px] min-h-screen border-r border-[var(--slate-200)] bg-[var(--canvas)]" style={{ paddingBottom: 24 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px 10px" }}>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-faint)", letterSpacing: "0.04em" }}>
           {isos.length} {isos.length === 1 ? "COLLECTOR" : "COLLECTORS"} LOOKING
@@ -212,9 +214,12 @@ export default function MarketPage() {
   );
 
   return (
-    <div className="w-full max-w-[1100px] flex flex-col">
+    // Unified 680px column (founder, 2026-07-11) — was the 1100px grid width,
+    // which made Market read wider than every sibling page.
+    <div className="w-full max-w-[680px] flex flex-col">
+      {/* Both tabs share the unified 680px column, so the header spans it always. */}
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]">
-        <div style={{ padding: "12px 16px 0" }}>
+        <div style={{ padding: "12px 16px 0", boxSizing: "border-box" }}>
           <Segmented
             options={[{ id: "browse", label: "Browse" }, { id: "iso", label: "ISO Board" }]}
             value={tab}
@@ -235,7 +240,7 @@ export default function MarketPage() {
               )}
             </div>
             <button type="button" onClick={() => { setShowSaved((v) => !v); setShowFilter(false); }} style={iconBtn(showSaved, "var(--stamp-red)")} aria-label="Saved listings">
-              <Heart size={18} fill={showSaved ? "currentColor" : "none"} />
+              <Bookmark size={18} fill={showSaved ? "currentColor" : "none"} />
               {savedCount > 0 && !showSaved && badge(savedCount)}
             </button>
             <button type="button" onClick={() => { setShowFilter((v) => !v); setShowSaved(false); }} style={iconBtn(showFilter || activeCount > 0, "var(--slate-900)")} aria-label="Filters">
@@ -292,7 +297,7 @@ export default function MarketPage() {
       {tab === "iso" ? (
         <IsoBoard />
       ) : loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 px-4 py-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 px-4 py-5">
           {Array.from({ length: 6 }).map((_, i) => <div key={i} style={{ borderRadius: 20, background: "var(--slate-100)", aspectRatio: "1/1.4" }} />)}
         </div>
       ) : isEmpty ? (
@@ -304,7 +309,7 @@ export default function MarketPage() {
           <div style={{ fontSize: 13.5, color: "var(--ink-faint)", marginTop: 7, maxWidth: 270, lineHeight: 1.55 }}>
             Add an item and flip <b style={{ color: "var(--ink-soft)" }}>List for sale</b> — it shows up here instantly.
           </div>
-          <Link href="/market/new" style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 20, height: 44, padding: "0 18px", borderRadius: 12, background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14.5 }}>
+          <Link href="/add/catalogue" style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 20, height: 44, padding: "0 18px", borderRadius: 12, background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14.5 }}>
             <Plus size={17} strokeWidth={2.4} />Add an item
           </Link>
         </div>
@@ -318,14 +323,14 @@ export default function MarketPage() {
               <button type="button" onClick={resetAll} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5 }}>Clear filters</button>
             )}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 px-4 pb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 px-4 pb-3">
             {list.map((l) => <MarketCard key={l.id} listing={l} />)}
             {list.length === 0 && (
               <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", alignItems: "center", padding: "44px 0", color: "var(--ink-faint)", textAlign: "center" }}>
-                {showSaved ? <Heart size={26} style={{ opacity: 0.35 }} /> : <SlidersHorizontal size={26} style={{ opacity: 0.35 }} />}
+                {showSaved ? <Bookmark size={26} style={{ opacity: 0.35 }} /> : <SlidersHorizontal size={26} style={{ opacity: 0.35 }} />}
                 <div style={{ fontSize: 13.5, marginTop: 10 }}>{showSaved ? "No saved listings yet." : "No listings match these filters."}</div>
                 {showSaved ? (
-                  <div style={{ fontSize: 12.5, marginTop: 4, color: "var(--ink-ghost)" }}>Tap the heart on any listing to save it here.</div>
+                  <div style={{ fontSize: 12.5, marginTop: 4, color: "var(--ink-ghost)" }}>Tap the bookmark on any listing to save it here.</div>
                 ) : (
                   <button type="button" onClick={resetAll} style={{ marginTop: 10, background: "none", border: "none", cursor: "pointer", color: "var(--stamp-red)", fontWeight: 600, fontFamily: "var(--font-body)", fontSize: 13 }}>Clear filters</button>
                 )}

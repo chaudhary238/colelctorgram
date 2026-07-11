@@ -10,7 +10,6 @@ import { Globe, Home, UserPlus, Check, ChevronDown } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser, AuthUser } from "@/lib/auth-context";
 import { PostCard, ListingFeedCard, FeedEventCard, ApiPost, ApiListing, ApiEvent } from "@/components/cards";
-import { RightRail } from "@/components/RightRail";
 import { cn } from "@/lib/utils";
 
 type StreamItem =
@@ -409,8 +408,7 @@ export default function FeedPage() {
   }, [posts, listings, events, tab, tag, hideListings]);
 
   return (
-    <div className="flex justify-start gap-8">
-      <div className="w-full max-w-[600px] min-h-screen border-r border-[var(--slate-200)] bg-[var(--canvas)]">
+    <div className="w-full max-w-[680px] min-h-screen border-r border-[var(--slate-200)] bg-[var(--canvas)]">
         <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]" style={{ padding: "12px 16px" }}>
           {/* feed sort tabs — "For You" doubles as the Customise control: tapping it
               while active opens the Customize-feed popover (caret ▾), matching the
@@ -540,13 +538,6 @@ export default function FeedPage() {
             {user?.interests?.length ? ` · tuned to ${user.interests.length} interest${user.interests.length === 1 ? "" : "s"}` : ""}
           </div>
         )}
-      </div>
-
-      <div className="hidden xl:block shrink-0">
-        <div className="sticky top-0">
-          <RightRail />
-        </div>
-      </div>
     </div>
   );
 }

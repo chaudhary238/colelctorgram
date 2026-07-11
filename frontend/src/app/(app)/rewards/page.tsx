@@ -23,7 +23,7 @@ const fmt = (n: number) => n.toLocaleString("en-IN");
 const EARN_LINK: Record<string, string> = {
   refer: "/refer",
   profile: "/profile",
-  db_new: "/market/new",
+  db_new: "/add/catalogue",
   showcase: "/compose?type=post",
   review: "/compose?type=review",
   rsvp: "/events",
@@ -78,7 +78,7 @@ export default function RewardsPage() {
   }
 
   return (
-    <div className="w-full max-w-[600px] min-h-screen border-r border-[var(--border)]">
+    <div className="w-full max-w-[680px] min-h-screen border-r border-[var(--border)]">
       <style>{`@keyframes scr-pop-in { 0% { opacity: 0; transform: scale(0.4); } 70% { transform: scale(1.12); } 100% { opacity: 1; transform: scale(1); } } .scr-pop-in { animation: scr-pop-in 400ms cubic-bezier(.34,1.56,.64,1) both; }`}</style>
       {rankUp && <RankUpOverlay tier={rankUp} onClose={() => setRankUp(null)} />}
       <Header title="Rewards" subtitle="Collector XP" onBack={() => router.back()}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Heart, Bookmark, Share2, MessageCircle, Repeat2, Shield, Info, ChevronRight, Pencil, Send, Check, Clock } from "lucide-react";
+import { Heart, Star, Bookmark, Share2, MessageCircle, Repeat2, Shield, Info, ChevronRight, Pencil, Send, Check, Clock } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
@@ -60,6 +60,9 @@ export default function ListingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [likes, setLikes] = useState(0);
+  const [likeBusy, setLikeBusy] = useState(false);
   const [wishlisted, setWishlisted] = useState(false);
   const [wishBusy, setWishBusy] = useState(false);
   const [shared, setShared] = useState(false);
@@ -80,6 +83,8 @@ export default function ListingDetailPage() {
       .then((l) => {
         setListing(l);
         setSaved(l.is_saved ?? false);
+        setLiked(l.is_liked ?? false);
+        setLikes(l.likes_count ?? 0);
         setWishlisted(l.is_wishlisted ?? false);
         if (l.price_votes) {
           setPriceVote(l.price_votes.my_vote);
@@ -101,6 +106,22 @@ export default function ListingDetailPage() {
       setSaved(!next);
     } finally {
       setSaveBusy(false);
+    }
+  }
+
+  async function toggleLike() {
+    if (likeBusy) return;
+    const next = !liked;
+    setLiked(next);
+    setLikes((n) => Math.max(0, n + (next ? 1 : -1)));
+    setLikeBusy(true);
+    try {
+      await api.post(`/listings/${id}/like`);
+    } catch {
+      setLiked(!next);
+      setLikes((n) => Math.max(0, n + (next ? -1 : 1)));
+    } finally {
+      setLikeBusy(false);
     }
   }
 
@@ -232,11 +253,16 @@ export default function ListingDetailPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <BackButton fallback="/market" />
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Listing</span>
-          <button onClick={toggleWishlist} title={wishlisted ? "Remove from wishlist" : "Add to wishlist"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "none", cursor: "pointer" }}>
-            <Bookmark size={17} fill={wishlisted ? "currentColor" : "none"} />
+          {/* Icon law (2026-07-11): Heart = like, Star = wishlist the item, Bookmark = save the listing */}
+          <button onClick={toggleLike} title={liked ? "Unlike" : "Like"} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, minWidth: 36, height: 36, padding: likes > 0 ? "0 9px" : 0, borderRadius: 10, border: "1px solid var(--border)", color: liked ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
+            <Heart size={17} fill={liked ? "currentColor" : "none"} />
+            {likes > 0 && <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700 }}>{likes}</span>}
           </button>
-          <button onClick={toggleSave} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: saved ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
-            <Heart size={18} fill={saved ? "currentColor" : "none"} />
+          <button onClick={toggleWishlist} title={wishlisted ? "Remove from wishlist" : "Add item to wishlist"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: wishlisted ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
+            <Star size={17} fill={wishlisted ? "currentColor" : "none"} />
+          </button>
+          <button onClick={toggleSave} title={saved ? "Remove from saved" : "Save for later"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: saved ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
+            <Bookmark size={18} fill={saved ? "currentColor" : "none"} />
           </button>
           <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: shared ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
             <Share2 size={17} />

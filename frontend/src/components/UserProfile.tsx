@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutGrid, BarChart3, CalendarDays, Eye, EyeOff,
-  Gift, MessageCircle, Plus, ShieldCheck, Bookmark, Camera,
+  Gift, MessageCircle, Plus, ShieldCheck, Star, Camera,
   MoreHorizontal, UserCheck, UserPlus, Check, ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -16,7 +16,6 @@ import {
 import { PostCard, CommunityCard, type ApiPost, type ApiCommunity } from "@/components/cards";
 import { EditProfileSheet } from "@/components/EditProfileSheet";
 import { FollowListModal } from "@/components/FollowListModal";
-import { AddToCollectionSheet } from "@/components/AddToCollectionSheet";
 import { VouchGiveSheet, VouchListModal, VouchRequestModal } from "@/components/VouchSheets";
 import { ProfileMoreMenu } from "@/components/ProfileMoreMenu";
 import { RewardCard, BadgeShelf, TopSeasonBadge, AvatarFrame } from "@/components/gamification";
@@ -139,7 +138,6 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   const [followLoading, setFollowLoading] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showFollowModal, setShowFollowModal] = useState<"followers" | "following" | null>(null);
-  const [showAddCollection, setShowAddCollection] = useState(false);
   const [showVouchGive, setShowVouchGive] = useState(false);
   const [showVouchList, setShowVouchList] = useState<"received" | "given" | null>(null);
   const [showVouchRequest, setShowVouchRequest] = useState(false);
@@ -241,10 +239,6 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   function handleProfileSaved(updated: AuthUser) {
     setUser(updated);
     setProfile((p) => (p ? { ...p, ...updated } : p));
-  }
-
-  function handleCollectionAdded() {
-    setCollection(null); // force reload
   }
 
   // Optimistic vouch state (give / edit / remove) — keeps the CTA + In count truthful.
@@ -394,7 +388,8 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
         {isOwn ? (
           <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
             <Button variant="dark" style={{ flex: 1, justifyContent: "center" }} onClick={() => setShowEdit(true)}>Edit profile</Button>
-            <Button variant="secondary" style={{ flex: 1, justifyContent: "center" }} icon={<Plus size={17} />} onClick={() => setShowAddCollection(true)}>Add item</Button>
+            {/* Single add flow: the v6 mode→search→form page (/add/catalogue), not the old v4 sheet */}
+            <Button variant="secondary" style={{ flex: 1, justifyContent: "center" }} icon={<Plus size={17} />} onClick={() => router.push("/add/catalogue")}>Add item</Button>
             <IconButton icon={<Gift size={18} />} onClick={() => router.push("/refer")} />
           </div>
         ) : (
@@ -462,9 +457,6 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
       )}
       {showFollowModal && (
         <FollowListModal handle={profile.handle} tab={showFollowModal} onClose={() => setShowFollowModal(null)} />
-      )}
-      {showAddCollection && isOwn && (
-        <AddToCollectionSheet onClose={() => setShowAddCollection(false)} onAdded={handleCollectionAdded} />
       )}
       {showVouchGive && !isOwn && (
         <VouchGiveSheet
@@ -736,7 +728,8 @@ function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
         </div>
         {item.is_listed && <div style={{ position: "absolute", top: 7, right: 7 }}><Tag kind="sale">Listed</Tag></div>}
         {item.status === "preorder" && <div style={{ position: "absolute", bottom: 7, left: 7 }}><Tag kind="po">PO</Tag></div>}
-        {/* Wishlist-for-others button — only on someone else's collection (DF-24) */}
+        {/* Wishlist-for-others button — only on someone else's collection (DF-24).
+            Icon law (2026-07-11): Star = wishlist; Bookmark is save-content only. */}
         {!isOwn && (
           <button
             onClick={toggleWishlist}
@@ -749,7 +742,7 @@ function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
               display: "flex", alignItems: "center", justifyContent: "center",
             }}
           >
-            <Bookmark size={14} fill={wishlisted ? "currentColor" : "none"} strokeWidth={wishlisted ? 0 : 1.75} />
+            <Star size={14} fill={wishlisted ? "currentColor" : "none"} strokeWidth={wishlisted ? 0 : 1.75} />
           </button>
         )}
       </div>

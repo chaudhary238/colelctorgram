@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { X, Tag, PlusCircle, Shield, Clock, Plus, Check, Eye, ChevronRight, Search, Sparkles, Info, ShieldCheck, Lock } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
@@ -211,18 +211,24 @@ function LockedPill({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AddListingPage() {
+function AddListingPageInner() {
   const router = useRouter();
   const { user } = useUser();
 
-  // v6 mode picker (DV6-10). ?mode= or ?sku= (catalogue Sell) skip straight to the form.
-  const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-  const preMode = params?.get("mode");
-  const hasSku = !!params?.get("sku");
+  // v6 mode picker (DV6-10). ?mode= or ?sku= deep-links (Scorred DB "Add to my
+  // collection", catalogue Sell) skip straight to the form. useSearchParams (not
+  // window.location) so an in-place navigation to /add/catalogue?sku=… still reacts
+  // when the page component is already mounted (App Router reuses it).
+  const searchParams = useSearchParams();
+  const preMode = searchParams.get("mode");
+  const skuParam = searchParams.get("sku");
   const initAcq: AcqMode = preMode === "preorder" || preMode === "intel" ? preMode : "inhand";
   const [acq, setAcq] = useState<AcqMode>(initAcq);
-  // DV6-13 — flow is pick (mode) → search (find in catalogue) → form. ?mode/?sku deep-links skip ahead.
-  const [step, setStep] = useState<"pick" | "search" | "form">(hasSku ? "form" : preMode ? "search" : "pick");
+  // DV6-13 — flow is pick (mode) → search (find in catalogue) → form. ?mode/?sku deep-links skip
+  // ahead. DB Contribution is always a brand-new entry, so it skips the search step entirely.
+  const [step, setStep] = useState<"pick" | "search" | "form">(
+    skuParam || preMode === "intel" ? "form" : preMode ? "search" : "pick"
+  );
 
   const [cat, setCat] = useState("figures");
   const [photos, setPhotos] = useState<string[]>([]);
@@ -249,7 +255,7 @@ export default function AddListingPage() {
   // catalogue search-select on Title (DV6-12) — debounced fuzzy search filtered by
   // category + brand + scale; results include pending community entries.
   const [dupes, setDupes] = useState<CatalogueHit[]>([]);
-  const [linkedSku, setLinkedSku] = useState<string | null>(params?.get("sku") ?? null);
+  const [linkedSku, setLinkedSku] = useState<string | null>(skuParam);
   const dupDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Brand dropdown = canonical CAT_BRANDS ∪ distinct catalogue brands for the category (DV6-12).
   const [catBrands, setCatBrands] = useState<string[]>([]);
@@ -459,8 +465,57 @@ export default function AddListingPage() {
     setStep("form");
   };
 
+  // ?sku= deep-link (Scorred DB page "Add to my collection", DV6-13 catalogue Sell):
+  // fetch the entry and land on the form prefilled + locked, same as picking it at
+  // the search step — never the mode picker. Keyed on the param (not mount-only) so
+  // it also fires when navigating to ?sku=… while this page is already mounted.
+  // If the entry is gone (removed), fall back to the search step.
+  useEffect(() => {
+    if (!skuParam) return;
+    let alive = true;
+    api.get<CatalogueHit>(`/catalogue/${encodeURIComponent(skuParam)}`)
+      .then((h) => { if (alive) prefillFromHit(h); })
+      .catch(() => { if (alive) { setLinkedSku(null); setRefImage(null); setStep("search"); } });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skuParam]);
+
+  // The add flow should start fresh every visit. This Next version keeps pages mounted with
+  // React Activity (Cache Components), so navigating away and back would otherwise restore the
+  // whole half-filled form. Reset to cold defaults when the page is hidden. Deep-linked entries
+  // (?sku / ?mode) are intentional prefilled flows — leave those so an accidental back-and-forth
+  // doesn't wipe a linked item. The cleanup only runs on hide/unmount, never on first mount.
+  useLayoutEffect(() => {
+    if (skuParam || preMode) return;
+    return () => {
+      setStep("pick");
+      setAcq("inhand");
+      setCat("figures");
+      setPhotos([]); setPhotoPublic([]); setRefImage(null);
+      setTitle(""); setBrand(""); setBrandFocus(false);
+      setScale(""); setScaleOther(""); setSize("");
+      setTcgLang(""); setTcgFormat(""); setTcgGraded(false); setTcgGrader("PSA"); setTcgGrade("");
+      setYear(""); setDesc("");
+      setDupes([]); setLinkedSku(null);
+      setCond(""); setPaid(""); setPaidCur("INR");
+      setPoPrec("month"); setPoDate(""); setPoMonth(""); setPoQuarter(""); setPoYear("2026");
+      setPoSeller(""); setPoOrderDate(""); setPoTotal(""); setPoDeposit("");
+      setForSale(false); setPrice(""); setPriceCur("INR"); setCondNote("");
+      setShipIncl(false); setReturns(false); setTrade(false);
+      setTried(false); setSubmitting(false); setError(null);
+    };
+  }, [skuParam, preMode]);
+
   if (step === "pick") {
-    return <ModePicker onPick={(m) => { setAcq(m); if (m !== "inhand") setForSale(false); setStep("search"); }} onClose={() => router.push("/market")} />;
+    // Close = return to wherever the add flow was opened from (profile, compose, DB page);
+    // /market only on a cold/deep-link entry with no in-app history.
+    // DB Contribution is always a new entry — no catalogue search, straight to the form.
+    return <ModePicker onPick={(m) => {
+      setAcq(m);
+      if (m !== "inhand") setForSale(false);
+      if (m === "intel") { setLinkedSku(null); setRefImage(null); setStep("form"); }
+      else setStep("search");
+    }} onClose={() => (window.history.length > 1 ? router.back() : router.push("/market"))} />;
   }
 
   if (step === "search") {
@@ -480,7 +535,10 @@ export default function AddListingPage() {
     <div className="w-full max-w-[680px] flex flex-col pb-8">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button onClick={() => setStep(hasSku ? "pick" : "search")} aria-label="Back to search" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "transparent", cursor: "pointer" }}>
+          {/* ?sku= deep-link came from outside (Scorred DB page) — back leaves the flow;
+              otherwise back returns in-flow: the mode picker for DB Contribution (which has
+              no search step), the search step for everything else. */}
+          <button onClick={() => (skuParam ? router.back() : setStep(isIntel ? "pick" : "search"))} aria-label="Back" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "transparent", cursor: "pointer" }}>
             <ChevronRight size={18} style={{ transform: "rotate(180deg)" }} />
           </button>
           <div style={{ flex: 1 }}>
@@ -502,6 +560,55 @@ export default function AddListingPage() {
               <span style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.45 }}>
                 Linked to the Scorred catalogue — the <b>title, brand, category &amp; year</b> are shared and can&rsquo;t be edited. Your scale, photos, condition and notes stay yours. To use a different item, go <b>back</b> and search again.
               </span>
+            </div>
+          </div>
+        )}
+
+        {/* Pre-order details lead the form (design_v6 AddToCollection) — the release-window
+            calendar is what makes this flow different from In Hand, so it comes first. */}
+        {acq === "preorder" && (
+          <div style={{ marginTop: 16, background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 14, padding: 15 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 13 }}>
+              <Clock size={16} style={{ color: "var(--grail-gold-deep)" }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--grail-gold-deep)" }}>Pre-order details</span>
+            </div>
+
+            <SectionLabel>Release window</SectionLabel>
+            <div style={{ marginTop: 9 }}>
+              <ReleaseWindowPicker prec={poPrec} onPrec={setPoPrec} date={poDate} onDate={setPoDate}
+                monthIdx={poMonth} onMonth={setPoMonth} quarter={poQuarter} onQuarter={setPoQuarter} year={poYear} onYear={setPoYear} />
+            </div>
+
+            <div style={{ marginTop: 14 }}><SectionLabel>Ordered from (seller)</SectionLabel></div>
+            <input value={poSeller} onChange={(e) => setPoSeller(e.target.value)} placeholder="Store, distributor or seller name"
+              style={{ ...fieldStyle, marginTop: 9, background: "var(--paper)", fontSize: 14.5 }} />
+
+            <div style={{ display: "flex", gap: 11, marginTop: 14 }}>
+              <div style={{ flex: 1 }}>
+                <SectionLabel>Order date</SectionLabel>
+                <input type="date" value={poOrderDate} onChange={(e) => setPoOrderDate(e.target.value)}
+                  style={{ ...fieldStyle, marginTop: 9, background: "var(--paper)", fontFamily: "var(--font-mono)", fontSize: 13 }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <SectionLabel>Total price (₹)</SectionLabel>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, height: 46, marginTop: 9, padding: "0 13px", borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper)" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 15, color: "var(--ink-faint)" }}>₹</span>
+                  <input value={poTotal} onChange={(e) => setPoTotal(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="0"
+                    style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 15, color: "var(--ink)" }} />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 14 }}><SectionLabel>Deposit paid (₹)</SectionLabel></div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, height: 46, marginTop: 9, padding: "0 13px", borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper)" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 15, color: "var(--ink-faint)" }}>₹</span>
+              <input value={poDeposit} onChange={(e) => setPoDeposit(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="0"
+                style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 15, color: "var(--ink)" }} />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, paddingTop: 13, borderTop: "1px solid var(--grail-gold)" }}>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>Balance due</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 17, color: "var(--stamp-red)" }}>₹{poBalance.toLocaleString("en-IN")}</span>
             </div>
           </div>
         )}
@@ -818,53 +925,6 @@ export default function AddListingPage() {
             <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>Only you see this — it helps track your collection&rsquo;s value.</div>
           </>
         )}
-        {acq === "preorder" && (
-          <div style={{ marginTop: 16, background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 14, padding: 15 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 13 }}>
-              <Clock size={16} style={{ color: "var(--grail-gold-deep)" }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--grail-gold-deep)" }}>Pre-order details</span>
-            </div>
-
-            <SectionLabel>Release window</SectionLabel>
-            <div style={{ marginTop: 9 }}>
-              <ReleaseWindowPicker prec={poPrec} onPrec={setPoPrec} date={poDate} onDate={setPoDate}
-                monthIdx={poMonth} onMonth={setPoMonth} quarter={poQuarter} onQuarter={setPoQuarter} year={poYear} onYear={setPoYear} />
-            </div>
-
-            <div style={{ marginTop: 14 }}><SectionLabel>Ordered from (seller)</SectionLabel></div>
-            <input value={poSeller} onChange={(e) => setPoSeller(e.target.value)} placeholder="Store, distributor or seller name"
-              style={{ ...fieldStyle, marginTop: 9, background: "var(--paper)", fontSize: 14.5 }} />
-
-            <div style={{ display: "flex", gap: 11, marginTop: 14 }}>
-              <div style={{ flex: 1 }}>
-                <SectionLabel>Order date</SectionLabel>
-                <input type="date" value={poOrderDate} onChange={(e) => setPoOrderDate(e.target.value)}
-                  style={{ ...fieldStyle, marginTop: 9, background: "var(--paper)", fontFamily: "var(--font-mono)", fontSize: 13 }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <SectionLabel>Total price (₹)</SectionLabel>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, height: 46, marginTop: 9, padding: "0 13px", borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper)" }}>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 15, color: "var(--ink-faint)" }}>₹</span>
-                  <input value={poTotal} onChange={(e) => setPoTotal(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="0"
-                    style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 15, color: "var(--ink)" }} />
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 14 }}><SectionLabel>Deposit paid (₹)</SectionLabel></div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, height: 46, marginTop: 9, padding: "0 13px", borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper)" }}>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 15, color: "var(--ink-faint)" }}>₹</span>
-              <input value={poDeposit} onChange={(e) => setPoDeposit(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="0"
-                style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 15, color: "var(--ink)" }} />
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, paddingTop: 13, borderTop: "1px solid var(--grail-gold)" }}>
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>Balance due</span>
-              <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 17, color: "var(--stamp-red)" }}>₹{poBalance.toLocaleString("en-IN")}</span>
-            </div>
-          </div>
-        )}
-
         {/* For sale — in-hand items only */}
         {canSell ? (
           <div style={{ marginTop: 24, borderRadius: 16, border: `1px solid ${forSale ? "var(--stamp-red)" : "var(--border)"}`, background: forSale ? "var(--stamp-red-soft)" : "var(--paper-soft)", overflow: "hidden" }}>
@@ -968,5 +1028,15 @@ export default function AddListingPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+// useSearchParams must sit under a Suspense boundary for the production build
+// (missing-suspense-with-csr-bailout) — same pattern as /search.
+export default function AddListingPage() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-[680px]" style={{ padding: 20 }} />}>
+      <AddListingPageInner />
+    </Suspense>
   );
 }

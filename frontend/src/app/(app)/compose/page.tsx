@@ -192,9 +192,11 @@ export default function ComposePage() {
       <div className="w-full max-w-[680px] flex flex-col" style={{ minHeight: "100vh", background: "var(--canvas)" }}>
         <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]" style={{ padding: "12px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Link href="/feed" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--slate-200)", color: "var(--ink)" }}>
+            {/* Close = return to wherever Create was opened from (market, profile, …);
+                /feed only on a cold/deep-link entry with no in-app history. */}
+            <button type="button" aria-label="Close" onClick={() => (window.history.length > 1 ? router.back() : router.push("/feed"))} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--slate-200)", background: "transparent", color: "var(--ink)", cursor: "pointer" }}>
               <X size={18} />
-            </Link>
+            </button>
             <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Create</span>
           </div>
         </div>
@@ -204,7 +206,7 @@ export default function ComposePage() {
             {OPTIONS.map((o) => (
               <button
                 key={o.id}
-                onClick={() => { if (o.id === "listing") router.push("/market/new"); else setStage("compose"); }}
+                onClick={() => { if (o.id === "listing") router.push("/add/catalogue"); else setStage("compose"); }}
                 style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", cursor: "pointer", background: "var(--card-surface)", border: "1px solid var(--slate-200)", borderRadius: 16, padding: 16, boxShadow: "var(--card-shadow)" }}
               >
                 <div style={{ width: 50, height: 50, borderRadius: 13, background: o.color, color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>

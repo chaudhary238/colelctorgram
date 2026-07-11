@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Search, Plus, Check } from "lucide-react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { CategoryChip, ProductPhoto, Avatar, SectionLabel } from "@/components/ui";
-import { AddToCollectionSheet } from "@/components/AddToCollectionSheet";
 
 const CAT_TONE: Record<string, string> = { figures: "red", designer: "plum", kits: "forest", diecast: "teal" };
 function toneForCat(category: string | null): string {
@@ -72,17 +71,27 @@ function ResGroup({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
-export default function SearchPage() {
+function SearchPageInner() {
   const router = useRouter();
-  const [q, setQ] = useState("");
-  const [scope, setScope] = useState("all");
+  const searchParams = useSearchParams();
+  // q/scope live in the URL (?q=…&scope=…) so back-navigation from a result's
+  // detail page restores the last search instead of remounting to a blank box.
+  const [q, setQ] = useState(searchParams.get("q") ?? "");
+  const [scope, setScope] = useState(searchParams.get("scope") ?? "all");
   const [trending, setTrending] = useState<TrendTerm[]>([]);
   const [results, setResults] = useState<SearchResult | null>(null);
   const [searching, setSearching] = useState(false);
-  // v4 AddToCollection: tapping + on a catalogue hit opens the full mandatory-field
-  // sheet (photo/status/etc.), not a silent owned-insert. `added` marks done SKUs.
-  const [addTarget, setAddTarget] = useState<SearchResult["catalogue"][number] | null>(null);
-  const [added, setAdded] = useState<Record<string, boolean>>({});
+
+  // Mirror q/scope into the URL with replace (no history spam while typing).
+  const urlSyncReady = useRef(false);
+  useEffect(() => {
+    if (!urlSyncReady.current) { urlSyncReady.current = true; return; }
+    const params = new URLSearchParams();
+    if (q.trim()) params.set("q", q.trim());
+    if (scope !== "all") params.set("scope", scope);
+    const qs = params.toString();
+    router.replace(qs ? `/search?${qs}` : "/search", { scroll: false });
+  }, [q, scope, router]);
 
   // Trending now (empty-query state) — real, derived from recent post hashtags.
   useEffect(() => {
@@ -107,23 +116,6 @@ export default function SearchPage() {
     return () => clearTimeout(timer);
   }, [q]);
 
-  // design_v4: a catalogue result routes to the item's status-aware detail page when
-  // it's already in your collection (owned → Modify/Sell, wishlist → Notify, etc.),
-  // and only opens "Add to my collection" when it isn't. The "+" is a visual affordance
-  // (whole row is the target), not a one-click silent add.
-  async function openCatalogueItem(c: SearchResult["catalogue"][number]) {
-    try {
-      const res = await api.get<{ item: { id: string; status: string } | null }>(
-        `/items/by-sku/${encodeURIComponent(c.sku)}`,
-      );
-      if (res.item) router.push(`/item/${res.item.id}`);
-      else setAddTarget(c);
-    } catch (e) {
-      console.error(e);
-      setAddTarget(c);
-    }
-  }
-
   const show = (id: string) => scope === "all" || scope === id;
   // scope-aware: "no results" reflects only the groups visible under the active scope
   const visibleCount = results
@@ -136,7 +128,7 @@ export default function SearchPage() {
   const empty = !!results && visibleCount === 0;
 
   return (
-    <div className="w-full max-w-[1100px] flex flex-col">
+    <div className="w-full max-w-[680px] flex flex-col">
       {/* search bar + scopes */}
       <div className="sticky top-0 z-10" style={{ background: "var(--canvas)", borderBottom: "1px solid var(--slate-200)", padding: "16px 20px 12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9, height: 46, padding: "0 14px", borderRadius: 14, border: "1px solid var(--slate-200)", background: "var(--card-surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
@@ -210,23 +202,17 @@ export default function SearchPage() {
                   </ResGroup>
                 )}
 
+                {/* Search finds things; the DB entry page acts on them (add / view / report).
+                    Rows navigate like every other result group — no inline "+" action. */}
                 {show("items") && results.catalogue.length > 0 && (
-                  <ResGroup label="Catalogue items">
+                  <ResGroup label="Scorred DB">
                     {results.catalogue.map((c) => (
                       <ResRow
                         key={c.sku}
-                        onClick={() => openCatalogueItem(c)}
+                        onClick={() => router.push(`/db/${encodeURIComponent(c.sku)}`)}
                         media={<div style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}><ProductPhoto tone={skuToneSearch(c.sku, c.category)} src={c.thumbnail_url} ratio="1/1" rounded={8} /></div>}
                         title={c.title}
                         sub={`${c.sku} · ${c.brand}`}
-                        action={
-                          <span
-                            aria-hidden
-                            style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: added[c.sku] ? "var(--emerald)" : "var(--stamp-red)" }}
-                          >
-                            {added[c.sku] ? <Check size={20} /> : <Plus size={20} />}
-                          </span>
-                        }
                       />
                     ))}
                   </ResGroup>
@@ -286,13 +272,16 @@ export default function SearchPage() {
         )}
       </div>
 
-      {addTarget && (
-        <AddToCollectionSheet
-          initialPick={addTarget}
-          onClose={() => setAddTarget(null)}
-          onAdded={() => setAdded((a) => ({ ...a, [addTarget.sku]: true }))}
-        />
-      )}
     </div>
+  );
+}
+
+// useSearchParams must sit under a Suspense boundary for the production build
+// (missing-suspense-with-csr-bailout) — the shell prerenders, the inner page hydrates.
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-[680px]" style={{ padding: 20 }} />}>
+      <SearchPageInner />
+    </Suspense>
   );
 }

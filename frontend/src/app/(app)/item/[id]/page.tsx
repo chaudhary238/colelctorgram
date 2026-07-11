@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Camera, Bell, Tag, Trash2, Pencil, Eye, ShieldCheck, Flag } from "lucide-react";
+import { ArrowLeft, Camera, Bell, Tag, Trash2, Pencil, Eye, ShieldCheck, Flag, Star } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
+import { ReportCatalogueSheet } from "@/components/ReportCatalogueSheet";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { VerifyBadge, ProductPhoto, SectionLabel } from "@/components/ui";
@@ -34,6 +35,8 @@ interface ApiItem {
   owner_handle?: string | null;
   owner_name?: string | null;
   catalogue_is_official?: boolean;
+  // viewer's wishlist state for this item's identity (Star toggle, taxonomy 2026-07-11)
+  is_wishlisted?: boolean;
 }
 
 // DV4-04: remove-from-collection reasons (design_v4 ItemDetail "Remove from collection?" sheet).
@@ -65,70 +68,6 @@ function PoRow({ label, value, accent }: { label: string; value: string; accent?
 }
 
 // DV4-04: "Remove from collection?" reason sheet.
-// DV6-13 — report a catalogue entry (reactive moderation). Entry stays live until an admin acts.
-const CATALOGUE_REPORT_REASONS = [
-  "Wrong or misleading info",
-  "Duplicate of another entry",
-  "Bad or inappropriate image",
-  "Counterfeit / bootleg",
-  "Other",
-];
-
-function ReportCatalogueSheet({ sku, onClose }: { sku: string; onClose: () => void }) {
-  const [reason, setReason] = useState("");
-  const [sending, setSending] = useState(false);
-  const [done, setDone] = useState(false);
-
-  async function submit() {
-    if (!reason || sending) return;
-    setSending(true);
-    try {
-      await api.post(`/catalogue/${encodeURIComponent(sku)}/report`, { reason });
-      setDone(true);
-      setTimeout(onClose, 1200);
-    } catch { setSending(false); }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-4)] p-5">
-        {done ? (
-          <div className="flex flex-col items-center text-center py-4 gap-2">
-            <div className="w-12 h-12 rounded-full bg-[var(--verified-teal-soft)] flex items-center justify-center"><Flag size={20} style={{ color: "var(--verified-teal)" }} /></div>
-            <div className="text-sm font-semibold text-[var(--ink)]">Report submitted</div>
-            <div className="text-xs text-[var(--ink-faint)]">Thanks — our team will take a look.</div>
-          </div>
-        ) : (
-          <>
-            <h2 className="font-bold text-base text-[var(--ink)] mb-1" style={{ fontFamily: "var(--font-display)" }}>Report this entry</h2>
-            <p className="text-xs text-[var(--ink-faint)] mb-4">What&rsquo;s wrong with it? It stays live until we review.</p>
-            <div className="space-y-2">
-              {CATALOGUE_REPORT_REASONS.map((r) => (
-                <button key={r} onClick={() => setReason(r)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 text-left transition-colors"
-                  style={{ borderColor: reason === r ? "var(--stamp-red)" : "var(--border)", background: reason === r ? "var(--stamp-red-soft)" : "var(--surface)" }}>
-                  <span className="w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center"
-                    style={{ borderColor: reason === r ? "var(--stamp-red)" : "var(--border-strong)", background: reason === r ? "var(--stamp-red)" : "transparent" }}>
-                    {reason === r && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                  </span>
-                  <span className="text-sm font-medium text-[var(--ink)]">{r}</span>
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2 mt-5">
-              <button onClick={onClose} className="flex-1 h-11 rounded-xl border border-[var(--border-strong)] text-[var(--ink)] font-semibold text-sm">Cancel</button>
-              <button onClick={submit} disabled={!reason || sending}
-                className="flex-1 h-11 rounded-xl bg-[var(--stamp-red)] text-white font-semibold text-sm disabled:opacity-50">
-                {sending ? "Sending…" : "Submit report"}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function RemoveSheet({ reason, setReason, onConfirm, onClose, removing }: {
   reason: string; setReason: (r: string) => void; onConfirm: () => void; onClose: () => void; removing: boolean;
@@ -256,6 +195,19 @@ export default function ItemDetailPage() {
   const [removing, setRemoving] = useState(false);
 
   const [reporting, setReporting] = useState(false); // DV6-13 — report this catalogue entry
+  // Star = wishlist (taxonomy 2026-07-11) — non-owner only; lands in Saved → Wishlist.
+  const [wishlisted, setWishlisted] = useState(false);
+  const [wishBusy, setWishBusy] = useState(false);
+
+  async function toggleWishlist() {
+    if (!item || wishBusy) return;
+    const next = !wishlisted;
+    setWishlisted(next); // optimistic
+    setWishBusy(true);
+    try { await api.post(`/items/${item.id}/wishlist`); }
+    catch { setWishlisted(!next); }
+    finally { setWishBusy(false); }
+  }
   // edit pre-order details (DV4-03b)
   const [poEdit, setPoEdit] = useState(false);
 
@@ -287,7 +239,7 @@ export default function ItemDetailPage() {
 
   useEffect(() => {
     api.get<ApiItem>(`/items/${id}`)
-      .then((i) => setItem(i))
+      .then((i) => { setItem(i); setWishlisted(!!i.is_wishlisted); })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
@@ -490,7 +442,7 @@ export default function ItemDetailPage() {
           ) : (
             // Web can sell (DF-17) — list this item via the market create flow (v3 parity).
             <Link
-              href="/market/new"
+              href="/add/catalogue"
               style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, borderRadius: 13, background: "var(--stamp-red)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
               <Tag size={18} />Sell / Trade this item
             </Link>
@@ -501,9 +453,30 @@ export default function ItemDetailPage() {
             {wishAlert ? "Alert on" : "Notify when listed"}
           </button>
         ) : (
-          <button onClick={addToCollection} disabled={adding || added} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, borderRadius: 13, background: added ? "var(--bone)" : "var(--ink)", color: added ? "var(--ink)" : "var(--paper)", border: added ? "1px solid var(--border-strong)" : "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: adding || added ? "default" : "pointer" }}>
-            {added ? "Added to collection ✓" : adding ? "Adding…" : "Add to my collection"}
-          </button>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={addToCollection} disabled={adding || added} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: added ? "var(--bone)" : "var(--ink)", color: added ? "var(--ink)" : "var(--paper)", border: added ? "1px solid var(--border-strong)" : "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: adding || added ? "default" : "pointer" }}>
+              {added ? "Added to collection ✓" : adding ? "Adding…" : "Add to my collection"}
+            </button>
+            {/* Star = wishlist (icon law 2026-07-11) — someone else's item only */}
+            {!isOwnItem && (
+              <button
+                type="button"
+                onClick={toggleWishlist}
+                disabled={wishBusy}
+                title={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                style={{
+                  width: 48, height: 48, borderRadius: 13, flexShrink: 0, cursor: wishBusy ? "wait" : "pointer",
+                  border: `1px solid ${wishlisted ? "var(--stamp-red)" : "var(--border-strong)"}`,
+                  background: wishlisted ? "var(--stamp-red)" : "var(--paper)",
+                  color: wishlisted ? "var(--paper)" : "var(--ink)",
+                  display: "flex", alignItems: "center", justifyContent: "center", transition: "all 140ms",
+                }}
+              >
+                <Star size={19} fill={wishlisted ? "currentColor" : "none"} />
+              </button>
+            )}
+          </div>
         )}
       </div>
 

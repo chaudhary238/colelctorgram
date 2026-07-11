@@ -29,7 +29,7 @@ const NAV: NavDef[] = [
   { href: "/events",        label: "Events",        icon: Calendar },
   { href: "/inbox",         label: "Messages",      icon: MessageSquare, badgeKey: "msgs" as const },
   { href: "/notifications", label: "Notifications", icon: Bell,       badgeKey: "notifs" as const },
-  { href: "/saved",         label: "Saved",         icon: Bookmark },
+  { href: "/saved",         label: "Stash",         icon: Bookmark },
   { href: "/profile",       label: "Profile",       icon: User },
 ];
 

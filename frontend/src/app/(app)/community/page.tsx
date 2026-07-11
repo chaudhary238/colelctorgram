@@ -36,7 +36,7 @@ export default function CommunityPage() {
   );
 
   return (
-    <div className="w-full max-w-[760px] flex flex-col pb-7">
+    <div className="w-full max-w-[680px] flex flex-col pb-7">
       <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "14px 20px 0" }}>
         <Link
           href="/search"

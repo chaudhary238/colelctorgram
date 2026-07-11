@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Heart, MessageCircle, Share2, Bookmark, Send, Calendar, MapPin, Clock,
+  Heart, MessageCircle, Share2, Bookmark, Star, Send, Calendar, MapPin, Clock,
   Users, MessageSquare, Bell, Shield, Tag as TagIcon, Pencil, Trash2, MoreHorizontal,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -112,8 +112,10 @@ export interface ApiListing {
   terms: string[];
   status: string;
   saves_count: number;
+  likes_count?: number;
   watching_count: number;
   is_saved?: boolean;
+  is_liked?: boolean;
   is_wishlisted?: boolean;
   is_mine?: boolean;
   price_votes?: { low: number; fair: number; high: number; total: number; my_vote: string | null };
@@ -1021,34 +1023,34 @@ export function ListingFeedCard({ listing }: { listing: ApiListing }) {
 /* ── Marketplace grid card ───────────────────────────────────────── */
 export function MarketCard({ listing }: { listing: ApiListing }) {
   const router = useRouter();
-  const [saved, setSaved] = useState(listing.is_saved ?? false);
-  const [busy, setBusy] = useState(false);
+  const [liked, setLiked] = useState(listing.is_liked ?? false);
+  const [likes, setLikes] = useState(listing.likes_count ?? 0);
+  const [likeBusy, setLikeBusy] = useState(false);
   const [wishlisted, setWishlisted] = useState(listing.is_wishlisted ?? false);
   const [wishBusy, setWishBusy] = useState(false);
   const [dmBusy, setDmBusy] = useState(false);
   const price = Math.round(listing.price / 100);
   const cur = symOf(listing.currency ?? "INR");
 
-  async function toggleSave(e: React.MouseEvent) {
+  // Card actions (founder 2026-07-11): Heart = public like, Star = wishlist the
+  // underlying item. Save (Bookmark) lives on the listing detail page, not the card.
+  async function toggleLike(e: React.MouseEvent) {
     e.preventDefault();
-    if (busy) return;
-    const next = !saved;
-    setSaved(next);              // optimistic
-    setBusy(true);
-    try { await api.post(`/listings/${listing.id}/save`); }
-    catch { setSaved(!next); }
-    finally { setBusy(false); }
+    if (likeBusy) return;
+    const next = !liked;
+    setLiked(next);                              // optimistic
+    setLikes((n) => Math.max(0, n + (next ? 1 : -1)));
+    setLikeBusy(true);
+    try { await api.post(`/listings/${listing.id}/like`); }
+    catch { setLiked(!next); setLikes((n) => Math.max(0, n + (next ? -1 : 1))); }
+    finally { setLikeBusy(false); }
   }
 
-  // Wishlist the underlying item/SKU (DF-24) — distinct from the save heart:
-  // adds a status="wishlist" copy to your collection + alerts you when a matching
-  // listing is posted (POST /items/{item_id}/wishlist).
   async function toggleWishlist(e: React.MouseEvent) {
     e.preventDefault();
-    e.stopPropagation();
     if (wishBusy) return;
     const next = !wishlisted;
-    setWishlisted(next);         // optimistic
+    setWishlisted(next);                         // optimistic
     setWishBusy(true);
     try { await api.post(`/items/${listing.item_id}/wishlist`); }
     catch { setWishlisted(!next); }
@@ -1088,33 +1090,38 @@ export function MarketCard({ listing }: { listing: ApiListing }) {
     >
       <div style={{ position: "relative" }}>
         <ProductPhoto tone="ink" src={listing.cover_url} ratio="1/1" rounded={0} />
+        {/* Icon law (2026-07-11): Heart = like (public, shows the count),
+            Star = wishlist the underlying item. Save lives on listing detail. */}
         <div
-          onClick={toggleSave}
+          onClick={toggleLike}
+          title={liked ? "Unlike" : "Like"}
           style={{
-            position: "absolute", top: 8, right: 8, width: 32, height: 32, borderRadius: 10,
-            background: saved ? "rgba(255,36,66,0.80)" : "rgba(15,23,42,0.46)",
+            position: "absolute", top: 8, right: 8, minWidth: 32, height: 32, borderRadius: 10,
+            padding: likes > 0 ? "0 9px" : 0, gap: 5,
+            background: liked ? "rgba(255,36,66,0.80)" : "rgba(15,23,42,0.46)",
             backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
             border: "1px solid rgba(255,255,255,0.20)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            color: "var(--paper)", cursor: busy ? "default" : "pointer", transition: "background 150ms",
+            color: "var(--paper)", cursor: likeBusy ? "default" : "pointer", transition: "background 150ms",
           }}
         >
-          <Heart size={16} fill={saved ? "var(--stamp-red)" : "none"} />
+          <Heart size={15} fill={liked ? "currentColor" : "none"} />
+          {likes > 0 && <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, fontWeight: 700 }}>{likes}</span>}
         </div>
         {!listing.is_mine && (
           <div
             onClick={toggleWishlist}
-            title={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+            title={wishlisted ? "Remove from wishlist" : "Add item to wishlist"}
             style={{
-              position: "absolute", bottom: 8, right: 8, width: 30, height: 30, borderRadius: 9,
-              background: wishlisted ? "rgba(255,36,66,0.85)" : "rgba(15,23,42,0.46)",
+              position: "absolute", top: 46, right: 8, width: 32, height: 32, borderRadius: 10,
+              background: wishlisted ? "rgba(255,36,66,0.80)" : "rgba(15,23,42,0.46)",
               backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
               border: "1px solid rgba(255,255,255,0.20)",
               display: "flex", alignItems: "center", justifyContent: "center",
               color: "var(--paper)", cursor: wishBusy ? "default" : "pointer", transition: "background 150ms",
             }}
           >
-            <Bookmark size={14} strokeWidth={wishlisted ? 0 : 1.75} fill={wishlisted ? "currentColor" : "none"} />
+            <Star size={15} strokeWidth={wishlisted ? 0 : 1.75} fill={wishlisted ? "currentColor" : "none"} />
           </div>
         )}
         {listing.is_mine && listing.status === "available" && (

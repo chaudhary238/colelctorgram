@@ -83,7 +83,7 @@ export default function EventsPage() {
   const featured = filteredUpcoming[0];
 
   return (
-    <div className="w-full max-w-[760px] flex flex-col">
+    <div className="w-full max-w-[680px] flex flex-col">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         {/* row 1: search + list button (v4 EventsView) */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>

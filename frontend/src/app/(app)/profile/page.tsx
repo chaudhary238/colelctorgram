@@ -11,7 +11,7 @@ export default function OwnProfilePage() {
 
   return (
     <div className="flex justify-start px-5">
-      <div className="w-full max-w-[760px] min-h-screen border-x border-[var(--border)]">
+      <div className="w-full max-w-[680px] min-h-screen border-x border-[var(--border)]">
         <UserProfile handle={user.handle} isOwn={true} />
       </div>
     </div>

@@ -99,7 +99,7 @@ export default function BadgesPage() {
   const seasonWins = d?.badges.length ?? 0;
 
   return (
-    <div className="w-full max-w-[600px] min-h-screen border-r border-[var(--border)]">
+    <div className="w-full max-w-[680px] min-h-screen border-r border-[var(--border)]">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px" }}>
         <button onClick={() => router.back()} aria-label="Back" style={{ display: "flex", padding: 4, marginLeft: -4, cursor: "pointer", color: "var(--ink-soft)" }}>
           <ChevronLeft size={22} />
