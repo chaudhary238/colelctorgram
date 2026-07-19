@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, status
+from fastapi import APIRouter, FastAPI, WebSocket, WebSocketDisconnect, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, text
@@ -50,23 +50,29 @@ app.add_middleware(
 )
 
 # ── REST routers ──────────────────────────────────────────────────
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(feed.router)
-app.include_router(catalogue.router)
-app.include_router(items.router)
-app.include_router(posts.router)
-app.include_router(comments_router)
-app.include_router(listings.router)
-app.include_router(communities.router)
-app.include_router(events.router)
-app.include_router(threads.router)
-app.include_router(notifications.router)
-app.include_router(search.router)
-app.include_router(media.router)
-app.include_router(admin.router)
-app.include_router(moderation_router)
-app.include_router(rewards.router)
+# All REST endpoints are versioned under /v1 so the contract can evolve without
+# breaking existing clients (the Phase-2 mobile app pins to /v1). Infra endpoints
+# (/health, /ws) and the dev media mount stay at ROOT — deliberately unversioned:
+# Render's health probe hits /health, and browsers open /ws directly.
+api_v1 = APIRouter(prefix="/v1")
+api_v1.include_router(auth.router)
+api_v1.include_router(users.router)
+api_v1.include_router(feed.router)
+api_v1.include_router(catalogue.router)
+api_v1.include_router(items.router)
+api_v1.include_router(posts.router)
+api_v1.include_router(comments_router)
+api_v1.include_router(listings.router)
+api_v1.include_router(communities.router)
+api_v1.include_router(events.router)
+api_v1.include_router(threads.router)
+api_v1.include_router(notifications.router)
+api_v1.include_router(search.router)
+api_v1.include_router(media.router)
+api_v1.include_router(admin.router)
+api_v1.include_router(moderation_router)
+api_v1.include_router(rewards.router)
+app.include_router(api_v1)
 
 # Serve locally-stored uploads when R2 is not configured (dev fallback).
 if not settings.r2_configured:
