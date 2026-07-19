@@ -296,6 +296,12 @@ async def _handle_oauth_user(db: AsyncSession, *, email: str, name: str | None) 
         )
         db.add(user)
         await db.flush()
+    elif not user.email_verified:
+        # Existing account matched by email. The provider has just asserted this
+        # email is verified (checked by the caller), so clear any pending
+        # verification — otherwise the account 403s on every endpoint behind
+        # get_current_user despite a successful provider sign-in.
+        user.email_verified = True
     return TokenResponse(
         access_token=create_access_token(str(user.id)),
         refresh_token=create_refresh_token(str(user.id)),
