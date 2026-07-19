@@ -98,7 +98,7 @@ if $RUN_FRONTEND; then
   # Create .env.local if missing
   if [ ! -f "$FRONTEND/.env.local" ]; then
     info "Creating frontend/.env.local…"
-    echo 'NEXT_PUBLIC_API_URL=http://localhost:8000' > "$FRONTEND/.env.local"
+    echo 'NEXT_PUBLIC_API_URL=http://localhost:8000/v1' > "$FRONTEND/.env.local"
     ok "Created frontend/.env.local"
   fi
 fi
