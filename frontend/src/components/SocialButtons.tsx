@@ -1,19 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, storeTokens } from "@/lib/api";
 
 /* Social sign-in (DF-37a), config-gated. Renders a provider button ONLY when the
    backend reports that provider is configured (GET /auth/providers) — so nothing
-   dead ships before the founder adds credentials. When enabled, the button runs
-   the provider's real flow and exchanges the credential at /auth/oauth/{provider}. */
+   dead ships before the founder adds credentials.
+   Google uses the official RENDERED button (google.accounts.id.renderButton): it
+   opens the account chooser on click and returns an ID-token `credential` we
+   exchange at /auth/oauth/google. We deliberately do NOT use One Tap `prompt()` —
+   that path depends on FedCM / third-party-cookie state and fails silently with a
+   separate login window when FedCM is blocked or in cooldown. */
 
 interface Providers { google: boolean; apple: boolean }
 
 // Google Identity Services / AppleID JS attach a global when their script loads.
 declare global {
   interface Window {
-    google?: { accounts?: { id?: { initialize: (o: object) => void; prompt: () => void } } };
+    google?: { accounts?: { id?: {
+      initialize: (o: object) => void;
+      renderButton: (el: HTMLElement, o: object) => void;
+    } } };
     AppleID?: { auth?: { init: (o: object) => void; signIn: () => Promise<{ authorization: { id_token: string } }> } };
   }
 }
@@ -29,6 +36,8 @@ function loadScript(src: string): Promise<void> {
 
 export function SocialButtons({ onError }: { onError?: (msg: string) => void }) {
   const [providers, setProviders] = useState<Providers | null>(null);
+  const googleWrapRef = useRef<HTMLDivElement>(null);
+  const googleBtnRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.get<Providers>("/auth/providers").then(setProviders).catch(() => setProviders({ google: false, apple: false }));
@@ -44,16 +53,31 @@ export function SocialButtons({ onError }: { onError?: (msg: string) => void }) 
     }
   }
 
-  async function google() {
+  // Mount Google's official button once the provider is enabled + the target div exists.
+  useEffect(() => {
+    if (!providers?.google || !googleBtnRef.current) return;
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!clientId) return onError?.("Google sign-in is not configured");
-    await loadScript("https://accounts.google.com/gsi/client");
-    window.google?.accounts?.id?.initialize({
-      client_id: clientId,
-      callback: (res: { credential: string }) => finish("/auth/oauth/google", res.credential),
-    });
-    window.google?.accounts?.id?.prompt();
-  }
+    if (!clientId) { onError?.("Google sign-in is not configured"); return; }
+    let cancelled = false;
+    loadScript("https://accounts.google.com/gsi/client")
+      .then(() => {
+        if (cancelled || !googleBtnRef.current) return;
+        window.google?.accounts?.id?.initialize({
+          client_id: clientId,
+          callback: (res: { credential: string }) => finish("/auth/oauth/google", res.credential),
+        });
+        // The rendered button is a fixed-px Google iframe (max 400). Track the column width.
+        const w = Math.min(400, Math.max(200, googleWrapRef.current?.clientWidth || 320));
+        googleBtnRef.current.innerHTML = "";
+        window.google?.accounts?.id?.renderButton(googleBtnRef.current, {
+          type: "standard", theme: "outline", size: "large",
+          text: "continue_with", shape: "rectangular",
+          logo_alignment: "center", width: w,
+        });
+      })
+      .catch(() => onError?.("Couldn't load Google sign-in"));
+    return () => { cancelled = true; };
+  }, [providers?.google]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function apple() {
     const clientId = process.env.NEXT_PUBLIC_APPLE_CLIENT_ID;
@@ -77,8 +101,12 @@ export function SocialButtons({ onError }: { onError?: (msg: string) => void }) 
         <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>or continue with</span>
         <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
       </div>
-      <div style={{ display: "flex", gap: 11 }}>
-        {providers.google && <SocialBtn label="Google" onClick={google} />}
+      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+        {providers.google && (
+          <div ref={googleWrapRef} style={{ display: "flex", justifyContent: "center", minHeight: 44 }}>
+            <div ref={googleBtnRef} />
+          </div>
+        )}
         {providers.apple && <SocialBtn label="Apple" onClick={apple} />}
       </div>
     </>
