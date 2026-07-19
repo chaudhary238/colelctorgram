@@ -189,12 +189,21 @@ button { cursor: pointer; }
 ::-webkit-scrollbar-thumb { background: var(--bone-deep); border-radius: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 
+/* Hide scrollbar for swipe carousels (post photo carousel, etc.) */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 ::selection { background: var(--grail-gold); color: var(--ink); }
 
 /* ── Responsive sidebar (mirrors web.html) ────────────────────── */
+/* The wordmark already contains the seal glyph, so the standalone seal only
+   shows on the collapsed (icon-only) sidebar where the wordmark is hidden.
+   Avoids the duplicate icon+logo in the top-left (QA 5.3). */
+.ch-brand-seal { display: none; }
 @media (max-width: 1280px) {
   .ch-sidebar { width: 84px !important; align-items: center; padding-left: 10px; padding-right: 10px; }
   .ch-nav-label { display: none !important; }
+  .ch-brand-seal { display: block !important; }
 }
 @media (max-width: 1240px) { .ch-rail { display: none !important; } }
 @media (max-width: 1100px) {
@@ -204,3 +213,15 @@ button { cursor: pointer; }
   .ch-sidebar { width: 66px !important; }
   .ch-col { width: 100% !important; border-right: none !important; }
 }
+
+/* ── Fixed bottom CTA bar (item/listing/db/events detail — R-04) ──────
+   Left offset tracks the sidebar width so the bar aligns with the 680px
+   content column at every breakpoint: 245 (≥1281) → 84 (icon rail, ≤1280)
+   → 0 (sidebar hidden, below lg). Safe-area pad for standalone/notch. */
+.ch-cta-bar {
+  position: fixed; bottom: 0; left: 245px; right: 0; max-width: 680px;
+  border-top: 1px solid var(--border); background: var(--paper);
+  padding: 12px 20px calc(20px + env(safe-area-inset-bottom)); z-index: 20;
+}
+@media (max-width: 1280px)   { .ch-cta-bar { left: 84px; } }
+@media (max-width: 1023.98px) { .ch-cta-bar { left: 0; } }

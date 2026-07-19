@@ -8,9 +8,9 @@ import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
 import { shortDate } from "@/lib/utils";
 import { ApiEvent } from "@/components/cards";
-import { Avatar, ProductPhoto, SectionLabel, Tag, TierChip } from "@/components/ui";
+import { Avatar, ProductPhoto, SectionLabel, Tag } from "@/components/ui";
 
-interface Guest { handle: string; name: string; avatar_url: string | null; city: string | null; tier: string; status: "going" | "interested" }
+interface Guest { handle: string; name: string; avatar_url: string | null; city: string | null; status: "going" | "interested" }
 
 // v4 category short-labels (design_v4 data.jsx CATEGORIES.short; incl. TCG per DV4-01).
 const CAT_LABEL: Record<string, string> = {
@@ -250,11 +250,10 @@ export default function EventDetailPage() {
         {/* Hosted by */}
         <SectionLabel>Hosted by</SectionLabel>
         <Link href={`/profile/${event.host_handle}`} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", marginTop: 10, padding: 12, textDecoration: "none", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13 }}>
-          <Avatar name={event.host_name ?? "?"} photo={event.host_avatar_url ?? undefined} size={40} verified={!!event.host_tier && event.host_tier !== "verified"} />
+          <Avatar name={event.host_name ?? "?"} photo={event.host_avatar_url ?? undefined} size={40} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{event.is_host ? "You" : event.host_name}</span>
-              {!event.is_host && event.host_tier && <TierChip tier={event.host_tier} />}
             </div>
             <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>@{event.host_handle}{event.host_city ? ` · ${event.host_city}` : ""}</div>
           </div>
@@ -263,7 +262,7 @@ export default function EventDetailPage() {
       </div>
 
       {/* Sticky footer */}
-      <div style={{ position: "fixed", bottom: 0, left: 245, right: 0, maxWidth: 680, borderTop: "1px solid var(--border)", background: "var(--paper)", padding: "12px 20px 20px", zIndex: 20 }}>
+      <div className="ch-cta-bar">
         {past ? (
           <div style={{ textAlign: "center", fontSize: 13, color: "var(--ink-faint)", padding: "4px 0" }}>This event has ended.</div>
         ) : event.is_host ? (

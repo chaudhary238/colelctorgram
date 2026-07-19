@@ -4,16 +4,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bookmark, Star, Edit3, X } from "lucide-react";
 import { api } from "@/lib/api";
-import { PostCard, MarketCard, ApiPost, ApiListing } from "@/components/cards";
+import { PostCard, ApiPost } from "@/components/cards";
 import { Segmented, ProductPhoto } from "@/components/ui";
 import { formatMoney } from "@/lib/catalog";
 
 // The Stash — one home for everything you've kept (taxonomy 2026-07-11; named
-// "Stash" by founder pick, route stays /saved): Posts + Listings = saved content
-// (Bookmark); Wishlist = items you might want someday (Star). Wishlist lives HERE,
-// not in the profile Collection — the collection is what you own (DV6-11e).
+// "Stash" by founder pick, route stays /saved): Posts = saved content (Bookmark);
+// Wishlist = items you might want someday (Star). Wishlist lives HERE, not in the
+// profile Collection — the collection is what you own (DV6-11e). The saved-Listings
+// tab was dropped (QA 8.1) since listing "Save" was removed (QA 11.5).
 
-type Tab = "posts" | "listings" | "wishlist";
+type Tab = "posts" | "wishlist";
 
 interface WishItem {
   id: string;
@@ -38,7 +39,6 @@ function Empty({ icon, title, hint }: { icon: React.ReactNode; title: string; hi
 export default function SavedPage() {
   const [tab, setTab] = useState<Tab>("posts");
   const [posts, setPosts] = useState<ApiPost[] | null>(null);
-  const [listings, setListings] = useState<ApiListing[] | null>(null);
   const [wishlist, setWishlist] = useState<WishItem[] | null>(null);
   const [removing, setRemoving] = useState<Record<string, boolean>>({});
 
@@ -48,15 +48,11 @@ export default function SavedPage() {
       api.get<{ items: ApiPost[] }>("/users/me/saved?limit=30")
         .then((d) => setPosts(d?.items ?? [])).catch(() => setPosts([]));
     }
-    if (tab === "listings" && listings === null) {
-      api.get<{ items: ApiListing[] }>("/listings?saved=true&limit=30")
-        .then((d) => setListings(d?.items ?? [])).catch(() => setListings([]));
-    }
     if (tab === "wishlist" && wishlist === null) {
       api.get<{ items: WishItem[] }>("/items/wishlist")
         .then((d) => setWishlist(d?.items ?? [])).catch(() => setWishlist([]));
     }
-  }, [tab, posts, listings, wishlist]);
+  }, [tab, posts, wishlist]);
 
   async function removeWish(w: WishItem) {
     if (removing[w.id]) return;
@@ -83,7 +79,6 @@ export default function SavedPage() {
             onChange={setTab}
             options={[
               { id: "posts", label: "Posts" },
-              { id: "listings", label: "Listings" },
               { id: "wishlist", label: "Wishlist" },
             ]}
           />
@@ -98,20 +93,6 @@ export default function SavedPage() {
             hint="Tap the bookmark on any post to save it here."
           />
         ) : posts.map((p) => <PostCard key={p.id} post={p} />)
-      )}
-
-      {tab === "listings" && (
-        listings === null ? loadingBlock : listings.length === 0 ? (
-          <Empty
-            icon={<Bookmark size={36} strokeWidth={1.5} style={{ color: "var(--ink-ghost)" }} />}
-            title="No saved listings yet"
-            hint="Tap the bookmark on any listing to save it here."
-          />
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 px-4 py-4">
-            {listings.map((l) => <MarketCard key={l.id} listing={l} />)}
-          </div>
-        )
       )}
 
       {tab === "wishlist" && (

@@ -3,37 +3,38 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Heart, Star, Bookmark, Share2, MessageCircle, Repeat2, Shield, Info, ChevronRight, Pencil, Send, Check, Clock } from "lucide-react";
+import { Heart, Star, Share2, MessageCircle, Repeat2, Shield, Info, ChevronRight, Pencil, Send, Check, Clock } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
 import { symOf } from "@/lib/catalog";
 import { ApiListing, ApiListingQuestion } from "@/components/cards";
-import { Avatar, VerifyBadge, Money, ProductPhoto, SectionLabel, TierChip, TrustSignals } from "@/components/ui";
+import { Avatar, Money, ProductPhoto, SectionLabel, TrustSignals } from "@/components/ui";
 
+// Condition vocabulary matches the "List for sale" create form (QA 11.3):
+// Sealed → MIB → BIB → Loose. Legacy keys map to the nearest approved grade.
 const CONDITION_LABEL: Record<string, string> = {
-  sealed_misb: "MISB · sealed",
-  mint: "Mint",
-  like_new: "Like new",
-  good: "Good",
-  fair: "Fair",
-  for_parts: "For parts",
-  excellent: "Excellent",
-  sealed: "MISB · sealed",
-  opened: "Opened · complete",
-  built: "Built",
+  sealed_misb: "Sealed",
+  sealed: "Sealed",
+  mint: "MIB",
+  excellent: "MIB",
+  like_new: "BIB",
+  opened: "BIB",
+  good: "Loose",
+  built: "Loose",
   loose: "Loose",
-  damaged: "For parts",
+  fair: "Loose",
+  for_parts: "Loose",
+  damaged: "Loose",
 };
 
-const CONDITION_LADDER = ["MISB", "Near Mint", "Excellent", "Good", "For Parts"];
+const CONDITION_LADDER = ["Sealed", "MIB", "BIB", "Loose"];
 
 function gradeOf(condition: string): string {
-  if (condition === "sealed_misb" || condition === "sealed") return "MISB";
-  if (condition === "mint") return "Near Mint";
-  if (condition === "excellent" || condition === "like_new" || condition === "opened") return "Excellent";
-  if (condition === "good" || condition === "built") return "Good";
-  return "For Parts";
+  if (condition === "sealed_misb" || condition === "sealed") return "Sealed";
+  if (condition === "mint" || condition === "excellent") return "MIB";
+  if (condition === "like_new" || condition === "opened") return "BIB";
+  return "Loose";
 }
 
 function SpecRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
@@ -58,8 +59,6 @@ export default function ListingDetailPage() {
   const router = useRouter();
   const [listing, setListing] = useState<ApiListing | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saved, setSaved] = useState(false);
-  const [saveBusy, setSaveBusy] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(0);
   const [likeBusy, setLikeBusy] = useState(false);
@@ -82,7 +81,6 @@ export default function ListingDetailPage() {
     api.get<ApiListing>(`/listings/${id}`)
       .then((l) => {
         setListing(l);
-        setSaved(l.is_saved ?? false);
         setLiked(l.is_liked ?? false);
         setLikes(l.likes_count ?? 0);
         setWishlisted(l.is_wishlisted ?? false);
@@ -94,20 +92,6 @@ export default function ListingDetailPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
-
-  async function toggleSave() {
-    if (saveBusy) return;
-    const next = !saved;
-    setSaved(next);
-    setSaveBusy(true);
-    try {
-      await api.post(`/listings/${id}/save`);
-    } catch {
-      setSaved(!next);
-    } finally {
-      setSaveBusy(false);
-    }
-  }
 
   async function toggleLike() {
     if (likeBusy) return;
@@ -179,7 +163,6 @@ export default function ListingDetailPage() {
   const available = listing.status === "available";
   const isPreorder = listing.acq === "preorder";
   const sellerVouches = listing.vouches_count ?? 0;
-  const sellerTier = sellerVouches >= 50 ? "top_seller" : sellerVouches >= 20 ? "trusted" : "verified";
   const priceRupees = Math.round(listing.price / 100);
   const cur = symOf(listing.currency ?? "INR");
   const retailRupees = listing.retail_price ? Math.round(listing.retail_price / 100) : 0;
@@ -253,16 +236,13 @@ export default function ListingDetailPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <BackButton fallback="/market" />
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Listing</span>
-          {/* Icon law (2026-07-11): Heart = like, Star = wishlist the item, Bookmark = save the listing */}
+          {/* Icon law: Heart = like, Star = wishlist the item. Save removed (QA 11.5). */}
           <button onClick={toggleLike} title={liked ? "Unlike" : "Like"} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, minWidth: 36, height: 36, padding: likes > 0 ? "0 9px" : 0, borderRadius: 10, border: "1px solid var(--border)", color: liked ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
             <Heart size={17} fill={liked ? "currentColor" : "none"} />
             {likes > 0 && <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700 }}>{likes}</span>}
           </button>
           <button onClick={toggleWishlist} title={wishlisted ? "Remove from wishlist" : "Add item to wishlist"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: wishlisted ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
             <Star size={17} fill={wishlisted ? "currentColor" : "none"} />
-          </button>
-          <button onClick={toggleSave} title={saved ? "Remove from saved" : "Save for later"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: saved ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
-            <Bookmark size={18} fill={saved ? "currentColor" : "none"} />
           </button>
           <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: shared ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
             <Share2 size={17} />
@@ -291,7 +271,6 @@ export default function ListingDetailPage() {
 
       <div style={{ padding: "6px 20px 20px" }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-          <VerifyBadge tier={listing.verify_tier} size="lg" />
           {isPreorder && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: 5, background: "var(--grail-gold-soft)", color: "var(--grail-gold-deep)", border: "1px solid var(--grail-gold)" }}>
               <Clock size={11} /> Pre-order
@@ -430,23 +409,15 @@ export default function ListingDetailPage() {
 
         <ListingQA listingId={id} canAnswer={mine} sellerName={listing.name} sellerPhoto={listing.avatar_url} />
 
-        {mine ? (
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 13, padding: "12px 14px", marginTop: 4 }}>
-            <Shield size={17} style={{ color: "var(--grail-gold-deep)", flexShrink: 0, marginTop: 1 }} />
-            <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.5 }}>
-              <b>Boost trust:</b> add a verified in-app photo to earn the Verified badge — verified listings rank higher and sell faster.
-            </div>
-          </div>
-        ) : (
+        {!mine && (
           <>
             <SectionLabel>Seller</SectionLabel>
             <Link href={`/profile/${listing.handle}`} style={{ display: "block", width: "100%", marginTop: 10, padding: 14, cursor: "pointer", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 14, textDecoration: "none" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <Avatar name={listing.name ?? "?"} size={46} verified={sellerTier !== "verified"} />
+                <Avatar name={listing.name ?? "?"} size={46} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                     <span style={{ fontWeight: 600, fontSize: 15, color: "var(--ink)" }}>{listing.name}</span>
-                    <TierChip tier={sellerTier} />
                   </div>
                   <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{listing.handle}{listing.seller_city ? ` · ${listing.seller_city}` : ""}</div>
                 </div>
@@ -456,8 +427,6 @@ export default function ListingDetailPage() {
                 <TrustSignals
                   compact
                   vouches={sellerVouches}
-                  rating={listing.rating}
-                  ratingCount={sellerVouches}
                 />
               </div>
             </Link>
@@ -472,7 +441,7 @@ export default function ListingDetailPage() {
         )}
       </div>
 
-      <div style={{ position: "fixed", bottom: 0, left: 245, right: 0, maxWidth: 680, borderTop: "1px solid var(--border)", background: "var(--paper)", padding: "12px 20px 20px", zIndex: 20 }}>
+      <div className="ch-cta-bar">
         {mine ? (
           editing ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

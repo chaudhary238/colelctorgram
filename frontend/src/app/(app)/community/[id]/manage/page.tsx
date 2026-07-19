@@ -13,9 +13,9 @@ interface CommunityDetail extends ApiCommunity {
   member_role: string | null;
   admins: { handle: string; name: string; avatar_url: string | null; role: string }[];
 }
-interface JoinRequest { handle: string; name: string; avatar_url: string | null; tier: string; vouches: number; }
+interface JoinRequest { handle: string; name: string; avatar_url: string | null; vouches: number; }
 interface PendingPost { id: string; handle: string; name: string; avatar_url: string | null; type: string; body: string; images: string[]; created_at: string; }
-interface Member { handle: string; name: string; avatar_url: string | null; tier: string; role: string; }
+interface Member { handle: string; name: string; avatar_url: string | null; role: string; }
 
 type Tab = "requests" | "posts" | "members" | "settings";
 

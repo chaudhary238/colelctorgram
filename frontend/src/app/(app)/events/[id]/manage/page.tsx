@@ -10,7 +10,7 @@ import { shortDate } from "@/lib/utils";
 import { resolvePincode } from "@/lib/pincode";
 import { Avatar, SectionLabel, EmptyNote } from "@/components/ui";
 
-interface Guest { handle: string; name: string; avatar_url: string | null; city: string | null; tier: string; status: "going" | "interested" }
+interface Guest { handle: string; name: string; avatar_url: string | null; city: string | null; status: "going" | "interested" }
 
 // v3 category short-labels (design_v3 data.jsx CATEGORIES.short).
 const CAT_LABEL: Record<string, string> = {

@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Plus, Send, Shield, Tag, Share2, MoreHorizontal } from "lucide-react";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
-import { Avatar, VerifyBadge, Money } from "@/components/ui";
+import { Avatar, Money } from "@/components/ui";
 import { ProfileMoreMenu } from "@/components/ProfileMoreMenu";
 import { BackButton } from "@/components/BackButton";
 
@@ -15,7 +15,6 @@ interface ChatUser {
   handle: string | null;
   name: string | null;
   avatar_url: string | null;
-  tier: string;
   rating: number;
 }
 
@@ -181,10 +180,10 @@ export default function ChatPage() {
               (e.g. an ISO post), falling back to the inbox on a cold entry. */}
           <BackButton fallback="/inbox" />
           <Link href={`/profile/${other?.handle}`} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, textDecoration: "none" }}>
-            <Avatar name={other?.name ?? "?"} size={36} verified={other?.tier === "top_seller"} />
+            <Avatar name={other?.name ?? "?"} size={36} />
             <div>
               <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink)" }}>{other?.name ?? "Unknown"}</div>
-              <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{other?.rating}★</div>
+              {other?.handle && <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>@{other.handle}</div>}
             </div>
           </Link>
           {other && (
@@ -215,7 +214,6 @@ export default function ChatPage() {
                 <span style={{ color: "var(--ink-faint)" }}>{listing.status}</span>
               </div>
             </div>
-            <VerifyBadge tier="shown" />
           </Link>
         )}
 

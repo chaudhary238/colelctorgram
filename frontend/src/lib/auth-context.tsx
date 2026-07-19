@@ -10,7 +10,6 @@ export interface AuthUser {
   bio: string | null;
   city: string | null;
   avatar_url: string | null;
-  tier: string;
   interests: string[];
   sub_interests?: Record<string, string[]> | null; // per-category chips (DV4-06)
   rating: number;
@@ -18,7 +17,6 @@ export interface AuthUser {
   followers_count: number;
   following_count: number;
   active_listings_count: number;
-  verified_items_count: number;
   email?: string | null;
   privacy_portfolio?: string | null;
   privacy_value?: string | null;

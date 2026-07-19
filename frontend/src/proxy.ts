@@ -3,7 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 // Always-public prefixes: auth pages, Next internals, and static assets served
 // from /public (brand logos, svgs). Static assets MUST bypass the auth redirect,
 // otherwise an unauthenticated splash/auth page can't load the logo (307 → /auth).
-const PUBLIC_PREFIXES = ["/auth", "/_next", "/favicon.ico", "/brand"];
+// PWA assets are public too: the browser fetches the manifest/SW/icons (sometimes
+// cookieless, and the offline page loads when unreachable) — a 307 here breaks install.
+const PUBLIC_PREFIXES = [
+  "/auth", "/_next", "/favicon.ico", "/brand",
+  "/manifest.webmanifest", "/sw.js", "/offline.html", "/icon-", "/apple-touch-icon",
+];
 
 // Auth pages that make no sense with a live session — bounce to /feed. NOT the
 // whole /auth tree: /auth/verify is reached WITH a session (signup issues tokens

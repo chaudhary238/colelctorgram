@@ -58,7 +58,7 @@ export function ContextualRail() {
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold text-[var(--ink)] truncate">@{displayHandle}</div>
           <div className="text-[13px] text-[var(--ink-faint)] truncate capitalize">
-            {displayName} · {user?.tier ?? "collector"}
+            {displayName}
           </div>
         </div>
       </Link>
@@ -277,8 +277,8 @@ function CommunitiesWidget() {
 /* ── Suggested collectors (community, events, profile, default) ──── */
 
 interface SuggestedUser {
-  id: string; handle: string; name: string; tier: string;
-  followers_count: number; verified_items_count: number;
+  id: string; handle: string; name: string;
+  followers_count: number;
 }
 
 function SuggestedRow({ u, divider }: { u: SuggestedUser; divider?: boolean }) {
@@ -303,14 +303,14 @@ function SuggestedRow({ u, divider }: { u: SuggestedUser; divider?: boolean }) {
   return (
     <div className="flex items-center gap-2.5 py-[7px]" style={divider ? rowDivider : undefined}>
       <Link href={`/profile/${u.handle}`} className="shrink-0">
-        <Avatar name={u.name} size={36} verified={u.verified_items_count > 10} />
+        <Avatar name={u.name} size={36} />
       </Link>
       <div className="flex-1 min-w-0">
         <Link href={`/profile/${u.handle}`} className="block truncate text-[13.5px] font-semibold text-[var(--ink)] hover:underline">
           @{u.handle}
         </Link>
-        <div className="truncate text-xs text-[var(--ink-faint)] capitalize">
-          {u.tier} · {u.followers_count.toLocaleString()} followers
+        <div className="truncate text-xs text-[var(--ink-faint)]">
+          {u.followers_count.toLocaleString()} followers
         </div>
       </div>
       <button onClick={toggleFollow} disabled={busy} className="shrink-0 font-bold text-[12.5px]"

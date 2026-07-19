@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { api, storeTokens } from "@/lib/api";
 import { SocialButtons } from "@/components/SocialButtons";
 import { SealMark, ScorredWordmark } from "@/components/ui";
 
 export default function SignInPage() {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -20,7 +22,7 @@ export default function SignInPage() {
       const { access_token, refresh_token } = await api.post<{
         access_token: string;
         refresh_token: string;
-      }>("/auth/login", { email, password });
+      }>("/auth/login", { identifier, password });
       storeTokens(access_token, refresh_token);
       // Full page load so AuthProvider refetches the user for the new session
       window.location.assign("/feed");
@@ -47,26 +49,38 @@ export default function SignInPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[var(--ink-mute)] mb-1">Email</label>
+            <label className="block text-sm font-medium text-[var(--ink-mute)] mb-1">Email or username</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              autoCapitalize="none"
+              autoCorrect="off"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               required
               className="w-full px-3 py-2.5 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] text-sm outline-none focus:border-[var(--stamp-red)] transition-colors"
-              placeholder="you@example.com"
+              placeholder="you@example.com or @handle"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-[var(--ink-mute)] mb-1">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-3 py-2.5 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] text-sm outline-none focus:border-[var(--stamp-red)] transition-colors"
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full px-3 py-2.5 pr-11 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] text-sm outline-none focus:border-[var(--stamp-red)] transition-colors"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <div className="text-right -mt-1">

@@ -5,15 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Heart, MessageCircle, Share2, Bookmark, Star, Send, Calendar, MapPin, Clock,
-  Users, MessageSquare, Bell, Shield, Tag as TagIcon, Pencil, Trash2, MoreHorizontal,
+  Users, MessageSquare, Bell, Shield, Tag as TagIcon, Pencil, Trash2, MoreHorizontal, FileText,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { timeAgo, shortDate } from "@/lib/utils";
 import { symOf } from "@/lib/catalog";
 import {
-  Avatar, TierChip, PostTypeTag, Stars, Money, ProductPhoto, SealMark,
-  Badge, Button, IconButton, GlassPill, LocationTag, statusLabel,
+  Avatar, PostTypeTag, Stars, Money, ProductPhoto, SealMark,
+  Badge, Button, IconButton, LocationTag, statusLabel,
 } from "@/components/ui";
 import { FeedBadge, fireXpToast } from "@/components/gamification";
 
@@ -25,7 +25,6 @@ export interface ApiPost {
   handle: string | null;
   name: string | null;
   avatar_url: string | null;
-  tier: string;
   // Rewards badge shown next to the author (v3 §3): First Start badge or rank badge.
   badge?: { kind: "first_start" | "rank"; code: string; name: string; emoji: string | null } | null;
   type: string;
@@ -80,7 +79,6 @@ export interface ApiListing {
   sku: string | null;
   title: string;
   category: string | null;
-  verify_tier: string;
   brand?: string | null;
   scale?: string | null;
   release_year?: number | null;
@@ -95,7 +93,6 @@ export interface ApiListing {
   name: string | null;
   seller_city?: string | null;
   avatar_url: string | null;
-  tier: string;
   rating: number;
   vouches_count?: number;
   price: number;
@@ -183,15 +180,21 @@ export interface ApiCommunity {
   created_at: string;
 }
 
-/* ── Condition label map ─────────────────────────────────────────── */
+/* ── Condition label map — matches the "List for sale" form (QA 11.3):
+   Sealed / MIB / BIB / Loose. Legacy keys map to the nearest grade. ── */
 const CONDITION_LABEL: Record<string, string> = {
-  sealed_misb: "MISB · sealed",
-  mint: "Mint",
-  like_new: "Like new",
-  good: "Good",
-  fair: "Fair",
-  for_parts: "For parts",
-  excellent: "Excellent",
+  sealed_misb: "Sealed",
+  sealed: "Sealed",
+  mint: "MIB",
+  excellent: "MIB",
+  like_new: "BIB",
+  opened: "BIB",
+  good: "Loose",
+  built: "Loose",
+  loose: "Loose",
+  fair: "Loose",
+  for_parts: "Loose",
+  damaged: "Loose",
 };
 
 /* ── Floating card shell (v3 — white card on canvas, hover lift) ──── */
@@ -242,7 +245,6 @@ function AuthorLine({ post, showFollow }: { post: ApiPost; showFollow?: boolean 
   const { user } = useUser();
   const [following, setFollowing] = useState(post.is_following ?? false);
   const [busy, setBusy] = useState(false);
-  const tier = post.tier;
   // Never offer a Follow button on your own post — you can't follow yourself.
   const isOwn = !!user && user.id === post.user_id;
 
@@ -263,14 +265,13 @@ function AuthorLine({ post, showFollow }: { post: ApiPost; showFollow?: boolean 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
       <Link href={`/profile/${post.handle ?? "unknown"}`} className="shrink-0">
-        <Avatar name={post.name ?? "?"} photo={post.avatar_url} verified={tier === "top_seller" || tier === "trusted"} size={38} />
+        <Avatar name={post.name ?? "?"} photo={post.avatar_url} size={38} />
       </Link>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <Link href={`/profile/${post.handle ?? "unknown"}`} style={{ textDecoration: "none" }} className="hover:underline">
             <span style={{ fontWeight: 600, fontSize: 14, color: "var(--ink)" }}>{post.name}</span>
           </Link>
-          {tier && <TierChip tier={tier} />}
           {/* v3 §3: the single rewards badge (First Start badge, else rank badge) */}
           <FeedBadge badge={post.badge} />
           {showFollow && !isOwn && (
@@ -290,7 +291,7 @@ function AuthorLine({ post, showFollow }: { post: ApiPost; showFollow?: boolean 
           )}
         </div>
         <div style={{ fontSize: 12, color: "var(--slate-400)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          @{post.handle}{post.category ? ` · ${post.category}` : ""} · {timeAgo(post.created_at)}
+          @{post.handle} · {timeAgo(post.created_at)}
         </div>
       </div>
     </div>
@@ -432,7 +433,7 @@ function MentionInput({
 }
 
 /* ── Rich comment thread — likes, replies, @mentions, edit/delete ── */
-function CommentThread({ postId, onCountChange }: { postId: string; onCountChange?: (n: number) => void }) {
+export function CommentThread({ postId, onCountChange }: { postId: string; onCountChange?: (n: number) => void }) {
   const [comments, setComments] = useState<ApiComment[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState("");
@@ -686,25 +687,47 @@ function PostImages({ images }: { images: string[] }) {
       </div>
     );
   }
-  if (n === 2) {
-    return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, borderRadius: 12, overflow: "hidden" }}>
-        {images.map((t, i) => <PostImg key={i} src={t} ratio="1/1" />)}
-      </div>
-    );
+  // QA 5.1 — multi-photo posts swipe as a carousel instead of stacking/gridding.
+  return <PostCarousel images={images} />;
+}
+
+// Swipeable, scroll-snapped photo carousel with dot + "n/total" indicators.
+// Indicators are pointer-events:none so the surrounding <Link> (tap → post
+// detail) still works while a horizontal drag pages between photos.
+function PostCarousel({ images }: { images: string[] }) {
+  const n = images.length;
+  const [active, setActive] = useState(0);
+  const scrollerRef = React.useRef<HTMLDivElement>(null);
+
+  function onScroll() {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    setActive((cur) => (idx !== cur ? idx : cur));
   }
-  const rest = images.slice(1, 4);
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 4, borderRadius: 12, overflow: "hidden" }}>
-      <PostImg src={images[0]} ratio="1/1" />
-      <div style={{ display: "grid", gridTemplateRows: `repeat(${rest.length}, 1fr)`, gap: 4 }}>
-        {rest.map((t, i) => (
-          <div key={i} style={{ position: "relative", minHeight: 0 }}>
-            <PostImg src={t} ratio="auto" style={{ height: "100%" }} />
-            {i === rest.length - 1 && n > 4 && (
-              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--paper)", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20 }}>+{n - 4}</div>
-            )}
+    <div style={{ position: "relative", borderRadius: 12, overflow: "hidden" }}>
+      <div
+        ref={scrollerRef}
+        onScroll={onScroll}
+        className="no-scrollbar"
+        style={{ display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
+      >
+        {images.map((src, i) => (
+          <div key={i} style={{ flex: "0 0 100%", scrollSnapAlign: "center" }}>
+            <PostImg src={src} ratio="3/2" />
           </div>
+        ))}
+      </div>
+      {/* counter */}
+      <div style={{ position: "absolute", top: 10, right: 10, pointerEvents: "none", background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 11.5, fontWeight: 600, borderRadius: 999, padding: "3px 9px", fontFamily: "var(--font-mono)" }}>
+        {active + 1}/{n}
+      </div>
+      {/* dots */}
+      <div style={{ position: "absolute", bottom: 10, left: 0, right: 0, display: "flex", justifyContent: "center", gap: 6, pointerEvents: "none" }}>
+        {images.map((_, i) => (
+          <span key={i} style={{ width: i === active ? 7 : 6, height: i === active ? 7 : 6, borderRadius: "50%", background: i === active ? "#fff" : "rgba(255,255,255,0.55)", transition: "all 0.15s", boxShadow: "0 0 2px rgba(0,0,0,0.4)" }} />
         ))}
       </div>
     </div>
@@ -793,24 +816,26 @@ export function PostCard({ post, showFollow = false }: { post: ApiPost; showFoll
               )}
             </div>
           )}
-          {post.tags && post.tags.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-              {post.tags.map((t) => (
-                <span key={t} style={{ fontSize: 13, fontWeight: 600, color: "var(--plum)" }}>{t.startsWith("#") ? t : `#${t}`}</span>
-              ))}
-            </div>
-          )}
         </Link>
+        {/* Hashtags — outside the post-detail Link so each tag can navigate to a
+            filtered search of its own (QA 10.1). */}
+        {post.tags && post.tags.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+            {post.tags.map((t) => {
+              const label = t.startsWith("#") ? t : `#${t}`;
+              return (
+                <Link key={t} href={`/search?q=${encodeURIComponent(label)}`} style={{ fontSize: 13, fontWeight: 600, color: "var(--plum)", textDecoration: "none" }} className="hover:underline">
+                  {label}
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {post.images.length > 0 && (
         <Link href={`/post/${post.id}`} style={{ display: "block", padding: "12px 18px 0", position: "relative" }}>
           <PostImages images={post.images} />
-          {post.images.length > 1 && (
-            <div style={{ position: "absolute", top: 22, right: 28, pointerEvents: "none" }}>
-              <GlassPill>📸 {post.images.length}</GlassPill>
-            </div>
-          )}
         </Link>
       )}
 
@@ -1133,7 +1158,7 @@ export function MarketCard({ listing }: { listing: ApiListing }) {
           </div>
         )}
       </div>
-      <div style={{ padding: "11px 12px 14px", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+      <div style={{ padding: "11px 12px 14px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
         <div style={{
           fontSize: 13, fontWeight: 600, lineHeight: 1.25, color: "var(--ink)",
           display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
@@ -1141,7 +1166,9 @@ export function MarketCard({ listing }: { listing: ApiListing }) {
         }}>
           {listing.title}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: "auto" }}>
+        {/* QA 11.1 — price sits directly under the title (no auto-margin gap); the
+            message button below carries the auto margin so cards still bottom-align. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}><Money value={price} currency={cur} /></span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-faint)" }}>
@@ -1161,7 +1188,7 @@ export function MarketCard({ listing }: { listing: ApiListing }) {
             tabIndex={0}
             onClick={messageSeller}
             style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 2, height: 34,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: "auto", height: 34,
               borderRadius: 11, background: "var(--ink)", color: "var(--paper)", cursor: dmBusy ? "default" : "pointer",
               fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5,
             }}
@@ -1279,7 +1306,8 @@ export function CommunityCard({ community }: { community: ApiCommunity }) {
         </div>
         <div style={{ display: "flex", gap: 14, fontSize: 11.5, color: "var(--slate-400)", fontFamily: "var(--font-mono)" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Users size={11} />{community.member_count.toLocaleString()}</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><MessageSquare size={11} />{community.post_count.toLocaleString()}</span>
+          {/* QA 6.2 — post count uses a post icon, not the message icon. */}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><FileText size={11} />{community.post_count.toLocaleString()}</span>
         </div>
       </Link>
       <Button size="sm" variant={joined ? "secondary" : "dark"} onClick={toggleJoin} disabled={busy}>

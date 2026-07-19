@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Camera, Bell, Tag, Trash2, Pencil, Eye, ShieldCheck, Flag, Star } from "lucide-react";
+import { ArrowLeft, Bell, Tag, Trash2, Pencil, Eye, ShieldCheck, Flag, Star } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { ReportCatalogueSheet } from "@/components/ReportCatalogueSheet";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
-import { VerifyBadge, ProductPhoto, SectionLabel } from "@/components/ui";
+import { ProductPhoto, SectionLabel } from "@/components/ui";
 import { ReleaseWindowPicker } from "@/components/forms";
 import { formatMoney, buildPoEta, type PoPrecision } from "@/lib/catalog";
 
@@ -18,7 +18,6 @@ interface ApiItem {
   sku: string | null;
   custom_title: string | null;
   status: string;
-  verify_tier: string;
   value: number;
   value_currency?: string;
   is_listed: boolean;
@@ -188,7 +187,6 @@ export default function ItemDetailPage() {
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const [photo, setPhoto] = useState(0);
-  const [verifyHint, setVerifyHint] = useState(false);
   // remove-from-collection sheet (DV4-04)
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeReason, setRemoveReason] = useState("");
@@ -294,7 +292,6 @@ export default function ItemDetailPage() {
 
       <div style={{ padding: "14px 20px 0" }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8, alignItems: "center" }}>
-          <VerifyBadge tier={item.verify_tier} size="lg" />
           {item.status !== "owned" && (
             <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: 5, background: isIntel ? "var(--verified-teal)" : isWish ? "var(--plum)" : "var(--grail-gold)", color: "var(--paper)" }}>
               {STATUS_LABEL[item.status] ?? item.status}
@@ -360,10 +357,6 @@ export default function ItemDetailPage() {
               </div>
             </div>
           )}
-          <div style={{ flex: 1, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: "12px 14px" }}>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 6 }}>Ownership</div>
-            <VerifyBadge tier={item.verify_tier} size="lg" />
-          </div>
         </div>
 
         {isPreorder && (
@@ -391,30 +384,17 @@ export default function ItemDetailPage() {
                 <PoRow label="Balance due" value={formatMoney(Math.max(0, (item.preorder_total ?? 0) - (item.preorder_deposit ?? 0)), item.value_currency)} accent />
               </div>
             )}
-            <button onClick={() => setPoEdit(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 11, padding: "7px 11px", borderRadius: 9, border: "1px solid var(--grail-gold)", background: "var(--paper)", color: "var(--grail-gold-deep)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>
-              <Pencil size={13} /> Edit preorder details
-            </button>
+            {/* Only the owner can edit their preorder (QA 7.2). */}
+            {isOwnItem && (
+              <button onClick={() => setPoEdit(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 11, padding: "7px 11px", borderRadius: 9, border: "1px solid var(--grail-gold)", background: "var(--paper)", color: "var(--grail-gold-deep)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>
+                <Pencil size={13} /> Edit preorder details
+              </button>
+            )}
           </div>
         )}
 
-        {isOwned && item.verify_tier !== "verified" && (
-          <button
-            onClick={() => setVerifyHint((v) => !v)}
-            style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", textAlign: "left", background: "var(--paper-soft)", border: "1px dashed var(--border-strong)", borderRadius: 13, padding: 13, marginBottom: 16, cursor: "pointer" }}
-          >
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--verified-teal)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Camera size={19} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 600 }}>Verify ownership in the app to list it</div>
-              <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                {verifyHint
-                  ? "Open Scorred on your phone → this item → Verify, then take a live photo plus the challenge shot. Verified items can be listed for sale."
-                  : "Ownership photos are captured live in the Scorred app — tap to learn how."}
-              </div>
-            </div>
-          </button>
-        )}
+        {/* Ownership-verification gate removed (design_v6 / 2026-07-18): no live-camera
+            requirement, anyone can list an owned item — see DECISIONS.md. */}
 
         <SectionLabel>About this item</SectionLabel>
         <div style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--ink-soft)", marginTop: 10, marginBottom: 20 }}>
@@ -433,49 +413,58 @@ export default function ItemDetailPage() {
         )}
       </div>
 
-      <div style={{ position: "fixed", bottom: 0, left: 245, right: 0, maxWidth: 680, borderTop: "1px solid var(--border)", background: "var(--paper)", padding: "12px 20px 20px", zIndex: 20 }}>
-        {isOwned ? (
-          item.is_listed ? (
-            <Link href="/market" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: 48, borderRadius: 13, background: "var(--bone)", border: "1px solid var(--border-strong)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, color: "var(--ink)", textDecoration: "none", gap: 8 }}>
-              Manage listing
-            </Link>
-          ) : (
-            // Web can sell (DF-17) — list this item via the market create flow (v3 parity).
-            <Link
-              href="/add/catalogue"
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, borderRadius: 13, background: "var(--stamp-red)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
-              <Tag size={18} />Sell / Trade this item
-            </Link>
-          )
-        ) : isWish ? (
-          <button onClick={() => setWishAlert((v) => !v)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: wishAlert ? "var(--bone)" : "var(--verified-teal)", color: wishAlert ? "var(--ink)" : "var(--paper)", border: wishAlert ? "1px solid var(--border-strong)" : "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-            <Bell size={17} />
-            {wishAlert ? "Alert on" : "Notify when listed"}
-          </button>
+      <div className="ch-cta-bar">
+        {/* QA 6.5 / 7.2 — the primary action depends on whether the VIEWER owns the
+            item, never on its status alone. Management/sell/edit actions are for the
+            owner only; everyone else gets "Add to my collection" (+ wishlist). */}
+        {isOwnItem ? (
+          isOwned ? (
+            item.is_listed ? (
+              <Link href="/market" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: 48, borderRadius: 13, background: "var(--bone)", border: "1px solid var(--border-strong)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, color: "var(--ink)", textDecoration: "none", gap: 8 }}>
+                Manage listing
+              </Link>
+            ) : (
+              // QA 14.1 — list THIS item: deep-link to the create flow prefilled with the
+              // item (sku) and the List-for-sale toggle on, not the generic catalogue search.
+              <Link
+                href={item.sku ? `/add/catalogue?sku=${encodeURIComponent(item.sku)}&sell=1` : "/add/catalogue?sell=1"}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, borderRadius: 13, background: "var(--stamp-red)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
+                <Tag size={18} />Sell / Trade this item
+              </Link>
+            )
+          ) : isPreorder ? (
+            // Your own preorder → edit its details, not "Add to collection" (QA 6.5).
+            <button onClick={() => setPoEdit(true)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--stamp-red)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
+              <Pencil size={17} /> Edit preorder details
+            </button>
+          ) : isWish ? (
+            <button onClick={() => setWishAlert((v) => !v)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: wishAlert ? "var(--bone)" : "var(--verified-teal)", color: wishAlert ? "var(--ink)" : "var(--paper)", border: wishAlert ? "1px solid var(--border-strong)" : "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+              <Bell size={17} />
+              {wishAlert ? "Alert on" : "Notify when listed"}
+            </button>
+          ) : null
         ) : (
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={addToCollection} disabled={adding || added} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: added ? "var(--bone)" : "var(--ink)", color: added ? "var(--ink)" : "var(--paper)", border: added ? "1px solid var(--border-strong)" : "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: adding || added ? "default" : "pointer" }}>
               {added ? "Added to collection ✓" : adding ? "Adding…" : "Add to my collection"}
             </button>
-            {/* Star = wishlist (icon law 2026-07-11) — someone else's item only */}
-            {!isOwnItem && (
-              <button
-                type="button"
-                onClick={toggleWishlist}
-                disabled={wishBusy}
-                title={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-                aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-                style={{
-                  width: 48, height: 48, borderRadius: 13, flexShrink: 0, cursor: wishBusy ? "wait" : "pointer",
-                  border: `1px solid ${wishlisted ? "var(--stamp-red)" : "var(--border-strong)"}`,
-                  background: wishlisted ? "var(--stamp-red)" : "var(--paper)",
-                  color: wishlisted ? "var(--paper)" : "var(--ink)",
-                  display: "flex", alignItems: "center", justifyContent: "center", transition: "all 140ms",
-                }}
-              >
-                <Star size={19} fill={wishlisted ? "currentColor" : "none"} />
-              </button>
-            )}
+            {/* Star = wishlist (icon law 2026-07-11) */}
+            <button
+              type="button"
+              onClick={toggleWishlist}
+              disabled={wishBusy}
+              title={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+              aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+              style={{
+                width: 48, height: 48, borderRadius: 13, flexShrink: 0, cursor: wishBusy ? "wait" : "pointer",
+                border: `1px solid ${wishlisted ? "var(--stamp-red)" : "var(--border-strong)"}`,
+                background: wishlisted ? "var(--stamp-red)" : "var(--paper)",
+                color: wishlisted ? "var(--paper)" : "var(--ink)",
+                display: "flex", alignItems: "center", justifyContent: "center", transition: "all 140ms",
+              }}
+            >
+              <Star size={19} fill={wishlisted ? "currentColor" : "none"} />
+            </button>
           </div>
         )}
       </div>

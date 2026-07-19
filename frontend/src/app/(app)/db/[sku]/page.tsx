@@ -195,7 +195,7 @@ export default function DbEntryPage() {
         )}
       </div>
 
-      <div style={{ position: "fixed", bottom: 0, left: 245, right: 0, maxWidth: 680, borderTop: "1px solid var(--border)", background: "var(--paper)", padding: "12px 20px 20px", zIndex: 20 }}>
+      <div className="ch-cta-bar">
         {entry.viewer_item && entry.viewer_item.status !== "wishlist" ? (
           <Link href={`/item/${entry.viewer_item.id}`} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, borderRadius: 13, background: "var(--bone)", border: "1px solid var(--border-strong)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, color: "var(--ink)", textDecoration: "none" }}>
             <Check size={17} /> {VIEWER_STATUS_LABEL[entry.viewer_item.status] ?? "In your collection"} — view your item

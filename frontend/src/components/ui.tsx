@@ -205,93 +205,11 @@ export function PostTypeTag({ type }: { type: string }) {
   );
 }
 
-/* ── Ownership-verification badge (Claimed / Shown / Verified) ─ */
-export function VerifyBadge({ tier = "claimed", size = "sm" }: { tier?: string; size?: "sm" | "lg" }) {
-  const map: Record<string, { label: string; c: string; bg: string; icon: React.ReactNode }> = {
-    verified: {
-      label: "Verified",
-      c: "var(--verified-teal)",
-      bg: "var(--verified-teal-soft)",
-      icon: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4" /></>,
-    },
-    shown: {
-      label: "Shown",
-      c: "var(--grail-gold-deep)",
-      bg: "var(--grail-gold-soft)",
-      icon: <><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z" /><circle cx="12" cy="13" r="4" /></>,
-    },
-    claimed: {
-      label: "Claimed",
-      c: "var(--ink-faint)",
-      bg: "var(--bone)",
-      icon: <><path d="M21 8 12 3 3 8v8l9 5 9-5z" /><path d="M3 8l9 5 9-5M12 13v8" /></>,
-    },
-  };
-  const m = map[tier] || map.claimed;
-  const pad = size === "lg" ? "5px 9px" : "3px 6px";
-  const fs = size === "lg" ? 11 : 10;
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
-        padding: pad,
-        borderRadius: 6,
-        background: m.bg,
-        color: m.c,
-        fontFamily: "var(--font-body)",
-        fontWeight: 600,
-        fontSize: fs,
-        letterSpacing: "0.04em",
-        lineHeight: 1,
-        whiteSpace: "nowrap",
-      }}
-    >
-      <svg width={fs + 2} height={fs + 2} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-        {m.icon}
-      </svg>
-      {m.label}
-    </span>
-  );
-}
-
-/* ── Trust tier chip (Top Seller / Trusted / Verified) ───────── */
-export function TierChip({ tier }: { tier: string }) {
-  const map: Record<string, string> = {
-    "Top Seller": "var(--stamp-red)",
-    Trusted: "var(--forest)",
-  };
-  const label = tier === "trusted" ? "Trusted" : tier === "top_seller" ? "Top Seller" : tier;
-  const c = map[label];
-  if (!c) return null; // base users (incl. former "Verified") show no chip — v3 DF-29c
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
-        padding: "3px 8px",
-        borderRadius: 999,
-        border: `1px solid ${c}`,
-        color: c,
-        background: "transparent",
-        fontFamily: "var(--font-body)",
-        fontWeight: 600,
-        fontSize: 10.5,
-        letterSpacing: "0.04em",
-        lineHeight: 1,
-        whiteSpace: "nowrap",
-      }}
-    >
-      <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        <path d="m9 12 2 2 4-4" />
-      </svg>
-      {label}
-    </span>
-  );
-}
+/* Ownership-verification badge (VerifyBadge) and seller TierChip were REMOVED
+   2026-07-18. Verification was dropped entirely (anyone lists, plain uploads);
+   "Top Seller"/"Trusted" tiers were static & underivable (deals are off-platform).
+   Trust is now the vouch count, shown inline via <TrustSignals /> below and the
+   profile's Vouches stat tiles — matching design_v6. See DECISIONS.md. */
 
 /* ── Trust signals row (deals / rating / response / joined) ──────
    Ported from design/mobile/app/shared.jsx. Only renders the metrics
@@ -313,8 +231,9 @@ export function TrustSignals({
 }) {
   const items: { v: string; l: string }[] = [];
   if (vouches != null) items.push({ v: String(vouches), l: "vouches" });
-  if (rating != null && (ratingCount ?? 0) > 0)
-    items.push({ v: `${rating.toFixed(1)}★`, l: `${ratingCount} ratings` });
+  // QA 7.1 — star ratings removed app-wide; trust is carried by vouches, not a
+  // rating system. `rating`/`ratingCount` props kept for API compat but unused.
+  void rating; void ratingCount;
   if (response) items.push({ v: response, l: "replies" });
   if (joined) items.push({ v: joined, l: "joined" });
   if (items.length === 0) items.push({ v: "New", l: "new seller" });

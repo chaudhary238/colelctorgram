@@ -7,14 +7,13 @@ import { Share2, Shield, Globe, CheckCircle2, Check, Settings2, UserPlus, Clock 
 import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
 import { ApiPost } from "@/components/cards";
-import { Avatar, Segmented, SectionLabel, EmptyNote, TierChip, Button } from "@/components/ui";
+import { Avatar, Segmented, SectionLabel, EmptyNote, Button } from "@/components/ui";
 import { PostCard } from "@/components/cards";
 
 interface CommunityAdmin {
   handle: string;
   name: string;
   avatar_url: string | null;
-  tier: string;
   role: string;
 }
 
@@ -22,7 +21,6 @@ interface RosterMember {
   handle: string;
   name: string;
   avatar_url: string | null;
-  tier: string;
   role: string;
 }
 
@@ -65,11 +63,10 @@ function RulesAndAdmins({ community }: { community: CommunityDetail }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 12 }}>
         {community.admins.map((a) => (
           <Link key={a.handle} href={`/profile/${a.handle}`} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: 12, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, textDecoration: "none" }}>
-            <Avatar name={a.name} photo={a.avatar_url} size={42} verified={a.tier !== "verified"} />
+            <Avatar name={a.name} photo={a.avatar_url} size={42} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ fontWeight: 600, fontSize: 14, color: "var(--ink)" }}>{a.name}</span>
-                <TierChip tier={a.tier} />
               </div>
               <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>@{a.handle}</div>
             </div>
@@ -213,8 +210,10 @@ export default function CommunityDetailPage() {
         </div>
       </div>
 
-      {/* Identity row */}
-      <div style={{ padding: "0 20px" }}>
+      {/* Identity row — position:relative + z-index so the avatar paints ABOVE the
+          banner. The banner is position:relative (for its decorations), so without
+          this the positioned banner would paint over the negative-margin avatar (QA 13.1). */}
+      <div style={{ padding: "0 20px", position: "relative", zIndex: 1 }}>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 14, marginTop: -34 }}>
           <div style={{ width: 76, height: 76, borderRadius: 18, background: tone, color: "var(--paper)", border: "3px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, flexShrink: 0 }}>
             {community.tag ?? "🏷"}
@@ -346,11 +345,10 @@ export default function CommunityDetailPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
                 {members.map((m) => (
                   <Link key={m.handle} href={`/profile/${m.handle}`} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: 10, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, textDecoration: "none" }}>
-                    <Avatar name={m.name} photo={m.avatar_url} size={40} verified={m.role !== "member" && m.tier !== "verified"} />
+                    <Avatar name={m.name} photo={m.avatar_url} size={40} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <span style={{ fontWeight: 600, fontSize: 14, color: "var(--ink)" }}>{m.name}</span>
-                        <TierChip tier={m.tier} />
                       </div>
                       <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>@{m.handle}</div>
                     </div>

@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Heart, MessageCircle, Share2, Bookmark, Send, Tag as TagIcon, MapPin, MessageSquare } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, Tag as TagIcon, MapPin, MessageSquare } from "lucide-react";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
-import { ApiPost, PollBlock } from "@/components/cards";
+import { ApiPost, PollBlock, CommentThread } from "@/components/cards";
 import { BackButton } from "@/components/BackButton";
 import { useUser } from "@/lib/auth-context";
-import { Avatar, Stars, PostTypeTag, ProductPhoto, SectionLabel } from "@/components/ui";
+import { Avatar, Stars, PostTypeTag, ProductPhoto } from "@/components/ui";
 
 interface Comment {
   id: string;
@@ -53,10 +53,8 @@ export default function PostDetailPage() {
   const [likes, setLikes] = useState(0);
   const [likeBusy, setLikeBusy] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
   const [shared, setShared] = useState(false);
-  const [extra, setExtra] = useState<{ name: string; body: string; time: string }[]>([]);
+  const [commentCount, setCommentCount] = useState(0);
 
   useEffect(() => {
     api.get<PostDetail>(`/posts/${id}`)
@@ -65,6 +63,7 @@ export default function PostDetailPage() {
         setLiked(p.is_liked ?? false);
         setSaved(p.is_saved ?? false);
         setLikes(p.likes_count ?? 0);
+        setCommentCount(p.comments_count ?? (p.comments?.length ?? 0));
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -133,21 +132,6 @@ export default function PostDetailPage() {
     }
   }
 
-  const send = async () => {
-    const text = draft.trim();
-    if (!text || sending) return;
-    setSending(true);
-    try {
-      await api.post(`/posts/${id}/comments`, { body: text });
-      setExtra((x) => [...x, { name: "You", body: text, time: "just now" }]);
-      setDraft("");
-    } catch {
-      /* keep draft for retry */
-    } finally {
-      setSending(false);
-    }
-  };
-
   if (loading || !post) {
     return (
       <div className="w-full max-w-[680px]" style={{ padding: 20 }}>
@@ -163,9 +147,6 @@ export default function PostDetailPage() {
       </div>
     );
   }
-
-  const comments = post.comments ?? [];
-  const totalComments = comments.length + extra.length;
 
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-20">
@@ -275,7 +256,7 @@ export default function PostDetailPage() {
         </button>
         <button style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: "var(--ink-mute)" }}>
           <MessageCircle size={21} />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{totalComments}</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{commentCount}</span>
         </button>
         <button onClick={sharePost} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: shared ? "var(--ink)" : "var(--ink-mute)" }}>
           <Share2 size={20} />
@@ -287,49 +268,8 @@ export default function PostDetailPage() {
         </button>
       </div>
 
-      <div style={{ padding: "16px 20px 24px" }}>
-        <SectionLabel>{totalComments} comments</SectionLabel>
-        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 16 }}>
-          {comments.map((cm) => (
-            <div key={cm.id} style={{ display: "flex", gap: 10 }}>
-              <Avatar name={cm.name ?? "?"} size={34} />
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                  <span style={{ fontSize: 13.5, fontWeight: 600 }}>{cm.name}</span>
-                  <span style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{timeAgo(cm.created_at)}</span>
-                </div>
-                <div style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.5, marginTop: 2 }}>{cm.body}</div>
-              </div>
-            </div>
-          ))}
-          {extra.map((cm, i) => (
-            <div key={i} style={{ display: "flex", gap: 10 }}>
-              <Avatar name={cm.name} size={34} />
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                  <span style={{ fontSize: 13.5, fontWeight: 600 }}>{cm.name}</span>
-                  <span style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{cm.time}</span>
-                </div>
-                <div style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.5, marginTop: 2 }}>{cm.body}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ position: "fixed", bottom: 0, left: 245, right: 0, maxWidth: 680, borderTop: "1px solid var(--border)", background: "var(--paper)", padding: "10px 20px 18px", display: "flex", gap: 9, alignItems: "center", zIndex: 20 }}>
-        <Avatar name="You" size={32} />
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send()}
-          placeholder="Add a comment…"
-          style={{ flex: 1, height: 40, padding: "0 14px", borderRadius: 999, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none" }}
-        />
-        <button onClick={send} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "none", background: draft.trim() ? "var(--stamp-red)" : "var(--bone)", color: draft.trim() ? "var(--paper)" : "var(--ink-ghost)", cursor: "pointer", flexShrink: 0 }}>
-          <Send size={17} />
-        </button>
-      </div>
+      {/* Rich thread — likes, replies & @mentions on each comment (QA 5.2). */}
+      <CommentThread postId={id} onCountChange={setCommentCount} />
     </div>
   );
 }

@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import {
   Home, Search, ShoppingBag, Users, Calendar,
   Bell, PlusCircle, Settings, User, MessageSquare, Bookmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SealMark, ScorredWordmark } from "@/components/ui";
-import { api } from "@/lib/api";
+import { useUnread } from "@/components/useUnread";
 
 // Order mirrors the DF-12 header: create+search cluster up top (mobile top-left),
 // Messages paired directly with Notifications (mobile top-right: message btn + bell).
@@ -23,7 +22,7 @@ type NavDef = {
 const NAV: NavDef[] = [
   { href: "/feed",          label: "Home",          icon: Home },
   { href: "/search",        label: "Search",        icon: Search },
-  { href: "/compose",       label: "Create",        icon: PlusCircle },
+  { href: "/compose",       label: "Add",           icon: PlusCircle },
   { href: "/market",        label: "Market",        icon: ShoppingBag },
   { href: "/community",     label: "Community",     icon: Users },
   { href: "/events",        label: "Events",        icon: Calendar },
@@ -73,18 +72,7 @@ function NavItem({
 export function Sidebar() {
   const pathname = usePathname();
   // Live unread counts (DF-38) — replaces the old hardcoded badge:3.
-  const [unread, setUnread] = useState<{ msgs: number; notifs: number }>({ msgs: 0, notifs: 0 });
-  useEffect(() => {
-    Promise.all([
-      api.get<{ unread: number }[]>("/threads").catch(() => []),
-      api.get<{ is_read: boolean }[]>("/notifications").catch(() => []),
-    ]).then(([threads, notifs]) => {
-      setUnread({
-        msgs: threads.reduce((s, t) => s + (t.unread || 0), 0),
-        notifs: notifs.filter((n) => !n.is_read).length,
-      });
-    });
-  }, [pathname]);
+  const unread = useUnread();
   const items = NAV;
 
   return (
@@ -97,7 +85,9 @@ export function Sidebar() {
         href="/feed"
         className="flex items-center gap-2.5 px-3 pt-1.5 pb-1 mb-[22px]"
       >
-        <SealMark size={30} />
+        <span className="ch-brand-seal">
+          <SealMark size={30} />
+        </span>
         <span className="ch-nav-label">
           <ScorredWordmark fontSize={20} />
         </span>

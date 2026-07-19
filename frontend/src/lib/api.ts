@@ -33,7 +33,10 @@ async function apiFetch<T>(
     },
   });
 
-  if (res.status === 401) {
+  // Auth endpoints (login/signup/oauth) legitimately return 401 for bad
+  // credentials — those must surface as a thrown error the form can show, NOT
+  // trigger the refresh-and-redirect session-recovery path below.
+  if (res.status === 401 && !path.startsWith("/auth/")) {
     // Attempt token refresh — once. A second 401 after a successful refresh means
     // the rejection isn't expiry (suspended/deleted account), so looping refresh →
     // retry forever would hammer the API; fall through to signin instead.

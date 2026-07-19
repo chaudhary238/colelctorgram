@@ -9,6 +9,7 @@ import { fireXpToast, fireToast } from "@/components/gamification";
 import { SectionLabel, ProductPhoto, CategoryChip } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
 import { MoneyField, ReleaseWindowPicker } from "@/components/forms";
+import { ReportCatalogueSheet } from "@/components/ReportCatalogueSheet";
 import {
   ADD_CATEGORIES, CAT_SCALES, CAT_BRANDS, CAT_META, symOf, buildPoEta,
   TCG_LANGUAGES, TCG_PRODUCT_TYPES, TCG_GRADERS, type PoPrecision,
@@ -225,9 +226,11 @@ function AddListingPageInner() {
   const initAcq: AcqMode = preMode === "preorder" || preMode === "intel" ? preMode : "inhand";
   const [acq, setAcq] = useState<AcqMode>(initAcq);
   // DV6-13 — flow is pick (mode) → search (find in catalogue) → form. ?mode/?sku deep-links skip
-  // ahead. DB Contribution is always a brand-new entry, so it skips the search step entirely.
+  // ahead. Every mode (In Hand, Pre-order, DB Contribution) is search-first: find it in the
+  // shared catalogue before adding, so we don't mint a duplicate. A ?sku deep-link is already
+  // resolved to an entry, so it lands straight on the form.
   const [step, setStep] = useState<"pick" | "search" | "form">(
-    skuParam || preMode === "intel" ? "form" : preMode ? "search" : "pick"
+    skuParam ? "form" : preMode ? "search" : "pick"
   );
 
   const [cat, setCat] = useState("figures");
@@ -277,7 +280,9 @@ function AddListingPageInner() {
   const poBalance = Math.max(0, (parseInt(poTotal, 10) || 0) - (parseInt(poDeposit, 10) || 0));
 
   // for sale
-  const [forSale, setForSale] = useState(false);
+  // ?sell=1 (from an owned item's "Sell / Trade") lands on the form with the
+  // List-for-sale toggle already on (QA 14.1).
+  const [forSale, setForSale] = useState(searchParams.get("sell") === "1");
   const [price, setPrice] = useState("");
   const [priceCur, setPriceCur] = useState("INR");
   const [condNote, setCondNote] = useState("");
@@ -298,6 +303,11 @@ function AddListingPageInner() {
   // DV6-13 — linked to an existing catalogue entry: its facts (title/brand/category/scale/
   // year/description) are SHARED and read-only here. Editing = unlink and add as new.
   const locked = !!linkedSku;
+  // QA 2.1 — a DB Contribution that matches an existing catalogue entry is a
+  // duplicate. The record already exists, so the whole form is read-only and the
+  // only action is to flag an error to admins — never edit the shared entry.
+  const existingDuplicate = isIntel && !!linkedSku;
+  const [reporting, setReporting] = useState(false);
 
   const brandList = useMemo(() => {
     const canonical = CAT_BRANDS[cat] ?? CAT_BRANDS.figures;
@@ -509,12 +519,11 @@ function AddListingPageInner() {
   if (step === "pick") {
     // Close = return to wherever the add flow was opened from (profile, compose, DB page);
     // /market only on a cold/deep-link entry with no in-app history.
-    // DB Contribution is always a new entry — no catalogue search, straight to the form.
+    // Every mode is search-first — find it in the catalogue before adding a new entry.
     return <ModePicker onPick={(m) => {
       setAcq(m);
       if (m !== "inhand") setForSale(false);
-      if (m === "intel") { setLinkedSku(null); setRefImage(null); setStep("form"); }
-      else setStep("search");
+      setStep("search");
     }} onClose={() => (window.history.length > 1 ? router.back() : router.push("/market"))} />;
   }
 
@@ -536,18 +545,20 @@ function AddListingPageInner() {
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {/* ?sku= deep-link came from outside (Scorred DB page) — back leaves the flow;
-              otherwise back returns in-flow: the mode picker for DB Contribution (which has
-              no search step), the search step for everything else. */}
-          <button onClick={() => (skuParam ? router.back() : setStep(isIntel ? "pick" : "search"))} aria-label="Back" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "transparent", cursor: "pointer" }}>
+              otherwise back returns in-flow to the search step (every mode is search-first). */}
+          <button onClick={() => (skuParam ? router.back() : setStep("search"))} aria-label="Back" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "transparent", cursor: "pointer" }}>
             <ChevronRight size={18} style={{ transform: "rotate(180deg)" }} />
           </button>
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{isIntel ? "DB Contribution" : "Add an item"}</div>
             <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{mode.label} · {meta.label}</div>
           </div>
-          <button onClick={submit} disabled={submitting} style={{ height: 36, padding: "0 16px", borderRadius: 9, border: "none", background: invalid ? "var(--bone)" : headerAccent, color: invalid ? "var(--ink-ghost)" : "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, cursor: submitting ? "wait" : "pointer" }}>
-            {submitting ? "Saving…" : isIntel ? "Contribute" : forSale ? "List" : "Add"}
-          </button>
+          {/* No header save for a duplicate DB entry (QA 2.1) — flag-only below. */}
+          {!existingDuplicate && (
+            <button onClick={submit} disabled={submitting} style={{ height: 36, padding: "0 16px", borderRadius: 9, border: "none", background: invalid ? "var(--bone)" : headerAccent, color: invalid ? "var(--ink-ghost)" : "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, cursor: submitting ? "wait" : "pointer" }}>
+              {submitting ? "Saving…" : isIntel ? "Contribute" : forSale ? "List" : "Add"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -804,10 +815,29 @@ function AddListingPageInner() {
             ))}
           </div>
         )}
-        {linkedSku && (
+        {linkedSku && !existingDuplicate && (
           <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 9, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)" }}>
             <Check size={13} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
             <span style={{ fontSize: 12, color: "var(--verified-teal)", fontWeight: 600 }}>Linked to catalogue — pre-filled from the Scorred DB</span>
+          </div>
+        )}
+        {existingDuplicate && (
+          <div style={{ marginTop: 9, padding: "12px 13px", borderRadius: 11, background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+              <Info size={15} style={{ color: "var(--grail-gold-deep)", flexShrink: 0, marginTop: 1 }} />
+              <div style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+                <b>Already in the Scorred database.</b> This entry can&rsquo;t be edited or re-added. If you own one, add it to your collection; if something looks wrong, report it for our admins to review.
+              </div>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+              {/* "I own" — add your copy of the existing entry instead of a dead-end (QA 2.1). */}
+              <button type="button" onClick={() => setAcq("inhand")} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 9, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>
+                <PlusCircle size={13} /> I own this — add to my collection
+              </button>
+              <button type="button" onClick={() => setReporting(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 9, border: "1px solid var(--grail-gold)", background: "var(--paper)", color: "var(--grail-gold-deep)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>
+                <Info size={13} /> Report an error to admins
+              </button>
+            </div>
           </div>
         )}
         {isNewToDb && (
@@ -877,7 +907,8 @@ function AddListingPageInner() {
             ))}
           </div>
         )}
-        {photos.length < photoMax && (
+        {/* A duplicate DB entry is read-only — no photo edits (QA 2.1). */}
+        {photos.length < photoMax && !existingDuplicate && (
           <ImageUploader
             multiple
             maxFiles={photoMax - photos.length}
@@ -893,7 +924,7 @@ function AddListingPageInner() {
         )}
 
         <Label hint="optional">Description</Label>
-        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} placeholder="What makes this one special? Accessories, edition, where you got it…" style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none", fontSize: 14.5 }} />
+        <textarea value={desc} readOnly={existingDuplicate} onChange={(e) => setDesc(e.target.value)} rows={3} placeholder="What makes this one special? Accessories, edition, where you got it…" style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none", fontSize: 14.5, ...(existingDuplicate ? { background: "var(--bone)", color: "var(--ink-mute)", cursor: "default" } : {}) }} />
 
         {/* Acquisition — mode is chosen upfront in the picker (DV6-10). Condition is In-hand only. */}
         {acq === "inhand" && (
@@ -987,7 +1018,7 @@ function AddListingPageInner() {
 
                 <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 13, fontSize: 12, color: "var(--ink-mute)", lineHeight: 1.5 }}>
                   <Shield size={15} style={{ color: "var(--verified-teal)", flexShrink: 0, marginTop: 1 }} />
-                  <span>Listing goes live now. Add a <b style={{ color: "var(--verified-teal)" }}>verified in-app photo</b> later to earn the Verified badge and rank higher in search.</span>
+                  <span>Listing goes live now. Clear, well-lit photos and honest condition notes help it sell faster.</span>
                 </div>
               </div>
             )}
@@ -1016,17 +1047,32 @@ function AddListingPageInner() {
 
         {error && <div style={{ marginTop: 16, fontSize: 13, color: "var(--stamp-red)" }}>{error}</div>}
 
-        <button onClick={submit} disabled={submitting} type="button" style={{
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
-          height: 48, marginTop: 22, borderRadius: 12, border: "none",
-          background: forSale ? "var(--stamp-red)" : isIntel ? "var(--verified-teal)" : "var(--ink)", color: "var(--paper)",
-          fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15,
-          cursor: submitting ? "wait" : "pointer", opacity: invalid ? 0.5 : 1,
-        }}>
-          {isIntel ? <Eye size={18} /> : forSale ? <Tag size={18} /> : <PlusCircle size={18} />}
-          {submitting ? "Saving…" : isIntel ? "Contribute to DB" : forSale ? "List in the Market" : "Add to my collection"}
-        </button>
+        {existingDuplicate ? (
+          // Duplicate entry — the only action is to flag it (QA 2.1); no contribute/save.
+          <button onClick={() => setReporting(true)} type="button" style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
+            height: 48, marginTop: 22, borderRadius: 12, border: "1px solid var(--grail-gold)",
+            background: "var(--paper)", color: "var(--grail-gold-deep)",
+            fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer",
+          }}>
+            <Info size={18} /> Report an error to admins
+          </button>
+        ) : (
+          <button onClick={submit} disabled={submitting} type="button" style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
+            height: 48, marginTop: 22, borderRadius: 12, border: "none",
+            background: forSale ? "var(--stamp-red)" : isIntel ? "var(--verified-teal)" : "var(--ink)", color: "var(--paper)",
+            fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15,
+            cursor: submitting ? "wait" : "pointer", opacity: invalid ? 0.5 : 1,
+          }}>
+            {isIntel ? <Eye size={18} /> : forSale ? <Tag size={18} /> : <PlusCircle size={18} />}
+            {submitting ? "Saving…" : isIntel ? "Contribute to DB" : forSale ? "List in the Market" : "Add to my collection"}
+          </button>
+        )}
       </div>
+      {reporting && linkedSku && (
+        <ReportCatalogueSheet sku={linkedSku} onClose={() => setReporting(false)} />
+      )}
     </div>
   );
 }

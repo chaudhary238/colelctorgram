@@ -4,13 +4,13 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutGrid, BarChart3, CalendarDays, Eye, EyeOff,
-  Gift, MessageCircle, Plus, ShieldCheck, Star, Camera,
-  MoreHorizontal, UserCheck, UserPlus, Check, ChevronRight,
+  Gift, MessageCircle, Plus, ShieldCheck, Star, Pencil,
+  MoreHorizontal, UserCheck, UserPlus, Check, ChevronRight, Menu,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AuthUser, useUser } from "@/lib/auth-context";
 import {
-  Avatar, Money, Segmented, ProductPhoto, VerifyBadge,
+  Avatar, Money, Segmented, ProductPhoto,
   Tag, EmptyNote, Button, IconButton,
 } from "@/components/ui";
 import { PostCard, CommunityCard, type ApiPost, type ApiCommunity } from "@/components/cards";
@@ -18,6 +18,7 @@ import { EditProfileSheet } from "@/components/EditProfileSheet";
 import { FollowListModal } from "@/components/FollowListModal";
 import { VouchGiveSheet, VouchListModal, VouchRequestModal } from "@/components/VouchSheets";
 import { ProfileMoreMenu } from "@/components/ProfileMoreMenu";
+import { MobileMenuDrawer } from "@/components/MobileMenuDrawer";
 import { RewardCard, BadgeShelf, TopSeasonBadge, AvatarFrame } from "@/components/gamification";
 
 /* ── Types ──────────────────────────────────────────────────────── */
@@ -29,14 +30,12 @@ interface ProfileUser {
   bio: string | null;
   city: string | null;
   avatar_url: string | null;
-  tier: string;
   interests: string[];
   rating: number;
   rating_count: number;
   followers_count: number;
   following_count: number;
   active_listings_count: number;
-  verified_items_count: number;
   portfolio_value: number; // paise
   is_following?: boolean;
   // Vouches (DF-36a)
@@ -55,7 +54,6 @@ interface CollectionItem {
   sku: string | null;
   custom_title: string | null;
   status: string;
-  verify_tier: string;
   value: number; // paise
   is_listed: boolean;
   photo_count: number;
@@ -142,6 +140,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   const [showVouchList, setShowVouchList] = useState<"received" | "given" | null>(null);
   const [showVouchRequest, setShowVouchRequest] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false); // ≡ drawer: Stash/Settings/Admin (mobile)
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -309,8 +308,9 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
                   style={{ position: "relative", background: "none", border: "none", padding: 0, cursor: "pointer", display: "block" }}
                 >
                   {avatarEl}
+                  {/* QA 6.6 — edit (pencil) icon rather than camera. */}
                   <span style={{ position: "absolute", bottom: -2, right: -2, width: 26, height: 26, borderRadius: "50%", background: "var(--stamp-red)", color: "var(--paper)", border: "2.5px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Camera size={13} />
+                    <Pencil size={12} />
                   </span>
                 </button>
               ) : avatarEl}
@@ -343,7 +343,12 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
               )}
             </div>
           </div>
-          {!isOwn && (
+          {isOwn ? (
+            // Mobile-only ≡ → Stash / Settings / Admin drawer (desktop uses the Sidebar).
+            <span className="lg:hidden">
+              <IconButton icon={<Menu size={19} />} onClick={() => setShowMobileMenu(true)} />
+            </span>
+          ) : (
             <IconButton icon={<MoreHorizontal size={18} />} onClick={() => setShowMore(true)} />
           )}
         </div>
@@ -452,6 +457,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
       </div>
 
       {/* Overlays */}
+      {isOwn && <MobileMenuDrawer open={showMobileMenu} onClose={() => setShowMobileMenu(false)} />}
       {showEdit && isOwn && authUser && (
         <EditProfileSheet user={authUser} onClose={() => setShowEdit(false)} onSaved={handleProfileSaved} />
       )}
@@ -723,9 +729,6 @@ function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
         ) : (
           <ProductPhoto tone={c.tone} ratio="1/1" rounded={0} label={c.label} />
         )}
-        <div style={{ position: "absolute", top: 7, left: 7 }}>
-          <VerifyBadge tier={item.verify_tier} />
-        </div>
         {item.is_listed && <div style={{ position: "absolute", top: 7, right: 7 }}><Tag kind="sale">Listed</Tag></div>}
         {item.status === "preorder" && <div style={{ position: "absolute", bottom: 7, left: 7 }}><Tag kind="po">PO</Tag></div>}
         {/* Wishlist-for-others button — only on someone else's collection (DF-24).
@@ -951,7 +954,6 @@ function PostsTab({ posts, profile, isOwn }: { posts: RawPost[] | null; profile:
     handle: profile.handle,
     name: profile.name,
     avatar_url: profile.avatar_url,
-    tier: profile.tier,
     type: p.type,
     body: p.body,
     images: p.images,

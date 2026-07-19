@@ -131,10 +131,12 @@ export default function ComposePage() {
   }
 
   const pollValid = choices.filter((c) => c.trim()).length >= 2;
+  // QA 3.1 / 3.2 — ISO and Review posts require at least one photo.
+  const photoRequired = type === "iso" || type === "review";
   const canPost =
     type === "poll" ? Boolean(body.trim()) && pollValid :
-    type === "review" ? rating > 0 && Boolean(title.trim() || body.trim()) :
-    type === "iso" ? isoItem.trim().length > 0 :
+    type === "review" ? rating > 0 && Boolean(title.trim() || body.trim()) && images.length > 0 :
+    type === "iso" ? isoItem.trim().length > 0 && images.length > 0 :
     Boolean(title.trim() || body.trim() || images.length > 0);
 
   // Any selected approval-mode community → the post waits for a mod there.
@@ -185,7 +187,7 @@ export default function ComposePage() {
   // ── Stage 0 — choose Post vs Listing ──
   if (stage === "choose") {
     const OPTIONS = [
-      { id: "post", label: "Create a Post", desc: "Showcase, ask, review or poll the community.", color: "var(--plum)", icon: Edit3 },
+      { id: "post", label: "Add a Post", desc: "Showcase, ask, review or poll the community.", color: "var(--plum)", icon: Edit3 },
       { id: "listing", label: "Add an item", desc: "Add to your shelf — in hand, pre-order, or DB contribution.", color: "var(--stamp-red)", icon: TagIcon },
     ] as const;
     return (
@@ -197,11 +199,11 @@ export default function ComposePage() {
             <button type="button" aria-label="Close" onClick={() => (window.history.length > 1 ? router.back() : router.push("/feed"))} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--slate-200)", background: "transparent", color: "var(--ink)", cursor: "pointer" }}>
               <X size={18} />
             </button>
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Create</span>
+            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Add</span>
           </div>
         </div>
         <div style={{ padding: "16px 20px" }}>
-          <div style={{ fontSize: 13.5, color: "var(--ink-mute)", margin: "0 2px 14px" }}>What would you like to create?</div>
+          <div style={{ fontSize: 13.5, color: "var(--ink-mute)", margin: "0 2px 14px" }}>What would you like to add?</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {OPTIONS.map((o) => (
               <button
@@ -245,7 +247,7 @@ export default function ComposePage() {
           <button onClick={() => setStage("choose")} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--slate-200)", background: "transparent", color: "var(--ink)", cursor: "pointer" }}>
             <ChevronLeft size={18} />
           </button>
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Create a post</span>
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Add a post</span>
           <button onClick={publish} disabled={!canPost || publishing} style={{ height: 36, padding: "0 18px", borderRadius: 9, border: "none", background: canPost ? "var(--stamp-red)" : "var(--slate-100)", color: canPost ? "var(--paper)" : "var(--slate-400)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, cursor: canPost ? "pointer" : "not-allowed" }}>
             {publishing ? "Posting…" : "Post"}
           </button>
@@ -407,6 +409,16 @@ export default function ComposePage() {
         {/* images — all types except Poll (6 max, horizontal strip; v4 shows the strip for ISO too) */}
         {type !== "poll" && (
           <div style={{ marginTop: 12 }}>
+            {photoRequired && (
+              <div style={{ marginBottom: 8 }}>
+                <SectionLabel>Photo *</SectionLabel>
+                {images.length === 0 && (
+                  <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 4 }}>
+                    Add at least one photo to {type === "iso" ? "post an ISO" : "post a review"}.
+                  </div>
+                )}
+              </div>
+            )}
             <input ref={photoInputRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => { Array.from(e.target.files ?? []).forEach(handlePhotoFile); e.target.value = ""; }} />
             <div style={{ display: "flex", gap: 9, overflowX: "auto", paddingBottom: 4 }}>
               {images.map((url, i) => (

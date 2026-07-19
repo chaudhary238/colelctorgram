@@ -85,9 +85,9 @@ function IsoBoard() {
   }, []);
 
   return (
-    // Same column treatment as the feed (left-aligned on --canvas, right hairline,
-    // unified 680px width) so ISO posts read exactly like feed posts (2026-07-11).
-    <div className="w-full max-w-[680px] min-h-screen border-r border-[var(--slate-200)] bg-[var(--canvas)]" style={{ paddingBottom: 24 }}>
+    // QA 9.1 — sits directly inside Market's 680px column (like the Browse grid),
+    // not a nested column of its own, so the ISO board reads consistently with Market.
+    <div className="w-full" style={{ paddingBottom: 24 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px 10px" }}>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-faint)", letterSpacing: "0.04em" }}>
           {isos.length} {isos.length === 1 ? "COLLECTOR" : "COLLECTORS"} LOOKING

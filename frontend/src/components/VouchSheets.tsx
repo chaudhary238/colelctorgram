@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { X, Shield, Check, Repeat, ShoppingBag, Users, Globe } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { Avatar, TierChip, Button } from "@/components/ui";
+import { Avatar, Button } from "@/components/ui";
+import { fireXpToast, fireToast } from "@/components/gamification";
 
 /* Relation taxonomy — mirrors v3 ProfileView VOUCH_RELATIONS / VouchView REL. */
 export const VOUCH_RELATIONS: { id: string; label: string; icon: React.ReactNode }[] = [
@@ -21,7 +22,6 @@ interface VouchRow {
   handle: string;
   name: string;
   avatar_url: string | null;
-  tier: string;
   relation: string | null;
   note: string | null;
   created_at: string;
@@ -66,16 +66,22 @@ export function VouchGiveSheet({
   const [rel, setRel] = useState<string | null>(existing?.relation ?? null);
   const [note, setNote] = useState(existing?.note ?? "");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
   const first = targetName.split(" ")[0];
 
   async function send() {
     if (!rel || busy) return;
     setBusy(true);
+    setErr("");
     try {
       await api.post(`/users/${targetHandle}/vouch`, { relation: rel, note: note || null });
       onSaved({ relation: rel, note });
+      // Confirm the action succeeded (QA 4.1). New vouches award +10 XP (GM-05);
+      // an edit just confirms the update via a plain toast.
+      if (editing) fireToast("Vouch updated"); else fireXpToast(10, "Vouch added");
       onClose();
-    } catch {
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't submit your vouch. Please try again.");
       setBusy(false);
     }
   }
@@ -144,9 +150,17 @@ export function VouchGiveSheet({
           style={{ width: "100%", marginTop: 10, padding: "12px 13px", borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", resize: "none", fontFamily: "var(--font-body)", fontSize: 14.5, lineHeight: 1.5, color: "var(--ink)", outline: "none", boxSizing: "border-box" }}
         />
 
-        <Button variant="teal" style={{ width: "100%", justifyContent: "center", marginTop: 18 }} disabled={!rel || busy} onClick={send}>
-          {editing ? "Update vouch" : `Vouch for ${first}`}
+        {err && (
+          <p style={{ fontSize: 12.5, color: "var(--stamp-red)", marginTop: 14, textAlign: "center" }}>{err}</p>
+        )}
+        <Button variant="teal" style={{ width: "100%", justifyContent: "center", marginTop: err ? 8 : 18 }} disabled={!rel || busy} onClick={send}>
+          {busy ? "Submitting…" : editing ? "Update vouch" : `Vouch for ${first}`}
         </Button>
+        {!rel && (
+          <p style={{ fontSize: 11.5, color: "var(--ink-faint)", textAlign: "center", marginTop: 8 }}>
+            Pick how you know {first} to enable the vouch.
+          </p>
+        )}
         {editing && (
           <button
             onClick={remove}
@@ -233,7 +247,6 @@ export function VouchListModal({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-[var(--ink)] truncate">{u.name}</span>
-                  <TierChip tier={u.tier} />
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
                   <Shield size={12} strokeWidth={2} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
@@ -249,7 +262,7 @@ export function VouchListModal({
 }
 
 /* ── Request a vouch — ask people you follow ───────────────────────── */
-interface PersonRow { handle: string; name: string; avatar_url: string | null; tier: string }
+interface PersonRow { handle: string; name: string; avatar_url: string | null }
 
 export function VouchRequestModal({ myHandle, onClose }: { myHandle: string; onClose: () => void }) {
   const [people, setPeople] = useState<PersonRow[] | null>(null);

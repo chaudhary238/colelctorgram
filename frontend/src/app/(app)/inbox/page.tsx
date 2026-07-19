@@ -11,7 +11,6 @@ interface ThreadUser {
   handle: string | null;
   name: string | null;
   avatar_url: string | null;
-  tier: string;
   rating: number;
 }
 
@@ -72,7 +71,7 @@ export default function InboxPage() {
                 style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textDecoration: "none", borderBottom: "1px solid var(--border)", padding: "13px 20px" }}
               >
                 <div style={{ position: "relative", flexShrink: 0 }}>
-                  <Avatar name={thread.other_user?.name ?? "?"} size={48} verified={thread.other_user?.tier === "top_seller"} />
+                  <Avatar name={thread.other_user?.name ?? "?"} size={48} />
                   {thread.unread > 0 && (
                     <span style={{ position: "absolute", bottom: -2, right: -2, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid var(--paper)" }}>
                       {thread.unread}

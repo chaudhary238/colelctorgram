@@ -10,7 +10,6 @@ interface FollowUser {
   handle: string;
   name: string;
   avatar_url: string | null;
-  tier: string;
 }
 
 interface FollowListModalProps {

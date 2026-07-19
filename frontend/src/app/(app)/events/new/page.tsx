@@ -23,7 +23,7 @@ interface ModCommunity extends ApiCommunity { member_role?: string }
 interface Draft {
   cover: string | null; title: string; cats: string[]; mode: "in_person" | "online";
   date: string; endDate: string; time: string; endTime: string;
-  venue: string; pincode: string; about: string; bring: string;
+  venue: string; onlineUrl: string; pincode: string; about: string; bring: string;
   comMode: ComMode; existingCom: string;
 }
 
@@ -71,6 +71,7 @@ export default function CreateEventPage() {
   const [time, setTime] = useState(d?.time ?? "");
   const [endTime, setEndTime] = useState(d?.endTime ?? "");
   const [venue, setVenue] = useState(d?.venue ?? "");
+  const [onlineUrl, setOnlineUrl] = useState(d?.onlineUrl ?? "");
   const [pincode, setPincode] = useState(d?.pincode ?? "");
   const [about, setAbout] = useState(d?.about ?? "");
   const [bring, setBring] = useState(d?.bring ?? "");
@@ -87,7 +88,7 @@ export default function CreateEventPage() {
   const resolved = online ? null : resolvePincode(pincode);
 
   const snapshot = (): Draft => ({
-    cover, title, cats, mode, date, endDate, time, endTime, venue, pincode, about, bring, comMode, existingCom,
+    cover, title, cats, mode, date, endDate, time, endTime, venue, onlineUrl, pincode, about, bring, comMode, existingCom,
   });
 
   // Bind the freshly-made community (async fetch + URL cleanup are effect-safe — the
@@ -110,6 +111,8 @@ export default function CreateEventPage() {
   const miss = {
     title: !title.trim(), cats: cats.length === 0, date: !date, time: !time.trim(),
     venue: !venue.trim(), pincode: !online && !resolved, about: !about.trim(),
+    // Online events need a joinable meeting link (QA 12.1).
+    onlineUrl: online && !onlineUrl.trim(),
     endDate: !!(endDate && date && endDate < date),
     community: comMode === "existing" ? !existingCom : comMode === "create" ? !createdCom : false,
   };
@@ -148,7 +151,8 @@ export default function CreateEventPage() {
         city: online ? null : resolved?.city ?? null,
         pincode: online ? null : pincode,
         venue: venue.trim(),
-        online_url: online ? venue.trim() : null,
+        // Normalise to a real URL so attendees get a clickable join link.
+        online_url: online ? (/^https?:\/\//i.test(onlineUrl.trim()) ? onlineUrl.trim() : `https://${onlineUrl.trim()}`) : null,
         cover_image_url: cover,
         bring: bring.trim() || null,
         community_id: communityId,
@@ -230,6 +234,13 @@ export default function CreateEventPage() {
 
         <Label required missing={tried && miss.venue}>{online ? "Stream / link name" : "Venue"}</Label>
         <input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder={online ? "e.g. Scorred Live" : "e.g. Phoenix Marketcity, Kurla"} style={{ ...fieldStyle, borderColor: tried && miss.venue ? "var(--stamp-red)" : "var(--border-strong)" }} />
+
+        {online && (
+          <>
+            <Label required missing={tried && miss.onlineUrl} hint="where people join">Meeting link</Label>
+            <input value={onlineUrl} onChange={(e) => setOnlineUrl(e.target.value)} inputMode="url" placeholder="e.g. meet.google.com/abc-defg-hij" style={{ ...fieldStyle, borderColor: tried && miss.onlineUrl ? "var(--stamp-red)" : "var(--border-strong)" }} />
+          </>
+        )}
 
         {!online && (
           <>

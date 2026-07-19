@@ -133,7 +133,10 @@ export default function LeaderboardPage() {
                   const rank = rows.indexOf(r) + 1;
                   const bg = r.is_me ? "var(--verified-teal-soft)" : "transparent";
                   return (
-                    <button key={r.key} onClick={() => router.push(`/profile/${r.handle}`)} style={{
+                    <div key={r.key} role="button" tabIndex={0}
+                      onClick={() => router.push(`/profile/${r.handle}`)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(`/profile/${r.handle}`); } }}
+                      style={{
                       display: "flex", alignItems: "center", gap: 13, width: "100%", textAlign: "left", cursor: "pointer",
                       background: bg, border: "none", borderBottom: "1px solid var(--border)", padding: "11px 16px" }}>
                       <span style={{ width: 24, textAlign: "center", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 14, color: r.is_me ? "var(--verified-teal)" : "var(--ink-faint)" }}>{rank}</span>
@@ -149,7 +152,7 @@ export default function LeaderboardPage() {
                         </div>
                       </div>
                       <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 14.5, color: "var(--ink)", fontFeatureSettings: '"tnum" 1' }}>{fmt(r.points)}</span>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
