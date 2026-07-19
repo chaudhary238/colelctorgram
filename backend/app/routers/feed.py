@@ -203,7 +203,6 @@ def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, 
         "handle": author.handle if author else None,
         "name": author.name if author else None,
         "avatar_url": author.avatar_url if author else None,
-        "tier": author.tier if author else "verified",
         # Rewards badge shown next to the author (v3 §2.4/§3): First Start badge if
         # the author has one, else their rank badge. Exactly one per post.
         "badge": _feed_badge(author),

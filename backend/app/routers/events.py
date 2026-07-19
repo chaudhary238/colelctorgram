@@ -250,7 +250,6 @@ async def list_interested(
             "name": u.name,
             "avatar_url": u.avatar_url,
             "city": u.city,
-            "tier": u.tier,
             "status": st,
         }
         for u, st in result.all()
@@ -362,7 +361,6 @@ def _event_dict(
         "host_handle": host.handle if host else None,
         "host_name": host.name if host else None,
         "host_avatar_url": host.avatar_url if host else None,
-        "host_tier": host.tier if host else None,
         "host_city": host.city if host else None,
         "community_id": e.community_id,
         "community": (

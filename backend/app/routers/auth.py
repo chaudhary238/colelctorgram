@@ -56,7 +56,9 @@ class SignUpBody(BaseModel):
 
 
 class LoginBody(BaseModel):
-    email: EmailStr
+    # Accepts either an email or a handle/username (QA 1.3). Kept as `identifier`
+    # rather than `email` since it is no longer necessarily an email address.
+    identifier: str
     password: str
 
 
@@ -176,7 +178,11 @@ async def resend_otp(
 
 @router.post("/login", response_model=TokenResponse)
 async def login(body: LoginBody, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == body.email.lower()))
+    # Match on email OR handle so users can sign in with either (QA 1.3).
+    ident = body.identifier.lower().strip().lstrip("@")
+    result = await db.execute(
+        select(User).where((User.email == ident) | (User.handle == ident))
+    )
     user = result.scalar_one_or_none()
     if not user or not user.password_hash or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")

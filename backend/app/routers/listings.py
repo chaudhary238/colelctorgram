@@ -508,7 +508,6 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
 
         title = (cat.title if cat else None) or (item.custom_title if item else None) or l.sku or "Unknown item"
         category = (cat.category if cat else None) or (item.category if item else None)
-        verify_tier = item.verify_tier if item else "claimed"
         # DV6-13 — inherit the shared catalogue reference image when the seller has no public photo.
         item_photos = photos_by_item.get(l.item_id, [])
         if not item_photos and cat and cat.thumbnail_url:
@@ -521,7 +520,6 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
             "sku": l.sku,
             "title": title,
             "category": category,
-            "verify_tier": verify_tier,
             # item specs + real uploaded photos (DF-17)
             "brand": item.brand if item else None,
             "scale": item.scale if item else None,
@@ -540,7 +538,6 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
             "name": seller.name if seller else None,
             "seller_city": seller.city if seller else None,
             "avatar_url": seller.avatar_url if seller else None,
-            "tier": seller.tier if seller else "verified",
             "rating": float(seller.rating) if seller else 0,
             "vouches_count": vouches_by_seller.get(l.seller_id, 0),
             # listing

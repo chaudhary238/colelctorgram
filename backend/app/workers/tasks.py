@@ -5,12 +5,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-async def phash_and_watermark(item_photo_id: str):
-    """Compute perceptual hash and apply watermark to an item photo."""
-    # TODO: Download from R2 → pHash dedup → watermark @handle+timestamp → re-upload
-    pass
-
-
 async def dispatch_wishlist_notifications(listing_id: str):
     """On new listing, find matching saved_searches and create notifications."""
     from app.database import AsyncSessionLocal

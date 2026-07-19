@@ -223,7 +223,6 @@ async def get_post(
         "handle": author.handle if author else None,
         "name": author.name if author else None,
         "avatar_url": author.avatar_url if author else None,
-        "tier": author.tier if author else "verified",
         # Rewards badge (v3 §3): First Start badge if any, else the rank badge.
         "badge": feed_badge(author) if author else None,
         "type": post.type,

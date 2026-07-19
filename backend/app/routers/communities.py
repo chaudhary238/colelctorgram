@@ -182,7 +182,6 @@ async def get_community(
             "handle": user_row.handle,
             "name": user_row.name,
             "avatar_url": user_row.avatar_url,
-            "tier": user_row.tier,
             "role": mem_row.role,
         })
 
@@ -336,7 +335,6 @@ async def get_community_posts(
             "handle": users_by_id.get(p.user_id, User()).handle if p.user_id in users_by_id else None,
             "name": users_by_id.get(p.user_id, User()).name if p.user_id in users_by_id else None,
             "avatar_url": users_by_id.get(p.user_id, User()).avatar_url if p.user_id in users_by_id else None,
-            "tier": users_by_id.get(p.user_id, User()).tier if p.user_id in users_by_id else "verified",
             "type": p.type,
             "title": p.title,
             "body": p.body,
@@ -402,7 +400,6 @@ async def list_members(
             "handle": u.handle,
             "name": u.name,
             "avatar_url": u.avatar_url,
-            "tier": u.tier,
             "role": m.role,
         }
         for m, u in rows
@@ -441,7 +438,6 @@ async def community_roster(
             "handle": u.handle,
             "name": u.name,
             "avatar_url": u.avatar_url,
-            "tier": u.tier,
             "role": m.role,
         }
         for m, u in rows
@@ -520,7 +516,6 @@ async def list_join_requests(
             "handle": u.handle,
             "name": u.name,
             "avatar_url": u.avatar_url,
-            "tier": u.tier,
             "vouches": vouches,
             "created_at": r.created_at.isoformat(),
         }

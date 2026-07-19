@@ -42,7 +42,8 @@ class User(Base):
     #   wishlist: public|followers|private, show_online: bool}
     privacy_prefs: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
-    tier: Mapped[str] = mapped_column(String(32), default="verified")
+    # (seller "tier" removed 2026-07-18 — "Top Seller"/"Trusted" were static & underivable
+    #  since deals are off-platform. Trust is now the vouch count; see Vouch model.)
 
     # Gamification (Rewards & Badge System v3). Lifetime Collector XP — monotonic,
     # never deducted. Denormalized cache of SUM(xp_events.points); incremented in
@@ -67,7 +68,6 @@ class User(Base):
     response_time_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     active_listings_count: Mapped[int] = mapped_column(Integer, default=0)
     portfolio_value: Mapped[int] = mapped_column(Integer, default=0)  # paise
-    verified_items_count: Mapped[int] = mapped_column(Integer, default=0)
     followers_count: Mapped[int] = mapped_column(Integer, default=0)
     following_count: Mapped[int] = mapped_column(Integer, default=0)
 

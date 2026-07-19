@@ -76,7 +76,6 @@ class ItemOut(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
     status: str
-    verify_tier: str
     value: int
     value_currency: str = "INR"
     is_listed: bool
@@ -221,7 +220,6 @@ async def toggle_wishlist(
         release_year=src_item.release_year,
         category=src_item.category,
         status="wishlist",
-        verify_tier="claimed",
         value=src_item.value,
         privacy="public",
         wishlist_alert_enabled=True,
@@ -397,25 +395,7 @@ async def delete_item(
     await db.delete(item)
 
 
-@router.post("/{item_id}/verify", status_code=200)
-async def verify_item(
-    item_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    result = await db.execute(select(Item).where(Item.id == item_id, Item.user_id == current_user.id))
-    item = result.scalar_one_or_none()
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
-    if item.verify_tier != "shown":
-        raise HTTPException(status_code=400, detail="Item must have a photo to verify")
-    item.verify_tier = "verified"
-    current_user.verified_items_count += 1
-    # v3 §7 removed the "Add a verified item" XP action — no reward is granted here.
-    return {"verify_tier": "verified"}
-
-
-# DV6-13 — a collector's shelf holds at most 4 personal (non-verify) photos per item.
+# DV6-13 — a collector's shelf holds at most 4 personal photos per item.
 MAX_ITEM_PHOTOS = 4
 
 
@@ -423,7 +403,6 @@ MAX_ITEM_PHOTOS = 4
 async def add_photo(
     item_id: uuid.UUID,
     url: str,
-    is_verify_photo: bool = False,
     is_public: bool = False,  # DV6-13 — personal photos default private ("share to catalogue" opts in)
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -433,31 +412,23 @@ async def add_photo(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    # Cap personal photos at 4 (verify/challenge shots are ownership proofs, not counted).
-    if not is_verify_photo:
-        n = await db.scalar(
-            select(func.count()).select_from(ItemPhoto).where(
-                ItemPhoto.item_id == item.id, ItemPhoto.is_verify_photo == False
-            )
-        )
-        if (n or 0) >= MAX_ITEM_PHOTOS:
-            raise HTTPException(status_code=400, detail=f"Up to {MAX_ITEM_PHOTOS} photos per item.")
+    n = await db.scalar(
+        select(func.count()).select_from(ItemPhoto).where(ItemPhoto.item_id == item.id)
+    )
+    if (n or 0) >= MAX_ITEM_PHOTOS:
+        raise HTTPException(status_code=400, detail=f"Up to {MAX_ITEM_PHOTOS} photos per item.")
 
-    photo = ItemPhoto(item_id=item.id, url=url, is_verify_photo=is_verify_photo, is_public=is_public)
+    photo = ItemPhoto(item_id=item.id, url=url, is_public=is_public)
     db.add(photo)
     item.photo_count += 1
 
-    if is_verify_photo and item.verify_tier == "claimed":
-        item.verify_tier = "shown"
-
     await db.flush()  # assign photo.id before returning it
-    return {"id": str(photo.id), "url": url, "verify_tier": item.verify_tier}
+    return {"id": str(photo.id), "url": url}
 
 
 def _item_out(item: Item, photos: Optional[list[ItemPhoto]] = None) -> dict:
-    # Cover = first non-verify upload (the AddToCollection photo); verify/challenge
-    # shots sort last so the user's chosen cover wins.
-    urls = [p.url for p in sorted(photos, key=lambda p: p.is_verify_photo)] if photos else []
+    # Cover = earliest upload (the AddToCollection photo).
+    urls = [p.url for p in sorted(photos, key=lambda p: p.uploaded_at)] if photos else []
     return {
         "id": str(item.id),
         "images": urls,
@@ -471,7 +442,6 @@ def _item_out(item: Item, photos: Optional[list[ItemPhoto]] = None) -> dict:
         "description": item.description,
         "category": item.category,
         "status": item.status,
-        "verify_tier": item.verify_tier,
         "value": item.value,
         "value_currency": item.value_currency,
         "is_listed": item.is_listed,

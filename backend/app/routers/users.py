@@ -32,7 +32,6 @@ class ProfileOut(BaseModel):
     bio: Optional[str]
     city: Optional[str]
     avatar_url: Optional[str]
-    tier: str
     interests: list[str]
     sub_interests: Optional[dict] = None  # per-category chips from onboarding (DV4-06)
     rating: float
@@ -40,7 +39,6 @@ class ProfileOut(BaseModel):
     followers_count: int
     following_count: int
     active_listings_count: int
-    verified_items_count: int
     portfolio_value: int = 0  # paise — sum of owned-item value
     # Vouches (DF-36a) — peer endorsements, independent of deals
     vouches_received_count: int = 0
@@ -126,9 +124,7 @@ class SuggestedUserOut(BaseModel):
     id: uuid.UUID
     handle: str
     name: str
-    tier: str
     followers_count: int
-    verified_items_count: int
 
     model_config = {"from_attributes": True}
 
@@ -137,7 +133,6 @@ class FollowUserOut(BaseModel):
     handle: str
     name: str
     avatar_url: Optional[str]
-    tier: str
 
     model_config = {"from_attributes": True}
 
@@ -189,7 +184,7 @@ async def get_suggested(
         select(User)
         .where(User.id.not_in(following_ids))
         .where(User.is_suspended == False)  # noqa: E712
-        .order_by(User.followers_count.desc(), User.verified_items_count.desc())
+        .order_by(User.followers_count.desc())
         .limit(limit)
     )
     if current_user.interests:
@@ -526,7 +521,6 @@ class VouchOut(BaseModel):
     handle: str
     name: str
     avatar_url: Optional[str]
-    tier: str
     relation: Optional[str]
     note: Optional[str]
     created_at: datetime
@@ -572,7 +566,6 @@ async def give_vouch(
         db.add(Vouch(
             from_user_id=current_user.id,
             to_user_id=target.id,
-            deal_id=None,
             kind="social_endorsement",
             relation=body.relation,
             body=body.note,
@@ -652,7 +645,7 @@ async def list_vouches(
     rows = result.all()
     return [
         VouchOut(
-            handle=u.handle, name=u.name, avatar_url=u.avatar_url, tier=u.tier,
+            handle=u.handle, name=u.name, avatar_url=u.avatar_url,
             relation=v.relation, note=v.body, created_at=v.created_at,
         )
         for u, v in rows
@@ -817,7 +810,7 @@ async def get_collection(
         cover_q = select(ItemPhoto.item_id, ItemPhoto.url).where(ItemPhoto.item_id.in_(item_ids))
         if not is_owner_view:
             cover_q = cover_q.where(ItemPhoto.is_public == True)
-        cover_q = cover_q.order_by(ItemPhoto.item_id, ItemPhoto.is_verify_photo.asc(), ItemPhoto.uploaded_at.asc())
+        cover_q = cover_q.order_by(ItemPhoto.item_id, ItemPhoto.uploaded_at.asc())
         for iid, url in (await db.execute(cover_q)).all():
             covers.setdefault(iid, url)  # first row per item = cover
         # Catalogue-reference fallback for items with no (visible) cover.
@@ -839,7 +832,6 @@ async def get_collection(
                 "sku": i.sku,
                 "custom_title": i.custom_title,
                 "status": i.status,
-                "verify_tier": i.verify_tier,
                 "value": i.value,
                 "is_listed": i.is_listed,
                 "photo_count": i.photo_count,

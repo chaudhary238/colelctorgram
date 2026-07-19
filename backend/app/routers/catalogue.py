@@ -233,7 +233,6 @@ async def toggle_catalogue_wishlist(
         release_year=year,
         category=entry.category,
         status="wishlist",
-        verify_tier="claimed",
         value=entry.est_retail_price or 0,
         privacy="public",
         wishlist_alert_enabled=True,
