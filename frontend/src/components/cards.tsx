@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Heart, MessageCircle, Share2, Bookmark, Star, Send, Calendar, MapPin, Clock,
-  Users, MessageSquare, Bell, Shield, Tag as TagIcon, Pencil, Trash2, MoreHorizontal, FileText,
+  Users, MessageSquare, Bell, Shield, Tag as TagIcon, Pencil, Trash2, MoreHorizontal, FileText, Pin,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
@@ -172,10 +172,12 @@ export interface ApiCommunity {
   tone: string;
   member_count: number;
   post_count: number;
+  recent_post_count?: number; // published posts in the last 24h (QA2 activity badge)
   post_mode: string;
   rules: string[];
   is_invite_only: boolean;
   is_member: boolean;
+  join_state?: string; // member | requested | none (QA2 — persists a private "Requested")
   status?: string; // pending | approved | rejected (founder sees own pending)
   created_at: string;
 }
@@ -678,7 +680,7 @@ function PostImg({ src, ratio, style }: { src: string; ratio?: string; style?: R
     </div>
   );
 }
-function PostImages({ images }: { images: string[] }) {
+export function PostImages({ images }: { images: string[] }) {
   const n = images.length;
   if (n === 1) {
     return (
@@ -1262,27 +1264,45 @@ export function FeedEventCard({ event }: { event: ApiEvent }) {
 }
 
 /* ── Community card ──────────────────────────────────────────────── */
-export function CommunityCard({ community }: { community: ApiCommunity }) {
-  const [joined, setJoined] = useState(community.is_member);
+export function CommunityCard({ community, pinned, onTogglePin }: {
+  community: ApiCommunity;
+  pinned?: boolean;
+  onTogglePin?: () => void;
+}) {
+  // QA2 — track the tri-state join status (member | requested | none), not a bool.
+  // A private community's "Request to join" must land on "Requested", never "Joined".
+  const [joinState, setJoinState] = useState<string>(
+    community.join_state ?? (community.is_member ? "member" : "none"),
+  );
   const [busy, setBusy] = useState(false);
+  const isMember = joinState === "member";
+  const isRequested = joinState === "requested";
 
   async function toggleJoin() {
     if (busy) return;
-    const next = !joined;
-    setJoined(next);             // optimistic
     setBusy(true);
+    const prev = joinState;
     try {
-      if (next) await api.post(`/communities/${community.id}/join`);
-      else await api.delete(`/communities/${community.id}/join`);
-    } catch { setJoined(!next); }
+      if (isMember || isRequested) {
+        setJoinState("none"); // leave, or withdraw a pending request
+        await api.delete(`/communities/${community.id}/join`);
+      } else {
+        // Optimistic guess; the server tells us "requested" (private) vs "member" (public).
+        setJoinState(community.is_invite_only ? "requested" : "member");
+        const res = await api.post<{ join_state?: string }>(`/communities/${community.id}/join`);
+        if (res?.join_state) setJoinState(res.join_state);
+      }
+    } catch { setJoinState(prev); }
     finally { setBusy(false); }
   }
 
   const tone = community.tone || "plum";
   const toneVar = tone.startsWith("var(--") ? tone : `var(--${tone})`;
+  const fresh = community.recent_post_count ?? 0;
+  const joinLabel = isMember ? "Joined" : isRequested ? "Requested" : community.is_invite_only ? "Request" : "Join";
 
   return (
-    <div style={{ display: "flex", gap: 14, alignItems: "center", background: "var(--card-surface)", border: "1px solid var(--slate-200)", borderRadius: 16, padding: 14, boxShadow: "var(--card-shadow)" }}>
+    <div style={{ display: "flex", gap: 14, alignItems: "center", background: "var(--card-surface)", border: `1px solid ${pinned ? "var(--stamp-red)" : "var(--slate-200)"}`, borderRadius: 16, padding: 14, boxShadow: "var(--card-shadow)" }}>
       <Link href={`/community/${community.id}`} className="shrink-0">
         <div style={{
           width: 50, height: 50, borderRadius: 12,
@@ -1297,6 +1317,7 @@ export function CommunityCard({ community }: { community: ApiCommunity }) {
         <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "space-between" }}>
           <span style={{ fontWeight: 700, fontSize: 14.5, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{community.name}</span>
           <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+            {fresh > 0 && <Badge variant="default">{fresh} new</Badge>}
             {community.is_invite_only && <Badge variant="secondary">Private</Badge>}
             {community.status === "pending" && <Badge variant="warning">Under review</Badge>}
           </div>
@@ -1308,10 +1329,22 @@ export function CommunityCard({ community }: { community: ApiCommunity }) {
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Users size={11} />{community.member_count.toLocaleString()}</span>
           {/* QA 6.2 — post count uses a post icon, not the message icon. */}
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><FileText size={11} />{community.post_count.toLocaleString()}</span>
+          {fresh > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--stamp-red)" }}><Clock size={11} />{fresh} new · 24h</span>}
         </div>
       </Link>
-      <Button size="sm" variant={joined ? "secondary" : "dark"} onClick={toggleJoin} disabled={busy}>
-        {joined ? "Joined" : community.is_invite_only ? "Request" : "Join"}
+      {/* QA2 — pin to keep a community at the top of "Joined" (client-only, localStorage — no DB cost) */}
+      {onTogglePin && (
+        <button
+          onClick={onTogglePin}
+          title={pinned ? "Unpin" : "Pin to top"}
+          aria-label={pinned ? "Unpin community" : "Pin community to top"}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 10, flexShrink: 0, cursor: "pointer", border: `1px solid ${pinned ? "var(--stamp-red)" : "var(--slate-200)"}`, background: pinned ? "var(--stamp-red-soft)" : "transparent", color: pinned ? "var(--stamp-red)" : "var(--slate-400)" }}
+        >
+          <Pin size={15} fill={pinned ? "currentColor" : "none"} />
+        </button>
+      )}
+      <Button size="sm" variant={isMember || isRequested ? "secondary" : "dark"} onClick={toggleJoin} disabled={busy}>
+        {joinLabel}
       </Button>
     </div>
   );

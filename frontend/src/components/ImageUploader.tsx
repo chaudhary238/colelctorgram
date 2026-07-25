@@ -67,11 +67,15 @@ export function ImageUploader({ onUpload, label = "Upload image", accept = "imag
       const meta = await api.post<UploadUrlResponse>(
         `/media/upload-url?prefix=uploads&content_type=${encodeURIComponent(contentType)}`
       );
-      await fetch(meta.upload_url, { method: "PUT", body: blob, headers: { "Content-Type": contentType } });
+      // fetch resolves on a 4xx/5xx — an R2 403 (CORS/signature/creds) must be caught
+      // explicitly, else we'd hand back a public_url for an object that was never stored.
+      const res = await fetch(meta.upload_url, { method: "PUT", body: blob, headers: { "Content-Type": contentType } });
+      if (!res.ok) throw new Error(`Storage rejected the upload (HTTP ${res.status})`);
       if (!silent) setPreview(meta.public_url);
       onUpload(meta.public_url);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed");
+      const msg = e instanceof Error ? e.message : "Upload failed";
+      setError(/failed to fetch/i.test(msg) ? "Upload blocked — check the image server (R2/CORS) setup." : msg);
     }
   }, [onUpload]);
 
@@ -194,15 +198,17 @@ export function AvatarUploader({ onUpload, previewUrl }: { onUpload: (url: strin
       const meta = await api.post<UploadUrlResponse>(
         `/media/upload-url?prefix=avatars&content_type=${encodeURIComponent(file.type)}`
       );
-      await fetch(meta.upload_url, {
+      const res = await fetch(meta.upload_url, {
         method: "PUT",
         body: file,
         headers: { "Content-Type": file.type },
       });
+      if (!res.ok) throw new Error(`Storage rejected the upload (HTTP ${res.status})`);
       setPreview(meta.public_url);
       onUpload(meta.public_url);
-    } catch {
-      // silently fail — text fallback remains
+    } catch (e) {
+      // Surface the failure in the console instead of failing dead-silently.
+      console.error("Avatar upload failed:", e);
     } finally {
       setUploading(false);
     }

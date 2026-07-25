@@ -250,7 +250,8 @@ export function VouchListModal({
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
                   <Shield size={12} strokeWidth={2} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
-                  <span className="text-xs text-[var(--ink-faint)] truncate">{u.note || relationLabel(u.relation)}</span>
+                  {/* QA2 — show only the selected relation category, never the free-text reason/note. */}
+                  <span className="text-xs text-[var(--ink-faint)] truncate">{relationLabel(u.relation)}</span>
                 </div>
               </div>
             </Link>

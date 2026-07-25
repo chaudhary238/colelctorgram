@@ -10,6 +10,16 @@ const CAT_TONE: Record<string, string> = { figures: "red", designer: "plum", kit
 function toneForCat(category: string | null): string {
   return CAT_TONE[(category ?? "").toLowerCase()] ?? "ink";
 }
+// QA2 — the community result tile paints a solid `var(--…)` directly (unlike ProductPhoto,
+// which has its own tone map). The short tokens "red"/"teal" have NO matching CSS var, so the
+// tile rendered transparent → invisible white initials. Map to the real, defined tokens.
+const CAT_TILE_VAR: Record<string, string> = {
+  figures: "var(--stamp-red)", designer: "var(--plum)", kits: "var(--forest)",
+  diecast: "var(--verified-teal)", tcg: "var(--grail-gold)",
+};
+function communityTileBg(category: string | null): string {
+  return CAT_TILE_VAR[(category ?? "").toLowerCase()] ?? "var(--ink)";
+}
 function skuToneSearch(sku: string | null, category: string | null): string {
   const m = (sku ?? "").match(/SKU-([A-Z]+)-/);
   const byPrefix: Record<string, string> = { FIG: "red", DSN: "plum", KIT: "forest", DCS: "teal" };
@@ -238,7 +248,7 @@ function SearchPageInner() {
                       <ResRow
                         key={c.id}
                         onClick={() => router.push(`/community/${c.id}`)}
-                        media={<div style={{ width: 40, height: 40, borderRadius: 9, background: `var(--${toneForCat(c.category)})`, color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, textTransform: "uppercase" }}>{c.name.replace(/[^a-zA-Z]/g, "").slice(0, 2) || "C"}</div>}
+                        media={<div style={{ width: 40, height: 40, borderRadius: 9, background: communityTileBg(c.category), color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, textTransform: "uppercase" }}>{c.name.replace(/[^a-zA-Z]/g, "").slice(0, 2) || "C"}</div>}
                         title={c.name}
                         sub={`${c.member_count.toLocaleString("en-IN")} members`}
                       />

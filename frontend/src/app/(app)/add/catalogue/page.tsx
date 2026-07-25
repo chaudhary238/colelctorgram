@@ -293,6 +293,9 @@ function AddListingPageInner() {
   const [tried, setTried] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Post-save success interstitial — keeps the user on the add page (no redirect to profile)
+  // and offers "Add another". Holds the mode that was just saved so the copy can adapt.
+  const [success, setSuccess] = useState<AcqMode | null>(null);
 
   const scales = CAT_SCALES[cat];
   const usesScale = !!scales;
@@ -384,6 +387,26 @@ function AddListingPageInner() {
   // public by nature (it's a public sale); otherwise honor the per-photo toggle (DV6-13).
   const isPhotoPublic = (i: number) => (!linkedSku && i === 0) || forSale || !!photoPublic[i];
 
+  // Return the flow to cold defaults (fresh mode picker). Used by the "Add another" success
+  // action and by the on-hide cleanup below so the two stay in sync.
+  const resetForm = () => {
+    setStep("pick");
+    setAcq("inhand");
+    setCat("figures");
+    setPhotos([]); setPhotoPublic([]); setRefImage(null);
+    setTitle(""); setBrand(""); setBrandFocus(false);
+    setScale(""); setScaleOther(""); setSize("");
+    setTcgLang(""); setTcgFormat(""); setTcgGraded(false); setTcgGrader("PSA"); setTcgGrade("");
+    setYear(""); setDesc("");
+    setDupes([]); setLinkedSku(null);
+    setCond(""); setPaid(""); setPaidCur("INR");
+    setPoPrec("month"); setPoDate(""); setPoMonth(""); setPoQuarter(""); setPoYear("2026");
+    setPoSeller(""); setPoOrderDate(""); setPoTotal(""); setPoDeposit("");
+    setForSale(false); setPrice(""); setPriceCur("INR"); setCondNote("");
+    setShipIncl(false); setReturns(false); setTrade(false);
+    setTried(false); setSubmitting(false); setError(null);
+  };
+
   const submit = async () => {
     if (invalid) { setTried(true); return; }
     if (submitting) return;
@@ -433,10 +456,7 @@ function AddListingPageInner() {
       // entry, tell the user (no duplicate was created, so no XP).
       if (item.db_new_xp && item.db_new_xp > 0) fireXpToast(item.db_new_xp, "XP · added to Scorred DB");
       else if (item.catalogue_matched) fireToast("Linked to an existing Scorred entry — no duplicate created");
-      if (isIntel) {
-        router.push(user ? `/profile/${user.handle}` : "/market");
-        return;
-      }
+      // Listing for sale is a publish action → go straight to the new live listing.
       if (canSell && forSale) {
         const listing = await api.post<{ id: string }>("/listings", {
           item_id: item.id,
@@ -451,9 +471,12 @@ function AddListingPageInner() {
           terms: [shipIncl ? "Shipping included" : null, returns ? "Returns accepted" : null].filter(Boolean) as string[],
         });
         router.push(`/listing/${listing.id}`);
-      } else {
-        router.push(user ? `/profile/${user.handle}` : "/market");
+        return;
       }
+      // In Hand (collection), Pre-order and DB Contribution all stay on the add page and show a
+      // success interstitial ("Add another") — no silent redirect to the profile.
+      setSuccess(acq);
+      setSubmitting(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save the item");
       setSubmitting(false);
@@ -497,23 +520,8 @@ function AddListingPageInner() {
   // doesn't wipe a linked item. The cleanup only runs on hide/unmount, never on first mount.
   useLayoutEffect(() => {
     if (skuParam || preMode) return;
-    return () => {
-      setStep("pick");
-      setAcq("inhand");
-      setCat("figures");
-      setPhotos([]); setPhotoPublic([]); setRefImage(null);
-      setTitle(""); setBrand(""); setBrandFocus(false);
-      setScale(""); setScaleOther(""); setSize("");
-      setTcgLang(""); setTcgFormat(""); setTcgGraded(false); setTcgGrader("PSA"); setTcgGrade("");
-      setYear(""); setDesc("");
-      setDupes([]); setLinkedSku(null);
-      setCond(""); setPaid(""); setPaidCur("INR");
-      setPoPrec("month"); setPoDate(""); setPoMonth(""); setPoQuarter(""); setPoYear("2026");
-      setPoSeller(""); setPoOrderDate(""); setPoTotal(""); setPoDeposit("");
-      setForSale(false); setPrice(""); setPriceCur("INR"); setCondNote("");
-      setShipIncl(false); setReturns(false); setTrade(false);
-      setTried(false); setSubmitting(false); setError(null);
-    };
+    return () => { resetForm(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skuParam, preMode]);
 
   if (step === "pick") {
@@ -1073,6 +1081,58 @@ function AddListingPageInner() {
       {reporting && linkedSku && (
         <ReportCatalogueSheet sku={linkedSku} onClose={() => setReporting(false)} />
       )}
+
+      {/* Post-save success — stay on the add page, offer "Add another" (no redirect to profile).
+          Copy + secondary action adapt to the mode that was just saved. */}
+      {success && (() => {
+        const cfg = {
+          inhand: {
+            title: "Added to your collection!",
+            body: "It’s saved to your shelf. Add another item, or head to your collection to see it.",
+            secondary: "View my collection",
+            onSecondary: () => router.push(user ? `/profile/${user.handle}` : "/market"),
+          },
+          preorder: {
+            title: "Pre-order saved!",
+            body: "We’ll track the release window in your collection. Add another, or view your pre-orders.",
+            secondary: "View my collection",
+            onSecondary: () => router.push(user ? `/profile/${user.handle}` : "/market"),
+          },
+          intel: {
+            title: "Thanks for the contribution!",
+            body: "Your entry is in the Scorred DB for other collectors to track and wishlist. Add another, or head to your feed.",
+            secondary: "Done",
+            onSecondary: () => router.push("/feed"),
+          },
+        }[success];
+        const addAnother = () => { setSuccess(null); resetForm(); };
+        return (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={addAnother} />
+            <div className="relative z-10 w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-4)] p-6 text-center">
+              <div style={{ width: 56, height: 56, borderRadius: 16, margin: "0 auto 14px", background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {success === "intel" ? <Sparkles size={26} style={{ color: "var(--verified-teal)" }} /> : <Check size={26} style={{ color: "var(--verified-teal)" }} />}
+              </div>
+              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19 }}>{cfg.title}</h2>
+              <p style={{ fontSize: 13.5, color: "var(--ink-mute)", lineHeight: 1.55, marginTop: 8 }}>
+                {cfg.body}
+              </p>
+              <button
+                onClick={addAnother}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, marginTop: 18, borderRadius: 13, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
+              >
+                <PlusCircle size={18} /> Add another item
+              </button>
+              <button
+                onClick={cfg.onSecondary}
+                style={{ width: "100%", height: 42, marginTop: 8, borderRadius: 12, border: "1px solid var(--border-strong)", background: "transparent", color: "var(--ink-soft)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+              >
+                {cfg.secondary}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

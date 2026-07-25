@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Heart, Star, Share2, MessageCircle, Repeat2, Shield, Info, ChevronRight, Pencil, Send, Check, Clock } from "lucide-react";
+import { Heart, Star, Share2, MessageCircle, Repeat2, Shield, Info, ChevronRight, Pencil, Send, Check, Clock, Flag } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
+import { ReportSheet } from "@/components/ReportSheet";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
 import { symOf } from "@/lib/catalog";
@@ -76,6 +77,7 @@ export default function ListingDetailPage() {
   const [editPrice, setEditPrice] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editBusy, setEditBusy] = useState(false);
+  const [reporting, setReporting] = useState(false); // W-48
 
   useEffect(() => {
     api.get<ApiListing>(`/listings/${id}`)
@@ -247,8 +249,17 @@ export default function ListingDetailPage() {
           <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: shared ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
             <Share2 size={17} />
           </button>
+          {!mine && (
+            /* W-48 — report entry point on listing detail */
+            <button onClick={() => setReporting(true)} title="Report listing" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink-faint)", background: "none", cursor: "pointer" }}>
+              <Flag size={17} />
+            </button>
+          )}
         </div>
       </div>
+      {reporting && (
+        <ReportSheet targetType="listing" targetId={listing.id} title="Report listing" onClose={() => setReporting(false)} />
+      )}
 
       {/* Gallery — real uploaded photos when present, else the placeholder */}
       <div style={{ position: "relative" }}>
@@ -490,7 +501,7 @@ export default function ListingDetailPage() {
                 <Repeat2 size={18} />Trade
               </button>
             )}
-            <button onClick={() => messageSeller()} disabled={dmBusy} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--stamp-red)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: dmBusy ? "default" : "pointer" }}>
+            <button onClick={() => messageSeller(`Hi! Is "${listing.title}" still available?`)} disabled={dmBusy} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--stamp-red)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: dmBusy ? "default" : "pointer" }}>
               <MessageCircle size={18} />{dmBusy ? "Opening…" : "Message seller"}
             </button>
           </div>

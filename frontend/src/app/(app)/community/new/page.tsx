@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X, Shield } from "lucide-react";
+import { X, Shield, Check, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { SectionLabel } from "@/components/ui";
 import { ADD_CATEGORIES } from "@/lib/catalog";
@@ -90,12 +90,31 @@ export default function CreateCommunityPage() {
   const [tried, setTried] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // QA2 — live duplicate-name check: is the name free, and if not, what to suggest.
+  const [nameCheck, setNameCheck] = useState<{ available: boolean; suggestion: string | null } | null>(null);
+  const nameDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const toggleCat = (id: string) =>
     setCats((cs) => (cs.includes(id) ? cs.filter((x) => x !== id) : [...cs, id]));
 
+  // Debounced availability probe as the name is typed (QA2).
+  useEffect(() => {
+    if (nameDebounce.current) clearTimeout(nameDebounce.current);
+    const n = name.trim();
+    // All setState lives inside the debounced callback (never synchronously in the
+    // effect body) so a keystroke doesn't cascade a render.
+    nameDebounce.current = setTimeout(async () => {
+      if (n.length < 2) { setNameCheck(null); return; }
+      try {
+        setNameCheck(await api.get(`/communities/check-name?name=${encodeURIComponent(n)}`));
+      } catch { setNameCheck(null); }
+    }, 350);
+    return () => { if (nameDebounce.current) clearTimeout(nameDebounce.current); };
+  }, [name]);
+
+  const nameTaken = nameCheck?.available === false;
   const miss = { name: !name.trim(), desc: !desc.trim() };
-  const invalid = miss.name || miss.desc;
+  const invalid = miss.name || miss.desc || nameTaken;
 
   const submit = async () => {
     if (invalid) { setTried(true); return; }
@@ -145,7 +164,22 @@ export default function CreateCommunityPage() {
 
       <div style={{ padding: "4px 20px 16px" }}>
         <Label required missing={tried && miss.name}>Community name</Label>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mumbai Figure Heads" style={{ ...fieldStyle, borderColor: tried && miss.name ? "var(--stamp-red)" : "var(--border-strong)" }} />
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mumbai Figure Heads" style={{ ...fieldStyle, borderColor: (tried && miss.name) || nameTaken ? "var(--stamp-red)" : "var(--border-strong)" }} />
+        {nameTaken ? (
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginTop: 7, fontSize: 12.5, color: "var(--stamp-red)" }}>
+            <AlertCircle size={13} />
+            <span>&ldquo;{name.trim()}&rdquo; is taken.</span>
+            {nameCheck?.suggestion && (
+              <button type="button" onClick={() => setName(nameCheck.suggestion!)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--verified-teal)", fontWeight: 700 }}>
+                Use &ldquo;{nameCheck.suggestion}&rdquo;
+              </button>
+            )}
+          </div>
+        ) : nameCheck?.available && name.trim().length >= 2 ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 7, fontSize: 12.5, color: "var(--forest)" }}>
+            <Check size={13} /> Name is available
+          </div>
+        ) : null}
 
         <Label required>Category <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(pick one or more)</span></Label>
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>

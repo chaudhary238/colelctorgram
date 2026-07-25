@@ -34,6 +34,7 @@ interface CommunityDetail {
   tone: string;
   member_count: number;
   post_count: number;
+  recent_post_count: number; // published posts in the last 24h (QA2)
   post_mode: string;
   rules: string[];
   is_invite_only: boolean;
@@ -50,14 +51,21 @@ function RulesAndAdmins({ community }: { community: CommunityDetail }) {
   return (
     <>
       <SectionLabel>Community rules</SectionLabel>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
-        {(community.rules.length > 0 ? community.rules : ["Be respectful and constructive.", "Stay on topic.", "No spam or excessive self-promotion."]).map((r, i) => (
-          <div key={i} style={{ display: "flex", gap: 11, alignItems: "flex-start" }}>
-            <div style={{ width: 22, height: 22, borderRadius: 6, background: "var(--bone)", color: "var(--ink-mute)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{i + 1}</div>
-            <div style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.5, paddingTop: 1 }}>{r}</div>
-          </div>
-        ))}
-      </div>
+      {/* QA2 — no default/placeholder rules. Show only what the founder actually added. */}
+      {community.rules.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+          {community.rules.map((r, i) => (
+            <div key={i} style={{ display: "flex", gap: 11, alignItems: "flex-start" }}>
+              <div style={{ width: 22, height: 22, borderRadius: 6, background: "var(--bone)", color: "var(--ink-mute)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{i + 1}</div>
+              <div style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.5, paddingTop: 1 }}>{r}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: 13.5, color: "var(--ink-faint)", marginTop: 10, lineHeight: 1.5 }}>
+          No specific rules yet — just keep it respectful and on-topic.
+        </div>
+      )}
 
       <div style={{ marginTop: 24 }}><SectionLabel>Admins &amp; mods</SectionLabel></div>
       <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 12 }}>
@@ -245,6 +253,12 @@ export default function CommunityDetailPage() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 10, fontSize: 12.5, color: "var(--ink-faint)" }}>
           <span><b style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}>{community.member_count.toLocaleString("en-IN")}</b> members</span>
           <span><b style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}>{community.post_count.toLocaleString("en-IN")}</b> posts</span>
+          {/* QA2 — new posts in the last 24h, beside members & posts. */}
+          {community.recent_post_count > 0 && (
+            <span style={{ color: "var(--stamp-red)", fontWeight: 600 }}>
+              <b style={{ fontFamily: "var(--font-mono)" }}>{community.recent_post_count.toLocaleString("en-IN")}</b> new · 24h
+            </span>
+          )}
           {founder && (
             <span>
               by{" "}

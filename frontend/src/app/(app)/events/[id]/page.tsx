@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Share2, Bell, Calendar, MapPin, Globe, Users, Star, Settings2, Tag as TagIcon, Package, ChevronRight, MessageCircle } from "lucide-react";
+import { Share2, Bell, Calendar, MapPin, Globe, Users, Star, Settings2, Tag as TagIcon, Package, ChevronRight, MessageCircle, X } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
 import { shortDate } from "@/lib/utils";
@@ -11,6 +11,34 @@ import { ApiEvent } from "@/components/cards";
 import { Avatar, ProductPhoto, SectionLabel, Tag } from "@/components/ui";
 
 interface Guest { handle: string; name: string; avatar_url: string | null; city: string | null; status: "going" | "interested" }
+
+/* QA2 — full guest list (both "going" and "interested" are expandable to the real roster). */
+function GuestListModal({ title, guests, onClose }: { title: string; guests: Guest[]; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-4)] flex flex-col max-h-[80vh]">
+        <div className="flex items-center border-b border-[var(--border)] px-4 py-3 shrink-0">
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16 }} className="flex-1">{title} · {guests.length}</span>
+          <button onClick={onClose} className="p-1 rounded-lg text-[var(--ink-faint)] hover:text-[var(--ink)]"><X size={18} /></button>
+        </div>
+        <div className="overflow-y-auto px-2 py-2">
+          {guests.length === 0 ? (
+            <p className="text-sm text-[var(--ink-faint)] text-center py-8">No one yet.</p>
+          ) : guests.map((g) => (
+            <Link key={g.handle} href={`/profile/${g.handle}`} onClick={onClose} className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-[var(--bone)]">
+              <Avatar name={g.name} photo={g.avatar_url ?? undefined} size={42} />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-[var(--ink)] truncate">{g.name}</div>
+                <div className="text-xs text-[var(--ink-faint)] truncate">@{g.handle}{g.city ? ` · ${g.city}` : ""}</div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // v4 category short-labels (design_v4 data.jsx CATEGORIES.short; incl. TCG per DV4-01).
 const CAT_LABEL: Record<string, string> = {
@@ -44,6 +72,7 @@ export default function EventDetailPage() {
   const [shared, setShared] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reminder, setReminder] = useState(false);
+  const [guestModal, setGuestModal] = useState<"going" | "interested" | null>(null);
 
   // RSVP state (mirrors the event; optimistic on tap)
   const [myRsvp, setMyRsvp] = useState<"going" | "interested" | null>(null);
@@ -208,20 +237,25 @@ export default function EventDetailPage() {
             </Link>
           ))}
           {going.length === 0 && <span style={{ fontSize: 13, color: "var(--ink-faint)" }}>Be the first to RSVP.</span>}
-          {goingCount > going.length && <span style={{ alignSelf: "center", fontSize: 12.5, color: "var(--ink-faint)" }}>+{goingCount - going.length} more</span>}
+          {/* QA2 — "+N more" opens the full going roster, same as interested. */}
+          {going.length > going.slice(0, 10).length && (
+            <button onClick={() => setGuestModal("going")} style={{ alignSelf: "center", fontSize: 12.5, fontWeight: 600, color: "var(--stamp-red)", background: "none", border: "none", cursor: "pointer", padding: "5px 4px" }}>
+              +{going.length - 10} more
+            </button>
+          )}
         </div>
         {interested.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
+          <button onClick={() => setGuestModal("interested")} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, background: "none", border: "none", padding: 0, cursor: "pointer", width: "100%", textAlign: "left" }}>
             <span style={{ fontSize: 12, color: "var(--ink-faint)", fontWeight: 600 }}>Interested</span>
             <div style={{ display: "flex" }}>
               {interested.slice(0, 6).map((g, idx) => (
                 <div key={g.handle} style={{ marginLeft: idx ? -8 : 0, borderRadius: "50%", boxShadow: "0 0 0 2px var(--paper)" }}>
-                  <Avatar name={g.name} size={26} />
+                  <Avatar name={g.name} photo={g.avatar_url ?? undefined} size={26} />
                 </div>
               ))}
             </div>
-            {intCount > 6 && <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>+{intCount - 6}</span>}
-          </div>
+            <span style={{ fontSize: 12, color: "var(--stamp-red)", fontWeight: 600 }}>{interested.length > 6 ? `+${interested.length - 6} · View all` : "View all"}</span>
+          </button>
         )}
 
         {/* About */}
@@ -298,6 +332,14 @@ export default function EventDetailPage() {
           </>
         )}
       </div>
+
+      {guestModal && (
+        <GuestListModal
+          title={guestModal === "going" ? "Going" : "Interested"}
+          guests={guestModal === "going" ? going : interested}
+          onClose={() => setGuestModal(null)}
+        />
+      )}
     </div>
   );
 }

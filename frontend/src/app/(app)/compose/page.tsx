@@ -67,9 +67,12 @@ export default function ComposePage() {
   const [type, setType] = useState<ComposeType>(preType ?? "post");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  // Category targets the feed's interest scoring + Customize-feed filter. Optional —
-  // a post with no category is "untagged" and always passes the category filter.
-  const [category, setCategory] = useState<string | null>(null);
+  // QA2 — at least one category is now MANDATORY (an untagged post breaks the feed's
+  // category filter). Multi-select is allowed — a post can be relevant to several
+  // categories; the first pick is the primary the feed filters/scores on.
+  const [categories, setCategories] = useState<string[]>([]);
+  const toggleCategory = (id: string) =>
+    setCategories((cs) => (cs.includes(id) ? cs.filter((x) => x !== id) : [...cs, id]));
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
@@ -92,15 +95,25 @@ export default function ComposePage() {
       .catch(console.error);
   }, []);
 
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   async function handlePhotoFile(file: File) {
     if (!file.type.startsWith("image/") || images.length >= 6) return;
     setUploading(true);
+    setUploadError(null);
     try {
       const meta = await api.post<UploadUrlResponse>(
         `/media/upload-url?prefix=posts&content_type=${encodeURIComponent(file.type)}`
       );
-      await fetch(meta.upload_url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      // fetch only rejects on a NETWORK error, not on a 4xx/5xx — so an R2 403 (bad CORS,
+      // signature or creds) would otherwise be swallowed and the photo silently dropped.
+      const res = await fetch(meta.upload_url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!res.ok) throw new Error(`Storage rejected the upload (HTTP ${res.status})`);
       setImages((prev) => (prev.length < 6 ? [...prev, meta.public_url] : prev));
+    } catch (e) {
+      // A CORS-blocked PUT throws a generic "Failed to fetch" — call that out explicitly.
+      const msg = e instanceof Error ? e.message : "Upload failed";
+      setUploadError(/failed to fetch/i.test(msg) ? "Upload blocked — check the image server (R2/CORS) setup." : msg);
     } finally {
       setUploading(false);
     }
@@ -133,11 +146,14 @@ export default function ComposePage() {
   const pollValid = choices.filter((c) => c.trim()).length >= 2;
   // QA 3.1 / 3.2 — ISO and Review posts require at least one photo.
   const photoRequired = type === "iso" || type === "review";
-  const canPost =
+  // QA2 — every post/ISO/poll/review needs at least one category so the feed filter works.
+  const categoryOk = categories.length > 0;
+  const canPost = categoryOk && (
     type === "poll" ? Boolean(body.trim()) && pollValid :
     type === "review" ? rating > 0 && Boolean(title.trim() || body.trim()) && images.length > 0 :
     type === "iso" ? isoItem.trim().length > 0 && images.length > 0 :
-    Boolean(title.trim() || body.trim() || images.length > 0);
+    Boolean(title.trim() || body.trim() || images.length > 0)
+  );
 
   // Any selected approval-mode community → the post waits for a mod there.
   const approvalNote = communities.some(
@@ -157,7 +173,8 @@ export default function ComposePage() {
         type: type === "post" ? "showcase" : type,
         title: title.trim() || null,
         body: body.trim(),
-        category,
+        // Primary category (first selected) is what the feed filters/scores on.
+        category: categories[0],
         images: type === "poll" ? [] : images,
         tags,
         poll_options: pollOptions,
@@ -436,19 +453,26 @@ export default function ComposePage() {
                 </button>
               )}
             </div>
+            {uploadError && (
+              <div style={{ fontSize: 12, color: "var(--stamp-red)", marginTop: 8 }}>{uploadError}</div>
+            )}
           </div>
         )}
 
-        {/* category — all types. Tunes feed interest scoring + the Customize-feed filter.
-            Optional: tap again to deselect (post becomes untagged). */}
-        <div style={{ marginTop: 18 }}><SectionLabel>Category</SectionLabel></div>
+        {/* category — MANDATORY (QA2), multi-select. Tunes feed interest scoring + the
+            Customize-feed filter; a post can span several categories. */}
+        <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 6 }}>
+          <SectionLabel>Category</SectionLabel>
+          <span style={{ color: categoryOk ? "var(--ink-ghost)" : "var(--stamp-red)", fontSize: 13, fontWeight: 700 }}>*</span>
+          <span style={{ fontSize: 11, color: "var(--ink-faint)", marginLeft: "auto" }}>Pick one or more</span>
+        </div>
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 10 }}>
           {ADD_CATEGORIES.map((c) => {
-            const on = category === c.id;
+            const on = categories.includes(c.id);
             return (
               <button
                 key={c.id}
-                onClick={() => setCategory(on ? null : c.id)}
+                onClick={() => toggleCategory(c.id)}
                 style={{
                   padding: "8px 14px", borderRadius: 999, cursor: "pointer",
                   border: `1px solid ${on ? "var(--stamp-red)" : "var(--border-strong)"}`,
@@ -462,6 +486,11 @@ export default function ComposePage() {
             );
           })}
         </div>
+        {!categoryOk && (
+          <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8 }}>
+            Add at least one category so your {type === "iso" ? "ISO" : "post"} shows up in the right feed filters.
+          </div>
+        )}
 
         {/* hashtags — all types */}
         <div style={{ marginTop: 18 }}><SectionLabel>Hashtags</SectionLabel></div>

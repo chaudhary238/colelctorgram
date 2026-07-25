@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Heart, MessageCircle, Share2, Bookmark, Tag as TagIcon, MapPin, MessageSquare } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, Tag as TagIcon, MapPin, MessageSquare, Flag } from "lucide-react";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
-import { ApiPost, PollBlock, CommentThread } from "@/components/cards";
+import { ApiPost, PollBlock, CommentThread, PostImages } from "@/components/cards";
 import { BackButton } from "@/components/BackButton";
+import { ReportSheet } from "@/components/ReportSheet";
 import { useUser } from "@/lib/auth-context";
 import { Avatar, Stars, PostTypeTag, ProductPhoto } from "@/components/ui";
 
@@ -53,6 +54,7 @@ export default function PostDetailPage() {
   const [likes, setLikes] = useState(0);
   const [likeBusy, setLikeBusy] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
+  const [reporting, setReporting] = useState(false); // W-48
   const [shared, setShared] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
 
@@ -153,9 +155,22 @@ export default function PostDetailPage() {
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <BackButton fallback="/feed" />
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Post</span>
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Post</span>
+          {user?.id !== post.user_id && (
+            /* W-48 — report entry point on post detail */
+            <button
+              onClick={() => setReporting(true)}
+              aria-label="Report post"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)" }}
+            >
+              <Flag size={17} />
+            </button>
+          )}
         </div>
       </div>
+      {reporting && (
+        <ReportSheet targetType="post" targetId={post.id} title="Report post" onClose={() => setReporting(false)} />
+      )}
 
       <div style={{ padding: "16px 20px 0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -211,12 +226,10 @@ export default function PostDetailPage() {
 
         <div style={{ fontSize: 16, lineHeight: 1.6, color: "var(--ink-soft)", marginBottom: 14, whiteSpace: "pre-wrap" }}>{post.body}</div>
 
+        {/* QA 5.1 — same swipeable carousel as the feed for multi-photo posts. */}
         {post.images.length > 0 && (
-          <div style={{ marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-            {post.images.map((src, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={i} src={src} alt="" style={{ width: "100%", display: "block", objectFit: "cover", maxHeight: 480, borderRadius: 13 }} />
-            ))}
+          <div style={{ marginBottom: 14 }}>
+            <PostImages images={post.images} />
           </div>
         )}
         {post.images.length === 0 && post.type === "showcase" && (

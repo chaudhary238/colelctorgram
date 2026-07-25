@@ -307,7 +307,9 @@ export default function ItemDetailPage() {
         <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 23, letterSpacing: "-0.025em", lineHeight: 1.15, margin: "0 0 4px" }}>
           {title}
         </h1>
-        {item.sku && (
+        {/* QA2 — a pre-order is tracked by the owner, not traded on its catalogue SKU; the
+            SKU code reads as noise there, so hide it (and its report/official chips) for pre-orders. */}
+        {item.sku && !isPreorder && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--ink-faint)" }}>SKU {item.sku}</span>
             {/* DV6-13 — Official (admin-blessed) vs Community catalogue entry */}
