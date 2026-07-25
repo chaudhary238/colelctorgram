@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, update
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -14,6 +14,8 @@ from app.models.user import User, Follow
 from app.models.listing import Listing
 from app.models.catalogue import Catalogue
 from app.models.item import Item
+from app.services.blocks import is_blocked_pair
+from app.services.ratelimit import rate_limit_user
 
 router = APIRouter(prefix="/threads", tags=["messages"])
 
@@ -34,10 +36,13 @@ class SendMessageBody(BaseModel):
 async def list_threads(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    limit: int = Query(30, le=100),  # B-77 — was unbounded (loaded every thread)
 ):
     stmt = select(Thread).where(
         or_(Thread.participant_a == current_user.id, Thread.participant_b == current_user.id)
-    ).order_by(Thread.last_message_at.desc())
+    ).order_by(Thread.last_message_at.desc())\
+        .offset((page - 1) * limit).limit(limit)
     result = await db.execute(stmt)
     threads = result.scalars().all()
 
@@ -90,7 +95,8 @@ async def list_threads(
     return [_thread_dict_full(t, current_user.id, users, listings, last_msgs) for t in threads]
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(rate_limit_user("message"))])  # B-68 — creation can carry an opener msg
 async def create_thread(
     body: CreateThreadBody,
     db: AsyncSession = Depends(get_db),
@@ -98,6 +104,10 @@ async def create_thread(
 ):
     if body.other_user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot message yourself")
+
+    # B-69: no messaging between blocked pairs (either direction), listing inquiry or not.
+    if await is_blocked_pair(db, current_user.id, body.other_user_id):
+        raise HTTPException(status_code=403, detail="You can't message this user.")
 
     a, b = sorted([current_user.id, body.other_user_id], key=str)
     existing = await db.execute(
@@ -140,7 +150,7 @@ async def create_thread(
     if body.initial_message and is_new_thread:
         msg = Message(thread_id=thread.id, sender_id=current_user.id, body=body.initial_message)
         db.add(msg)
-        _bump_unread(thread, current_user.id)
+        await _bump_unread(db, thread, current_user.id)
         thread.last_message_at = datetime.now(timezone.utc)
 
     return _thread_dict(thread, current_user.id)
@@ -206,7 +216,8 @@ async def get_messages(
     }
 
 
-@router.post("/{thread_id}/messages", status_code=201)
+@router.post("/{thread_id}/messages", status_code=201,
+             dependencies=[Depends(rate_limit_user("message"))])  # B-68
 async def send_message(
     thread_id: uuid.UUID,
     body: SendMessageBody,
@@ -217,6 +228,11 @@ async def send_message(
     if not body.body and not body.image_url and not body.offer_item_id:
         raise HTTPException(status_code=400, detail="Message must have body, image, or offer")
 
+    # B-69: a block placed after the thread was created also stops further messages.
+    other_id = thread.participant_b if thread.participant_a == current_user.id else thread.participant_a
+    if await is_blocked_pair(db, current_user.id, other_id):
+        raise HTTPException(status_code=403, detail="You can't message this user.")
+
     msg = Message(
         thread_id=thread.id,
         sender_id=current_user.id,
@@ -225,7 +241,7 @@ async def send_message(
         offer_item_id=body.offer_item_id,
     )
     db.add(msg)
-    _bump_unread(thread, current_user.id)
+    await _bump_unread(db, thread, current_user.id)
     thread.last_message_at = datetime.now(timezone.utc)
     await db.flush()
     return _msg_dict(msg)
@@ -239,11 +255,10 @@ async def _get_thread(thread_id, user_id, db):
     return thread
 
 
-def _bump_unread(thread: Thread, sender_id: uuid.UUID):
-    if thread.participant_a == sender_id:
-        thread.unread_b += 1
-    else:
-        thread.unread_a += 1
+async def _bump_unread(db: AsyncSession, thread: Thread, sender_id: uuid.UUID):
+    """B-75 — atomic unread bump (was `unread_x += 1` read-modify-write)."""
+    col = Thread.unread_b if thread.participant_a == sender_id else Thread.unread_a
+    await db.execute(update(Thread).where(Thread.id == thread.id).values({col.key: col + 1}))
 
 
 def _thread_dict(t: Thread, me: uuid.UUID) -> dict:

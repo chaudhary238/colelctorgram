@@ -5,7 +5,8 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update, delete, func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -256,9 +257,11 @@ async def list_interested(
     ]
 
 
-def _adjust(event: Event, rsvp_status: str, delta: int) -> None:
-    field = "going_count" if rsvp_status == "going" else "interested_count"
-    setattr(event, field, max(0, getattr(event, field) + delta))
+async def _adjust(db: AsyncSession, event_id: uuid.UUID, rsvp_status: str, delta: int) -> None:
+    """B-75 — atomic RSVP counter move (was a read-modify-write on the ORM instance)."""
+    col = Event.going_count if rsvp_status == "going" else Event.interested_count
+    value = col + delta if delta > 0 else func.greatest(col + delta, 0)
+    await db.execute(update(Event).where(Event.id == event_id).values({col.key: value}))
 
 
 @router.post("/{event_id}/interest", status_code=204)
@@ -276,25 +279,53 @@ async def set_rsvp(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    interest = (
-        await db.execute(
-            select(EventInterest).where(
-                EventInterest.event_id == event_id,
-                EventInterest.user_id == current_user.id,
-            )
-        )
-    ).scalar_one_or_none()
-
-    if interest is None:
-        db.add(EventInterest(event_id=event_id, user_id=current_user.id, status=rsvp))
-        _adjust(event, rsvp, +1)
-    elif interest.status == rsvp:
-        await db.delete(interest)             # tapping the same choice clears the RSVP
-        _adjust(event, rsvp, -1)
+    # B-75/B-76 — race-safe tri-state toggle: every branch is guarded by the
+    # rowcount of the row operation, so a double-tap can't 500 on the PK or
+    # move a counter twice; counter moves are atomic SQL.
+    inserted = await db.execute(
+        pg_insert(EventInterest)
+        .values(event_id=event_id, user_id=current_user.id, status=rsvp)
+        .on_conflict_do_nothing()
+    )
+    if inserted.rowcount:
+        await _adjust(db, event_id, rsvp, +1)
     else:
-        _adjust(event, interest.status, -1)   # switch going ↔ interested
-        _adjust(event, rsvp, +1)
-        interest.status = rsvp
+        interest = (
+            await db.execute(
+                select(EventInterest).where(
+                    EventInterest.event_id == event_id,
+                    EventInterest.user_id == current_user.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if interest is None:
+            pass  # raced with a concurrent clear — nothing to do
+        elif interest.status == rsvp:
+            # tapping the same choice clears the RSVP
+            removed = await db.execute(
+                delete(EventInterest).where(
+                    EventInterest.event_id == event_id,
+                    EventInterest.user_id == current_user.id,
+                    EventInterest.status == rsvp,
+                )
+            )
+            if removed.rowcount:
+                await _adjust(db, event_id, rsvp, -1)
+        else:
+            # switch going ↔ interested — only count when this request won the switch
+            old_status = interest.status
+            switched = await db.execute(
+                update(EventInterest)
+                .where(
+                    EventInterest.event_id == event_id,
+                    EventInterest.user_id == current_user.id,
+                    EventInterest.status == old_status,
+                )
+                .values(status=rsvp)
+            )
+            if switched.rowcount:
+                await _adjust(db, event_id, old_status, -1)
+                await _adjust(db, event_id, rsvp, +1)
 
     # XP: +10 for going to an event, dedup'd on event id (GM-05). A later
     # un-RSVP/re-RSVP is a no-op — the grant already landed once.

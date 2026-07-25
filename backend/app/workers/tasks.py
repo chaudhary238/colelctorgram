@@ -103,11 +103,12 @@ async def reconcile_counters():
     async with AsyncSessionLocal() as db:
         # comments_count counts every comment (incl. replies) to match the live
         # increment in posts.add_comment — the UI shows a flat thread.
+        # B-70: admin-removed comments are excluded (mirrors admin_remove_comment's decrement).
         await db.execute(text("""
             UPDATE posts p
             SET
               likes_count    = (SELECT COUNT(*) FROM post_likes    WHERE post_id = p.id),
-              comments_count = (SELECT COUNT(*) FROM comments      WHERE post_id = p.id),
+              comments_count = (SELECT COUNT(*) FROM comments      WHERE post_id = p.id AND is_removed = false),
               saves_count    = (SELECT COUNT(*) FROM post_saves    WHERE post_id = p.id)
             WHERE p.id IN (
                 SELECT DISTINCT post_id FROM post_likes

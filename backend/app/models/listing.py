@@ -37,7 +37,8 @@ class Listing(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     terms: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
 
-    status: Mapped[str] = mapped_column(String(16), default="available", nullable=False)  # available | reserved | sold | closed
+    status: Mapped[str] = mapped_column(String(16), default="available", nullable=False)  # available | reserved | sold | closed | removed (B-70 admin takedown)
+    removed_reason: Mapped[str | None] = mapped_column(Text, nullable=True)  # B-70 — set when status="removed"
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     saves_count: Mapped[int] = mapped_column(Integer, default=0)

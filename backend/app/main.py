@@ -80,6 +80,9 @@ if not settings.r2_configured:
     from app.services.media import MEDIA_LOCAL_DIR
 
     MEDIA_LOCAL_DIR.mkdir(parents=True, exist_ok=True)
+    # ROOT-level (unversioned) receiver for the browser's presigned local PUT. Must NOT
+    # sit under /v1 — generate_upload_url returns `/media/local/...` without the prefix.
+    app.include_router(media.local_router)
     app.mount("/media-files", StaticFiles(directory=MEDIA_LOCAL_DIR), name="media-files")
 
 

@@ -12,6 +12,7 @@ from app.dependencies import get_current_user
 from app.models.user import User, Follow
 from app.models.post import Post, PostLike, PostSave, PostCommunity, PollVote
 from app.routers.posts import _iso_fields
+from app.services.blocks import blocked_user_ids
 
 router = APIRouter(prefix="/feed", tags=["feed"])
 
@@ -95,6 +96,11 @@ async def get_feed(
     if following_only:
         # only posts authored by users the viewer follows
         stmt = stmt.where(Post.user_id.in_([uuid.UUID(fid) for fid in followed_ids] or [None]))
+
+    # B-69: hide posts by users in a block relationship with the viewer (either direction).
+    blocked = await blocked_user_ids(db, current_user.id)
+    if blocked:
+        stmt = stmt.where(Post.user_id.not_in(blocked))
 
     result = await db.execute(stmt.order_by(Post.created_at.desc()).limit(500))
     posts = result.scalars().all()

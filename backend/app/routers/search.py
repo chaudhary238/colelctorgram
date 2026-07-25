@@ -11,6 +11,7 @@ from app.models.community import Community
 from app.models.event import Event
 from app.models.post import Post
 from app.models.deal import Vouch
+from app.services.blocks import blocked_user_ids
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -100,13 +101,16 @@ async def global_search(
 ):
     pattern = f"%{q}%"
 
+    # B-69: exclude users in a block relationship with the viewer from people + post results.
+    blocked = await blocked_user_ids(db, current_user.id)
+
     # vouches received per user — subquery so people rows can show "N deals · N vouches"
     vouch_sq = (
         select(Vouch.to_user_id, func.count().label("vouches"))
         .group_by(Vouch.to_user_id)
         .subquery()
     )
-    users_q = await db.execute(
+    users_stmt = (
         select(
             User.id,
             User.handle,
@@ -118,6 +122,9 @@ async def global_search(
         .order_by(_rank(q, User.name, User.handle).desc())
         .limit(limit)
     )
+    if blocked:
+        users_stmt = users_stmt.where(User.id.not_in(blocked))
+    users_q = await db.execute(users_stmt)
     users = [
         {
             "id": str(r.id),
@@ -128,11 +135,15 @@ async def global_search(
         for r in users_q
     ]
 
-    posts_q = await db.execute(
+    posts_stmt = (
         select(Post.id, Post.type, Post.title, Post.body, Post.iso_item, Post.community_id, User.handle, User.name)
         .join(User, User.id == Post.user_id)
+        # QA2 — a post that lives in an unapproved (pending/rejected) community must not
+        # surface in search. Feed posts (community_id NULL) are unaffected.
+        .outerjoin(Community, Community.id == Post.community_id)
         .where(
             Post.status == "published",
+            or_(Post.community_id.is_(None), Community.status == "approved"),
             or_(
                 Post.body.ilike(pattern),
                 Post.title.ilike(pattern),
@@ -146,6 +157,9 @@ async def global_search(
         .order_by(Post.created_at.desc())
         .limit(limit)
     )
+    if blocked:
+        posts_stmt = posts_stmt.where(Post.user_id.not_in(blocked))
+    posts_q = await db.execute(posts_stmt)
     post_rows = list(posts_q)
     # resolve community names in one pass
     com_ids = {r.community_id for r in post_rows if r.community_id}
@@ -185,7 +199,11 @@ async def global_search(
 
     communities_q = await db.execute(
         select(Community.id, Community.name, Community.description, Community.category, Community.member_count)
-        .where(_match(q, pattern, Community.name, Community.description))
+        # QA2 — only approved communities are discoverable; pending/rejected ones stay hidden.
+        .where(
+            Community.status == "approved",
+            _match(q, pattern, Community.name, Community.description),
+        )
         .order_by(_rank(q, Community.name).desc())
         .limit(limit)
     )

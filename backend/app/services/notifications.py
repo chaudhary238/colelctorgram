@@ -22,6 +22,7 @@ NOTIF_KIND_PREF = {
     "event_reminder": "event_reminders",
     "community": "community_activity",
     "price_drop": "price_drops",
+    "listing_sold": "price_drops",  # C-06 — "sold" alert rides the saved-listing toggle
     "new_listing": "new_listings",
 }
 # Defaults must match DEFAULT_NOTIF_PREFS in routers/users.py — kept here to avoid a

@@ -11,32 +11,9 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.trust import UserBlock, Report
 
+from app.services.ratelimit import rate_limit_user  # B-63/B-68 — limiter lives in services now
+
 router = APIRouter(tags=["moderation"])
-
-# ── In-memory rate limiting (B-63) ───────────────────────────────
-import time
-from collections import defaultdict
-from fastapi import Request
-
-_rate_store: dict[str, list[float]] = defaultdict(list)
-
-RATE_LIMITS = {
-    "auth": (5, 60),       # 5 per 60s
-    "post": (10, 300),     # 10 per 5 min
-    "listing": (5, 300),   # 5 per 5 min
-}
-
-
-def check_rate_limit(key: str, kind: str) -> bool:
-    limit, window = RATE_LIMITS.get(kind, (30, 60))
-    now = time.time()
-    hits = _rate_store[key]
-    _rate_store[key] = [t for t in hits if now - t < window]
-    if len(_rate_store[key]) >= limit:
-        return False
-    _rate_store[key].append(now)
-    return True
-
 
 # ── Block endpoint (B-64) ─────────────────────────────────────────
 _blocks_router = APIRouter(prefix="/blocks")
@@ -118,7 +95,8 @@ class CreateReportBody(BaseModel):
 _reports_router = APIRouter(prefix="/reports")
 
 
-@_reports_router.post("", status_code=status.HTTP_204_NO_CONTENT)
+@_reports_router.post("", status_code=status.HTTP_204_NO_CONTENT,
+                      dependencies=[Depends(rate_limit_user("report"))])  # B-68
 async def submit_report(
     body: CreateReportBody,
     db: AsyncSession = Depends(get_db),

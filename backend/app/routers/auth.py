@@ -21,6 +21,7 @@ from app.services.auth import (
     password_fingerprint,
 )
 from app.services.email import send_otp_email, send_password_reset_email
+from app.services.ratelimit import rate_limit_ip, rate_limit_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -80,7 +81,8 @@ class TokenResponse(BaseModel):
     debug_otp: str | None = None
 
 
-@router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(rate_limit_ip("auth"))])  # B-68
 async def signup(body: SignUpBody, db: AsyncSession = Depends(get_db)):
     # Normalise BEFORE the duplicate check — checking the raw input while storing
     # lowercased let "Test@X.com" slip past the check and 500 on the unique index.
@@ -162,7 +164,8 @@ async def verify_email(
     db.add(current_user)
 
 
-@router.post("/resend-otp")
+@router.post("/resend-otp",
+             dependencies=[Depends(rate_limit_user("email", unverified=True))])  # B-68 — email quota guard
 async def resend_otp(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user_unverified),
@@ -176,7 +179,8 @@ async def resend_otp(
     return {"debug_otp": code if _debug_otp_allowed() else None}
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse,
+             dependencies=[Depends(rate_limit_ip("auth"))])  # B-68 — brute-force guard
 async def login(body: LoginBody, db: AsyncSession = Depends(get_db)):
     # Match on email OR handle so users can sign in with either (QA 1.3).
     ident = body.identifier.lower().strip().lstrip("@")
@@ -224,7 +228,7 @@ class ResetPasswordBody(BaseModel):
     new_password: str
 
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", dependencies=[Depends(rate_limit_ip("email"))])  # B-68 — email quota guard
 async def forgot_password(body: ForgotPasswordBody, db: AsyncSession = Depends(get_db)):
     """Email a reset link. Always 200 (never reveal whether the email exists)."""
     result = await db.execute(select(User).where(User.email == body.email.lower().strip()))

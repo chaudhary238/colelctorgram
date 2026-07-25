@@ -5,6 +5,12 @@ from app.services.media import generate_upload_url, MEDIA_LOCAL_DIR
 
 router = APIRouter(prefix="/media", tags=["media"])
 
+# Dev-only local upload receiver. Registered at ROOT (unversioned) in main.py — the
+# presigned local `upload_url` from generate_upload_url points at `/media/local/...`
+# WITHOUT the /v1 prefix, so this route must live outside the versioned api_v1 router
+# (moving it under /v1 silently 404s every local upload).
+local_router = APIRouter(tags=["media"])
+
 
 @router.post("/upload-url")
 async def get_upload_url(
@@ -15,7 +21,7 @@ async def get_upload_url(
     return generate_upload_url(prefix=f"{prefix}/{current_user.id}", content_type=content_type)
 
 
-@router.put("/local/{file_path:path}", status_code=200)
+@local_router.put("/media/local/{file_path:path}", status_code=200)
 async def put_local_media(file_path: str, request: Request):
     """Dev-only receiver for the local-disk media fallback (no R2).
 

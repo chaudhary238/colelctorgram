@@ -6,7 +6,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, update, delete
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -17,6 +18,7 @@ from app.models.catalogue import Catalogue
 from app.models.user import User
 from app.models.deal import Vouch
 from app.workers.tasks import dispatch_wishlist_notifications
+from app.services.ratelimit import rate_limit_user
 
 _bg_tasks: set = set()
 
@@ -45,7 +47,8 @@ class UpdateListingBody(BaseModel):
     condition_notes: Optional[str] = None
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(rate_limit_user("listing"))])  # B-68
 async def create_listing(
     body: CreateListingBody,
     db: AsyncSession = Depends(get_db),
@@ -57,6 +60,13 @@ async def create_listing(
     item = item_result.scalar_one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+    # QA2 — you can only sell what you actually own. Pre-orders (not yet in hand),
+    # wishlist entries and DB contributions can't be listed for sale.
+    if item.status != "owned":
+        raise HTTPException(
+            status_code=422,
+            detail="Only items you own can be listed — a pre-order can be listed once it arrives.",
+        )
     # DF-17: web Sell is allowed (founder decision) — verified is now an optional
     # badge a seller can earn later (live in-app photo), not a precondition to list.
 
@@ -78,7 +88,11 @@ async def create_listing(
     )
     db.add(listing)
     item.is_listed = True
-    current_user.active_listings_count += 1
+    # B-75 — atomic increment
+    await db.execute(
+        update(User).where(User.id == current_user.id)
+        .values(active_listings_count=User.active_listings_count + 1)
+    )
     await db.flush()
     task = asyncio.create_task(dispatch_wishlist_notifications(str(listing.id)))
     _bg_tasks.add(task)
@@ -168,6 +182,9 @@ async def get_listing(
     listing = result.scalar_one_or_none()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
+    # B-70 — taken down by moderation: gone for everyone but the seller
+    if listing.status == "removed" and listing.seller_id != viewer.id:
+        raise HTTPException(status_code=404, detail="Listing not found")
     enriched = await _enrich_listings([listing], db, viewer)
     enriched[0]["price_votes"] = await _price_vote_summary(listing_id, db, viewer)
     return enriched[0]
@@ -186,8 +203,51 @@ async def update_listing(
     listing = result.scalar_one_or_none()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
+    old_status = listing.status
+    old_price = listing.price
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(listing, field, value)
+
+    # C-06 (MK-09): alert users who saved this listing when its price drops or it
+    # sells. Gated by each recipient's `price_drops` toggle (see NOTIF_KIND_PREF).
+    price_dropped = body.price is not None and listing.price < old_price
+    just_sold = old_status != "sold" and listing.status == "sold"
+    if price_dropped or just_sold:
+        label = listing.sku or "A listing you saved"
+        saver_ids = (await db.execute(
+            select(ListingSave.user_id).where(ListingSave.listing_id == listing_id)
+        )).scalars().all()
+        for uid in saver_ids:
+            if uid == current_user.id:
+                continue  # the seller is (implausibly) also a saver — don't self-notify
+            if price_dropped:
+                await notify(
+                    db, user_id=uid, kind="price_drop", title="Price drop",
+                    body=f"{label} dropped to ₹{listing.price // 100:,}.",
+                    ref_type="listing", ref_id=str(listing.id),
+                )
+            if just_sold:
+                await notify(
+                    db, user_id=uid, kind="listing_sold", title="Saved listing sold",
+                    body=f"{label} has been marked sold.",
+                    ref_type="listing", ref_id=str(listing.id),
+                )
+
+    # B-75 — keep the seller's active-listings counter honest on status transitions
+    # (was never decremented on sold/closed at all). "available" is the only status
+    # that counts; sellers can't set "removed" (admin takedown owns that value).
+    if listing.status == "removed" and old_status != "removed":
+        raise HTTPException(status_code=422, detail="Invalid status")
+    if old_status == "available" and listing.status != "available":
+        await db.execute(
+            update(User).where(User.id == current_user.id)
+            .values(active_listings_count=func.greatest(User.active_listings_count - 1, 0))
+        )
+    elif old_status != "available" and listing.status == "available":
+        await db.execute(
+            update(User).where(User.id == current_user.id)
+            .values(active_listings_count=User.active_listings_count + 1)
+        )
     enriched = await _enrich_listings([listing], db, current_user)
     return enriched[0]
 
@@ -203,19 +263,28 @@ async def toggle_save(
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
 
-    existing = await db.execute(
-        select(ListingSave).where(
+    # B-75/B-76 — race-safe toggle: row op decides, counter moves atomically in SQL
+    removed = await db.execute(
+        delete(ListingSave).where(
             ListingSave.user_id == current_user.id,
             ListingSave.listing_id == listing_id,
         )
     )
-    save = existing.scalar_one_or_none()
-    if save:
-        await db.delete(save)
-        listing.saves_count = max(0, listing.saves_count - 1)
+    if removed.rowcount:
+        await db.execute(
+            update(Listing).where(Listing.id == listing_id)
+            .values(saves_count=func.greatest(Listing.saves_count - 1, 0))
+        )
     else:
-        db.add(ListingSave(user_id=current_user.id, listing_id=listing_id))
-        listing.saves_count += 1
+        inserted = await db.execute(
+            pg_insert(ListingSave).values(user_id=current_user.id, listing_id=listing_id)
+            .on_conflict_do_nothing()
+        )
+        if inserted.rowcount:
+            await db.execute(
+                update(Listing).where(Listing.id == listing_id)
+                .values(saves_count=Listing.saves_count + 1)
+            )
 
 
 @router.post("/{listing_id}/like", status_code=204)
@@ -230,18 +299,29 @@ async def toggle_like(
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
 
-    existing = (await db.execute(
-        select(ListingLike).where(
+    # B-75/B-76 — race-safe toggle (same shape as /save)
+    removed = await db.execute(
+        delete(ListingLike).where(
             ListingLike.user_id == current_user.id,
             ListingLike.listing_id == listing_id,
         )
-    )).scalar_one_or_none()
-    if existing:
-        await db.delete(existing)
-        listing.likes_count = max(0, listing.likes_count - 1)
+    )
+    if removed.rowcount:
+        await db.execute(
+            update(Listing).where(Listing.id == listing_id)
+            .values(likes_count=func.greatest(Listing.likes_count - 1, 0))
+        )
     else:
-        db.add(ListingLike(user_id=current_user.id, listing_id=listing_id))
-        listing.likes_count += 1
+        inserted = await db.execute(
+            pg_insert(ListingLike).values(user_id=current_user.id, listing_id=listing_id)
+            .on_conflict_do_nothing()
+        )
+        if not inserted.rowcount:
+            return  # concurrent request already liked
+        await db.execute(
+            update(Listing).where(Listing.id == listing_id)
+            .values(likes_count=Listing.likes_count + 1)
+        )
         if listing.seller_id != current_user.id:
             await notify(
                 db,

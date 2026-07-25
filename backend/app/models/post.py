@@ -51,7 +51,9 @@ class Post(Base):
     is_admin_post: Mapped[bool] = mapped_column(Boolean, default=False)
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False)
     # DF-27 — community post approval: published | pending (awaiting mod review)
+    # B-70 — "removed" = admin takedown (reason in removed_reason)
     status: Mapped[str] = mapped_column(String(16), default="published")
+    removed_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
@@ -124,6 +126,9 @@ class Comment(Base):
     parent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("comments.id"), nullable=True)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     likes_count: Mapped[int] = mapped_column(Integer, default=0)
+    # B-70 — admin takedown (soft; body preserved for the audit trail)
+    is_removed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    removed_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 

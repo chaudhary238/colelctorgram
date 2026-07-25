@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update, delete
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from typing import Optional
 
 from app.database import get_db
@@ -16,6 +17,7 @@ from app.models.listing import Listing
 from app.models.post import Post, PostLike, PostSave
 from app.models.deal import Vouch, VouchRequest
 from app.models.community import Community, CommunityMember
+from app.services.blocks import blocked_user_ids, is_blocked_pair
 from app.routers.communities import _community_dict
 from app.services.notifications import notify
 from app.services.gamification import (
@@ -179,6 +181,8 @@ async def get_suggested(
     )
     following_ids = {row[0] for row in following_ids_q.all()}
     following_ids.add(current_user.id)
+    # B-69: never suggest users in a block relationship with the viewer.
+    following_ids |= await blocked_user_ids(db, current_user.id)
 
     stmt = (
         select(User)
@@ -227,12 +231,18 @@ async def vouch_candidates(
     followers = {r for r in follower_ids_q.scalars().all()}
     connected = followed | followers
 
-    result = await db.execute(
+    # B-69: don't offer blocked users as vouch candidates.
+    blocked = await blocked_user_ids(db, current_user.id)
+
+    stmt = (
         select(User)
         .where(User.id != current_user.id, User.is_suspended == False)  # noqa: E712
         .order_by(User.followers_count.desc())
         .limit(limit)
     )
+    if blocked:
+        stmt = stmt.where(User.id.not_in(blocked))
+    result = await db.execute(stmt)
     users = list(result.scalars().all())
     # Connections first (people who actually know you), then the rest — stable.
     users.sort(key=lambda u: 0 if u.id in connected else 1)
@@ -435,19 +445,27 @@ async def follow_user(
     if target_user.id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot follow yourself")
 
-    existing = await db.execute(
-        select(Follow).where(
-            Follow.follower_id == current_user.id,
-            Follow.following_type == "user",
-            Follow.following_id == target_user.id,
-        )
-    )
-    if existing.scalar_one_or_none():
-        return  # already following
+    # B-69 — no follows across a block relationship (either direction)
+    if await is_blocked_pair(db, current_user.id, target_user.id):
+        raise HTTPException(status_code=403, detail="You can't follow this user.")
 
-    db.add(Follow(follower_id=current_user.id, following_type="user", following_id=target_user.id))
-    target_user.followers_count += 1
-    current_user.following_count += 1
+    # B-75/B-76 — race-safe insert (composite PK), counters move atomically in SQL
+    inserted = await db.execute(
+        pg_insert(Follow)
+        .values(follower_id=current_user.id, following_type="user", following_id=target_user.id)
+        .on_conflict_do_nothing()
+    )
+    if not inserted.rowcount:
+        return  # already following (or concurrent double-click)
+
+    await db.execute(
+        update(User).where(User.id == target_user.id)
+        .values(followers_count=User.followers_count + 1)
+    )
+    await db.execute(
+        update(User).where(User.id == current_user.id)
+        .values(following_count=User.following_count + 1)
+    )
     # DV6-04 — +2 XP micro-reward, deduped per followed collector.
     await award_xp(db, current_user, "follow", ref_id=str(target_user.id), ref_type="user")
     await notify(
@@ -475,13 +493,18 @@ async def list_followers(
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    result = await db.execute(
+    stmt = (
         select(User)
         .join(Follow, (Follow.follower_id == User.id) & (Follow.following_type == "user") & (Follow.following_id == target_user.id))
         .order_by(Follow.created_at.desc())
         .limit(limit)
         .offset(offset)
     )
+    # B-69: hide users in a block relationship with the viewer from follower lists.
+    blocked = await blocked_user_ids(db, current_user.id)
+    if blocked:
+        stmt = stmt.where(User.id.not_in(blocked))
+    result = await db.execute(stmt)
     return result.scalars().all()
 
 
@@ -498,13 +521,18 @@ async def list_following(
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    result = await db.execute(
+    stmt = (
         select(User)
         .join(Follow, (Follow.following_id == User.id) & (Follow.following_type == "user") & (Follow.follower_id == target_user.id))
         .order_by(Follow.created_at.desc())
         .limit(limit)
         .offset(offset)
     )
+    # B-69: hide users in a block relationship with the viewer from following lists.
+    blocked = await blocked_user_ids(db, current_user.id)
+    if blocked:
+        stmt = stmt.where(User.id.not_in(blocked))
+    result = await db.execute(stmt)
     return result.scalars().all()
 
 
@@ -703,6 +731,7 @@ async def get_user_posts(
     stmt = (
         select(Post)
         .where(Post.user_id == target_user.id)
+        .where(Post.status != "removed")  # B-70 admin takedown
         .order_by(Post.created_at.desc())
         .offset((page - 1) * limit)
         .limit(limit)
@@ -937,15 +966,20 @@ async def unfollow_user(
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    result = await db.execute(
-        select(Follow).where(
+    # B-75/B-76 — race-safe delete; counters only move when a row was actually removed
+    removed = await db.execute(
+        delete(Follow).where(
             Follow.follower_id == current_user.id,
             Follow.following_type == "user",
             Follow.following_id == target_user.id,
         )
     )
-    follow = result.scalar_one_or_none()
-    if follow:
-        await db.delete(follow)
-        target_user.followers_count = max(0, target_user.followers_count - 1)
-        current_user.following_count = max(0, current_user.following_count - 1)
+    if removed.rowcount:
+        await db.execute(
+            update(User).where(User.id == target_user.id)
+            .values(followers_count=func.greatest(User.followers_count - 1, 0))
+        )
+        await db.execute(
+            update(User).where(User.id == current_user.id)
+            .values(following_count=func.greatest(User.following_count - 1, 0))
+        )

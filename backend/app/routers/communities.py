@@ -1,9 +1,11 @@
 from typing import Optional
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, case
+from sqlalchemy import select, func, case, update, delete
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -114,13 +116,70 @@ async def list_communities(
     communities = result.scalars().all()
 
     member_ids: set[str] = set()
+    requested_ids: set[str] = set()
     if current_user:
         mem_result = await db.execute(
             select(CommunityMember.community_id).where(CommunityMember.user_id == current_user.id)
         )
         member_ids = set(mem_result.scalars().all())
+        # QA2 — pending join requests so a private "Requested" state survives a reload.
+        req_result = await db.execute(
+            select(CommunityJoinRequest.community_id).where(
+                CommunityJoinRequest.user_id == current_user.id,
+                CommunityJoinRequest.status == "pending",
+            )
+        )
+        requested_ids = set(req_result.scalars().all())
 
-    return [_community_dict(c, c.id in member_ids) for c in communities]
+    # QA2 — "new posts in the last 24h" badge + most-active ordering. One grouped query
+    # over the page's communities (cheap; no per-card round-trips, no stored counter).
+    recent_counts = await _recent_post_counts(db, [c.id for c in communities])
+
+    def _js(cid: str) -> str:
+        return "member" if cid in member_ids else "requested" if cid in requested_ids else "none"
+
+    return [
+        _community_dict(c, c.id in member_ids, join_state=_js(c.id),
+                        recent_post_count=recent_counts.get(c.id, 0))
+        for c in communities
+    ]
+
+
+async def _recent_post_counts(db: AsyncSession, community_ids: list[str], hours: int = 24) -> dict[str, int]:
+    """Published posts added to each community in the last `hours` — powers the
+    'N new' activity badge and most-active sort (QA2). Empty dict for no ids."""
+    if not community_ids:
+        return {}
+    from app.models.post import Post, PostCommunity
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    rows = await db.execute(
+        select(PostCommunity.community_id, func.count())
+        .join(Post, Post.id == PostCommunity.post_id)
+        .where(
+            PostCommunity.community_id.in_(community_ids),
+            PostCommunity.status == "published",
+            Post.status != "removed",
+            Post.created_at >= since,
+        )
+        .group_by(PostCommunity.community_id)
+    )
+    return {cid: n for cid, n in rows.all()}
+
+
+@router.get("/check-name")
+async def check_name(
+    name: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """QA2 — live duplicate-name guard for the create form: is this name free, and if
+    not, what's a close free alternative to suggest? Declared before /{community_id}
+    so the literal path isn't captured as a community id."""
+    taken = await _name_taken(db, name)
+    return {
+        "available": not taken,
+        "suggestion": (await _suggest_name(db, name)) if taken else None,
+    }
 
 
 @router.get("/{community_id}")
@@ -185,11 +244,32 @@ async def get_community(
             "role": mem_row.role,
         })
 
-    d = _community_dict(community, is_member)
+    # QA2 — "new posts in the last 24h" for the detail meta row (beside members/posts).
+    recent = (await _recent_post_counts(db, [community_id])).get(community_id, 0)
+
+    d = _community_dict(community, is_member, recent_post_count=recent)
     d["member_role"] = member_role
     d["join_state"] = join_state
     d["admins"] = admins
     return d
+
+
+async def _name_taken(db: AsyncSession, name: str) -> bool:
+    """Case-insensitive check whether a community name is already in use (QA2 — dup-name)."""
+    row = (
+        await db.execute(select(Community.id).where(func.lower(Community.name) == name.strip().lower()))
+    ).first()
+    return row is not None
+
+
+async def _suggest_name(db: AsyncSession, name: str) -> Optional[str]:
+    """Suggest the first free '<name> N' variant when the exact name is taken."""
+    base = name.strip()
+    for i in range(2, 8):
+        cand = f"{base} {i}"
+        if not await _name_taken(db, cand):
+            return cand
+    return None
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -201,6 +281,14 @@ async def create_community(
     existing = await db.execute(select(Community).where(Community.id == body.id))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Community ID already taken")
+
+    # QA2 — reject a duplicate community name (case-insensitive); suggest an alternative.
+    if await _name_taken(db, body.name):
+        suggestion = await _suggest_name(db, body.name)
+        detail = f'A community named "{body.name.strip()}" already exists'
+        if suggestion:
+            detail += f' — try "{suggestion}"'
+        raise HTTPException(status_code=409, detail=detail)
 
     community = Community(
         id=body.id,
@@ -254,8 +342,17 @@ async def join_community(
             db.add(CommunityJoinRequest(community_id=community_id, user_id=current_user.id))
         return {"join_state": "requested"}
 
-    db.add(CommunityMember(community_id=community_id, user_id=current_user.id))
-    community.member_count += 1
+    # B-75/B-76 — race-safe join: insert decides, counter moves atomically in SQL
+    inserted = await db.execute(
+        pg_insert(CommunityMember)
+        .values(community_id=community_id, user_id=current_user.id)
+        .on_conflict_do_nothing()
+    )
+    if inserted.rowcount:
+        await db.execute(
+            update(Community).where(Community.id == community_id)
+            .values(member_count=Community.member_count + 1)
+        )
     return {"join_state": "member"}
 
 
@@ -265,18 +362,18 @@ async def leave_community(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(CommunityMember).where(
+    # B-75/B-76 — race-safe leave: delete decides, counter moves atomically in SQL
+    removed = await db.execute(
+        delete(CommunityMember).where(
             CommunityMember.community_id == community_id,
             CommunityMember.user_id == current_user.id,
         )
     )
-    member = result.scalar_one_or_none()
-    if member:
-        await db.delete(member)
-        community = (await db.execute(select(Community).where(Community.id == community_id))).scalar_one_or_none()
-        if community:
-            community.member_count = max(0, community.member_count - 1)
+    if removed.rowcount:
+        await db.execute(
+            update(Community).where(Community.id == community_id)
+            .values(member_count=func.greatest(Community.member_count - 1, 0))
+        )
         return
 
     # Not a member — withdraw a pending join request if one exists (invite-only "Requested" → undo).
@@ -310,6 +407,7 @@ async def get_community_posts(
         select(Post, PostCommunity.status)
         .join(PostCommunity, PostCommunity.post_id == Post.id)
         .where(PostCommunity.community_id == community_id)
+        .where(Post.status != "removed")  # B-70 admin takedown
     )
     if current_user:
         stmt = stmt.where(
@@ -548,12 +646,20 @@ async def approve_request(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    community, _ = await _require_mod(db, community_id, current_user)
+    await _require_mod(db, community_id, current_user)
     req = await _resolve_request(db, community_id, handle)
     req.status = "approved"
-    if not await _get_member(db, community_id, req.user_id):
-        db.add(CommunityMember(community_id=community_id, user_id=req.user_id))
-        community.member_count += 1
+    # B-75/B-76 — race-safe membership grant
+    inserted = await db.execute(
+        pg_insert(CommunityMember)
+        .values(community_id=community_id, user_id=req.user_id)
+        .on_conflict_do_nothing()
+    )
+    if inserted.rowcount:
+        await db.execute(
+            update(Community).where(Community.id == community_id)
+            .values(member_count=Community.member_count + 1)
+        )
 
 
 @router.post("/{community_id}/requests/{handle}/reject", status_code=204)
@@ -625,14 +731,18 @@ async def approve_post(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    community, _ = await _require_mod(db, community_id, current_user)
+    await _require_mod(db, community_id, current_user)
     post, pc = await _resolve_pending_post(db, community_id, post_id)
     if pc.status == "pending":
         pc.status = "published"
         # Release the global hold too (only relevant for community-only posts).
         if post.status == "pending":
             post.status = "published"
-        community.post_count += 1
+        # B-75 — atomic increment
+        await db.execute(
+            update(Community).where(Community.id == community_id)
+            .values(post_count=Community.post_count + 1)
+        )
 
 
 @router.post("/{community_id}/posts/{post_id}/reject", status_code=204)
@@ -656,7 +766,12 @@ async def reject_post(
         await db.delete(post)
 
 
-def _community_dict(c: Community, is_member: bool = False) -> dict:
+def _community_dict(
+    c: Community,
+    is_member: bool = False,
+    join_state: str = "none",
+    recent_post_count: int = 0,
+) -> dict:
     return {
         "id": c.id,
         "name": c.name,
@@ -667,10 +782,12 @@ def _community_dict(c: Community, is_member: bool = False) -> dict:
         "tone": c.tone,
         "member_count": c.member_count,
         "post_count": c.post_count,
+        "recent_post_count": recent_post_count,
         "post_mode": c.post_mode,
         "rules": c.rules or [],
         "is_invite_only": c.is_invite_only,
         "is_member": is_member,
+        "join_state": join_state,
         "status": c.status,
         "created_at": c.created_at.isoformat(),
     }

@@ -4,7 +4,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update, delete, func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -15,6 +16,8 @@ from app.models.listing import Listing
 from app.models.community import Community, CommunityMember
 from app.services.notifications import notify
 from app.services.gamification import award_xp, feed_badge
+from app.services.blocks import blocked_user_ids
+from app.services.ratelimit import rate_limit_user
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 comments_router = APIRouter(prefix="/comments", tags=["posts"])
@@ -60,7 +63,8 @@ class CreateCommentBody(BaseModel):
     parent_id: Optional[uuid.UUID] = None
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(rate_limit_user("post"))])  # B-68
 async def create_post(
     body: CreatePostBody,
     db: AsyncSession = Depends(get_db),
@@ -151,13 +155,28 @@ async def get_post(
 ):
     result = await db.execute(select(Post).where(Post.id == post_id))
     post = result.scalar_one_or_none()
-    if not post:
+    if not post or post.status == "removed":  # B-70 — taken down by moderation
         raise HTTPException(status_code=404, detail="Post not found")
 
     comments_result = await db.execute(
-        select(Comment).where(Comment.post_id == post_id).order_by(Comment.created_at)
+        select(Comment)
+        .where(Comment.post_id == post_id, Comment.is_removed == False)  # noqa: E712 — B-70
+        .order_by(Comment.created_at)
     )
     comments = comments_result.scalars().all()
+
+    # B-69: hide comments by users in a block relationship with the viewer — and any
+    # replies under a hidden comment (they'd be orphans in the threaded UI).
+    blocked = await blocked_user_ids(db, current_user.id)
+    if blocked:
+        hidden_ids: set = set()
+        kept = []
+        for c in comments:  # created_at order ⇒ parents precede replies
+            if c.user_id in blocked or (c.parent_id and c.parent_id in hidden_ids):
+                hidden_ids.add(c.id)
+            else:
+                kept.append(c)
+        comments = kept
 
     # Batch-load comment authors so the UI can show handle / name / avatar
     commenter_ids = list({c.user_id for c in comments})
@@ -263,6 +282,51 @@ async def get_post(
     }
 
 
+class EditPostBody(BaseModel):
+    """B-73 (PO-06) — owner content edits. Explicit allow-list, no blind setattr.
+
+    Deliberately NOT editable: type (cards render per-type), community targets
+    (routing has its own mod-approval flow), poll_options (votes are locked to
+    option indices), ref_item_id/ref_listing_id (provenance chips).
+    """
+    body: Optional[str] = None
+    title: Optional[str] = None
+    images: Optional[list[str]] = None
+    tags: Optional[list[str]] = None
+    category: Optional[str] = None
+    review_rating: Optional[int] = None
+    iso_item: Optional[str] = None
+    iso_budget: Optional[int] = None
+    iso_conditions: Optional[list[str]] = None
+
+
+@router.patch("/{post_id}")
+async def edit_post(
+    post_id: uuid.UUID,
+    body: EditPostBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(Post).where(Post.id == post_id))
+    post = result.scalar_one_or_none()
+    if not post or post.status == "removed":
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your post")
+
+    fields = body.model_dump(exclude_unset=True)
+    # Photo-required types keep their invariant from create (ISO/review need ≥1 photo)
+    if "images" in fields and post.type in ("iso", "review") and not fields["images"]:
+        raise HTTPException(status_code=422, detail=f"A {post.type} post needs at least one photo")
+    if "review_rating" in fields and fields["review_rating"] is not None \
+            and not (1 <= fields["review_rating"] <= 5):
+        raise HTTPException(status_code=422, detail="review_rating must be 1–5")
+    for key, value in fields.items():
+        setattr(post, key, value)
+    await db.flush()
+    return {"id": str(post.id), "updated_at": post.updated_at.isoformat()}
+
+
 @router.delete("/{post_id}", status_code=204)
 async def delete_post(
     post_id: uuid.UUID,
@@ -289,16 +353,27 @@ async def toggle_like(
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    existing = await db.execute(
-        select(PostLike).where(PostLike.user_id == current_user.id, PostLike.post_id == post_id)
+    # B-75/B-76: row-first toggle — delete/insert decide the winner, counters move
+    # atomically in SQL only when a row actually changed (double-click can't 500
+    # on the unique key or double-count).
+    removed = await db.execute(
+        delete(PostLike).where(PostLike.user_id == current_user.id, PostLike.post_id == post_id)
     )
-    like = existing.scalar_one_or_none()
-    if like:
-        await db.delete(like)
-        post.likes_count = max(0, post.likes_count - 1)
+    if removed.rowcount:
+        await db.execute(
+            update(Post).where(Post.id == post_id)
+            .values(likes_count=func.greatest(Post.likes_count - 1, 0))
+        )
     else:
-        db.add(PostLike(user_id=current_user.id, post_id=post_id))
-        post.likes_count += 1
+        inserted = await db.execute(
+            pg_insert(PostLike).values(user_id=current_user.id, post_id=post_id)
+            .on_conflict_do_nothing()
+        )
+        if not inserted.rowcount:
+            return  # concurrent request already liked — nothing to count
+        await db.execute(
+            update(Post).where(Post.id == post_id).values(likes_count=Post.likes_count + 1)
+        )
         if post.user_id != current_user.id:
             await award_xp(db, current_user, "like", ref_id=str(post.id), ref_type="post")
             await notify(
@@ -324,16 +399,24 @@ async def toggle_save(
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    existing = await db.execute(
-        select(PostSave).where(PostSave.user_id == current_user.id, PostSave.post_id == post_id)
+    # B-75/B-76 — same race-safe toggle shape as /like
+    removed = await db.execute(
+        delete(PostSave).where(PostSave.user_id == current_user.id, PostSave.post_id == post_id)
     )
-    save = existing.scalar_one_or_none()
-    if save:
-        await db.delete(save)
-        post.saves_count = max(0, post.saves_count - 1)
+    if removed.rowcount:
+        await db.execute(
+            update(Post).where(Post.id == post_id)
+            .values(saves_count=func.greatest(Post.saves_count - 1, 0))
+        )
     else:
-        db.add(PostSave(user_id=current_user.id, post_id=post_id))
-        post.saves_count += 1
+        inserted = await db.execute(
+            pg_insert(PostSave).values(user_id=current_user.id, post_id=post_id)
+            .on_conflict_do_nothing()
+        )
+        if inserted.rowcount:
+            await db.execute(
+                update(Post).where(Post.id == post_id).values(saves_count=Post.saves_count + 1)
+            )
 
 
 class PollVoteBody(BaseModel):
@@ -401,7 +484,10 @@ async def add_comment(
         body=body.body,
     )
     db.add(comment)
-    post.comments_count += 1
+    # B-75 — atomic increment (no read-modify-write on the ORM instance)
+    await db.execute(
+        update(Post).where(Post.id == post_id).values(comments_count=Post.comments_count + 1)
+    )
     if post.user_id != current_user.id:
         snippet = body.body if len(body.body) <= 80 else body.body[:80] + "…"
         await notify(
@@ -468,19 +554,28 @@ async def toggle_comment_like(
     comment = result.scalar_one_or_none()
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
-    existing = await db.execute(
-        select(CommentLike).where(
+    # B-75/B-76 — same race-safe toggle shape as post /like
+    removed = await db.execute(
+        delete(CommentLike).where(
             CommentLike.user_id == current_user.id,
             CommentLike.comment_id == comment_id,
         )
     )
-    like = existing.scalar_one_or_none()
-    if like:
-        await db.delete(like)
-        comment.likes_count = max(0, comment.likes_count - 1)
+    if removed.rowcount:
+        await db.execute(
+            update(Comment).where(Comment.id == comment_id)
+            .values(likes_count=func.greatest(Comment.likes_count - 1, 0))
+        )
     else:
-        db.add(CommentLike(user_id=current_user.id, comment_id=comment_id))
-        comment.likes_count += 1
+        inserted = await db.execute(
+            pg_insert(CommentLike).values(user_id=current_user.id, comment_id=comment_id)
+            .on_conflict_do_nothing()
+        )
+        if inserted.rowcount:
+            await db.execute(
+                update(Comment).where(Comment.id == comment_id)
+                .values(likes_count=Comment.likes_count + 1)
+            )
 
 
 @comments_router.delete("/{comment_id}", status_code=204)
@@ -501,10 +596,11 @@ async def delete_comment(
     replies_result = await db.execute(select(Comment).where(Comment.parent_id == comment_id))
     replies = replies_result.scalars().all()
 
-    post_result = await db.execute(select(Post).where(Post.id == comment.post_id))
-    post = post_result.scalar_one_or_none()
-    if post:
-        post.comments_count = max(0, post.comments_count - (1 + len(replies)))
+    # B-75 — atomic decrement (was a read-modify-write on the ORM instance)
+    await db.execute(
+        update(Post).where(Post.id == comment.post_id)
+        .values(comments_count=func.greatest(Post.comments_count - (1 + len(replies)), 0))
+    )
     for r in replies:
         await db.delete(r)
     await db.delete(comment)

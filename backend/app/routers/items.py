@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -420,7 +420,8 @@ async def add_photo(
 
     photo = ItemPhoto(item_id=item.id, url=url, is_public=is_public)
     db.add(photo)
-    item.photo_count += 1
+    # B-75 — atomic increment
+    await db.execute(update(Item).where(Item.id == item.id).values(photo_count=Item.photo_count + 1))
 
     await db.flush()  # assign photo.id before returning it
     return {"id": str(photo.id), "url": url}
