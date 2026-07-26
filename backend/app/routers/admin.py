@@ -17,6 +17,7 @@ from app.models.event import Event
 from app.models.community import Community
 from app.models.item import Item
 from app.models.deal import Vouch
+from app.services.catalogue import norm_title
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -332,6 +333,146 @@ async def admin_remove_comment(
     comment.removed_reason = reason
 
 
+@router.get("/catalogue")
+async def list_catalogue(
+    q: str | None = Query(None, description="search title / brand / sku"),
+    category: str | None = Query(None, description="filter by category"),
+    status: str = Query("all", pattern="^(all|live|removed)$"),
+    approval: str = Query("all", pattern="^(all|approved|pending)$"),
+    official: bool | None = Query(None, description="filter by Official badge"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(30, le=100),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    """Full catalogue console (all entries, not just pending) with search + category
+    filter — powers the admin "manage catalogue" view for verify/edit/remove. Unlike
+    the public /catalogue/search this returns removed + pending entries too, and the
+    admin-only fields (status, approval, submitter)."""
+    stmt = select(Catalogue)
+    if q and q.strip():
+        pattern = f"%{q.strip().lower()}%"
+        stmt = stmt.where(or_(
+            func.lower(Catalogue.title).like(pattern),
+            func.lower(Catalogue.brand).like(pattern),
+            func.lower(Catalogue.sku).like(pattern),
+        ))
+    if category:
+        stmt = stmt.where(Catalogue.category == category)
+    if status != "all":
+        stmt = stmt.where(Catalogue.status == status)
+    if approval == "approved":
+        stmt = stmt.where(Catalogue.is_approved == True)  # noqa: E712
+    elif approval == "pending":
+        stmt = stmt.where(Catalogue.is_approved == False)  # noqa: E712
+    if official is not None:
+        stmt = stmt.where(Catalogue.is_official == official)
+
+    total = (await db.execute(
+        select(func.count()).select_from(stmt.subquery())
+    )).scalar() or 0
+
+    stmt = stmt.order_by(Catalogue.created_at.desc()).offset((page - 1) * limit).limit(limit)
+    rows = (await db.execute(stmt)).scalars().all()
+
+    # Resolve submitter handles in one batch.
+    submitter_ids = {c.submitted_by for c in rows if c.submitted_by}
+    handles: dict = {}
+    if submitter_ids:
+        handles = {
+            u.id: u.handle
+            for u in (await db.execute(
+                select(User).where(User.id.in_(submitter_ids))
+            )).scalars().all()
+        }
+
+    return {
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "items": [
+            {
+                "sku": c.sku,
+                "title": c.title,
+                "brand": c.brand,
+                "category": c.category,
+                "scale": c.scale,
+                "year": c.year,
+                "description": c.description,
+                "est_retail_price": c.est_retail_price,
+                "thumbnail_url": c.thumbnail_url,
+                "is_approved": c.is_approved,
+                "is_official": c.is_official,
+                "status": c.status,
+                "submitted_by_handle": handles.get(c.submitted_by),
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+            }
+            for c in rows
+        ],
+    }
+
+
+class EditCatalogueBody(BaseModel):
+    title: str | None = None
+    brand: str | None = None
+    category: str | None = None
+    scale: str | None = None
+    year: str | None = None
+    description: str | None = None
+    est_retail_price: int | None = None
+    thumbnail_url: str | None = None
+
+
+@router.patch("/catalogue/{sku}", status_code=204)
+async def edit_catalogue(
+    sku: str,
+    body: EditCatalogueBody,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    """Edit a catalogue entry's shared facts (admin correction). Only provided fields
+    are updated; norm_title is kept in sync with title so de-dup search stays accurate."""
+    item = (await db.execute(select(Catalogue).where(Catalogue.sku == sku))).scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    data = body.model_dump(exclude_unset=True)
+    if "title" in data:
+        title = (data["title"] or "").strip()
+        if not title:
+            raise HTTPException(status_code=422, detail="Title cannot be empty")
+        item.title = title
+        item.norm_title = norm_title(title)
+    if "brand" in data:
+        brand = (data["brand"] or "").strip()
+        if not brand:
+            raise HTTPException(status_code=422, detail="Brand cannot be empty")
+        item.brand = brand
+    if "category" in data and data["category"]:
+        item.category = data["category"]
+    if "scale" in data:
+        item.scale = (data["scale"] or None) or None
+    if "year" in data:
+        item.year = (data["year"] or None) or None
+    if "description" in data:
+        item.description = (data["description"] or "").strip() or None
+    if "est_retail_price" in data and data["est_retail_price"] is not None:
+        item.est_retail_price = max(0, int(data["est_retail_price"]))
+    if "thumbnail_url" in data:
+        item.thumbnail_url = (data["thumbnail_url"] or "").strip() or None
+
+
+@router.patch("/catalogue/{sku}/restore", status_code=204)
+async def restore_catalogue(
+    sku: str,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    """Reverse a takedown (DV6-13) — bring a removed catalogue entry back to 'live'."""
+    item = (await db.execute(select(Catalogue).where(Catalogue.sku == sku))).scalar_one_or_none()
+    if item:
+        item.status = "live"
+
+
 @router.patch("/catalogue/{sku}/remove", status_code=204)
 async def remove_catalogue(
     sku: str,
@@ -380,6 +521,61 @@ async def approve_catalogue(
     item = result.scalar_one_or_none()
     if item:
         item.is_approved = True
+
+
+@router.get("/catalogue/{sku}")
+async def get_catalogue_admin(
+    sku: str,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    """Full admin detail for one catalogue entry — includes removed/pending entries
+    (unlike the public GET /catalogue/{sku}) plus admin-only fields and how many
+    collectors actually own it. Backs the admin catalogue detail/edit page.
+
+    Registered AFTER /catalogue/pending so that literal path keeps winning the match.
+    """
+    entry = (await db.execute(select(Catalogue).where(Catalogue.sku == sku))).scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    collectors = (await db.execute(
+        select(func.count(func.distinct(Item.user_id))).where(
+            Item.sku == sku, Item.status.in_(["owned", "preorder"])
+        )
+    )).scalar_one()
+    wishlists = (await db.execute(
+        select(func.count(func.distinct(Item.user_id))).where(
+            Item.sku == sku, Item.status == "wishlist"
+        )
+    )).scalar_one()
+
+    submitted_by_handle = None
+    if entry.submitted_by:
+        submitted_by_handle = (await db.execute(
+            select(User.handle).where(User.id == entry.submitted_by)
+        )).scalar_one_or_none()
+
+    return {
+        "sku": entry.sku,
+        "title": entry.title,
+        "brand": entry.brand,
+        "category": entry.category,
+        "scale": entry.scale,
+        "year": entry.year,
+        "description": entry.description,
+        "tone": entry.tone,
+        "est_retail_price": entry.est_retail_price,
+        "thumbnail_url": entry.thumbnail_url,
+        "is_approved": entry.is_approved,
+        "is_official": entry.is_official,
+        "status": entry.status,
+        "submitted_by_handle": submitted_by_handle,
+        "collectors_count": collectors,
+        "wishlists_count": wishlists,
+        "created_at": entry.created_at.isoformat() if entry.created_at else None,
+        "updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
+    }
 
 
 @router.get("/events/pending")
