@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="design_doc_mode" content="canvas">
+<title>Rewards card — style options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+body{margin:0;font-family:var(--font-body);color:var(--ink)}
+.frame{position:absolute;width:390px;background:var(--bone);border-radius:20px;padding:22px 16px;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+.frame h3{margin:0 0 14px;font-family:var(--font-body);font-weight:700;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint)}
+button{font-family:var(--font-body);cursor:pointer}
+.tier{width:34px;height:34px;border-radius:50%;background:var(--verified-teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.bar{height:6px;border-radius:999px;background:var(--bone-deep);overflow:hidden}
+.bar i{display:block;height:100%;width:42%;background:var(--verified-teal);border-radius:999px}
+.icobtn{border-radius:12px;border:1px solid var(--border);background:var(--paper-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+</style>
+</head>
+<body>
+
+<div class="frame" style="left:0px;top:0px">
+<h3>A · Icons in header row (current)</h3>
+<div style="background:var(--paper-soft);border:1px solid var(--border);border-radius:14px;padding:11px 13px">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="tier">🐰</div>
+    <span style="font-family:var(--font-display);font-weight:700;font-size:14.5px;flex:1">Collector</span>
+    <div style="font-family:var(--font-mono);font-weight:700;font-size:16px">1,240 <span style="font-size:9.5px;color:var(--ink-faint);font-weight:600">XP</span></div>
+    <div style="width:1px;height:24px;background:var(--border);margin:0 2px"></div>
+    <button class="icobtn" style="width:32px;height:32px">🎁</button>
+    <button class="icobtn" style="width:32px;height:32px">⚙️</button>
+  </div>
+  <div class="bar" style="margin:8px 0 5px"><i></i></div>
+  <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-faint)">
+    <span><b style="color:var(--ink);font-family:var(--font-mono)">1,760 XP</b> to Curator</span>
+    <span style="font-family:var(--font-mono)">+180 this week</span>
+  </div>
+  <div style="display:flex;gap:7px;margin-top:10px">
+    <button style="flex:1;height:34px;border-radius:10px;border:none;background:var(--ink);color:#fff;font-weight:600;font-size:12.5px">⚡ Earn points</button>
+    <button style="flex:1;height:34px;border-radius:10px;border:1px solid var(--border);background:transparent;font-weight:600;font-size:12.5px">🏆 Leaderboard</button>
+  </div>
+</div>
+</div>
+
+<div class="frame" style="left:430px;top:0px">
+<h3>B · 4-up action row</h3>
+<div style="background:var(--paper-soft);border:1px solid var(--border);border-radius:14px;padding:11px 13px">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="tier">🐰</div>
+    <span style="font-family:var(--font-display);font-weight:700;font-size:14.5px;flex:1">Collector</span>
+    <div style="font-family:var(--font-mono);font-weight:700;font-size:16px">1,240 <span style="font-size:9.5px;color:var(--ink-faint);font-weight:600">XP</span></div>
+  </div>
+  <div class="bar" style="margin:8px 0 5px"><i></i></div>
+  <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-faint)">
+    <span><b style="color:var(--ink);font-family:var(--font-mono)">1,760 XP</b> to Curator</span>
+    <span style="font-family:var(--font-mono)">+180 this week</span>
+  </div>
+  <div style="display:flex;gap:6px;margin-top:10px">
+    <button style="flex:2;height:34px;border-radius:10px;border:none;background:var(--ink);color:#fff;font-weight:600;font-size:12px">⚡ Earn</button>
+    <button style="flex:2;height:34px;border-radius:10px;border:1px solid var(--border);background:transparent;font-weight:600;font-size:12px">🏆 Ranks</button>
+    <button class="icobtn" style="width:34px;height:34px">🎁</button>
+    <button class="icobtn" style="width:34px;height:34px">⚙️</button>
+  </div>
+</div>
+</div>
+
+<div class="frame" style="left:0px;top:250px">
+<h3>C · Icons as a side column</h3>
+<div style="display:flex;gap:10px;align-items:stretch">
+  <div style="flex:1;background:var(--paper-soft);border:1px solid var(--border);border-radius:14px;padding:11px 13px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="tier">🐰</div>
+      <span style="font-family:var(--font-display);font-weight:700;font-size:14.5px;flex:1">Collector</span>
+      <div style="font-family:var(--font-mono);font-weight:700;font-size:16px">1,240 <span style="font-size:9.5px;color:var(--ink-faint);font-weight:600">XP</span></div>
+    </div>
+    <div class="bar" style="margin:8px 0 5px"><i></i></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-faint)">
+      <span><b style="color:var(--ink);font-family:var(--font-mono)">1,760 XP</b> to Curator</span>
+      <span style="font-family:var(--font-mono)">+180 this week</span>
+    </div>
+    <div style="display:flex;gap:7px;margin-top:10px">
+      <button style="flex:1;height:34px;border-radius:10px;border:none;background:var(--ink);color:#fff;font-weight:600;font-size:12.5px">⚡ Earn points</button>
+      <button style="flex:1;height:34px;border-radius:10px;border:1px solid var(--border);background:transparent;font-weight:600;font-size:12.5px">🏆 Leaderboard</button>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;align-self:stretch">
+    <button class="icobtn" style="flex:1;width:52px">🎁</button>
+    <button class="icobtn" style="flex:1;width:52px">⚙️</button>
+  </div>
+</div>
+</div>
+
+<div class="frame" style="left:430px;top:250px">
+<h3>D · Corner-anchored icons (overlay)</h3>
+<div style="position:relative;background:var(--paper-soft);border:1px solid var(--border);border-radius:14px;padding:11px 13px">
+  <div style="position:absolute;top:10px;right:10px;display:flex;gap:6px">
+    <button class="icobtn" style="width:28px;height:28px;border-radius:9px">🎁</button>
+    <button class="icobtn" style="width:28px;height:28px;border-radius:9px">⚙️</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;padding-right:70px">
+    <div class="tier">🐰</div>
+    <span style="font-family:var(--font-display);font-weight:700;font-size:14.5px">Collector</span>
+  </div>
+  <div style="font-family:var(--font-mono);font-weight:700;font-size:20px;margin-top:8px">1,240 <span style="font-size:10px;color:var(--ink-faint);font-weight:600">XP</span></div>
+  <div class="bar" style="margin:8px 0 5px"><i></i></div>
+  <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-faint)">
+    <span><b style="color:var(--ink);font-family:var(--font-mono)">1,760 XP</b> to Curator</span>
+    <span style="font-family:var(--font-mono)">+180 this week</span>
+  </div>
+  <div style="display:flex;gap:7px;margin-top:10px">
+    <button style="flex:1;height:34px;border-radius:10px;border:none;background:var(--ink);color:#fff;font-weight:600;font-size:12.5px">⚡ Earn points</button>
+    <button style="flex:1;height:34px;border-radius:10px;border:1px solid var(--border);background:transparent;font-weight:600;font-size:12.5px">🏆 Leaderboard</button>
+  </div>
+</div>
+</div>
+
+<div class="frame" style="left:0px;top:480px">
+<h3>E · Minimal / borderless</h3>
+<div style="display:flex;gap:10px;align-items:flex-start">
+  <div style="flex:1;padding:2px 2px 0">
+    <div style="display:flex;align-items:center;gap:9px">
+      <div class="tier" style="width:30px;height:30px;font-size:13px">🐰</div>
+      <span style="font-family:var(--font-display);font-weight:700;font-size:14.5px;flex:1">Collector</span>
+      <div style="font-family:var(--font-mono);font-weight:700;font-size:16px">1,240 <span style="font-size:9.5px;color:var(--ink-faint);font-weight:600">XP</span></div>
+    </div>
+    <div class="bar" style="margin:9px 0 5px"><i></i></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-faint);margin-bottom:10px">
+      <span><b style="color:var(--ink);font-family:var(--font-mono)">1,760 XP</b> to Curator</span>
+      <span style="font-family:var(--font-mono)">+180 this week</span>
+    </div>
+    <div style="display:flex;gap:7px">
+      <button style="flex:1;height:34px;border-radius:10px;border:none;background:var(--ink);color:#fff;font-weight:600;font-size:12.5px">⚡ Earn points</button>
+      <button style="flex:1;height:34px;border-radius:10px;border:1px solid var(--border);background:transparent;font-weight:600;font-size:12.5px">🏆 Leaderboard</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:6px;padding-top:2px">
+    <button class="icobtn" style="width:34px;height:34px">🎁</button>
+    <button class="icobtn" style="width:34px;height:34px">⚙️</button>
+  </div>
+</div>
+</div>
+
+<div class="frame" style="left:430px;top:480px">
+<h3>F · Tier-tinted background</h3>
+<div style="display:flex;gap:10px;align-items:stretch">
+  <div style="flex:1;background:var(--verified-teal-soft);border:1px solid var(--verified-teal);border-radius:14px;padding:11px 13px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="tier">🐰</div>
+      <span style="font-family:var(--font-display);font-weight:700;font-size:14.5px;flex:1;color:var(--ink)">Collector</span>
+      <div style="font-family:var(--font-mono);font-weight:700;font-size:16px;color:var(--ink)">1,240 <span style="font-size:9.5px;font-weight:600">XP</span></div>
+    </div>
+    <div class="bar" style="margin:8px 0 5px;background:rgba(255,255,255,0.5)"><i></i></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-soft)">
+      <span><b style="font-family:var(--font-mono)">1,760 XP</b> to Curator</span>
+      <span style="font-family:var(--font-mono)">+180 this week</span>
+    </div>
+    <div style="display:flex;gap:7px;margin-top:10px">
+      <button style="flex:1;height:34px;border-radius:10px;border:none;background:var(--ink);color:#fff;font-weight:600;font-size:12.5px">⚡ Earn points</button>
+      <button style="flex:1;height:34px;border-radius:10px;border:1px solid var(--verified-teal);background:var(--paper);font-weight:600;font-size:12.5px">🏆 Leaderboard</button>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;align-self:stretch">
+    <button class="icobtn" style="flex:1;width:52px">🎁</button>
+    <button class="icobtn" style="flex:1;width:52px">⚙️</button>
+  </div>
+</div>
+</div>
+
+</body>
+</html>

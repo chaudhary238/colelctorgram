@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="design_doc_mode" content="canvas">
+<title>Create-post — feed-composer inspired styles</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+body{margin:0;font-family:var(--font-body);color:var(--ink)}
+.frame{position:absolute;width:390px}
+.frame h3{margin:0 0 10px;font-weight:700;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint)}
+.sheet{background:var(--paper);border-radius:20px;box-shadow:0 1px 4px rgba(0,0,0,0.1);overflow:hidden}
+.head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+.head b{font-family:var(--font-display);font-size:16px}
+.post-btn{background:var(--stamp-red);color:var(--paper);border:none;border-radius:999px;padding:7px 16px;font-weight:700;font-size:13px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:999px;border:1px solid var(--border-strong);background:var(--paper-soft);color:var(--ink-soft);font-size:12.5px;font-weight:500}
+.chip.on{background:var(--ink);border-color:var(--ink);color:var(--paper);font-weight:700}
+.wrap{display:flex;flex-wrap:wrap;gap:6px}
+.iconbtn{width:34px;height:34px;border-radius:9px;border:1px solid var(--border-strong);background:var(--paper-soft);display:flex;align-items:center;justify-content:center;font-size:15px}
+</style>
+</head>
+<body>
+
+<div class="frame" style="left:0px;top:0px">
+<h3>A · Big-avatar, borderless (X/Twitter-style compose)</h3>
+<div class="sheet">
+  <div class="head"><button style="width:26px;height:26px;border:none;background:none;font-size:18px;color:var(--ink-faint)">✕</button><b>Create a post</b><button class="post-btn">Post</button></div>
+  <div style="padding:16px">
+    <div style="display:flex;gap:12px">
+      <div style="width:44px;height:44px;border-radius:50%;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0">Y</div>
+      <div style="flex:1;min-width:0">
+        <span class="chip on" style="padding:4px 10px 4px 8px;font-size:12px">Your feed ▾</span>
+        <div style="font-size:16.5px;color:var(--ink-faint);margin-top:12px;line-height:1.4">What's on your mind?</div>
+      </div>
+    </div>
+    <div style="margin-top:18px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px">
+      <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:var(--ink-faint);text-transform:uppercase;margin-right:2px">Add to post</span>
+      <button class="iconbtn">📷</button><button class="iconbtn">🏷️</button><button class="iconbtn">#</button><button class="iconbtn">😊</button>
+    </div>
+    <div class="wrap" style="margin-top:12px">
+      <span class="chip on">Diecast</span><span class="chip">#HotToys</span><span class="chip">#NewDrops</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="frame" style="left:430px;top:0px">
+<h3>B · Bordered fields, name+audience row (Facebook-style compose)</h3>
+<div class="sheet">
+  <div class="head"><b>Create a post</b><button class="post-btn">Post</button></div>
+  <div style="padding:14px 16px">
+    <div style="display:flex;gap:10px;align-items:center">
+      <div style="width:40px;height:40px;border-radius:50%;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px">Y</div>
+      <div>
+        <div style="font-size:14px;font-weight:700">You</div>
+        <button class="chip" style="margin-top:4px;padding:3px 9px;font-size:11.5px">🌐 Your feed ▾</button>
+      </div>
+    </div>
+    <div style="font-size:16.5px;color:var(--ink-faint);margin-top:14px;line-height:1.4">What's on your mind, You?</div>
+    <div style="margin-top:16px;border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:12.5px;font-weight:700;color:var(--ink-soft)">Add to your post</span>
+        <div style="display:flex;gap:8px">
+          <button class="iconbtn" style="width:30px;height:30px;border:none;background:none">📷</button>
+          <button class="iconbtn" style="width:30px;height:30px;border:none;background:none">🏷️</button>
+          <button class="iconbtn" style="width:30px;height:30px;border:none;background:none">😊</button>
+        </div>
+      </div>
+      <div class="wrap" style="margin-top:10px">
+        <span class="chip on">Diecast</span><span class="chip">#HotToys</span><span class="chip">#NewDrops</span><span class="chip">+</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="frame" style="left:0px;top:400px">
+<h3>C · Minimal text-first, controls tucked into one bottom bar</h3>
+<div class="sheet">
+  <div class="head"><b>Create a post</b><button class="post-btn">Post</button></div>
+  <div style="padding:18px 16px 10px">
+    <div style="font-size:12.5px;color:var(--ink-faint);margin-bottom:10px">You · Your feed ▾</div>
+    <div style="font-size:17px;color:var(--ink-faint);line-height:1.45">What's on your mind? Use # to tag topics.</div>
+  </div>
+  <div style="padding:10px 16px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px">
+    <div class="wrap"><span class="chip on">Diecast</span><span class="chip">#HotToys</span><span class="chip">#NewDrops</span></div>
+    <div style="display:flex;gap:8px">
+      <button class="iconbtn">📷</button><button class="iconbtn">🏷️</button><button class="iconbtn">#</button><button class="iconbtn">😊</button>
+    </div>
+  </div>
+</div>
+</div>
+
+</body>
+</html>

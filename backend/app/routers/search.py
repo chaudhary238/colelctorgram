@@ -95,11 +95,23 @@ async def trending(
 @router.get("")
 async def global_search(
     q: str = Query(..., min_length=1),
-    limit: int = Query(5, le=10),
+    limit: int = Query(5, le=20),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """Cross-entity search. Returns up to `limit` rows per type PLUS a `counts` object
+    with the true total per type (DV7-06).
+
+    `counts` exists because the Explore scope chips show a number next to every scope
+    including zero — and `len(rows)` lies as soon as a type saturates `limit`. Each count
+    reuses that type's exact filter, so "Posts 34" and the Posts list can't disagree.
+    Note the Explore tab takes its **Items** count from GET /catalogue/browse instead:
+    browse ranks the whole live catalogue while `catalogue` here is approved-only.
+    """
     pattern = f"%{q}%"
+
+    async def _count(stmt) -> int:
+        return (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
 
     # B-69: exclude users in a block relationship with the viewer from people + post results.
     blocked = await blocked_user_ids(db, current_user.id)
@@ -110,7 +122,7 @@ async def global_search(
         .group_by(Vouch.to_user_id)
         .subquery()
     )
-    users_stmt = (
+    users_base = (
         select(
             User.id,
             User.handle,
@@ -119,11 +131,10 @@ async def global_search(
         )
         .outerjoin(vouch_sq, vouch_sq.c.to_user_id == User.id)
         .where(_match(q, pattern, User.name, User.handle))
-        .order_by(_rank(q, User.name, User.handle).desc())
-        .limit(limit)
     )
     if blocked:
-        users_stmt = users_stmt.where(User.id.not_in(blocked))
+        users_base = users_base.where(User.id.not_in(blocked))
+    users_stmt = users_base.order_by(_rank(q, User.name, User.handle).desc()).limit(limit)
     users_q = await db.execute(users_stmt)
     users = [
         {
@@ -135,7 +146,7 @@ async def global_search(
         for r in users_q
     ]
 
-    posts_stmt = (
+    posts_base = (
         select(Post.id, Post.type, Post.title, Post.body, Post.iso_item, Post.community_id, User.handle, User.name)
         .join(User, User.id == Post.user_id)
         # QA2 — a post that lives in an unapproved (pending/rejected) community must not
@@ -154,11 +165,10 @@ async def global_search(
                 func.array_to_string(Post.tags, " ").ilike(pattern),
             ),
         )
-        .order_by(Post.created_at.desc())
-        .limit(limit)
     )
     if blocked:
-        posts_stmt = posts_stmt.where(Post.user_id.not_in(blocked))
+        posts_base = posts_base.where(Post.user_id.not_in(blocked))
+    posts_stmt = posts_base.order_by(Post.created_at.desc()).limit(limit)
     posts_q = await db.execute(posts_stmt)
     post_rows = list(posts_q)
     # resolve community names in one pass
@@ -183,43 +193,46 @@ async def global_search(
         for r in post_rows
     ]
 
-    catalogue_q = await db.execute(
+    catalogue_base = (
         select(Catalogue.sku, Catalogue.title, Catalogue.brand, Catalogue.category, Catalogue.thumbnail_url)
         .where(
             Catalogue.is_approved == True,
             _match(q, pattern, Catalogue.title, Catalogue.brand, Catalogue.sku),
         )
-        .order_by(_rank(q, Catalogue.title, Catalogue.brand).desc())
-        .limit(limit)
+    )
+    catalogue_q = await db.execute(
+        catalogue_base.order_by(_rank(q, Catalogue.title, Catalogue.brand).desc()).limit(limit)
     )
     catalogue = [
         {"sku": r.sku, "title": r.title, "brand": r.brand, "category": r.category, "thumbnail_url": r.thumbnail_url}
         for r in catalogue_q
     ]
 
-    communities_q = await db.execute(
+    communities_base = (
         select(Community.id, Community.name, Community.description, Community.category, Community.member_count)
         # QA2 — only approved communities are discoverable; pending/rejected ones stay hidden.
         .where(
             Community.status == "approved",
             _match(q, pattern, Community.name, Community.description),
         )
-        .order_by(_rank(q, Community.name).desc())
-        .limit(limit)
+    )
+    communities_q = await db.execute(
+        communities_base.order_by(_rank(q, Community.name).desc()).limit(limit)
     )
     communities = [
         {"id": r.id, "name": r.name, "description": r.description, "category": r.category, "member_count": r.member_count}
         for r in communities_q
     ]
 
-    events_q = await db.execute(
+    events_base = (
         select(Event.id, Event.title, Event.city, Event.mode, Event.starts_at)
         .where(
             Event.status == "active",
             _match(q, pattern, Event.title, Event.city, Event.venue),
         )
-        .order_by(_rank(q, Event.title).desc())
-        .limit(limit)
+    )
+    events_q = await db.execute(
+        events_base.order_by(_rank(q, Event.title).desc()).limit(limit)
     )
     events = [
         {"id": str(r.id), "title": r.title, "city": r.city, "mode": r.mode, "starts_at": r.starts_at.isoformat()}
@@ -232,4 +245,12 @@ async def global_search(
         "catalogue": catalogue,
         "communities": communities,
         "events": events,
+        # True totals — NOT len(rows above), which saturates at `limit` (DV7-06).
+        "counts": {
+            "users": await _count(users_base),
+            "posts": await _count(posts_base),
+            "catalogue": await _count(catalogue_base),
+            "communities": await _count(communities_base),
+            "events": await _count(events_base),
+        },
     }

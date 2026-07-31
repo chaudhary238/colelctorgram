@@ -1,0 +1,41 @@
+<!-- @dsCard group="Colors" -->
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 28px 32px; background: var(--bone);
+         font-family: var(--font-body); color: var(--ink); }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .sw {
+    background: var(--swatch);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 14px 14px 12px;
+    height: 110px; display: flex; flex-direction: column; justify-content: space-between;
+    color: var(--swatch-fg);
+  }
+  .name { font-family: var(--font-display); font-weight: 700; font-size: 16px;
+          letter-spacing: -0.01em; }
+  .hex  { font-family: var(--font-mono); font-size: 11px; opacity: 0.7;
+          letter-spacing: 0.04em; }
+  .tok  { font-family: var(--font-mono); font-size: 10px; opacity: 0.55;
+          letter-spacing: 0.04em; text-transform: lowercase; }
+</style></head>
+<body>
+  <div class="grid">
+    <div class="sw" style="--swatch:#F4EFE6;--swatch-fg:#14110F">
+      <div><div class="name">Paper</div><div class="tok">--paper</div></div>
+      <div class="hex">#F4EFE6</div></div>
+    <div class="sw" style="--swatch:#FAF6EE;--swatch-fg:#14110F">
+      <div><div class="name">Paper Soft</div><div class="tok">--paper-soft</div></div>
+      <div class="hex">#FAF6EE</div></div>
+    <div class="sw" style="--swatch:#E8E1D2;--swatch-fg:#14110F">
+      <div><div class="name">Bone</div><div class="tok">--bone</div></div>
+      <div class="hex">#E8E1D2</div></div>
+    <div class="sw" style="--swatch:#D6CDB9;--swatch-fg:#14110F">
+      <div><div class="name">Bone Deep</div><div class="tok">--bone-deep</div></div>
+      <div class="hex">#D6CDB9</div></div>
+    <div class="sw" style="--swatch:#14110F;--swatch-fg:#F4EFE6">
+      <div><div class="name">Ink</div><div class="tok">--ink</div></div>
+      <div class="hex">#14110F</div></div>
+  </div>
+</body></html>

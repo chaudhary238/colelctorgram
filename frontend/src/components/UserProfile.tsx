@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  LayoutGrid, BarChart3, CalendarDays, Eye, EyeOff,
-  Gift, MessageCircle, Plus, ShieldCheck, Star, Pencil,
-  MoreHorizontal, UserCheck, UserPlus, Check, ChevronRight, Menu,
+  LayoutGrid, BarChart3, CalendarDays, Eye, EyeOff, Clock,
+  MessageCircle, Plus, ShieldCheck, Star, Pencil,
+  MoreHorizontal, Check, ChevronRight, Menu,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AuthUser, useUser } from "@/lib/auth-context";
@@ -13,7 +14,7 @@ import {
   Avatar, Money, Segmented, ProductPhoto,
   Tag, EmptyNote, Button, IconButton,
 } from "@/components/ui";
-import { PostCard, CommunityCard, type ApiPost, type ApiCommunity } from "@/components/cards";
+import { PostCard, type ApiPost } from "@/components/cards";
 import { EditProfileSheet } from "@/components/EditProfileSheet";
 import { FollowListModal } from "@/components/FollowListModal";
 import { VouchGiveSheet, VouchListModal, VouchRequestModal } from "@/components/VouchSheets";
@@ -75,7 +76,7 @@ interface RawPost {
 }
 
 
-type Tab = "collection" | "posts" | "communities";
+type Tab = "collection" | "posts";
 type CollView = "grid" | "chart" | "calendar";
 
 /* Presence label from last_active_at (DF-36a) — "Online now" within 5 min. */
@@ -131,7 +132,6 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   const [tab, setTab] = useState<Tab>("collection");
   const [posts, setPosts] = useState<RawPost[] | null>(null);
   const [collection, setCollection] = useState<CollectionItem[] | null>(null);
-  const [communities, setCommunities] = useState<ApiCommunity[] | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -196,11 +196,8 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
     } else if (t === "collection" && collection === null) {
       const data = await api.get<{ items: CollectionItem[] }>(`/users/${handle}/collection`).catch(() => ({ items: [] }));
       setCollection(data.items);
-    } else if (t === "communities" && communities === null) {
-      const data = await api.get<{ items: ApiCommunity[] }>(`/users/${handle}/communities`).catch(() => ({ items: [] }));
-      setCommunities(data.items);
     }
-  }, [handle, posts, collection, communities]);
+  }, [handle, posts, collection]);
 
   useEffect(() => {
     if (!loading) loadTab(tab);
@@ -280,10 +277,11 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   const presence = isOwn ? { text: "Online now", online: true } : presenceLabel(profile.last_active_at);
   const firstName = profile.name.split(" ")[0];
 
+  // DV7-01 — v7 dropped the Communities tab: it duplicated the dedicated Community nav
+  // destination, and two tabs read cleaner at the top of a long collection grid.
   const TABS: { id: Tab; label: string }[] = [
     { id: "collection", label: "Collection" },
     { id: "posts", label: "Posts" },
-    { id: "communities", label: "Communities" },
   ];
 
   const avatarEl = profile.avatar_url ? (
@@ -321,53 +319,66 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
             </div>
           </div>
 
-          <div style={{ flex: 1, display: "flex", justifyContent: "space-around", alignItems: "flex-start" }}>
-            <StatTop n={profile.followers_count} label="Followers" onClick={() => setShowFollowModal("followers")} />
-            <StatTop n={profile.vouches_received_count} label="Vouches" onClick={() => setShowVouchList("received")} />
+          {/* DV7-01 — ONE stat row beside the avatar: Followers / Following / Vouches.
+              v7 consolidated the old emoji-tile trio + the separate 4-up stat card into
+              this single row (Deals is gone with the deal flow), which buys back a full
+              row of vertical space above the fold. Vouches is In+Out combined — the
+              modal still splits them. */}
+          <div style={{ flex: 1, display: "flex", alignItems: "stretch" }}>
+            {[
+              { label: "Followers", n: profile.followers_count, onClick: () => setShowFollowModal("followers") },
+              { label: "Following", n: profile.following_count, onClick: () => setShowFollowModal("following") },
+              { label: "Vouches", n: profile.vouches_received_count + profile.vouches_given_count, onClick: () => setShowVouchList("received") },
+            ].map(({ label, n, onClick }, i) => (
+              <div key={label} style={{ display: "flex", flex: 1, minWidth: 0 }}>
+                {i > 0 && <span style={{ width: 1, alignSelf: "center", height: 30, background: "var(--border)", flexShrink: 0 }} />}
+                <button
+                  onClick={onClick}
+                  title={n.toLocaleString("en-IN")}
+                  style={{ flex: 1, minWidth: 0, background: "none", border: "none", padding: 4, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
+                >
+                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: "var(--slate-900)", lineHeight: 1, letterSpacing: "-0.03em", fontFeatureSettings: '"tnum" 1', whiteSpace: "nowrap" }}>
+                    {compactNum(n)}
+                  </span>
+                  <span style={{ fontSize: 9, fontWeight: 600, color: "var(--slate-400)", letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap" }}>{label}</span>
+                </button>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* name + handle + presence + bio */}
-        <div style={{ marginTop: 14, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, letterSpacing: "-0.025em", color: "var(--ink)" }}>{profile.name}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 3, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 13, color: "var(--slate-400)" }}>
-                @{profile.handle}{profile.city ? ` · ${profile.city}` : ""}
-              </span>
-              {presence && (
-                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: presence.online ? "var(--forest)" : "var(--ink-ghost)" }} />
-                  <span style={{ fontSize: 12, color: presence.online ? "var(--forest)" : "var(--ink-faint)", fontWeight: presence.online ? 600 : 400 }}>{presence.text}</span>
-                </span>
-              )}
+        {/* name + badge shelf + menu, then handle · city · presence, then bio */}
+        <div style={{ marginTop: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ flex: 1, minWidth: 0, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, letterSpacing: "-0.025em", color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {profile.name}
             </div>
+            {/* Season-badge shelf (GM-14) — v7 moves it up beside the name; renders null
+                when the user has no badges. */}
+            <BadgeShelf handle={profile.handle} style={{ marginTop: 0 }} />
+            {isOwn ? (
+              // Mobile-only ≡ → Edit profile / Stash / Admin drawer (desktop uses the Sidebar).
+              <span className="lg:hidden">
+                <IconButton icon={<Menu size={19} />} onClick={() => setShowMobileMenu(true)} />
+              </span>
+            ) : (
+              <IconButton icon={<MoreHorizontal size={18} />} onClick={() => setShowMore(true)} />
+            )}
           </div>
-          {isOwn ? (
-            // Mobile-only ≡ → Stash / Settings / Admin drawer (desktop uses the Sidebar).
-            <span className="lg:hidden">
-              <IconButton icon={<Menu size={19} />} onClick={() => setShowMobileMenu(true)} />
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 3, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, color: "var(--slate-400)" }}>
+              @{profile.handle}{profile.city ? ` · ${profile.city}` : ""}
             </span>
-          ) : (
-            <IconButton icon={<MoreHorizontal size={18} />} onClick={() => setShowMore(true)} />
+            {presence && (
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: presence.online ? "var(--forest)" : "var(--ink-ghost)" }} />
+                <span style={{ fontSize: 12, color: presence.online ? "var(--forest)" : "var(--ink-faint)", fontWeight: presence.online ? 600 : 400 }}>{presence.text}</span>
+              </span>
+            )}
+          </div>
+          {profile.bio && (
+            <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.55, marginTop: 7 }}>{profile.bio}</div>
           )}
-        </div>
-        {profile.bio && (
-          <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.55, marginTop: 7 }}>{profile.bio}</div>
-        )}
-
-        {/* Season-badge shelf (GM-14) — hidden when the user has none */}
-        <div><BadgeShelf handle={profile.handle} /></div>
-
-        {/* 4-up follow + vouch stat card */}
-        <div style={{ display: "flex", alignItems: "stretch", background: "var(--card-surface)", border: "1px solid var(--slate-200)", borderRadius: 16, marginTop: 14, overflow: "hidden", boxShadow: "var(--card-shadow)" }}>
-          <StatTile icon={<UserCheck size={15} />} n={profile.followers_count} l="Followers" onClick={() => setShowFollowModal("followers")} />
-          <StatDivider />
-          <StatTile icon={<UserPlus size={15} />} n={profile.following_count} l="Following" onClick={() => setShowFollowModal("following")} />
-          <StatDivider />
-          <StatTile icon={<ShieldCheck size={15} />} accent="var(--verified-teal)" n={profile.vouches_received_count} l="Vouches In" onClick={() => setShowVouchList("received")} />
-          <StatDivider />
-          <StatTile icon={<ShieldCheck size={15} />} accent="var(--verified-teal)" n={profile.vouches_given_count} l="Vouches Out" onClick={() => setShowVouchList("given")} />
         </div>
 
         {/* Request a vouch — own profile only */}
@@ -385,19 +396,15 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
           </button>
         )}
 
-        {/* Collector rank card (GM-15) — own card adds "Earn points"; shows the
-            rank ladder progress + any First Start badge */}
-        <RewardCard handle={profile.handle} isMe={isOwn} />
+        {/* Collector rank card (GM-15) — own card adds "Earn points" + the v7 Refer /
+            Settings squares alongside. DV7-01: v7 dropped the separate Edit profile /
+            Add item / Refer button row — Edit profile is the avatar tap (and the ≡
+            drawer on mobile), Add item now lives on the Collection tab and opens the
+            Database, and Refer/Settings are these two squares. */}
+        <RewardCard handle={profile.handle} isMe={isOwn} sideActions={isOwn} />
 
-        {/* actions */}
-        {isOwn ? (
-          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-            <Button variant="dark" style={{ flex: 1, justifyContent: "center" }} onClick={() => setShowEdit(true)}>Edit profile</Button>
-            {/* Single add flow: the v6 mode→search→form page (/add/catalogue), not the old v4 sheet */}
-            <Button variant="secondary" style={{ flex: 1, justifyContent: "center" }} icon={<Plus size={17} />} onClick={() => router.push("/add/catalogue")}>Add item</Button>
-            <IconButton icon={<Gift size={18} />} onClick={() => router.push("/refer")} />
-          </div>
-        ) : (
+        {/* actions — other people's profiles only */}
+        {isOwn ? null : (
           <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 14 }}>
             <div style={{ display: "flex", gap: 9 }}>
               <Button variant={isFollowing ? "secondary" : "dark"} style={{ flex: 1, justifyContent: "center" }} disabled={followLoading} onClick={toggleFollow}>
@@ -441,23 +448,16 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
         {tab === "posts" && (
           <PostsTab posts={posts} profile={profile} isOwn={isOwn} />
         )}
-
-        {tab === "communities" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {communities === null ? (
-              <SkeletonRows />
-            ) : communities.length === 0 ? (
-              <EmptyNote>Not in any community yet.</EmptyNote>
-            ) : (
-              communities.map((c) => <CommunityCard key={c.id} community={c} />)
-            )}
-          </div>
-        )}
-
       </div>
 
       {/* Overlays */}
-      {isOwn && <MobileMenuDrawer open={showMobileMenu} onClose={() => setShowMobileMenu(false)} />}
+      {isOwn && (
+        <MobileMenuDrawer
+          open={showMobileMenu}
+          onClose={() => setShowMobileMenu(false)}
+          onEditProfile={() => setShowEdit(true)}
+        />
+      )}
       {showEdit && isOwn && authUser && (
         <EditProfileSheet user={authUser} onClose={() => setShowEdit(false)} onSaved={handleProfileSaved} />
       )}
@@ -493,59 +493,13 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   );
 }
 
-/* ── Top stat tile (Followers / Vouches) ─────────────────────────── */
-const STAT_TOP_META: Record<string, { emoji: string; bg: string }> = {
-  Followers: { emoji: "👥", bg: "var(--sky-soft)" },
-  Vouches: { emoji: "🛡️", bg: "rgba(139,92,246,0.10)" },
-};
-function StatTop({ n, label, onClick }: { n: number; label: string; onClick?: () => void }) {
-  const meta = STAT_TOP_META[label] ?? { emoji: "•", bg: "var(--paper-soft)" };
-  return (
-    <button
-      onClick={onClick}
-      disabled={!onClick}
-      style={{
-        background: "none", border: "none", padding: "4px 10px", cursor: onClick ? "pointer" : "default",
-        display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
-      }}
-    >
-      <span style={{ width: 38, height: 38, borderRadius: 12, background: meta.bg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 1 }}>
-        <span style={{ fontSize: 20, lineHeight: 1 }}>{meta.emoji}</span>
-      </span>
-      <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "var(--slate-900)", lineHeight: 1, letterSpacing: "-0.04em" }}>{compactNum(n)}</span>
-      <span style={{ fontSize: 9.5, fontWeight: 300, color: "var(--slate-400)", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 1 }}>{label}</span>
-    </button>
-  );
-}
-
-/* ── 4-up stat tile (Followers / Following / Vouches In·Out) ─────── */
-function StatTile({ icon, n, l, accent, onClick }: { icon: React.ReactNode; n: number; l: string; accent?: string; onClick?: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 7,
-        background: "none", border: "none", padding: "14px 4px", cursor: onClick ? "pointer" : "default",
-      }}
-      title={(n || 0).toLocaleString("en-IN")}
-    >
-      <span style={{ display: "flex", alignItems: "center", gap: 5, color: accent || "var(--ink-mute)" }}>
-        {icon}
-        <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 17, color: "var(--ink)", fontFeatureSettings: '"tnum" 1', lineHeight: 1 }}>{compactNum(n)}</span>
-      </span>
-      <span style={{ fontSize: 9, fontWeight: 700, lineHeight: 1, textAlign: "center", color: "var(--ink-faint)", letterSpacing: "0.07em", textTransform: "uppercase", whiteSpace: "nowrap" }}>{l}</span>
-    </button>
-  );
-}
-
-function StatDivider() {
-  return <span style={{ width: 1, background: "var(--border)", alignSelf: "stretch", margin: "11px 0" }} />;
-}
-
 /* ── Collection tab (grid / chart / calendar / collage) ─────────── */
 function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] | null; isOwn: boolean; viewPrivacy?: Record<string, "public" | "private"> }) {
-  // DV6-11e — v6 drops the Wishlist segment and adds "DB Contributions" (status:'intel').
-  const [seg, setSeg] = useState<"owned" | "preorder" | "intel">("owned");
+  // DV7-01 — segments are Owned / Wishlist / DB Contributions. Pre-orders no longer get
+  // their own tab: they sit inside Owned carrying a PO tag (the PO Calendar view is still
+  // the place to read them by date), and Wishlist is back as a segment now that the
+  // Stash's listing-save tab is gone.
+  const [seg, setSeg] = useState<"owned" | "wishlist" | "intel">("owned");
   const [view, setView] = useState<CollView>("grid");
   // Seed per-view visibility from the server (eye toggle is persisted in
   // privacy_prefs.collection_views). Falls back to public.
@@ -569,45 +523,69 @@ function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] 
   // otherwise unowned DB-contribution items would inflate the portfolio.
   const owned = items.filter((i) => i.status !== "wishlist" && i.status !== "intel");
   const ownedValue = paiseToRupees(items.filter((i) => i.status === "owned").reduce((s, i) => s + i.value, 0));
-  const filtered = items.filter((i) => i.status === seg);
+  // Owned folds in pre-orders (DV7-01); the other two segments match their status exactly.
+  const filtered = seg === "owned" ? owned : items.filter((i) => i.status === seg);
 
   const views: { id: CollView; icon: React.ReactNode; label: string }[] = [
-    { id: "grid", icon: <LayoutGrid size={15} />, label: "Grid" },
-    { id: "chart", icon: <BarChart3 size={15} />, label: "Chart" },
-    { id: "calendar", icon: <CalendarDays size={15} />, label: "PO Calendar" },
+    { id: "grid", icon: <LayoutGrid size={17} />, label: "Grid" },
+    { id: "chart", icon: <BarChart3 size={17} />, label: "Chart" },
+    { id: "calendar", icon: <CalendarDays size={17} />, label: "PO Calendar" },
   ];
   const isPrivate = vis[view] === "private";
   const hiddenFromViewer = !isOwn && isPrivate;
 
   return (
     <div>
-      {/* portfolio value cards */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-        <ValueCard label="Portfolio Value" value={ownedValue} accent="var(--stamp-red)" />
-        <ValueCard label="Items Owned" value={owned.length} plain accent="var(--ink)" />
+      {/* portfolio value + item count — v7 slims these to two pills */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        <div style={{ flex: 1.3, minWidth: 0, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 999, padding: "9px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <span style={{ fontSize: 12, color: "var(--ink-faint)", whiteSpace: "nowrap" }}>Portfolio Value</span>
+          <span style={{ whiteSpace: "nowrap", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--stamp-red)", fontFeatureSettings: '"tnum" 1' }}>
+            <Money value={ownedValue} />
+          </span>
+        </div>
+        <div style={{ flex: 1, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 999, padding: "9px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Items</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--ink)", fontFeatureSettings: '"tnum" 1' }}>{owned.length}</span>
+        </div>
       </div>
 
-      {/* view switcher + per-view visibility */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-        <div style={{ display: "flex", gap: 6, flex: 1 }}>
+      {/* view switcher (icon-only in v7, freeing room for Add item) + per-view visibility */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 14 }}>
+        <div style={{ display: "flex", gap: 6 }}>
           {views.map((v) => {
             const on = view === v.id;
             return (
               <button
                 key={v.id}
                 onClick={() => setView(v.id)}
+                aria-label={v.label}
+                aria-pressed={on}
+                title={v.label}
                 style={{
-                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "7px 8px", borderRadius: 999, cursor: "pointer",
+                  width: 40, height: 36, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, borderRadius: 10, cursor: "pointer",
                   border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
                   background: on ? "var(--ink)" : "var(--paper-soft)", color: on ? "var(--paper)" : "var(--ink)",
-                  fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 12.5, whiteSpace: "nowrap",
                 }}
               >
                 {v.icon}
-                {v.label}
               </button>
             );
           })}
+          {/* DV7-01 — "Add item" moved here from the header button row, and opens the
+              Database tab (search the shared library first) instead of a blank form. */}
+          {isOwn && (
+            <Link
+              href="/db"
+              style={{
+                height: 36, display: "flex", alignItems: "center", gap: 6, padding: "0 12px", borderRadius: 10,
+                border: "1px solid var(--stamp-red)", background: "var(--stamp-red-soft)", color: "var(--stamp-red)",
+                fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, whiteSpace: "nowrap", textDecoration: "none",
+              }}
+            >
+              <Plus size={16} strokeWidth={2.1} />Add item
+            </Link>
+          )}
         </div>
         {isOwn && (
           <button
@@ -652,7 +630,7 @@ function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] 
                 onChange={setSeg}
                 options={[
                   { id: "owned", label: "Owned" },
-                  { id: "preorder", label: "Pre-order" },
+                  { id: "wishlist", label: "Wishlist" },
                   { id: "intel", label: "DB Contributions" },
                 ]}
               />
@@ -663,27 +641,18 @@ function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] 
                 <EmptyNote>
                   {seg === "intel"
                     ? (isOwn ? "No DB contributions yet — add an item that's new to Scorred to help the community." : "No DB contributions yet.")
-                    : (isOwn ? "Nothing here yet — add from the catalogue." : "Private or empty.")}
+                    : seg === "wishlist"
+                    ? (isOwn ? "Nothing on your wishlist yet — star anything in the Scorred database." : "Private or empty.")
+                    : (isOwn ? "Nothing here yet — add from the Scorred database." : "Private or empty.")}
                 </EmptyNote>
               )}
             </>
           )}
 
-          {view === "chart" && <PortfolioChart items={owned} />}
+          {view === "chart" && <PortfolioChart items={owned} inHand={items.filter((i) => i.status === "owned").length} preorder={items.filter((i) => i.status === "preorder").length} />}
           {view === "calendar" && <PortfolioCalendar items={items} />}
         </>
       )}
-    </div>
-  );
-}
-
-function ValueCard({ label, value, accent, plain }: { label: string; value: number; accent: string; plain?: boolean }) {
-  return (
-    <div style={{ flex: 1, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: "12px 14px" }}>
-      <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 5 }}>{label}</div>
-      <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 19, color: accent, fontFeatureSettings: '"tnum" 1' }}>
-        {plain ? value : <Money value={value} />}
-      </div>
     </div>
   );
 }
@@ -758,16 +727,22 @@ function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
         >
           {titleForItem(item)}
         </div>
-        <div style={{ fontSize: 12.5, marginTop: 5, color: "var(--ink-mute)" }}>
-          <Money value={paiseToRupees(item.value)} />
-        </div>
+        {/* No price on wishlist / DB-contribution tiles — you don't own them, so the
+            number would read as portfolio value it isn't (DV7-01). */}
+        {item.status !== "wishlist" && item.status !== "intel" && (
+          <div style={{ fontSize: 12.5, marginTop: 5, color: "var(--ink-mute)" }}>
+            <Money value={paiseToRupees(item.value)} />
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 // SVG donut by category value — converted from design ProfileCollection PortfolioChart.
-function PortfolioChart({ items }: { items: CollectionItem[] }) {
+// DV7-01 adds the in-hand vs pre-order split above the donut: the donut answers "what
+// kinds of things do I own", this answers "how much of it has actually landed".
+function PortfolioChart({ items, inHand, preorder }: { items: CollectionItem[]; inHand: number; preorder: number }) {
   const byCat: Record<string, { count: number; value: number; label: string; tone: string }> = {};
   items.forEach((i) => {
     const c = catForItem(i);
@@ -810,6 +785,23 @@ function PortfolioChart({ items }: { items: CollectionItem[] }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* in hand vs pre-order */}
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1, background: "var(--bone)", borderRadius: 13, padding: "11px 14px", display: "flex", alignItems: "center", gap: 9 }}>
+          <Check size={16} style={{ color: "var(--forest)", flexShrink: 0 }} />
+          <span>
+            <span style={{ display: "block", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 17, color: "var(--ink)" }}>{inHand}</span>
+            <span style={{ display: "block", fontSize: 11, color: "var(--ink-mute)" }}>in hand</span>
+          </span>
+        </div>
+        <div style={{ flex: 1, background: "var(--grail-gold-soft)", borderRadius: 13, padding: "11px 14px", display: "flex", alignItems: "center", gap: 9 }}>
+          <Clock size={16} style={{ color: "var(--grail-gold-deep)", flexShrink: 0 }} />
+          <span>
+            <span style={{ display: "block", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 17, color: "var(--ink)" }}>{preorder}</span>
+            <span style={{ display: "block", fontSize: 11, color: "var(--ink-mute)" }}>pre-order</span>
+          </span>
+        </div>
+      </div>
       <div style={{ display: "flex", justifyContent: "center" }}>
         <svg width={200} height={200} viewBox="0 0 200 200">
           <circle cx={cx} cy={cy} r={(R + ir) / 2} fill="none" stroke="var(--bone)" strokeWidth={R - ir + 1} />
@@ -945,7 +937,7 @@ function PortfolioCalendar({ items }: { items: CollectionItem[] }) {
 function PostsTab({ posts, profile, isOwn }: { posts: RawPost[] | null; profile: ProfileUser; isOwn: boolean }) {
   if (posts === null) return <SkeletonRows />;
   if (posts.length === 0) {
-    return <EmptyNote>{isOwn ? "You haven't posted yet. Tap Add item to showcase a piece." : "No posts yet."}</EmptyNote>;
+    return <EmptyNote>{isOwn ? "You haven't posted yet. Tap + in the top bar to showcase a piece." : "No posts yet."}</EmptyNote>;
   }
   // The per-user posts endpoint omits author fields; the author is this profile.
   const enriched: ApiPost[] = posts.map((p) => ({

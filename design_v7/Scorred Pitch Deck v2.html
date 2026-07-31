@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scorred — Seed Pitch Deck</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;background:#fff;overflow:hidden}
+  body{font-family:'Geist',system-ui,sans-serif}
+  :root{
+    --red:#FF2442; --red-deep:#E01F3A; --red-soft:#FFE4E8;
+    --ink:#1A1A1A; --ink-soft:#333; --ink-mute:#666; --ink-faint:#999; --ink-ghost:#C4C4C4;
+    --gold:#E8A33D; --teal:#2D8F87; --forest:#2D5F3F; --plum:#6B3656;
+    --bone:#F5F5F5; --bone-deep:#EBEBEB; --line:rgba(0,0,0,0.08);
+  }
+  .mono{font-family:'JetBrains Mono',monospace}
+  deck-stage{width:100vw;height:100vh;display:block}
+  section{ width:1920px; height:1080px; background:#fff; color:var(--ink); position:relative; overflow:hidden; }
+  .pad{ padding:88px 120px; height:100%; box-sizing:border-box; }
+  .ey{font-size:15px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:var(--red)}
+  h1{font-size:58px;font-weight:800;letter-spacing:-0.03em;line-height:1.08}
+  h2{font-size:15px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:24px}
+  .num{position:absolute;bottom:48px;right:64px;font-size:14px;color:var(--ink-ghost)}
+  .phone{border-radius:36px;box-shadow:0 30px 70px rgba(0,0,0,0.18)}
+  .card{border:1px solid var(--line);border-radius:18px;padding:30px}
+  .tag{display:inline-block;background:var(--bone);border-radius:999px;padding:8px 18px;font-size:15px;font-weight:600;color:var(--ink-soft)}
+</style>
+</head>
+<body>
+
+<deck-stage width="1920" height="1080">
+
+<!-- 1: COVER -->
+<section data-label="Cover">
+  <div class="pad" style="display:flex;flex-direction:column;justify-content:space-between">
+    <div style="display:flex;justify-content:space-between">
+      <div class="ey">Seed Pitch</div>
+      <div class="ey" style="color:var(--ink-faint)">July 2026</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:40px;align-items:flex-start">
+      <img src="uploads/wordmark-crop.png" style="height:120px;object-fit:contain"/>
+      <h1 style="font-size:76px;max-width:1300px">India's home for collectors.</h1>
+      <p style="font-size:25px;color:var(--ink-mute);max-width:900px;line-height:1.5">Track, trade &amp; network — one app for action figures, designer toys, model kits, diecast, sneakers and trading cards.</p>
+    </div>
+    <div class="ey" style="color:var(--ink-faint)">Scorred Technologies</div>
+  </div>
+</section>
+
+<!-- 2: DEFINING THE COLLECTOR -->
+<section data-label="Defining the Collector">
+  <div class="pad">
+    <div class="ey">01 — Who We Serve</div>
+    <h1 style="margin:16px 0 20px">Defining a Hobby-X collector.</h1>
+    <p style="font-size:19px;color:var(--ink-mute);max-width:1500px;line-height:1.6;margin-bottom:20px">Think Funko Pops, Hot Toys figures, Gunpla model kits, Jordan drops, and Pokémon cards — physical objects tied to a fandom, released in limited runs, that people actively hunt, display and trade. We call this space <b style="color:var(--ink)">"Hobby-X"</b>: any hobby built around collecting branded, IP-driven objects rather than general merchandise.</p>
+    <p style="font-size:19px;color:var(--ink-mute);max-width:1500px;line-height:1.6;margin-bottom:36px">We selected these six categories because their collectors are highly active, fueling multi-billion-dollar markets backed by well-known brands and vibrant communities — unlike traditional collectibles like stamps or coins, these hobbies create thriving, brand-centric economies with constant new releases to chase.</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:36px">
+      <div class="tag">Action Figures</div>
+      <div class="tag">Designer Toys &amp; Blind Boxes</div>
+      <div class="tag">Model Kits &amp; Lego</div>
+      <div class="tag">Diecast &amp; Scale Model Cars</div>
+      <div class="tag">Sneakers (collector-grade, drop-driven)</div>
+      <div class="tag">Trading Cards (collectible / hybrid grade)</div>
+    </div>
+    <div class="card" style="background:var(--bone);border:none">
+      <div style="font-size:20px;font-weight:700;margin-bottom:8px">Why this matters for a business model</div>
+      <div style="font-size:18px;color:var(--ink-mute);line-height:1.6">Collectors buy to <b style="color:var(--ink)">build and grow</b> a collection — not to consume. Unlike a casual shopper who buys once, a collector keeps buying as new drops release, keeps documenting what they own, and keeps engaging with the community around it. That recurring, high-intent behavior is what makes this audience valuable — not a single transaction, but a habit.</div>
+    </div>
+  </div>
+  <div class="num">02 / 16</div>
+</section>
+
+<!-- 3: WHY COLLECTORS MATTER -->
+<section data-label="Why Collectors Matter">
+  <div class="pad">
+    <div class="ey">01 — Why Collectors Matter</div>
+    <h1 style="margin:16px 0 20px">A large, fast-growing category — India is early and accelerating.</h1>
+    <p style="font-size:18px;color:var(--ink-mute);max-width:1500px;line-height:1.6;margin-bottom:28px">Collectors are not casual toy buyers — they are high-value, passion-driven spenders with recurring discretionary budget, sitting at the center of huge, currently underserved fandom economies (anime, pop culture, movies, fashion, gaming, events). Tapping into this collector layer unlocks value across every passion-driven industry around it.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:36px">
+      <div class="card">
+        <div style="font-size:42px;font-weight:800;color:var(--red)">$25–40B</div>
+        <div style="font-size:16px;color:var(--ink-mute);margin-top:8px;line-height:1.5">Global collectibles market, 8–10% CAGR — driven by drop culture, limited editions, and collectibles-as-investment</div>
+      </div>
+      <div class="card">
+        <div style="font-size:42px;font-weight:800;color:var(--red)">20–30%</div>
+        <div style="font-size:16px;color:var(--ink-mute);margin-top:8px;line-height:1.5">India's growth rate — small today (~₹1,500–2,000 Cr) but among the fastest-growing markets globally</div>
+      </div>
+      <div class="card">
+        <div style="font-size:42px;font-weight:800;color:var(--red)">200K+</div>
+        <div style="font-size:16px;color:var(--ink-mute);margin-top:8px;line-height:1.5">Comic Con India annual attendees across 11 cities, growing every year</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:16px">
+      <div class="tag">Rising anime &amp; gaming consumption</div>
+      <div class="tag">Global ecommerce access</div>
+      <div class="tag">Urban disposable income growth</div>
+      <div class="tag">Active FB / IG / Reddit / Discord communities</div>
+    </div>
+  </div>
+  <div class="num">03 / 16</div>
+</section>
+
+<!-- 4: CURRENT OPTIONS -->
+<section data-label="Current Options">
+  <div class="pad">
+    <div class="ey">02 — Current Landscape</div>
+    <h1 style="margin:16px 0 20px">Collectors are thriving — but fragmented without Scorred.</h1>
+    <p style="font-size:18px;color:var(--ink-mute);max-width:1500px;line-height:1.6;margin-bottom:28px">India's collector economy is already active across multiple touchpoints — it's just operating in silos, with no single app owning the collector's daily habit the way Instagram owns photo-sharing or Strava owns running.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:20px">
+      <div class="card">
+        <div style="font-size:19px;font-weight:700;margin-bottom:10px">Social Communities</div>
+        <div style="font-size:15px;color:var(--ink-mute);line-height:1.6">10K–100K+ follower IG pages, FB/Reddit/Discord groups, hundreds of WhatsApp &amp; Telegram groups. Engagement is strong — but scattered.</div>
+      </div>
+      <div class="card">
+        <div style="font-size:19px;font-weight:700;margin-bottom:10px">Specialty Retailers</div>
+        <div style="font-size:15px;color:var(--ink-mute);line-height:1.6">Dedicated importers (InABox, FatCat, Superhero Toy Store) and WhatsApp/IG-only stores. Commerce is active — engagement is limited.</div>
+      </div>
+      <div class="card">
+        <div style="font-size:19px;font-weight:700;margin-bottom:10px">Ecommerce Platforms</div>
+        <div style="font-size:15px;color:var(--ink-mute);line-height:1.6">Amazon &amp; Flipkart — a transactional presence, without any hobby focus.</div>
+      </div>
+      <div class="card">
+        <div style="font-size:19px;font-weight:700;margin-bottom:10px">Comic Con &amp; Events</div>
+        <div style="font-size:15px;color:var(--ink-mute);line-height:1.6">11 cities, 200K+ attendees, plus local meetups. Real enthusiasm, limited by frequency.</div>
+      </div>
+    </div>
+    <p style="font-size:19px;color:var(--ink-mute);margin-top:36px;max-width:1500px;line-height:1.6">What's missing is a unified digital layer that connects community, commerce, and discovery.</p>
+  </div>
+  <div class="num">04 / 16</div>
+</section>
+
+<!-- 5: THE PROBLEM -->
+<section data-label="Problem">
+  <div class="pad">
+    <div class="ey">03 — The Problem</div>
+    <h1 style="margin:16px 0 20px">Fragmentation costs collectors information, trust, and buyers.</h1>
+    <p style="font-size:18px;color:var(--ink-mute);max-width:1500px;line-height:1.6;margin-bottom:32px">Because no platform owns this space end-to-end, the same three problems show up everywhere a collector turns — whether they're trying to learn about a new drop, sell a piece from their shelf, or get noticed by the brand they're obsessed with.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px">
+      <div class="card">
+        <div style="font-size:21px;font-weight:700;margin-bottom:12px">Fragmented information</div>
+        <div style="font-size:16px;color:var(--ink-mute);line-height:1.6">Releases, reviews, features and events are spread across Instagram, Facebook, blogs, WhatsApp and seller channels — no centralized place to look.</div>
+      </div>
+      <div class="card">
+        <div style="font-size:21px;font-weight:700;margin-bottom:12px">Buying &amp; selling friction</div>
+        <div style="font-size:16px;color:var(--ink-mute);line-height:1.6">Private messaging, negotiation and price discovery are ad hoc, with trust a major concern. Sellers struggle to reach the right buyers efficiently.</div>
+      </div>
+      <div class="card">
+        <div style="font-size:21px;font-weight:700;margin-bottom:12px">No brand-collector layer</div>
+        <div style="font-size:16px;color:var(--ink-mute);line-height:1.6">Brands have minimal direct connection with collectors — limited opportunity for engagement, feedback, or exclusive releases.</div>
+      </div>
+    </div>
+  </div>
+  <div class="num">05 / 16</div>
+</section>
+
+<!-- 6: SOLUTION -->
+<section data-label="Solution">
+  <div class="pad">
+    <div class="ey">04 — Our Solution</div>
+    <h1 style="margin:16px 0 20px">Scorred — the one app every collector opens instinctively.</h1>
+    <p style="font-size:18px;color:var(--ink-mute);max-width:1500px;line-height:1.6;margin-bottom:28px">Scorred replaces the patchwork of Instagram pages, WhatsApp groups, and DMs with a single purpose-built app — so discovery, trust, and transactions all live in one place a collector checks daily, the way a trader checks a stock app.</p>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px">
+      <div class="card"><div style="font-size:18px;font-weight:700;margin-bottom:8px">Social network</div><div style="font-size:14.5px;color:var(--ink-mute);line-height:1.5">Real-time space for collectors, brands &amp; enthusiasts to connect around shared passions</div></div>
+      <div class="card"><div style="font-size:18px;font-weight:700;margin-bottom:8px">All info, one place</div><div style="font-size:14.5px;color:var(--ink-mute);line-height:1.5">Releases, reviews, features &amp; events — one feed, always current</div></div>
+      <div class="card"><div style="font-size:18px;font-weight:700;margin-bottom:8px">Trade with trust</div><div style="font-size:14.5px;color:var(--ink-mute);line-height:1.5">List to sell or trade — backed by a vouch system, not blind DMs</div></div>
+      <div class="card"><div style="font-size:18px;font-weight:700;margin-bottom:8px">Store pages</div><div style="font-size:14.5px;color:var(--ink-mute);line-height:1.5">Offline &amp; online sellers get their own storefront inside the platform</div></div>
+      <div class="card"><div style="font-size:18px;font-weight:700;margin-bottom:8px">Brand pages</div><div style="font-size:14.5px;color:var(--ink-mute);line-height:1.5">Brands share news, launch drops, and engage their community directly</div></div>
+      <div class="card"><div style="font-size:18px;font-weight:700;margin-bottom:8px">Portfolio tracking</div><div style="font-size:14.5px;color:var(--ink-mute);line-height:1.5">Your collection, valued and Scorred-verified</div></div>
+      <div class="card"><div style="font-size:18px;font-weight:700;margin-bottom:8px">Events &amp; meetups</div><div style="font-size:14.5px;color:var(--ink-mute);line-height:1.5">Discover and RSVP to local &amp; Comic Con-affiliated meets</div></div>
+      <div class="card" style="background:var(--red);border:none"><div style="font-size:18px;font-weight:700;margin-bottom:8px;color:#fff">Rewards &amp; XP</div><div style="font-size:14.5px;color:rgba(255,255,255,0.85);line-height:1.5">Gamified loop that turns everyday collector behavior into reputation</div></div>
+    </div>
+  </div>
+  <div class="num">06 / 16</div>
+</section>
+
+<!-- 7: PRODUCT -->
+<section data-label="Product">
+  <div class="pad">
+    <div class="ey">05 — The Product</div>
+    <h1 style="margin:16px 0 40px">Discover, trade, and gather — all inside one app.</h1>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:36px;align-items:start">
+      <div>
+        <img src="screenshots/phone-feed.png" class="phone" style="width:100%;height:560px;object-fit:contain"/>
+        <div style="font-size:19px;font-weight:700;margin-top:20px">A feed built for collectors</div>
+        <div style="font-size:15px;color:var(--ink-mute);line-height:1.6;margin-top:6px">ISO posts, showcases, reviews and drop alerts — tagged #Grails, #NewDrops, and Scorred Verified when matched to our item database.</div>
+      </div>
+      <div>
+        <img src="screenshots/phone-profile.png" class="phone" style="width:100%;height:560px;object-fit:contain"/>
+        <div style="font-size:19px;font-weight:700;margin-top:20px">Every action earns trust &amp; XP</div>
+        <div style="font-size:15px;color:var(--ink-mute);line-height:1.6;margin-top:6px">Vouches from real collectors replace anonymous ratings. XP, badges and leaderboards make reputation visible.</div>
+      </div>
+      <div>
+        <img src="screenshots/phone-event.png" class="phone" style="width:100%;height:560px;object-fit:contain"/>
+        <div style="font-size:19px;font-weight:700;margin-top:20px">Events bring the community offline</div>
+        <div style="font-size:15px;color:var(--ink-mute);line-height:1.6;margin-top:6px">Local meetups, Comic Con collaborations and category gatherings — discoverable and RSVP-able in-app.</div>
+      </div>
+    </div>
+  </div>
+  <div class="num">07 / 14</div>
+</section>
+
+<!-- 10: OPPORTUNITY -->
+<section data-label="Opportunity">
+  <div class="pad">
+    <div class="ey">06 — The Opportunity</div>
+    <h1 style="margin:16px 0 36px">Two economic engines, once collectors live here daily.</h1>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px">
+      <div class="card" style="background:var(--bone);border:none">
+        <div style="font-size:22px;font-weight:800;margin-bottom:14px">Direct Commerce Engine</div>
+        <div style="font-size:15.5px;color:var(--ink-mute);line-height:1.7">Structured buying &amp; selling across categories, concentrated high-intent buyer traffic, trust &amp; reputation systems, repeat transaction flow.<br><br><b style="color:var(--ink)">Revenue levers:</b> seller subscriptions · premium visibility · drops &amp; exclusive launches · future auctions &amp; live selling</div>
+      </div>
+      <div class="card" style="background:var(--bone);border:none">
+        <div style="font-size:22px;font-weight:800;margin-bottom:14px">Niche Audience Engine</div>
+        <div style="font-size:15.5px;color:var(--ink-mute);line-height:1.7"><b style="color:var(--ink)">IP &amp; collectibles brands:</b> manufacturers, retailers, resellers, gaming publishers, trading card companies, grading &amp; authentication firms.<br><br><b style="color:var(--ink)">Fandom-led industries:</b> movies, anime, streaming, gaming, streetwear, Comic Cons, media &amp; creator networks. Plus youth/lifestyle brands chasing Gen Z &amp; millennial fandom.</div>
+      </div>
+    </div>
+  </div>
+  <div class="num">08 / 14</div>
+</section>
+
+<!-- 11: MONETIZE ANGLE -->
+<section data-label="Monetization Angle">
+  <div class="pad">
+    <div class="ey">06 — Monetization Angle</div>
+    <h1 style="margin:16px 0 40px">Diverse fandoms, data, and international demand to tap.</h1>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px">
+      <div class="card"><div style="font-size:19px;font-weight:700;margin-bottom:10px">Multi-industry retargeting</div><div style="font-size:15.5px;color:var(--ink-mute);line-height:1.6">Diverse audiences across anime, collectibles, gaming, comics and auto — retargetable via ads &amp; events.</div></div>
+      <div class="card"><div style="font-size:19px;font-weight:700;margin-bottom:10px">International brand demand</div><div style="font-size:15.5px;color:var(--ink-mute);line-height:1.6">Numerous international brands are eager to enter the market, recognizing its rapid growth and engagement.</div></div>
+      <div class="card"><div style="font-size:19px;font-weight:700;margin-bottom:10px">Event expansion</div><div style="font-size:15.5px;color:var(--ink-mute);line-height:1.6">Beyond Comic Con India: Wonder Festival, Hobby Expo, Diecast Expo and more signal strong market growth.</div></div>
+      <div class="card"><div style="font-size:19px;font-weight:700;margin-bottom:10px">Data-driven insights</div><div style="font-size:15.5px;color:var(--ink-mute);line-height:1.6">Collector &amp; community discussion data enables precise targeted advertising and new monetization paths.</div></div>
+    </div>
+    <p style="font-size:17px;color:var(--ink-faint);margin-top:28px">Longer-term: expansion into Southeast Asia (Singapore, Malaysia) once the India base is established.</p>
+  </div>
+  <div class="num">09 / 14</div>
+</section>
+
+<!-- 12: WHY RAISE NOW -->
+<section data-label="Why Raise Now">
+  <div class="pad" style="display:flex;flex-direction:column;justify-content:center;height:100%">
+    <div class="ey">07 — Why We're Raising Now</div>
+    <h1 style="margin:16px 0 36px;max-width:1500px">We're not raising on an idea. We're raising early — before scale erodes the case for it.</h1>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div class="card">
+        <div style="font-size:19px;font-weight:700;margin-bottom:10px;color:var(--red)">The app is already built</div>
+        <div style="font-size:16px;color:var(--ink-mute);line-height:1.6">Feed, trading, vouches, events, communities and rewards are live today. We're raising to fund growth, not to fund building.</div>
+      </div>
+      <div class="card">
+        <div style="font-size:19px;font-weight:700;margin-bottom:10px;color:var(--red)">Cost curve favors raising early</div>
+        <div style="font-size:16px;color:var(--ink-mute);line-height:1.6">Hosting, moderation and support costs scale sharply past ~10,000 users. We'd rather raise before that step-change than dilute more later to cover it.</div>
+      </div>
+    </div>
+  </div>
+  <div class="num">10 / 14</div>
+</section>
+
+<!-- 13: THE ASK -->
+<section data-label="The Ask">
+  <div class="pad" style="display:flex;flex-direction:column;justify-content:center;height:100%">
+    <div class="ey">08 — The Ask</div>
+    <h1 style="margin:16px 0 40px">Raising a seed round to take Scorred to 10,000 engaged collectors.</h1>
+    <div style="display:flex;gap:24px;margin-bottom:36px">
+      <div style="flex:1;background:var(--red);color:#fff;border-radius:24px;padding:40px">
+        <div class="mono" style="font-size:48px;font-weight:700">₹2–3 Cr</div>
+        <div style="font-size:16px;margin-top:8px;opacity:0.85">Amount raised</div>
+      </div>
+      <div style="flex:1;background:var(--bone);border-radius:24px;padding:40px">
+        <div class="mono" style="font-size:48px;font-weight:700;color:var(--ink)">10–12%</div>
+        <div style="font-size:16px;margin-top:8px;color:var(--ink-mute)">Equity</div>
+      </div>
+      <div style="flex:1;background:var(--bone);border-radius:24px;padding:40px">
+        <div class="mono" style="font-size:48px;font-weight:700;color:var(--ink)">12 mo</div>
+        <div style="font-size:16px;margin-top:8px;color:var(--ink-mute)">Runway</div>
+      </div>
+    </div>
+    <p style="font-size:16px;color:var(--ink-faint)">Illustrative terms — final structure to be discussed with lead investor.</p>
+  </div>
+  <div class="num">11 / 14</div>
+</section>
+
+<!-- 14: USE OF FUNDS / MILESTONES -->
+<section data-label="Milestones">
+  <div class="pad">
+    <div class="ey">09 — What This Buys</div>
+    <h1 style="margin:16px 0 40px">12 months to prove habit — and be Series-ready at 10K users.</h1>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:36px">
+      <div>
+        <h2>Use of Funds</h2>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:12px"><span style="font-size:18px">Product &amp; engineering</span><span class="mono" style="font-size:18px;font-weight:700">40%</span></div>
+          <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:12px"><span style="font-size:18px">Community &amp; growth</span><span class="mono" style="font-size:18px;font-weight:700">30%</span></div>
+          <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:12px"><span style="font-size:18px">Hosting &amp; infra</span><span class="mono" style="font-size:18px;font-weight:700">15%</span></div>
+          <div style="display:flex;justify-content:space-between;padding-bottom:12px"><span style="font-size:18px">Ops &amp; buffer</span><span class="mono" style="font-size:18px;font-weight:700">15%</span></div>
+        </div>
+      </div>
+      <div>
+        <h2>Proof Points at 10K Users</h2>
+        <div style="display:flex;flex-direction:column;gap:14px;font-size:18px;color:var(--ink-mute)">
+          <div>✓ WAU / MAU ≥ 30–35% — real weekly habit, tracked via meaningful actions (list, vouch, wishlist, post, track a release) — not just opens</div>
+          <div>✓ Sustained cohort retention in the 25–30% range</div>
+          <div>✓ Inbound interest from sellers &amp; brands; early pilots on promotions &amp; sponsored placements</div>
+          <div>✓ Comic Con &amp; event partnerships live; early traction on in-app rewards</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="num">12 / 14</div>
+</section>
+
+<!-- 15: WHY US -->
+<section data-label="Why Us">
+  <div class="pad" style="display:flex;flex-direction:column;justify-content:center;height:100%">
+    <div class="ey">10 — Why Us</div>
+    <h1 style="margin:16px 0 36px;max-width:1400px">We've lived inside this problem — this isn't a market we studied from outside.</h1>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div class="card">
+        <div style="font-size:19px;font-weight:700;margin-bottom:10px;color:var(--red)">Built InABox from 0 to scale</div>
+        <div style="font-size:16px;color:var(--ink-mute);line-height:1.6">Years running a collectibles business gave us direct operating insight into the ecosystem — sourcing, community, trust, and what collectors actually pay for.</div>
+      </div>
+      <div class="card">
+        <div style="font-size:19px;font-weight:700;margin-bottom:10px;color:var(--red)">100+ collector interviews</div>
+        <div style="font-size:16px;color:var(--ink-mute);line-height:1.6">We didn't start from a hunch — we mapped pain points and solution opportunities directly with the community before writing a line of product.</div>
+      </div>
+    </div>
+    <p style="font-size:17px;color:var(--ink-mute);margin-top:28px;max-width:1300px;line-height:1.6">InABox showed us we could bring real collectors in on day one — but couldn't solve the whole problem from inside a single store. Scorred is built to solve it for the whole community.</p>
+  </div>
+  <div class="num">13 / 14</div>
+</section>
+
+<!-- 16: CLOSE -->
+<section data-label="Close">
+  <div class="pad" style="display:flex;flex-direction:column;justify-content:space-between;height:100%">
+    <div class="ey">Close</div>
+    <div style="display:flex;flex-direction:column;gap:32px">
+      <img src="uploads/wordmark-crop.png" style="height:88px;object-fit:contain;align-self:flex-start"/>
+      <h1 style="font-size:56px;max-width:1300px">Let's build the home collectors already deserve.</h1>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid var(--line);padding-top:28px">
+      <div>
+        <div class="ey" style="color:var(--ink-faint);margin-bottom:8px">Contact</div>
+        <div class="mono" style="font-size:19px">founders@scorred.app</div>
+      </div>
+      <div style="text-align:right">
+        <div class="ey" style="color:var(--ink-faint);margin-bottom:8px">More</div>
+        <div class="mono" style="font-size:19px">scorred.app</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</deck-stage>
+
+<script src="deck-stage.js"></script>
+</body>
+</html>

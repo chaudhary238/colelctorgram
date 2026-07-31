@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scorred — Logo Concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red:#FF2442; --ink:#1A1A1A; --paper:#fff; --canvas:#F8FAFC;
+    --gold:#E8A33D; --teal:#2D8F87; --plum:#6B3656; --forest:#2D5F3F;
+    --border:rgba(0,0,0,0.08);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--canvas);font-family:'Geist',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+  .page{max-width:1100px;margin:0 auto;padding:48px 32px 80px}
+  .page-header{margin-bottom:48px}
+  .page-header h1{font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#999;margin-bottom:8px}
+  .page-header h2{font-size:32px;font-weight:800;letter-spacing:-0.04em;color:var(--ink)}
+  .page-header p{font-size:14px;color:#666;margin-top:6px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .card{background:var(--paper);border-radius:20px;border:1px solid var(--border);overflow:hidden;cursor:pointer;transition:box-shadow 180ms,transform 180ms}
+  .card:hover{box-shadow:0 8px 32px rgba(0,0,0,0.10);transform:translateY(-2px)}
+  .card-preview{height:220px;display:flex;align-items:center;justify-content:center;position:relative}
+  .card-preview.light{background:#fff}
+  .card-preview.dark{background:var(--ink)}
+  .card-preview.red{background:var(--red)}
+  .card-preview.warm{background:#FFF9F0}
+  .card-meta{padding:16px 18px;border-top:1px solid var(--border)}
+  .card-label{font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#999}
+  .card-name{font-size:15px;font-weight:700;color:var(--ink);margin-top:2px}
+  .card-desc{font-size:12.5px;color:#666;margin-top:4px;line-height:1.5}
+  .dual{display:grid;grid-template-columns:1fr 1fr;height:220px}
+  .dual .half{display:flex;align-items:center;justify-content:center}
+  .half.light{background:#fff}
+  .half.dark{background:var(--ink)}
+  .half svg{width:90%;height:auto;display:block;margin:auto}
+  .section-label{font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#aaa;margin:40px 0 16px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:500px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="page-header">
+    <h1>Brand Identity</h1>
+    <h2>Scorred — Logo Concepts</h2>
+    <p>6 directions for the collector app. Each shown on light + dark.</p>
+  </div>
+
+  <div class="section-label">Concepts</div>
+
+  <div class="grid">
+
+    <!-- A: The Stamp Wordmark -->
+    <div class="card">
+      <div class="dual">
+        <div class="half light">
+          <svg width="160" height="48" viewBox="0 0 160 48" fill="none">
+            <text x="2" y="38" font-family="'Geist',system-ui" font-weight="900" font-size="38" fill="#1C1C1C" letter-spacing="-1">scorred</text>
+            <text x="4" y="40" font-family="'Geist',system-ui" font-weight="900" font-size="38" fill="#FF2442" letter-spacing="-1" opacity="1">scorred</text>
+            <!-- underline score -->
+            <rect x="2" y="43" width="156" height="3" rx="1.5" fill="#FF2442"/>
+          </svg>
+        </div>
+        <div class="half dark">
+          <svg width="160" height="48" viewBox="0 0 160 48" fill="none">
+            <text x="2" y="38" font-family="'Geist',system-ui" font-weight="900" font-size="38" fill="#3A3A3A" letter-spacing="-1">scorred</text>
+            <text x="0" y="36" font-family="'Geist',system-ui" font-weight="900" font-size="38" fill="white" letter-spacing="-1">scorred</text>
+            <rect x="0" y="41" width="156" height="3" rx="1.5" fill="#FF2442"/>
+          </svg>
+        </div>
+      </div>
+      <div class="card-meta">
+        <div class="card-label">Option A</div>
+        <div class="card-name">Score Line</div>
+        <div class="card-desc">Wordmark with a bold red underline — a literal "score mark". Clean, editorial, scalable.</div>
+      </div>
+    </div>
+
+    <!-- B: Hard Shadow Stamp -->
+    <div class="card">
+      <div class="dual">
+        <div class="half light">
+          <svg width="170" height="58" viewBox="0 0 170 58" fill="none">
+            <!-- shadow -->
+            <rect x="5" y="5" width="162" height="50" rx="6" fill="#1A1A1A"/>
+            <!-- box -->
+            <rect x="0" y="0" width="162" height="50" rx="6" fill="#FF2442"/>
+            <text x="81" y="35" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="28" fill="white" letter-spacing="-0.5">SCORRED</text>
+          </svg>
+        </div>
+        <div class="half dark">
+          <svg width="170" height="58" viewBox="0 0 170 58" fill="none">
+            <rect x="5" y="5" width="162" height="50" rx="6" fill="#FF2442"/>
+            <rect x="0" y="0" width="162" height="50" rx="6" fill="white"/>
+            <text x="81" y="35" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="28" fill="#1A1A1A" letter-spacing="-0.5">SCORRED</text>
+          </svg>
+        </div>
+      </div>
+      <div class="card-meta">
+        <div class="card-label">Option B</div>
+        <div class="card-name">Hard Stamp</div>
+        <div class="card-desc">Bold red stamp block with ink hard-shadow offset. Same DNA as the CollectorHub seal. High-energy.</div>
+      </div>
+    </div>
+
+    <!-- C: Seal + Wordmark -->
+    <div class="card">
+      <div class="dual">
+        <div class="half light">
+          <svg width="180" height="52" viewBox="0 0 180 52" fill="none">
+            <!-- seal -->
+            <rect x="2" y="2" width="44" height="44" rx="10" fill="#1A1A1A" transform="rotate(-4 24 26)"/>
+            <rect x="0" y="0" width="44" height="44" rx="10" fill="#FF2442" transform="rotate(-4 24 26)"/>
+            <text x="22" y="30" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="white" transform="rotate(-4 22 30)">S</text>
+            <!-- wordmark -->
+            <text x="54" y="22" font-family="'Geist',system-ui" font-weight="800" font-size="22" fill="#1A1A1A" letter-spacing="-0.5">scorred</text>
+            <text x="54" y="38" font-family="'Geist',system-ui" font-weight="500" font-size="11" fill="#999" letter-spacing="0.08em">FOR COLLECTORS</text>
+          </svg>
+        </div>
+        <div class="half dark">
+          <svg width="180" height="52" viewBox="0 0 180 52" fill="none">
+            <rect x="2" y="2" width="44" height="44" rx="10" fill="#FF2442" transform="rotate(-4 24 26)"/>
+            <rect x="0" y="0" width="44" height="44" rx="10" fill="white" transform="rotate(-4 24 26)"/>
+            <text x="22" y="30" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="#1A1A1A" transform="rotate(-4 22 30)">S</text>
+            <text x="54" y="22" font-family="'Geist',system-ui" font-weight="800" font-size="22" fill="white" letter-spacing="-0.5">scorred</text>
+            <text x="54" y="38" font-family="'Geist',system-ui" font-weight="500" font-size="11" fill="#666" letter-spacing="0.08em">FOR COLLECTORS</text>
+          </svg>
+        </div>
+      </div>
+      <div class="card-meta">
+        <div class="card-label">Option C</div>
+        <div class="card-name">Seal + Wordmark</div>
+        <div class="card-desc">Rotated S seal (same as CollectorHub's aesthetic) + wordmark + tagline. Works at any size as seal icon alone.</div>
+      </div>
+    </div>
+
+    <!-- D: RR Double Mark -->
+    <div class="card">
+      <div class="dual">
+        <div class="half light">
+          <svg width="180" height="56" viewBox="0 0 180 56" fill="none">
+            <!-- sco in dark -->
+            <text x="0" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="#1A1A1A" letter-spacing="-1.5">sco</text>
+            <!-- rr in red -->
+            <text x="78" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="#FF2442" letter-spacing="-1.5">rr</text>
+            <!-- ed in dark -->
+            <text x="130" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="#1A1A1A" letter-spacing="-1.5">ed</text>
+          </svg>
+        </div>
+        <div class="half dark">
+          <svg width="180" height="56" viewBox="0 0 180 56" fill="none">
+            <text x="0" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="white" letter-spacing="-1.5">sco</text>
+            <text x="78" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="#FF2442" letter-spacing="-1.5">rr</text>
+            <text x="130" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="white" letter-spacing="-1.5">ed</text>
+          </svg>
+        </div>
+      </div>
+      <div class="card-meta">
+        <div class="card-label">Option D</div>
+        <div class="card-name">RR Accent</div>
+        <div class="card-desc">The double-R — the brand's quirk — punched out in red. Makes the distinctive spelling a feature. Very typographic.</div>
+      </div>
+    </div>
+
+    <!-- E: Price Tag Icon -->
+    <div class="card">
+      <div class="dual">
+        <div class="half light">
+          <svg width="190" height="60" viewBox="0 0 190 60" fill="none">
+            <!-- tag shape icon -->
+            <path d="M6 4 L30 4 L42 20 L30 36 L6 36 Z" fill="#1A1A1A" transform="translate(2,2)"/>
+            <path d="M6 4 L30 4 L42 20 L30 36 L6 36 Z" fill="#FF2442"/>
+            <circle cx="12" cy="20" r="3.5" fill="white"/>
+            <!-- wordmark -->
+            <text x="54" y="26" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="#1A1A1A" letter-spacing="-0.5">scorred</text>
+          </svg>
+        </div>
+        <div class="half dark">
+          <svg width="190" height="60" viewBox="0 0 190 60" fill="none">
+            <path d="M6 4 L30 4 L42 20 L30 36 L6 36 Z" fill="#FF2442" transform="translate(2,2)"/>
+            <path d="M6 4 L30 4 L42 20 L30 36 L6 36 Z" fill="white"/>
+            <circle cx="12" cy="20" r="3.5" fill="#1A1A1A"/>
+            <text x="54" y="26" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="white" letter-spacing="-0.5">scorred</text>
+          </svg>
+        </div>
+      </div>
+      <div class="card-meta">
+        <div class="card-label">Option E</div>
+        <div class="card-name">Price Tag</div>
+        <div class="card-desc">Collector's price tag as the icon mark. Nods to buying/selling/scoring items. Instantly reads as marketplace.</div>
+      </div>
+    </div>
+
+    <!-- F: Checkmark Score -->
+    <div class="card">
+      <div class="dual">
+        <div class="half light">
+          <svg width="190" height="64" viewBox="0 0 190 64" fill="none">
+            <!-- wordmark -->
+            <text x="0" y="42" font-family="'Geist',system-ui" font-weight="900" font-size="40" fill="#1A1A1A" letter-spacing="-1">scorred</text>
+            <!-- checkmark over the double r area -->
+            <polyline points="84,8 96,22 116,2" fill="none" stroke="#FF2442" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="half dark">
+          <svg width="190" height="64" viewBox="0 0 190 64" fill="none">
+            <text x="0" y="42" font-family="'Geist',system-ui" font-weight="900" font-size="40" fill="white" letter-spacing="-1">scorred</text>
+            <polyline points="84,8 96,22 116,2" fill="none" stroke="#FF2442" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="card-meta">
+        <div class="card-label">Option F</div>
+        <div class="card-name">Checkmark</div>
+        <div class="card-desc">A red tick floating above the "rr" — scored = verified/got it. Nods to both the collector "score" and ownership verification.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- App icon strip -->
+  <div class="section-label" style="margin-top:52px">App Icon Variants (for shortlisted options)</div>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-top:4px">
+
+    <!-- A icon -->
+    <div style="text-align:center">
+      <div style="width:72px;height:72px;border-radius:18px;background:#FF2442;display:flex;align-items:center;justify-content:center;box-shadow:3px 3px 0 #1A1A1A">
+        <svg width="48" height="40" viewBox="0 0 48 40" fill="none">
+          <text x="24" y="30" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="28" fill="white" letter-spacing="-1">S</text>
+          <rect x="4" y="36" width="40" height="3" rx="1.5" fill="white" opacity="0.6"/>
+        </svg>
+      </div>
+      <div style="font-size:11px;color:#999;margin-top:6px;font-weight:600">A</div>
+    </div>
+
+    <!-- B icon -->
+    <div style="text-align:center">
+      <div style="width:72px;height:72px;border-radius:18px;background:#fff;border:1px solid rgba(0,0,0,0.1);display:flex;align-items:center;justify-content:center;box-shadow:4px 4px 0 #1A1A1A">
+        <svg width="56" height="32" viewBox="0 0 56 32" fill="none">
+          <rect x="2" y="2" width="52" height="28" rx="4" fill="#1A1A1A"/>
+          <rect x="0" y="0" width="52" height="28" rx="4" fill="#FF2442"/>
+          <text x="26" y="20" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="16" fill="white">SCR</text>
+        </svg>
+      </div>
+      <div style="font-size:11px;color:#999;margin-top:6px;font-weight:600">B</div>
+    </div>
+
+    <!-- C icon -->
+    <div style="text-align:center">
+      <div style="width:72px;height:72px;border-radius:18px;background:var(--ink);display:flex;align-items:center;justify-content:center">
+        <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+          <rect x="3" y="3" width="38" height="38" rx="9" fill="#FF2442" transform="rotate(-5 22 22)"/>
+          <text x="22" y="30" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="white" transform="rotate(-5 22 30)">S</text>
+        </svg>
+      </div>
+      <div style="font-size:11px;color:#999;margin-top:6px;font-weight:600">C</div>
+    </div>
+
+    <!-- D icon -->
+    <div style="text-align:center">
+      <div style="width:72px;height:72px;border-radius:18px;background:#fff;border:1px solid rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:center">
+        <svg width="52" height="36" viewBox="0 0 52 36" fill="none">
+          <text x="0" y="30" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="#1A1A1A" letter-spacing="-2">sc</text>
+          <text x="30" y="30" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="#FF2442" letter-spacing="-2">rr</text>
+        </svg>
+      </div>
+      <div style="font-size:11px;color:#999;margin-top:6px;font-weight:600">D</div>
+    </div>
+
+    <!-- E icon -->
+    <div style="text-align:center">
+      <div style="width:72px;height:72px;border-radius:18px;background:#FF2442;display:flex;align-items:center;justify-content:center;box-shadow:3px 3px 0 #1A1A1A">
+        <svg width="40" height="50" viewBox="0 0 40 50" fill="none">
+          <path d="M4 4 L28 4 L38 25 L28 46 L4 46 Z" fill="white"/>
+          <circle cx="11" cy="25" r="4" fill="#FF2442"/>
+          <line x1="18" y1="18" x2="32" y2="18" stroke="#FF2442" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="18" y1="25" x2="32" y2="25" stroke="#FF2442" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="18" y1="32" x2="28" y2="32" stroke="#FF2442" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div style="font-size:11px;color:#999;margin-top:6px;font-weight:600">E</div>
+    </div>
+
+    <!-- F icon -->
+    <div style="text-align:center">
+      <div style="width:72px;height:72px;border-radius:18px;background:#1A1A1A;display:flex;align-items:center;justify-content:center">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <text x="24" y="38" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="36" fill="white" letter-spacing="-1">S</text>
+          <polyline points="28,6 36,16 48,2" fill="none" stroke="#FF2442" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div style="font-size:11px;color:#999;margin-top:6px;font-weight:600">F</div>
+    </div>
+
+  </div>
+
+  <div style="margin-top:48px;padding:20px 24px;background:var(--paper);border-radius:14px;border:1px solid var(--border)">
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#aaa;margin-bottom:8px">Designer's note</div>
+    <p style="font-size:13.5px;color:#555;line-height:1.65">
+      <strong style="color:#1A1A1A">C (Seal + Wordmark)</strong> and <strong style="color:#1A1A1A">D (RR Accent)</strong> carry the most long-term brand equity — C because it's versatile (seal alone = app icon), D because it turns the quirky double-R spelling into the identity itself. <strong style="color:#1A1A1A">B (Hard Stamp)</strong> is the most energetic and fits the collector-culture aesthetic. <strong style="color:#1A1A1A">E (Price Tag)</strong> is the most literal and marketplace-forward.
+    </p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       OPTION F — DEVELOPMENT
+       Selected direction · Checkmark above "rr"
+  ════════════════════════════════════════════════════════ -->
+  <div style="margin-top:64px">
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#aaa;margin-bottom:6px">Selected Direction — Refined</div>
+    <div style="font-size:28px;font-weight:800;letter-spacing:-0.04em;color:var(--ink);margin-bottom:4px">Option F — Tick & Case Exploration</div>
+    <p style="font-size:14px;color:#666;margin-bottom:32px">5 tick styles × lowercase vs title case · recommendation marked ✦</p>
+
+    <!-- TICK STYLES — Title Case -->
+    <div style="background:#F2F2F0;border-radius:20px;padding:36px 40px;margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#aaa;margin-bottom:24px">Tick style exploration · "Scorred" title case · on light</div>
+      <div style="display:flex;flex-direction:column;gap:32px">
+
+        <!-- T1 Thin elegant -->
+        <div style="display:flex;align-items:center;gap:28px">
+          <div style="width:80px;font-size:9.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#aaa;flex-shrink:0">T1 · Thin</div>
+          <svg width="340" height="60" viewBox="0 0 340 60" fill="none">
+            <text x="0" y="48" font-family="'Geist',system-ui" font-weight="900" font-size="50" fill="#1A1A1A" letter-spacing="-2">Scorred</text>
+            <polyline points="148,9 160,22 178,4" fill="none" stroke="#D42038" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div style="font-size:11.5px;color:#999">Elegant, subtle. Can disappear at small sizes.</div>
+        </div>
+
+        <!-- T2 Medium balanced -->
+        <div style="display:flex;align-items:center;gap:28px">
+          <div style="width:80px;font-size:9.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#aaa;flex-shrink:0">T2 · Medium</div>
+          <svg width="340" height="60" viewBox="0 0 340 60" fill="none">
+            <text x="0" y="48" font-family="'Geist',system-ui" font-weight="900" font-size="50" fill="#1A1A1A" letter-spacing="-2">Scorred</text>
+            <polyline points="148,9 160,22 178,4" fill="none" stroke="#D42038" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div style="font-size:11.5px;color:#999">Balanced. Reads well at most sizes.</div>
+        </div>
+
+        <!-- T3 Bold stamp — RECOMMENDED -->
+        <div style="display:flex;align-items:center;gap:28px;background:#fff;border-radius:12px;padding:14px 16px;margin:-2px;border:2px solid #D42038">
+          <div style="width:80px;font-size:9.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#D42038;flex-shrink:0">T3 · Bold ✦</div>
+          <svg width="340" height="60" viewBox="0 0 340 60" fill="none">
+            <text x="0" y="48" font-family="'Geist',system-ui" font-weight="900" font-size="50" fill="#1A1A1A" letter-spacing="-2">Scorred</text>
+            <polyline points="144,8 158,24 182,3" fill="none" stroke="#D42038" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div style="font-size:11.5px;color:#D42038;font-weight:600">Recommended. Matches the weight of Geist 900. Assertive, distinctive, holds at all sizes.</div>
+        </div>
+
+        <!-- T4 Geometric sharp -->
+        <div style="display:flex;align-items:center;gap:28px">
+          <div style="width:80px;font-size:9.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#aaa;flex-shrink:0">T4 · Sharp</div>
+          <svg width="340" height="60" viewBox="0 0 340 60" fill="none">
+            <text x="0" y="48" font-family="'Geist',system-ui" font-weight="900" font-size="50" fill="#1A1A1A" letter-spacing="-2">Scorred</text>
+            <polyline points="148,9 160,22 178,4" fill="none" stroke="#D42038" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter"/>
+          </svg>
+          <div style="font-size:11.5px;color:#999">Angular, no soft ends. Editorial / graphic design feel.</div>
+        </div>
+
+        <!-- T5 Score slash -->
+        <div style="display:flex;align-items:center;gap:28px">
+          <div style="width:80px;font-size:9.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#aaa;flex-shrink:0">T5 · Slash</div>
+          <svg width="340" height="60" viewBox="0 0 340 60" fill="none">
+            <text x="0" y="48" font-family="'Geist',system-ui" font-weight="900" font-size="50" fill="#1A1A1A" letter-spacing="-2">Scorred</text>
+            <!-- Single diagonal score mark, not a tick -->
+            <line x1="148" y1="20" x2="180" y2="4" stroke="#D42038" stroke-width="6" stroke-linecap="round"/>
+          </svg>
+          <div style="font-size:11.5px;color:#999">Score mark / tally. More abstract. Less "checkmark", more "scored off".</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- CASE COMPARISON with T3 bold -->
+    <div style="background:var(--ink);border-radius:20px;padding:36px 40px;margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#444;margin-bottom:24px">T3 Bold tick · lowercase vs title case · recommendation marked ✦</div>
+      <div style="display:flex;flex-direction:column;gap:28px">
+
+        <!-- lowercase -->
+        <div style="display:flex;align-items:center;gap:28px">
+          <div style="width:120px;font-size:9.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#444;flex-shrink:0">lowercase</div>
+          <svg width="360" height="62" viewBox="0 0 360 62" fill="none">
+            <text x="0" y="50" font-family="'Geist',system-ui" font-weight="900" font-size="52" fill="white" letter-spacing="-2">scorred</text>
+            <polyline points="140,8 155,25 180,3" fill="none" stroke="#D42038" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div style="font-size:11.5px;color:#555">Casual, friendly, handle-like. Fits social/community apps.</div>
+        </div>
+
+        <!-- Title case — recommended -->
+        <div style="display:flex;align-items:center;gap:28px;background:#2A2A2A;border-radius:12px;padding:14px 16px;border:2px solid #D42038">
+          <div style="width:120px;font-size:9.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#D42038;flex-shrink:0">Title case ✦</div>
+          <svg width="360" height="62" viewBox="0 0 360 62" fill="none">
+            <text x="0" y="50" font-family="'Geist',system-ui" font-weight="900" font-size="52" fill="white" letter-spacing="-2">Scorred</text>
+            <polyline points="152,8 167,25 192,3" fill="none" stroke="#D42038" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div style="font-size:11.5px;color:#D42038;font-weight:600">Recommended. Reads as a proper brand name, not a handle. The capital S gives authority.</div>
+        </div>
+
+        <!-- All caps -->
+        <div style="display:flex;align-items:center;gap:28px">
+          <div style="width:120px;font-size:9.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#444;flex-shrink:0">ALL CAPS</div>
+          <svg width="400" height="62" viewBox="0 0 400 62" fill="none">
+            <text x="0" y="50" font-family="'Geist',system-ui" font-weight="900" font-size="50" fill="white" letter-spacing="1">SCORRED</text>
+            <polyline points="208,8 222,24 246,3" fill="none" stroke="#D42038" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div style="font-size:11.5px;color:#555">Energetic, loud. Works great for merch and banners. Too aggressive for UI header.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- FINAL RECOMMENDATION -->
+    <div style="background:#D42038;border-radius:20px;padding:40px 48px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:16px">Final recommendation</div>
+      <svg width="480" height="76" viewBox="0 0 480 76" fill="none">
+        <text x="0" y="62" font-family="'Geist',system-ui" font-weight="900" font-size="64" fill="white" letter-spacing="-3">Scorred</text>
+        <polyline points="188,10 207,32 238,4" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div style="margin-top:24px;display:flex;gap:32px;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.45)">Wordmark</div>
+          <div style="font-size:14px;font-weight:600;color:#fff">Geist 900 · Title case · −3 letter-spacing</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.45)">Tick</div>
+          <div style="font-size:14px;font-weight:600;color:#fff">T3 Bold · Round caps · Above "rr" · White on red / Red on light</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.45)">App icon</div>
+          <div style="font-size:14px;font-weight:600;color:#fff">Bold S + tick · Red square or Dark square</div>
+        </div>
+      </div>
+      <!-- App icons -->
+      <div style="margin-top:28px;display:flex;gap:10px;align-items:flex-end">
+        <div style="width:72px;height:72px;border-radius:16px;background:rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center">
+          <svg width="50" height="60" viewBox="0 0 52 62" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text><polyline points="26,4 34,14 46,2" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div style="width:56px;height:56px;border-radius:13px;background:rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center">
+          <svg width="38" height="46" viewBox="0 0 52 62" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text><polyline points="26,4 34,14 46,2" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div style="width:40px;height:40px;border-radius:9px;background:rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center">
+          <svg width="26" height="32" viewBox="0 0 52 62" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text><polyline points="26,4 34,14 46,2" fill="none" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div style="width:28px;height:28px;border-radius:6px;background:rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center">
+          <svg width="18" height="22" viewBox="0 0 52 62" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text></svg>
+        </div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-left:8px;align-self:center">72 · 56 · 40 · 28 px</div>
+      </div>
+    </div>
+
+  </div><!-- /F development -->
+
+</div>
+</body>
+</html>
+  <div style="margin-top:64px">
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#aaa;margin-bottom:6px">Selected Direction</div>
+    <div style="font-size:28px;font-weight:800;letter-spacing:-0.04em;color:var(--ink);margin-bottom:4px">Option F — Development</div>
+    <p style="font-size:14px;color:#666;margin-bottom:32px">A red tick floating above "rr" — scored = verified/got it. Four variations + app icon options.</p>
+
+    <!-- Hero -->
+    <div style="background:var(--ink);border-radius:20px;padding:52px 60px 44px;margin-bottom:20px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#444;margin-bottom:28px">Primary lockup · white on dark</div>
+      <svg width="500" height="92" viewBox="0 0 500 92" fill="none">
+        <text x="0" y="74" font-family="'Geist',system-ui" font-weight="900" font-size="78" fill="white" letter-spacing="-3">Scorred</text>
+        <polyline points="216,12 231,30 258,4" fill="none" stroke="#D42038" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div style="height:36px"></div>
+      <div style="display:flex;gap:60px;align-items:flex-end;flex-wrap:wrap">
+        <div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#444;margin-bottom:10px">48px</div>
+          <svg width="300" height="56" viewBox="0 0 300 56" fill="none">
+            <text x="0" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="46" fill="white" letter-spacing="-2">Scorred</text>
+            <polyline points="124,7 134,19 152,2" fill="none" stroke="#D42038" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#444;margin-bottom:10px">With tagline</div>
+          <svg width="300" height="68" viewBox="0 0 300 68" fill="none">
+            <text x="0" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="46" fill="white" letter-spacing="-2">Scorred</text>
+            <polyline points="124,7 134,19 152,2" fill="none" stroke="#D42038" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="2" y="63" font-family="'Geist',system-ui" font-weight="700" font-size="11" fill="#D42038" letter-spacing="3.5">FOR COLLECTORS</text>
+          </svg>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#444;margin-bottom:10px">24px</div>
+          <svg width="160" height="32" viewBox="0 0 160 32" fill="none">
+            <text x="0" y="26" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="white" letter-spacing="-1">Scorred</text>
+            <polyline points="70,5 77,11 88,2" fill="none" stroke="#D42038" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 variations -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px">
+
+      <!-- F1 Classic light -->
+      <div style="background:#fff;border-radius:20px;border:1px solid var(--border);padding:30px 36px 24px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#bbb;margin-bottom:4px">F1 · Classic</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:18px">Light · lowercase</div>
+        <svg width="320" height="62" viewBox="0 0 320 62" fill="none">
+          <text x="0" y="50" font-family="'Geist',system-ui" font-weight="900" font-size="52" fill="#1A1A1A" letter-spacing="-2">Scorred</text>
+          <polyline points="140,9 152,22 172,3" fill="none" stroke="#D42038" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div style="margin-top:20px;display:inline-block;background:#D42038;border-radius:10px;padding:16px 22px">
+          <svg width="210" height="40" viewBox="0 0 210 40" fill="none">
+            <text x="0" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="white" letter-spacing="-1.5">Scorred</text>
+            <polyline points="86,6 94,15 107,2" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- F2 Bold tick -->
+      <div style="background:#1A1A1A;border-radius:20px;padding:30px 36px 24px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#444;margin-bottom:4px">F2 · Bold Tick</div>
+        <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:18px">Larger, more presence</div>
+        <svg width="320" height="70" viewBox="0 0 320 70" fill="none">
+          <text x="0" y="58" font-family="'Geist',system-ui" font-weight="900" font-size="52" fill="white" letter-spacing="-2">Scorred</text>
+          <polyline points="128,4 150,24 182,2" fill="none" stroke="#D42038" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div style="margin-top:20px;display:inline-block;background:#D42038;border-radius:10px;padding:16px 22px">
+          <svg width="210" height="42" viewBox="0 0 210 42" fill="none">
+            <text x="0" y="34" font-family="'Geist',system-ui" font-weight="900" font-size="34" fill="white" letter-spacing="-1.5">Scorred</text>
+            <polyline points="100,3 116,17 137,1" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- F3 Title case warm -->
+      <div style="background:#F9F6F2;border-radius:20px;padding:30px 36px 24px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#bbb;margin-bottom:4px">F3 · Title Case</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:18px">Scorred · more formal</div>
+        <svg width="320" height="62" viewBox="0 0 320 62" fill="none">
+          <text x="0" y="50" font-family="'Geist',system-ui" font-weight="900" font-size="52" fill="#1A1A1A" letter-spacing="-2">Scorred</text>
+          <polyline points="153,9 165,22 185,3" fill="none" stroke="#D42038" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div style="margin-top:18px">
+          <svg width="310" height="34" viewBox="0 0 310 34" fill="none">
+            <text x="0" y="26" font-family="'Geist',system-ui" font-weight="900" font-size="28" fill="#1A1A1A" letter-spacing="-1">Scorred</text>
+            <polyline points="82,4 89,11 100,1" fill="none" stroke="#D42038" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="178" y="24" font-family="'Geist',system-ui" font-weight="700" font-size="9" fill="#D42038" letter-spacing="2.5">FOR COLLECTORS</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- F4 Red hero -->
+      <div style="background:#D42038;border-radius:20px;padding:30px 36px 24px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.45);margin-bottom:4px">F4 · All Caps · Red</div>
+        <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:18px">SCORRED · maximum energy</div>
+        <svg width="360" height="66" viewBox="0 0 360 66" fill="none">
+          <text x="0" y="54" font-family="'Geist',system-ui" font-weight="900" font-size="54" fill="white" letter-spacing="1">SCORRED</text>
+          <polyline points="208,8 222,24 247,3" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div style="margin-top:16px">
+          <svg width="340" height="32" viewBox="0 0 340 32" fill="none">
+            <text x="0" y="26" font-family="'Geist',system-ui" font-weight="900" font-size="26" fill="white" letter-spacing="0.5">SCORRED</text>
+            <polyline points="100,4 109,13 122,2" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="196" y="23" font-family="'Geist',system-ui" font-weight="700" font-size="9" fill="rgba(255,255,255,0.65)" letter-spacing="2.5">FOR COLLECTORS</text>
+          </svg>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- App icons -->
+    <div style="background:var(--ink);border-radius:20px;padding:30px 36px;margin-bottom:20px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#444;margin-bottom:22px">App icon options · S + tick (recommended) · tick alone · dark bg</div>
+      <div style="display:flex;gap:48px;align-items:flex-start;flex-wrap:wrap">
+
+        <!-- S + tick red -->
+        <div>
+          <div style="font-size:9.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#444;margin-bottom:10px">S + tick · red</div>
+          <div style="display:flex;gap:10px;align-items:flex-end">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+              <div style="width:76px;height:76px;border-radius:17px;background:#D42038;display:flex;align-items:center;justify-content:center;overflow:visible">
+                <svg width="52" height="62" viewBox="0 0 52 62" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text><polyline points="26,4 34,14 46,2" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div style="font-size:9px;color:#555">76</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+              <div style="width:58px;height:58px;border-radius:13px;background:#D42038;display:flex;align-items:center;justify-content:center">
+                <svg width="40" height="48" viewBox="0 0 52 62" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text><polyline points="26,4 34,14 46,2" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div style="font-size:9px;color:#555">58</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+              <div style="width:44px;height:44px;border-radius:10px;background:#D42038;display:flex;align-items:center;justify-content:center">
+                <svg width="30" height="36" viewBox="0 0 52 62" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text><polyline points="26,4 34,14 46,2" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div style="font-size:9px;color:#555">44</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+              <div style="width:30px;height:30px;border-radius:7px;background:#D42038;display:flex;align-items:center;justify-content:center">
+                <svg width="20" height="24" viewBox="0 0 52 62" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text></svg>
+              </div>
+              <div style="font-size:9px;color:#555">30</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="width:1px;background:#2A2A2A;height:90px;margin-top:24px"></div>
+
+        <!-- Tick only -->
+        <div>
+          <div style="font-size:9.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#444;margin-bottom:10px">Tick only · bold</div>
+          <div style="display:flex;gap:10px;align-items:flex-end">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+              <div style="width:76px;height:76px;border-radius:17px;background:#D42038;display:flex;align-items:center;justify-content:center">
+                <svg width="44" height="36" viewBox="0 0 44 36" fill="none"><polyline points="2,18 14,30 42,2" fill="none" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div style="font-size:9px;color:#555">76</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+              <div style="width:58px;height:58px;border-radius:13px;background:#D42038;display:flex;align-items:center;justify-content:center">
+                <svg width="34" height="27" viewBox="0 0 44 36" fill="none"><polyline points="2,18 14,30 42,2" fill="none" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div style="font-size:9px;color:#555">58</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+              <div style="width:44px;height:44px;border-radius:10px;background:#D42038;display:flex;align-items:center;justify-content:center">
+                <svg width="26" height="20" viewBox="0 0 44 36" fill="none"><polyline points="2,18 14,30 42,2" fill="none" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div style="font-size:9px;color:#555">44</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+              <div style="width:30px;height:30px;border-radius:7px;background:#D42038;display:flex;align-items:center;justify-content:center">
+                <svg width="17" height="13" viewBox="0 0 44 36" fill="none"><polyline points="2,18 14,30 42,2" fill="none" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div style="font-size:9px;color:#555">30</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="width:1px;background:#2A2A2A;height:90px;margin-top:24px"></div>
+
+        <!-- S + tick dark -->
+        <div>
+          <div style="font-size:9.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#444;margin-bottom:10px">S + tick · dark</div>
+          <div style="display:flex;gap:10px;align-items:flex-end">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+              <div style="width:76px;height:76px;border-radius:17px;background:#111;border:1px solid #2A2A2A;display:flex;align-items:center;justify-content:center">
+                <svg width="52" height="62" viewBox="0 0 52 62" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text><polyline points="26,4 34,14 46,2" fill="none" stroke="#D42038" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div style="font-size:9px;color:#555">76</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+              <div style="width:58px;height:58px;border-radius:13px;background:#111;border:1px solid #2A2A2A;display:flex;align-items:center;justify-content:center">
+                <svg width="40" height="48" viewBox="0 0 52 62" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text><polyline points="26,4 34,14 46,2" fill="none" stroke="#D42038" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div style="font-size:9px;color:#555">58</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+              <div style="width:44px;height:44px;border-radius:10px;background:#111;border:1px solid #2A2A2A;display:flex;align-items:center;justify-content:center">
+                <svg width="30" height="36" viewBox="0 0 52 62" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text><polyline points="26,4 34,14 46,2" fill="none" stroke="#D42038" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div style="font-size:9px;color:#555">44</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+              <div style="width:30px;height:30px;border-radius:7px;background:#111;border:1px solid #2A2A2A;display:flex;align-items:center;justify-content:center">
+                <svg width="20" height="24" viewBox="0 0 52 62" fill="none"><text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text><polyline points="26,4 34,14 46,2" fill="none" stroke="#D42038" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div style="font-size:9px;color:#555">30</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Size scale -->
+    <div style="background:var(--ink);border-radius:20px;padding:30px 36px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#444;margin-bottom:22px">Wordmark at every size</div>
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <svg width="760" height="80" viewBox="0 0 760 80" fill="none"><text x="0" y="64" font-family="'Geist',system-ui" font-weight="900" font-size="66" fill="white" letter-spacing="-3">Scorred</text><polyline points="177,10 192,27 215,3" fill="none" stroke="#D42038" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg width="520" height="54" viewBox="0 0 520 54" fill="none"><text x="0" y="42" font-family="'Geist',system-ui" font-weight="900" font-size="44" fill="white" letter-spacing="-2">Scorred</text><polyline points="118,7 128,17 145,2" fill="none" stroke="#D42038" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg width="340" height="38" viewBox="0 0 340 38" fill="none"><text x="0" y="30" font-family="'Geist',system-ui" font-weight="900" font-size="30" fill="white" letter-spacing="-1.5">Scorred</text><polyline points="80,5 87,12 99,2" fill="none" stroke="#D42038" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg width="220" height="28" viewBox="0 0 220 28" fill="none"><text x="0" y="22" font-family="'Geist',system-ui" font-weight="900" font-size="22" fill="white" letter-spacing="-1">Scorred</text><polyline points="59,4 65,10 74,2" fill="none" stroke="#D42038" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg width="500" height="22" viewBox="0 0 500 22" fill="none"><text x="0" y="16" font-family="'Geist',system-ui" font-weight="900" font-size="15" fill="rgba(255,255,255,0.5)" letter-spacing="-0.5">Scorred</text><polyline points="40,2 44,6 50,1" fill="none" stroke="#D42038" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="68" y="14" font-family="'Geist',system-ui" font-size="10" fill="#444">← below 16px use icon only</text></svg>
+      </div>
+    </div>
+
+  </div><!-- /F development -->
+
+</div>
+</body>
+</html>

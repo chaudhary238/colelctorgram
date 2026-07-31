@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 import {
   Box, Sparkles, Medal, Gem, Flame, Crown, Star, Camera, Heart,
   User, Shield, Calendar, MessageCircle, Gift, Zap, Database,
-  ChevronRight, Trophy, X, type LucideIcon,
+  ChevronRight, Trophy, X, Settings, type LucideIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui";
@@ -347,8 +347,15 @@ export function FilterChip({ active, color, icon, onClick, children }: { active?
 }
 
 /* ── RewardCard — compact rank card on the profile header (own + others) ──
- * Self-fetches /users/{handle}/rank so profile integration stays a one-liner. */
-export function RewardCard({ handle, isMe }: { handle: string; isMe: boolean }) {
+ * Self-fetches /users/{handle}/rank so profile integration stays a one-liner.
+ *
+ * design_v7 (DV7-01) tightened this: tier-tinted surface, XP inline in the title row,
+ * a slimmer 6px bar, and the CTAs inside the card — it now costs one row of vertical
+ * space instead of three, which is what let the v7 profile header lose its separate
+ * stat bar. `sideActions` adds the v7 Refer/Settings squares alongside (own profile
+ * only — the ContextualRail leaves them off, the Sidebar already carries Settings).
+ * The First Start pill moved out: it's a slot in the BadgeShelf next to the name. */
+export function RewardCard({ handle, isMe, sideActions = false }: { handle: string; isMe: boolean; sideActions?: boolean }) {
   const router = useRouter();
   const [d, setD] = useState<RankCardData | null>(null);
   useEffect(() => {
@@ -356,52 +363,70 @@ export function RewardCard({ handle, isMe }: { handle: string; isMe: boolean }) 
   }, [handle]);
   if (!d) return null;
 
-  const { tier, next, pct, need, index, total } = d.rank;
+  const { tier, next, pct, need } = d.rank;
   const tcolor = (TIER_VIS[tier.id] ?? TIER_VIS.rookie).color;
-  const fs = d.first_start;
   return (
-    <div style={{ marginTop: 14, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 15px 12px" }}>
-        <TierBadge tierId={tier.id} size={46} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em" }}>{tier.name}</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ink-faint)", letterSpacing: "0.06em" }}>RANK {index + 1}/{total}</span>
-          </div>
-          {fs && (
-            <div style={{ marginTop: 5, display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px 2px 6px", borderRadius: 999, background: "var(--bone)", border: `1px solid ${(FIRST_START_VIS[fs.id]?.color ?? "var(--ink)")}33` }}>
-              <span style={{ fontSize: 11 }}>{fs.emoji}</span>
-              <span style={{ fontSize: 11.5, fontWeight: 700, color: FIRST_START_VIS[fs.id]?.color ?? "var(--ink)" }}>{fs.name}</span>
-            </div>
-          )}
+    <div style={{ marginTop: 14, display: "flex", gap: 10, alignItems: "stretch" }}>
+      <div
+        style={{
+          flex: 1, minWidth: 0, borderRadius: 14, padding: "11px 13px",
+          background: `color-mix(in oklab, ${tcolor} 12%, var(--paper-soft))`,
+          border: `1px solid color-mix(in oklab, ${tcolor} 45%, var(--border))`,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <TierBadge tierId={tier.id} size={34} />
+          <span style={{ flex: 1, minWidth: 0, fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14.5, letterSpacing: "-0.01em", color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {tier.name}
+          </span>
+          <span style={{ flexShrink: 0, fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 16, color: "var(--ink)", fontFeatureSettings: '"tnum" 1' }}>
+            {fmt(d.xp)} <span style={{ fontSize: 9.5, fontWeight: 600, color: "var(--ink-soft)", letterSpacing: "0.08em" }}>XP</span>
+          </span>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 18, color: "var(--ink)", fontFeatureSettings: '"tnum" 1', lineHeight: 1 }}>{fmt(d.xp)}</div>
-          <div style={{ fontSize: 10, color: "var(--ink-faint)", letterSpacing: "0.1em", marginTop: 3 }}>XP</div>
-        </div>
-      </div>
-      <div style={{ padding: "0 15px 13px" }}>
-        <div style={{ height: 8, borderRadius: 999, background: "var(--bone)", overflow: "hidden" }}>
+        <div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,0.55)", overflow: "hidden", margin: "8px 0 5px" }}>
           <div style={{ height: "100%", width: pct + "%", background: tcolor, borderRadius: 999, transition: "width 320ms var(--ease-out)" }} />
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 7, fontSize: 11.5 }}>
-          <span style={{ color: "var(--ink-faint)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 11, gap: 8 }}>
+          <span style={{ color: "var(--ink-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {next
               ? <><b style={{ color: "var(--ink)", fontFamily: "var(--font-mono)" }}>{fmt(need)} XP</b> to {next.name}</>
               : <span style={{ color: tcolor, fontWeight: 600 }}>Top rank reached</span>}
           </span>
-          <span style={{ color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>+{d.xp_week} this week</span>
+          <span style={{ color: "var(--ink-soft)", fontFamily: "var(--font-mono)", whiteSpace: "nowrap", flexShrink: 0 }}>+{d.xp_week} this week</span>
+        </div>
+        <div style={{ display: "flex", gap: 7, marginTop: 10 }}>
+          {isMe && (
+            <Button size="sm" variant="dark" style={{ flex: 1, justifyContent: "center" }} icon={<Zap size={14} />}
+              onClick={() => router.push("/rewards")}>Earn points</Button>
+          )}
+          <Button size="sm" variant="secondary" style={{ flex: 1, justifyContent: "center", background: "var(--paper)", borderColor: tcolor }} icon={<Trophy size={14} />}
+            onClick={() => router.push("/leaderboard")}>Leaderboard</Button>
         </div>
       </div>
-      <div style={{ display: "flex", gap: 8, padding: "0 15px 15px" }}>
-        {isMe && (
-          <Button size="sm" variant="dark" style={{ flex: 1, justifyContent: "center" }} icon={<Zap size={15} />}
-            onClick={() => router.push("/rewards")}>Earn points</Button>
-        )}
-        <Button size="sm" variant={isMe ? "secondary" : "dark"} style={{ flex: 1, justifyContent: "center" }} icon={<Trophy size={15} />}
-          onClick={() => router.push("/leaderboard")}>Leaderboard</Button>
-      </div>
+      {sideActions && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignSelf: "stretch" }}>
+          <SideAction label="Refer a friend" icon={<Gift size={18} />} onClick={() => router.push("/refer")} />
+          <SideAction label="Settings" icon={<Settings size={18} />} onClick={() => router.push("/settings")} />
+        </div>
+      )}
     </div>
+  );
+}
+
+function SideAction({ label, icon, onClick }: { label: string; icon: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      style={{
+        flex: 1, width: 52, borderRadius: 13, border: "1px solid var(--border)", background: "var(--paper-soft)",
+        color: "var(--ink)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+      }}
+    >
+      {icon}
+    </button>
   );
 }
 

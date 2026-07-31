@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="design_doc_mode" content="canvas">
+<title>Create-post — compact layout options</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+body{margin:0;font-family:var(--font-body);color:var(--ink)}
+.frame{position:absolute;width:390px}
+.frame h3{margin:0 0 10px;font-weight:700;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint)}
+.sheet{background:var(--paper);border-radius:20px;box-shadow:0 1px 4px rgba(0,0,0,0.1);overflow:hidden}
+.head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+.head b{font-family:var(--font-display);font-size:16px}
+.post-btn{background:var(--stamp-red);color:var(--paper);border:none;border-radius:999px;padding:7px 16px;font-weight:700;font-size:13px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:999px;border:1px solid var(--border-strong);background:var(--paper-soft);color:var(--ink-soft);font-size:12px;font-weight:500;white-space:nowrap}
+.chip.on{background:var(--ink);border-color:var(--ink);color:var(--paper);font-weight:700}
+.lbl{font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-faint)}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+.scrollrow{display:flex;gap:6px;overflow-x:auto}
+</style>
+</head>
+<body>
+
+<div class="frame" style="left:0px;top:0px">
+<h3>A · Merge tags + category into one autocomplete row</h3>
+<div class="sheet">
+  <div class="head"><b>Create a post</b><button class="post-btn">Post</button></div>
+  <div style="padding:14px 16px">
+    <div style="display:flex;gap:8px;align-items:center">
+      <div style="width:34px;height:34px;border-radius:50%;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">Y</div>
+      <div style="font-size:13px;font-weight:600">You <span style="color:var(--ink-faint);font-weight:400">· your feed</span></div>
+    </div>
+    <div style="font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--ink-faint);margin-top:10px">Add a title</div>
+    <div style="font-size:14.5px;color:var(--ink-faint);margin-top:6px;line-height:1.4">What's on your mind? Use # to tag topics.</div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button style="width:60px;height:60px;border-radius:12px;border:1px dashed var(--border-strong);background:var(--paper-soft);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ink-mute);font-size:10px;flex-shrink:0">📷 Photo</button>
+      <div style="flex:1;display:flex;align-items:center;gap:6px;height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--paper-soft);align-self:flex-start;margin-top:11px">
+        <span style="color:var(--ink-faint);font-size:14px">#/@</span>
+        <span style="font-size:13px;color:var(--ink-faint)">Category, e.g. Diecast, #HotToys…</span>
+      </div>
+    </div>
+    <div class="scrollrow" style="margin-top:9px">
+      <span class="chip on">Diecast</span><span class="chip">#HotToys</span><span class="chip">#NewDrops</span><span class="chip">+ Add</span>
+    </div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <span class="lbl">Post to</span>
+      <div class="row">
+        <span class="chip on">Your feed</span><span class="chip">Indian Toy Maniacs</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="frame" style="left:430px;top:0px">
+<h3>B · Everything below the fold collapses into one "Details" accordion</h3>
+<div class="sheet">
+  <div class="head"><b>Create a post</b><button class="post-btn">Post</button></div>
+  <div style="padding:14px 16px">
+    <div style="display:flex;gap:8px;align-items:center">
+      <div style="width:34px;height:34px;border-radius:50%;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">Y</div>
+      <div style="font-size:13px;font-weight:600">You <span style="color:var(--ink-faint);font-weight:400">· your feed</span></div>
+    </div>
+    <div style="font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--ink-faint);margin-top:10px">Add a title</div>
+    <div style="font-size:14.5px;color:var(--ink-faint);margin-top:6px;line-height:1.4">What's on your mind? Use # to tag topics.</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+      <button style="width:32px;height:32px;border-radius:9px;border:1px solid var(--border-strong);background:var(--paper-soft);display:flex;align-items:center;justify-content:center">😊</button>
+      <button style="width:32px;height:32px;border-radius:9px;border:1px solid var(--border-strong);background:var(--paper-soft);display:flex;align-items:center;justify-content:center">📷</button>
+      <div style="flex:1"></div>
+      <span style="font-size:11px;color:var(--ink-ghost);font-family:var(--font-mono)">0/600</span>
+    </div>
+    <button style="width:100%;margin-top:14px;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bone);color:var(--ink-soft);font-size:13px;font-weight:600">
+      <span>Category · Hashtags · Post to</span><span style="color:var(--ink-faint)">▾</span>
+    </button>
+    <div style="font-size:11px;color:var(--ink-faint);margin-top:6px;padding-left:2px">Diecast · #HotToys · Your feed</div>
+  </div>
+</div>
+</div>
+
+<div class="frame" style="left:0px;top:400px">
+<h3>C · Two-step: Compose → Details (segmented at top)</h3>
+<div class="sheet">
+  <div class="head"><b>Create a post</b><button class="post-btn">Post</button></div>
+  <div style="padding:12px 16px 14px;border-bottom:1px solid var(--border);display:flex;gap:6px">
+    <div style="flex:1;text-align:center;padding:8px;border-radius:9px;background:var(--ink);color:var(--paper);font-size:12.5px;font-weight:700">1 · Write</div>
+    <div style="flex:1;text-align:center;padding:8px;border-radius:9px;background:var(--paper-soft);border:1px solid var(--border);color:var(--ink-faint);font-size:12.5px;font-weight:600">2 · Tag &amp; share</div>
+  </div>
+  <div style="padding:14px 16px">
+    <div style="font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--ink-faint)">Add a title</div>
+    <div style="font-size:14.5px;color:var(--ink-faint);margin-top:6px;line-height:1.4">What's on your mind? Use # to tag topics.</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
+      <button style="width:32px;height:32px;border-radius:9px;border:1px solid var(--border-strong);background:var(--paper-soft);display:flex;align-items:center;justify-content:center">😊</button>
+      <button style="width:32px;height:32px;border-radius:9px;border:1px solid var(--border-strong);background:var(--paper-soft);display:flex;align-items:center;justify-content:center">📷</button>
+      <div style="flex:1"></div>
+      <span style="font-size:11px;color:var(--ink-ghost);font-family:var(--font-mono)">0/600</span>
+    </div>
+  </div>
+  <div style="padding:0 16px 14px;color:var(--ink-faint);font-size:12px">Next step covers category, hashtags, and where to post — keeps this screen focused on writing.</div>
+</div>
+</div>
+
+<div class="frame" style="left:430px;top:400px">
+<h3>D · Tight single-column, no section chrome</h3>
+<div class="sheet">
+  <div class="head"><b>Create a post</b><button class="post-btn">Post</button></div>
+  <div style="padding:14px 16px">
+    <div style="display:flex;gap:8px;align-items:center">
+      <div style="width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">Y</div>
+      <div style="font-size:12.5px;font-weight:600">You <span style="color:var(--ink-faint);font-weight:400">· your feed</span></div>
+      <div style="flex:1"></div>
+      <button style="width:28px;height:28px;border-radius:8px;border:1px solid var(--border-strong);background:var(--paper-soft);font-size:13px">😊</button>
+      <button style="width:28px;height:28px;border-radius:8px;border:1px solid var(--border-strong);background:var(--paper-soft);font-size:13px">📷</button>
+    </div>
+    <div style="font-family:var(--font-display);font-weight:700;font-size:16px;color:var(--ink-faint);margin-top:9px">Add a title</div>
+    <div style="font-size:14px;color:var(--ink-faint);margin-top:4px;line-height:1.4">What's on your mind?</div>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+      <div class="scrollrow">
+        <span class="chip on">Diecast</span><span class="chip">Action Figure</span><span class="chip">Trading Cards</span>
+      </div>
+      <div class="scrollrow" style="margin-top:6px">
+        <span class="chip">#HotToys</span><span class="chip">#NewDrops</span><span class="chip">+ tag</span>
+      </div>
+      <div class="scrollrow" style="margin-top:6px">
+        <span class="chip on">Your feed</span><span class="chip">Indian Toy Maniacs</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+</body>
+</html>

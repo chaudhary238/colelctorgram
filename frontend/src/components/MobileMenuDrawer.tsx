@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { Bookmark, Settings, Shield, ChevronRight, X } from "lucide-react";
+import { Bookmark, Settings, Shield, ChevronRight, X, Pencil } from "lucide-react";
 import { useUser } from "@/lib/auth-context";
 
 /**
@@ -20,7 +20,7 @@ type Item = {
   sub?: string;
 };
 
-export function MobileMenuDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function MobileMenuDrawer({ open, onClose, onEditProfile }: { open: boolean; onClose: () => void; onEditProfile?: () => void }) {
   const { user } = useUser();
   const pathname = usePathname();
 
@@ -81,6 +81,23 @@ export function MobileMenuDrawer({ open, onClose }: { open: boolean; onClose: ()
 
         {/* Destinations */}
         <nav className="flex flex-col py-2">
+          {/* DV7-01 — v7 dropped the profile's "Edit profile" button (the avatar tap opens
+              the sheet), so the drawer carries the labelled action too rather than leaving
+              it to a discover-by-tapping affordance. A callback, not a Link: the sheet is
+              owned by the profile screen we're already on. */}
+          {onEditProfile && (
+            <button
+              onClick={() => { onClose(); onEditProfile(); }}
+              className="flex items-center gap-4 px-5 py-3.5 text-left active:bg-[var(--bone)]"
+            >
+              <Pencil size={22} strokeWidth={1.9} />
+              <span className="flex-1 min-w-0">
+                <span className="block text-[15px] text-[var(--ink)]">Edit profile</span>
+                <span className="block text-[12px] text-[var(--ink-faint)] truncate">Name, bio, city &amp; photo</span>
+              </span>
+              <ChevronRight size={18} className="text-[var(--ink-ghost)]" />
+            </button>
+          )}
           {items.map(({ href, label, icon: Icon, sub }) => {
             const active = pathname === href || pathname.startsWith(href + "/");
             return (

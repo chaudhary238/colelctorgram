@@ -11,7 +11,7 @@ from app.dependencies import get_current_user
 from app.models.catalogue import Catalogue
 from app.models.item import Item
 from app.models.trust import Report
-from app.models.user import User
+from app.models.user import Follow, User
 from app.services.catalogue import norm_title, MATCH_MEDIUM
 from app.services.gamification import award_xp
 
@@ -127,6 +127,151 @@ async def catalogue_brands(
     return {"brands": brands}
 
 
+@router.get("/scales")
+async def catalogue_scales(
+    category: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Distinct scales present in the catalogue (optionally within a category), for the
+    Database browse filter sheet (DV7-02). The frontend unions these with its canonical
+    CAT_SCALES list — designer/tcg have no scale, so this comes back empty there.
+
+    Must stay registered BEFORE /{sku} so the literal path wins the route match.
+    """
+    stmt = select(Catalogue.scale).where(
+        Catalogue.scale.isnot(None), Catalogue.status != "removed"
+    ).distinct()
+    if category:
+        stmt = stmt.where(Catalogue.category == category)
+    rows = (await db.execute(stmt)).scalars().all()
+    scales = sorted({s.strip() for s in rows if s and s.strip() and s.strip() != "—"})
+    return {"scales": scales}
+
+
+def _shelf_counts():
+    """Sub-selects for "how many collectors own / wishlist each SKU", keyed by sku.
+
+    Owned = on the shelf (owned|preorder). Wishlist = casual demand. `intel` DB
+    contributions are unowned seeds and deliberately count as neither — same rule as
+    GET /catalogue/{sku}.
+    """
+    owners = (
+        select(Item.sku, func.count(func.distinct(Item.user_id)).label("n"))
+        .where(Item.sku.isnot(None), Item.status.in_(["owned", "preorder"]))
+        .group_by(Item.sku)
+        .subquery()
+    )
+    wishes = (
+        select(Item.sku, func.count(func.distinct(Item.user_id)).label("n"))
+        .where(Item.sku.isnot(None), Item.status == "wishlist")
+        .group_by(Item.sku)
+        .subquery()
+    )
+    return owners, wishes
+
+
+async def _viewer_statuses(db: AsyncSession, user_id, skus: list[str]) -> dict[str, str]:
+    """{sku: the viewer's own status for it} — owned > preorder > intel > wishlist when
+    they hold more than one copy row, matching GET /items/by-sku's priority."""
+    if not skus:
+        return {}
+    priority = {"owned": 0, "preorder": 1, "intel": 2, "wishlist": 3}
+    rows = (await db.execute(
+        select(Item.sku, Item.status).where(Item.user_id == user_id, Item.sku.in_(skus))
+    )).all()
+    best: dict[str, str] = {}
+    for sku, status in rows:
+        cur = best.get(sku)
+        if cur is None or priority.get(status, 9) < priority.get(cur, 9):
+            best[sku] = status
+    return best
+
+
+@router.get("/browse")
+async def browse_catalogue(
+    q: Optional[str] = None,
+    category: Optional[str] = None,
+    brand: Optional[str] = None,
+    scale: Optional[str] = None,
+    sort: str = Query("owned", pattern="^(owned|wishlisted|newest)$"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(24, le=48),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Browse the whole Scorred DB — backs the Database tab's grid (DV7-02).
+
+    Different job from /search: that one is the de-dup "did we already have this?"
+    lookup (needs `q`, ranks by trigram similarity, caps at 30). This one is a
+    browsable, paginated, sortable listing where `q` is optional and the social
+    counts (owned / wishlisted) come back with every row so the grid can rank by
+    demand. Reactively-removed entries are hidden; pending community entries are
+    included and badged, same as search.
+
+    Must stay registered BEFORE /{sku} so the literal path wins the route match.
+    """
+    owners, wishes = _shelf_counts()
+    owners_n = func.coalesce(owners.c.n, 0)
+    wishes_n = func.coalesce(wishes.c.n, 0)
+
+    def _filtered(stmt):
+        stmt = stmt.where(Catalogue.status != "removed")
+        if category:
+            stmt = stmt.where(Catalogue.category == category)
+        if brand:
+            stmt = stmt.where(func.lower(Catalogue.brand) == brand.lower())
+        if scale:
+            stmt = stmt.where(Catalogue.scale == scale)
+        if q and q.strip():
+            pattern = f"%{q.strip().lower()}%"
+            stmt = stmt.where(or_(
+                func.lower(Catalogue.title).like(pattern),
+                func.lower(Catalogue.brand).like(pattern),
+                func.lower(Catalogue.sku).like(pattern),
+            ))
+        return stmt
+
+    total = (await db.execute(
+        _filtered(select(func.count()).select_from(Catalogue))
+    )).scalar_one()
+
+    stmt = _filtered(
+        select(Catalogue, owners_n.label("owners"), wishes_n.label("wishes"))
+        .outerjoin(owners, owners.c.sku == Catalogue.sku)
+        .outerjoin(wishes, wishes.c.sku == Catalogue.sku)
+    )
+    if sort == "wishlisted":
+        order = [wishes_n.desc(), owners_n.desc()]
+    elif sort == "newest":
+        # `year` is a free-text String(8); 4-digit years sort correctly lexicographically
+        # and created_at breaks ties / carries year-less rows.
+        order = [Catalogue.year.desc().nullslast()]
+    else:  # owned — the default "most owned" ranking
+        order = [owners_n.desc(), wishes_n.desc()]
+    stmt = stmt.order_by(*order, Catalogue.created_at.desc()).offset((page - 1) * limit).limit(limit)
+    rows = (await db.execute(stmt)).all()
+
+    # The caller's own copy per SKU, so the grid can show "in your collection" and
+    # flip the wishlist toggle without an extra request per tile.
+    viewer = await _viewer_statuses(db, current_user.id, [c.sku for c, _o, _w in rows])
+
+    return {
+        "page": page,
+        "limit": limit,
+        "total": total,
+        "items": [
+            {
+                **_hit(c),
+                "owners_count": o,
+                "wishlists_count": w,
+                "viewer_status": viewer.get(c.sku),
+            }
+            for c, o, w in rows
+        ],
+    }
+
+
 @router.get("/{sku}")
 async def get_catalogue_entry(
     sku: str,
@@ -186,6 +331,81 @@ async def get_catalogue_entry(
         "viewer_item": viewer_item,
         "submitted_by_handle": submitted_by_handle,
         "created_at": entry.created_at.isoformat() if entry.created_at else None,
+    }
+
+
+@router.get("/{sku}/people")
+async def catalogue_people(
+    sku: str,
+    mode: str = Query("owners", pattern="^(owners|wishlist)$"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(30, le=60),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Who owns / has wishlisted this entry (DV7-02, design_v7 DbPeopleList) — the
+    Database detail page's shelf-count row is tappable and opens this list.
+
+    Owners are public (they're on someone's public shelf). Wishlists respect the
+    owner's wishlist privacy: `private` hides them, `followers` only shows people the
+    caller follows — same rule as GET /users/{handle}/collection.
+    """
+    from app.routers.users import _wishlist_hidden  # local import — avoids a router cycle
+
+    entry = (await db.execute(
+        select(Catalogue).where(Catalogue.sku == sku, Catalogue.status != "removed")
+    )).scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    statuses = ["owned", "preorder"] if mode == "owners" else ["wishlist"]
+    stmt = (
+        select(User)
+        .join(Item, Item.user_id == User.id)
+        .where(
+            Item.sku == sku,
+            Item.status.in_(statuses),
+            Item.privacy == "public",
+            User.is_suspended == False,  # noqa: E712
+        )
+        .distinct()
+        .order_by(User.followers_count.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+    )
+    users = list((await db.execute(stmt)).scalars().all())
+
+    if mode == "wishlist":
+        visible = []
+        for u in users:
+            if u.id == current_user.id or not await _wishlist_hidden(db, current_user, u):
+                visible.append(u)
+        users = visible
+
+    followed: set = set()
+    if users:
+        followed = set((await db.execute(
+            select(Follow.following_id).where(
+                Follow.follower_id == current_user.id,
+                Follow.following_type == "user",
+                Follow.following_id.in_([u.id for u in users]),
+            )
+        )).scalars().all())
+
+    return {
+        "page": page,
+        "limit": limit,
+        "mode": mode,
+        "items": [
+            {
+                "handle": u.handle,
+                "name": u.name,
+                "avatar_url": u.avatar_url,
+                "is_following": u.id in followed,
+                "is_me": u.id == current_user.id,
+            }
+            for u in users
+        ],
     }
 
 

@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Flag, ShieldCheck, Users, Plus, Check, Star } from "lucide-react";
+import { Flag, ShieldCheck, Users, Plus, Check, Star, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
 import { BackButton } from "@/components/BackButton";
 import { ProductPhoto, SectionLabel } from "@/components/ui";
 import { ReportCatalogueSheet } from "@/components/ReportCatalogueSheet";
+import { DbPeopleModal, type DbPeopleMode } from "@/components/DbPeopleModal";
 import { formatMoney, CAT_META } from "@/lib/catalog";
 
 // Scorred DB entry page — the shared library record for one SKU (NOT a user's item).
@@ -57,6 +58,7 @@ export default function DbEntryPage() {
   const [notFound, setNotFound] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [wishBusy, setWishBusy] = useState(false);
+  const [people, setPeople] = useState<DbPeopleMode | null>(null);
 
   // Star = wishlist (casual "might want someday"; taxonomy 2026-07-11). Active when
   // the viewer's copy of this SKU is a wishlist item; hidden once they own it.
@@ -96,7 +98,7 @@ export default function DbEntryPage() {
       <div className="w-full max-w-[680px] flex flex-col">
         <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <BackButton fallback="/search" />
+            <BackButton fallback="/db" />
             <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Scorred DB</span>
           </div>
         </div>
@@ -113,7 +115,7 @@ export default function DbEntryPage() {
     <div className="w-full max-w-[680px] flex flex-col pb-24">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <BackButton fallback="/search" />
+          <BackButton fallback="/db" />
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Scorred DB</span>
         </div>
       </div>
@@ -151,21 +153,31 @@ export default function DbEntryPage() {
           </button>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: "12px 14px", marginBottom: 16 }}>
-          <Users size={16} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
-          <span style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>
-            {entry.collectors_count === 0
-              ? "No collectors have this on their shelf yet — be the first."
-              : entry.collectors_count === 1
-              ? "1 collector has this on their shelf."
-              : `${entry.collectors_count.toLocaleString("en-IN")} collectors have this on their shelf.`}
-            {entry.wishlists_count > 0 && (
-              <span style={{ color: "var(--ink-faint)" }}>
-                {" "}· {entry.wishlists_count.toLocaleString("en-IN")} wishlisted
-              </span>
-            )}
-          </span>
-        </div>
+        {/* DV7-02 — the shelf-count row is tappable and opens the people list
+            (design_v7 DbPeopleList). Stays a plain row when nobody holds it yet. */}
+        {entry.collectors_count === 0 && entry.wishlists_count === 0 ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: "12px 14px", marginBottom: 16 }}>
+            <Users size={16} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
+            <span style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>
+              No collectors have this on their shelf yet — be the first.
+            </span>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+            <CountTile
+              n={entry.collectors_count}
+              label="own this"
+              icon={<Users size={13} style={{ color: "var(--ink-mute)" }} />}
+              onClick={() => setPeople("owners")}
+            />
+            <CountTile
+              n={entry.wishlists_count}
+              label="wishlisted"
+              icon={<Star size={13} style={{ color: "var(--ink-mute)" }} />}
+              onClick={() => setPeople("wishlist")}
+            />
+          </div>
+        )}
 
         <SectionLabel>Details</SectionLabel>
         <div style={{ marginTop: 4, marginBottom: 18 }}>
@@ -229,6 +241,35 @@ export default function DbEntryPage() {
       </div>
 
       {reporting && <ReportCatalogueSheet sku={entry.sku} onClose={() => setReporting(false)} />}
+      {people && (
+        <DbPeopleModal sku={entry.sku} title={entry.title} mode={people} onClose={() => setPeople(null)} />
+      )}
     </div>
+  );
+}
+
+/* ── Tappable shelf-count tile (v7 ExploreItemDetail stat row) ── */
+function CountTile({ n, label, icon, onClick }: { n: number; label: string; icon: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        flex: 1, textAlign: "left", cursor: "pointer", border: "1px solid var(--border)",
+        background: "var(--paper-soft)", borderRadius: 13, padding: "12px 14px",
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+      }}
+    >
+      <span>
+        <span style={{ display: "block", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 22, color: "var(--ink)", lineHeight: 1.1, fontFeatureSettings: '"tnum" 1' }}>
+          {n.toLocaleString("en-IN")}
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}>
+          {icon}
+          <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink-mute)" }}>{label}</span>
+        </span>
+      </span>
+      <ChevronRight size={16} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
+    </button>
   );
 }

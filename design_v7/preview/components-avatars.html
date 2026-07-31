@@ -1,0 +1,54 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 24px 28px; background: var(--paper);
+         font-family: var(--font-body); color: var(--ink); }
+  .label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+           letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 16px; }
+  .label b { color: var(--ink); font-weight: 600; }
+  .row { display: flex; gap: 18px; align-items: flex-end; }
+  .avatar { border-radius: 50%; color: var(--paper);
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-display); font-weight: 700;
+            position: relative; flex-shrink: 0; letter-spacing: -0.02em; }
+  .check { position: absolute; bottom: -2px; right: -2px;
+           background: var(--verified-teal); color: var(--paper);
+           border-radius: 50%; border: 2px solid var(--paper-soft);
+           display: flex; align-items: center; justify-content: center; }
+  .check svg { stroke: currentColor; fill: none; stroke-width: 3;
+               stroke-linecap: round; stroke-linejoin: round; }
+  .nm { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+        text-align: center; margin-top: 8px; }
+</style></head>
+<body>
+  <div class="label"><b>Avatars</b> · single-initial fallback · brand-tinted bg · verified badge</div>
+  <div class="row">
+    <div>
+      <div class="avatar" style="width:56px;height:56px;background:var(--plum);font-size:22px">A</div>
+      <div class="nm">aman_toys</div>
+    </div>
+    <div>
+      <div class="avatar" style="width:48px;height:48px;background:var(--stamp-red);font-size:19px">R
+        <div class="check" style="width:19px;height:19px"><svg width="11" height="11" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg></div>
+      </div>
+      <div class="nm">rohit.scale ✓</div>
+    </div>
+    <div>
+      <div class="avatar" style="width:40px;height:40px;background:var(--verified-teal);font-size:16px">S</div>
+      <div class="nm">saanvi</div>
+    </div>
+    <div>
+      <div class="avatar" style="width:36px;height:36px;background:var(--grail-gold);color:var(--ink);font-size:14px">K</div>
+      <div class="nm">karan_die</div>
+    </div>
+    <div>
+      <div class="avatar" style="width:32px;height:32px;background:var(--forest);font-size:13px">M</div>
+      <div class="nm">meera.figs</div>
+    </div>
+    <div>
+      <div class="avatar" style="width:28px;height:28px;background:var(--ink-mute);font-size:11px">V</div>
+      <div class="nm">vikram.toys</div>
+    </div>
+  </div>
+</body></html>

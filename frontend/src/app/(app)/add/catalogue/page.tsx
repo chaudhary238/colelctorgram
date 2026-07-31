@@ -229,8 +229,12 @@ function AddListingPageInner() {
   // ahead. Every mode (In Hand, Pre-order, DB Contribution) is search-first: find it in the
   // shared catalogue before adding, so we don't mint a duplicate. A ?sku deep-link is already
   // resolved to an entry, so it lands straight on the form.
+  // DV7-02 — ?new=1 also lands on the form: it comes from the Database tab's "can't find
+  // something?" CTA, where browsing/searching the catalogue IS the screen you just left, so
+  // re-running the search step would only ask the same question twice.
+  const isNewEntry = searchParams.get("new") === "1";
   const [step, setStep] = useState<"pick" | "search" | "form">(
-    skuParam ? "form" : preMode ? "search" : "pick"
+    skuParam || isNewEntry ? "form" : preMode ? "search" : "pick"
   );
 
   const [cat, setCat] = useState("figures");
@@ -552,9 +556,10 @@ function AddListingPageInner() {
     <div className="w-full max-w-[680px] flex flex-col pb-8">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* ?sku= deep-link came from outside (Scorred DB page) — back leaves the flow;
-              otherwise back returns in-flow to the search step (every mode is search-first). */}
-          <button onClick={() => (skuParam ? router.back() : setStep("search"))} aria-label="Back" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "transparent", cursor: "pointer" }}>
+          {/* ?sku= / ?new=1 deep-links came from outside (Scorred DB page, Database tab) —
+              back leaves the flow; otherwise back returns in-flow to the search step
+              (every in-flow mode is search-first). */}
+          <button onClick={() => (skuParam || isNewEntry ? router.back() : setStep("search"))} aria-label="Back" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "transparent", cursor: "pointer" }}>
             <ChevronRight size={18} style={{ transform: "rotate(180deg)" }} />
           </button>
           <div style={{ flex: 1 }}>

@@ -10,7 +10,10 @@
 // pushed/overlay screen (details, create flows, search/inbox/notifications,
 // settings/stash/rewards, other people's profiles) owns its own top header, so
 // the AppBar would only double it up. BottomNav still handles tab-switching there.
-const TAB_ROOTS = ["/feed", "/market", "/community", "/events", "/profile"];
+// DV7-02 — Database replaced Events as the 5th tab; /events is now a pushed screen
+// reached from the AppBar calendar icon, so it owns its own back header (and is NOT
+// a tab root any more).
+const TAB_ROOTS = ["/feed", "/market", "/db", "/community", "/profile"];
 
 // BottomNav hides on detail pages with a fixed bottom CTA bar (would stack) +
 // focused input flows where the tabs just get in the way. It STAYS on browsing

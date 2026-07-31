@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Calendar, Plus, MapPin, Search, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiEvent, EventCard } from "@/components/cards";
+import { BackButton } from "@/components/BackButton";
 import { Segmented, SectionLabel, EmptyNote, Tag, ProductPhoto, CategoryChip } from "@/components/ui";
 import { shortDate } from "@/lib/utils";
 import { useUser } from "@/lib/auth-context";
@@ -85,6 +86,13 @@ export default function EventsPage() {
   return (
     <div className="w-full max-w-[680px] flex flex-col">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
+        {/* row 0 (mobile only): back + title. DV7-02 — Events lost its bottom-nav tab
+            to Database, so on mobile it's a pushed screen off the AppBar calendar icon
+            and carries its own back affordance (R-06 pattern). Desktop keeps the Sidebar. */}
+        <div className="lg:hidden" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <BackButton fallback="/feed" />
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Events</span>
+        </div>
         {/* row 1: search + list button (v4 EventsView) */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
           <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, height: 38, padding: "0 12px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>

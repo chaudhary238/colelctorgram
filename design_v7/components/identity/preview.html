@@ -1,0 +1,40 @@
+<!-- @dsCard group="Identity" viewport="600x260" name="Avatar & TierChip" subtitle="Initial fallback · verified badge · trust tiers" -->
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 22px 26px; background: var(--paper); font-family: var(--font-body); color: var(--ink); }
+  .label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 16px; }
+  .label b { color: var(--ink); font-weight: 600; }
+  .row { display: flex; gap: 20px; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap; }
+  .avatar { border-radius: 50%; color: var(--paper); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 700; position: relative; flex-shrink: 0; letter-spacing: -0.02em; }
+  .check { position: absolute; bottom: -2px; right: -2px; background: var(--verified-teal); color: var(--paper); border-radius: 50%; border: 2px solid var(--paper); display: flex; align-items: center; justify-content: center; }
+  .nm { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); text-align: center; margin-top: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; font-family: var(--font-body); font-weight: 600; font-size: 10.5px; letter-spacing: 0.04em; line-height: 1; background: transparent; }
+</style></head>
+<body>
+  <div class="label"><b>Avatar</b> · sizes &amp; verified</div>
+  <div class="row">
+    <div><div class="avatar" style="width:64px;height:64px;background:var(--plum);font-size:25px">A
+      <div class="check" style="width:22px;height:22px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg></div>
+    </div><div class="nm">Top Seller</div></div>
+    <div><div class="avatar" style="width:48px;height:48px;background:var(--stamp-red);font-size:19px">R</div><div class="nm">48px</div></div>
+    <div><div class="avatar" style="width:40px;height:40px;background:var(--verified-teal);font-size:16px">S</div><div class="nm">40px</div></div>
+    <div><div class="avatar" style="width:36px;height:36px;background:var(--grail-gold);color:var(--ink);font-size:14px">K</div><div class="nm">36px</div></div>
+    <div><div class="avatar" style="width:28px;height:28px;background:var(--forest);font-size:11px">M</div><div class="nm">28px</div></div>
+  </div>
+  <div class="label"><b>TierChip</b> · trust tiers</div>
+  <div class="row" style="align-items:center">
+    <span class="chip" style="color:var(--stamp-red);border:1px solid var(--stamp-red)">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      Top Seller
+    </span>
+    <span class="chip" style="color:var(--forest);border:1px solid var(--forest)">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      Trusted
+    </span>
+    <span class="chip" style="color:var(--verified-teal);border:1px solid var(--verified-teal)">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      Verified
+    </span>
+  </div>
+</body></html>

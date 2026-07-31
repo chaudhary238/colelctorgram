@@ -2,15 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, ShoppingBag, Users, Calendar, User } from "lucide-react";
+import { Home, ShoppingBag, LayoutGrid, Users, User } from "lucide-react";
 import { hideBottomNav } from "@/lib/mobileChrome";
 
 /**
- * Mobile bottom tab bar (design_v6 Chrome.jsx BottomNav — R-02).
- * The 5 BRD-IA tabs EXACTLY: Home · Market · Community · Events · Profile.
- * Search, Create, Messages, Notifications live in the MobileAppBar. Stash +
- * Settings live behind the `≡` menu on the Profile screen (MobileMenuDrawer) —
- * Profile stays a first-class thumb-reachable tab (Instagram/Threads pattern).
+ * Mobile bottom tab bar (design_v7 Chrome.jsx BottomNav — DV7-02).
+ * The 5 tabs EXACTLY: Home · Market · Explore · Community · My Space.
+ * v7 change: the Scorred DB gets a first-class tab, and Events gives up its slot
+ * to make room — it moves UP to the MobileAppBar as a calendar icon (founder call
+ * 2026-07-30; desktop keeps Events in the Sidebar, unchanged). DV7-06 renamed that
+ * tab Database → Explore: the same `/db` route, but its search now covers items,
+ * posts, people, communities and events rather than just the catalogue.
+ * Create, Search, Events and the merged Activity inbox live in the MobileAppBar. Stash +
+ * Settings live behind the `≡` menu on the My Space screen (MobileMenuDrawer) —
+ * My Space stays a first-class thumb-reachable tab (Instagram/Threads pattern).
  * Active Home renders the white seal in a red pill (v6). Shown only below `lg`;
  * desktop keeps the Sidebar. Safe-area-inset-bottom pad for the home indicator (R-04).
  */
@@ -22,9 +27,9 @@ type Tab = {
 const TABS: Tab[] = [
   { href: "/feed", label: "Home", icon: Home },
   { href: "/market", label: "Market", icon: ShoppingBag },
+  { href: "/db", label: "Explore", icon: LayoutGrid },
   { href: "/community", label: "Community", icon: Users },
-  { href: "/events", label: "Events", icon: Calendar },
-  { href: "/profile", label: "Profile", icon: User },
+  { href: "/profile", label: "My Space", icon: User },
 ];
 
 export function BottomNav() {

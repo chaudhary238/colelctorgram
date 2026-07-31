@@ -1,19 +1,34 @@
 "use client";
 
-// Notifications — design feedback round 1 (DF-13), v3 restyle (M19 DF-32):
-// Messages moved out (header/sidebar Messages entry). 5 category cards —
-// Likes · Follows · Replies · Vouch (renamed from Trust) · Other (catch-all) —
-// v3 SQUARE icon-only tiles that fill with the category colour when active;
-// tapping one filters the activity list below. Rows show the ACTOR avatar +
-// @handle (v3) when the notification was user-triggered, else the category icon.
+// Activity — design feedback round 1 (DF-13), v3 restyle (M19 DF-32), v7 merge (DV7-05).
+//
+// DV7-05: Messages moved back IN. The header now has one bell for one combined inbox,
+// and this screen splits it with two segments — Activity (the notification feed, 5
+// category cards: Likes · Follows · Replies · Vouch · Other) and DMs (the thread list
+// that /inbox renders). Both lists stay MOUNTED and toggle with `display`, so switching
+// segments preserves scroll position and the read state each list arrived with.
+//
+// v3 SQUARE icon-only tiles fill with the category colour when active; tapping one
+// filters the activity list below. Rows show the ACTOR avatar + @handle when the
+// notification was user-triggered, else the category icon.
 // v3 marks all read on OPEN (no button) — the bell badge clears on visit.
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { MessageCircle, Shield, UserPlus, Heart, LayoutGrid, X } from "lucide-react";
-import { Avatar } from "@/components/ui";
+import { Avatar, CategoryChip, Money } from "@/components/ui";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
+
+// Thread shape from GET /threads — same rows /inbox renders (DV7-05).
+interface Thread {
+  id: string;
+  other_user: { id: string; handle: string | null; name: string | null; avatar_url: string | null } | null;
+  listing: { id: string; title: string; price: number; status: string } | null;
+  last_message: string | null;
+  last_message_at: string;
+  unread: number;
+}
 
 interface ApiNotification {
   id: string;
@@ -62,10 +77,12 @@ function refHref(refType: string | null, refId: string | null): string {
   }
 }
 
-export default function NotificationsPage() {
+export default function ActivityPage() {
   const [notifications, setNotifications] = useState<ApiNotification[]>([]);
   const [selected, setSelected] = useState<CategoryId | null>(null);
   const [loading, setLoading] = useState(true);
+  const [seg, setSeg] = useState<"activity" | "dms">("activity");
+  const [threads, setThreads] = useState<Thread[] | null>(null);
 
   // v3: load the feed, then mark everything read on OPEN so the bell badge
   // clears. We keep each row's fetched is_read for THIS view so the unread
@@ -77,6 +94,16 @@ export default function NotificationsPage() {
       .finally(() => setLoading(false));
     api.patch("/notifications/read-all").catch(console.error);
   }, []);
+
+  // DMs load alongside, not on segment switch: the DMs count has to be right in the
+  // segment label before you ever tap it. Threads keep their own unread — reading a
+  // DM happens in the thread, so nothing is marked read here (DV7-05).
+  useEffect(() => {
+    api.get<Thread[]>("/threads").then((t) => setThreads(t ?? [])).catch(() => setThreads([]));
+  }, []);
+
+  const dmUnread = (threads ?? []).reduce((s, t) => s + (t.unread || 0), 0);
+  const activityUnread = notifications.filter((n) => !n.is_read).length;
 
   const unreadByCategory = useMemo(() => {
     const counts: Record<CategoryId, number> = { likes: 0, follows: 0, replies: 0, vouch: 0, other: 0 };
@@ -94,8 +121,69 @@ export default function NotificationsPage() {
   return (
     <div className="w-full max-w-[680px] flex flex-col">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]" style={{ padding: "12px 20px" }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, letterSpacing: "-0.025em", margin: 0 }}>Notifications</h1>
+        <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, letterSpacing: "-0.025em", margin: 0 }}>Activity</h1>
       </div>
+
+      {/* DV7-05 segments — each label carries its own unread count */}
+      <div style={{ display: "flex", gap: 7, padding: "12px 20px 0" }}>
+        <CategoryChip active={seg === "activity"} onClick={() => setSeg("activity")}>
+          Activity{activityUnread ? ` ${activityUnread}` : ""}
+        </CategoryChip>
+        <CategoryChip active={seg === "dms"} onClick={() => setSeg("dms")}>
+          DMs{dmUnread ? ` ${dmUnread}` : ""}
+        </CategoryChip>
+      </div>
+
+      {/* ── DMs ── kept mounted so switching back restores scroll (DV7-05) */}
+      <div style={{ display: seg === "dms" ? "block" : "none", padding: "10px 0 24px" }}>
+        {threads === null
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} style={{ display: "flex", gap: 12, padding: "13px 20px", borderBottom: "1px solid var(--border)" }}>
+                <div style={{ width: 42, height: 42, borderRadius: "50%", background: "var(--bone)", flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ width: "50%", height: 12, borderRadius: 6, background: "var(--bone)", marginBottom: 8 }} />
+                  <div style={{ width: "80%", height: 10, borderRadius: 6, background: "var(--bone)" }} />
+                </div>
+              </div>
+            ))
+          : threads.length === 0
+            ? <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--ink-faint)", fontSize: 14 }}>
+                No messages yet. Find something you like on the market and message the seller.
+              </div>
+            : threads.map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/chat/${t.id}`}
+                  style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textDecoration: "none", borderBottom: "1px solid var(--border)", padding: "13px 20px" }}
+                >
+                  <Avatar name={t.other_user?.name ?? "?"} photo={t.other_user?.avatar_url} size={42} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {t.other_user?.name ?? "Unknown"}
+                    </div>
+                    {t.listing && (
+                      <div style={{ fontSize: 11, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", margin: "2px 0" }}>
+                        re: {t.listing.title.slice(0, 32)}{t.listing.title.length > 32 ? "…" : ""} · <Money value={Math.round(t.listing.price / 100)} />
+                      </div>
+                    )}
+                    <div style={{ fontSize: 13, marginTop: 2, color: t.unread > 0 ? "var(--ink)" : "var(--ink-faint)", fontWeight: t.unread > 0 ? 500 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {t.last_message ?? "No messages yet"}
+                    </div>
+                  </div>
+                  <div style={{ flexShrink: 0, textAlign: "right" }}>
+                    <div style={{ fontSize: 11, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>{timeAgo(t.last_message_at)}</div>
+                    {t.unread > 0 && (
+                      <div style={{ marginTop: 5, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                        {t.unread}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              ))}
+      </div>
+
+      {/* ── Activity ── */}
+      <div style={{ display: seg === "activity" ? "block" : "none" }}>
 
       {/* category cards (DF-13) — v3 square icon-only tiles (DF-32) */}
       <div className="grid grid-cols-5 gap-2.5" style={{ padding: "14px 20px 12px" }}>
@@ -207,6 +295,7 @@ export default function NotificationsPage() {
                   </Link>
                 );
               })}
+      </div>
       </div>
     </div>
   );

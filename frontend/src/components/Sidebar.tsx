@@ -3,16 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Home, Search, ShoppingBag, Users, Calendar,
+  Home, Search, ShoppingBag, Users, Calendar, LayoutGrid,
   Bell, PlusCircle, Settings, User, MessageSquare, Bookmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SealMark, ScorredWordmark } from "@/components/ui";
 import { useUnread } from "@/components/useUnread";
 
-// Order mirrors the DF-12 header: create+search cluster up top (mobile top-left),
-// Messages paired directly with Notifications (mobile top-right: message btn + bell).
-// badgeKey wires a live unread count (DF-38) instead of a hardcoded number.
+// Order mirrors the DF-12 header: create+search cluster up top, Messages paired directly
+// with Notifications. badgeKey wires a live unread count (DF-38), not a hardcoded number.
+// DV7-05 NOTE: the MOBILE AppBar merged Messages into one Activity bell. The sidebar keeps
+// them as two rows — design_v7 web/Web.jsx does the same, and a vertical list has no reason
+// to collapse two destinations that a 5-icon top bar did. This is also what keeps /inbox
+// reachable without a deep link.
 type NavDef = {
   href: string;
   label: string;
@@ -25,11 +28,16 @@ const NAV: NavDef[] = [
   { href: "/compose",       label: "Add",           icon: PlusCircle },
   { href: "/market",        label: "Market",        icon: ShoppingBag },
   { href: "/community",     label: "Community",     icon: Users },
+  // DV7-02 — the Scorred DB gets its own destination, slotted after Community exactly as
+  // design_v7 web/Web.jsx orders it. Renamed Database → "Explore" in DV7-06 (it searches
+  // everything now, not just the catalogue). Events KEEPS its sidebar slot on desktop;
+  // only the mobile bottom nav traded Events out (founder call 2026-07-30).
+  { href: "/db",            label: "Explore",       icon: LayoutGrid },
   { href: "/events",        label: "Events",        icon: Calendar },
   { href: "/inbox",         label: "Messages",      icon: MessageSquare, badgeKey: "msgs" as const },
   { href: "/notifications", label: "Notifications", icon: Bell,       badgeKey: "notifs" as const },
   { href: "/saved",         label: "Stash",         icon: Bookmark },
-  { href: "/profile",       label: "Profile",       icon: User },
+  { href: "/profile",       label: "My Space",      icon: User },
 ];
 
 function NavItem({
