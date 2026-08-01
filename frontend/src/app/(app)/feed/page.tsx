@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { useUser, AuthUser } from "@/lib/auth-context";
 import { PostCard, ListingFeedCard, FeedEventCard, ApiPost, ApiListing, ApiEvent } from "@/components/cards";
 import { cn } from "@/lib/utils";
+import { ADD_CATEGORIES } from "@/lib/catalog";
 
 type StreamItem =
   | { t: "post"; key: string; data: ApiPost }
@@ -26,13 +27,8 @@ const TABS = [
 type Tab = (typeof TABS)[number]["id"];
 
 // v4 order (CATEGORIES in data.jsx): figures → diecast → kits → designer → tcg.
-const CATEGORIES = [
-  { id: "figures", label: "Action Figures" },
-  { id: "diecast", label: "Diecast" },
-  { id: "kits", label: "Model Kits & Lego" },
-  { id: "designer", label: "Designer Toys & Blind Boxes" },
-  { id: "tcg", label: "Trading Cards (TCG)" },
-];
+// Shared list — see lib/catalog.ts; one wording per category app-wide (Change Spec §4.2).
+const CATEGORIES = ADD_CATEGORIES;
 
 const FALLBACK_TAGS = ["#NewDrops", "#Grails", "#Sealed", "#Restock", "#Meetups"];
 

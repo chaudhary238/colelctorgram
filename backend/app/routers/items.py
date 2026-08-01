@@ -14,7 +14,7 @@ from app.models.item import Item, ItemPhoto
 from app.models.catalogue import Catalogue
 from app.models.user import Follow, User
 from app.services.gamification import resolve_referral
-from app.services.catalogue import resolve_or_create
+from app.services.catalogue import resolve_or_create, norm_scale
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +128,8 @@ async def add_item(
         sku=body.sku,
         custom_title=body.custom_title,
         brand=body.brand,
-        scale=body.scale,
+        # Slash form only (Change Spec §5) — a hand-typed "1:6" must group with "1/6".
+        scale=norm_scale(body.scale),
         release_year=body.release_year,
         description=body.description,
         category=body.category,
@@ -367,7 +368,10 @@ async def update_item(
     item = result.scalar_one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    for field, value in body.model_dump(exclude_none=True).items():
+    patch = body.model_dump(exclude_none=True)
+    if "scale" in patch:
+        patch["scale"] = norm_scale(patch["scale"])  # slash form only (Change Spec §5)
+    for field, value in patch.items():
         setattr(item, field, value)
     photos = (await db.execute(select(ItemPhoto).where(ItemPhoto.item_id == item.id))).scalars().all()
     return _item_out(item, photos)

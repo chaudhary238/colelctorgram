@@ -1,15 +1,19 @@
 "use client";
 
 // Create / Compose — design feedback round 3 (DF-30). Single-window composer:
-// Stage 0 chooser (Create a Post vs Add an item) → one screen with a Segmented
-// type switch (Post · ISO · Poll · Review), optional title, body + emoji + char
-// counter, per-type fields (ISO form / poll choices / review StarPicker), a 6-image
+// a Segmented type switch (Post · ISO · Poll · Review), optional title, body + emoji +
+// char counter, per-type fields (ISO form / poll choices / review StarPicker), a 6-image
 // strip, hashtag entry, and a multi-select "Post to" (feed + communities, DF-30h).
+//
+// The "Post or Add item?" chooser that used to sit in front of this screen is GONE
+// (Change Spec §1.1). Create now opens straight on the four post types, so there is no
+// stage machine left and Close always LEAVES the composer — there is nothing behind it
+// to fall back to. Adding an item to the DB is its own flow, reached from the Database
+// tab's three entry points, not from a fork inside Create.
 
-import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { X, Check, Camera, ChevronLeft, ChevronRight, Plus, Smile, Star, Edit3, Tag as TagIcon } from "lucide-react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { X, Check, Camera, Plus, Smile, Star } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiCommunity } from "@/components/cards";
 import { Avatar, Segmented, SectionLabel } from "@/components/ui";
@@ -52,18 +56,22 @@ function StarPicker({ value, onChange }: { value: number; onChange: (n: number) 
   );
 }
 
-export default function ComposePage() {
+function ComposePage() {
   const router = useRouter();
+  // useSearchParams, NOT window.location — the latter is undefined during SSR, so a
+  // ?type= deep link rendered the CHOOSER on the server and only corrected on hydration
+  // (a visible flash of the screen the deep link exists to skip). Same pattern as
+  // /add/catalogue; it's why this component sits under a Suspense boundary below.
+  const params = useSearchParams();
   // Pre-selected community when arriving from a community page (?community=…) skips
   // the chooser and goes straight to the composer scoped to that community.
-  const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-  const preCommunity = params?.get("community") ?? "";
-  // ?type=iso|poll|review|post deep-links straight into that composer (e.g. the
-  // Market ISO Board's "Post ISO" button) — skips the chooser like preCommunity.
-  const preTypeRaw = params?.get("type") ?? "";
+  const preCommunity = params.get("community") ?? "";
+  // ?type=iso|poll|review|post picks the starting tab of the type switch (the Create
+  // button sends `post`, the Market ISO Board's "Post ISO" sends `iso`). Anything else —
+  // including a bare /compose — lands on Post, since there is no chooser to fall back to.
+  const preTypeRaw = params.get("type") ?? "";
   const preType = TYPES.some((t) => t.id === preTypeRaw) ? (preTypeRaw as ComposeType) : null;
 
-  const [stage, setStage] = useState<"choose" | "compose">(preCommunity || preType ? "compose" : "choose");
   const [type, setType] = useState<ComposeType>(preType ?? "post");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -201,50 +209,6 @@ export default function ComposePage() {
     }
   };
 
-  // ── Stage 0 — choose Post vs Listing ──
-  if (stage === "choose") {
-    const OPTIONS = [
-      { id: "post", label: "Add a Post", desc: "Showcase, ask, review or poll the community.", color: "var(--plum)", icon: Edit3 },
-      { id: "listing", label: "Add an item", desc: "Add to your shelf — in hand, pre-order, or DB contribution.", color: "var(--stamp-red)", icon: TagIcon },
-    ] as const;
-    return (
-      <div className="w-full max-w-[680px] flex flex-col" style={{ minHeight: "100vh", background: "var(--canvas)" }}>
-        <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]" style={{ padding: "12px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {/* Close = return to wherever Create was opened from (market, profile, …);
-                /feed only on a cold/deep-link entry with no in-app history. */}
-            <button type="button" aria-label="Close" onClick={() => (window.history.length > 1 ? router.back() : router.push("/feed"))} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--slate-200)", background: "transparent", color: "var(--ink)", cursor: "pointer" }}>
-              <X size={18} />
-            </button>
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Add</span>
-          </div>
-        </div>
-        <div style={{ padding: "16px 20px" }}>
-          <div style={{ fontSize: 13.5, color: "var(--ink-mute)", margin: "0 2px 14px" }}>What would you like to add?</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {OPTIONS.map((o) => (
-              <button
-                key={o.id}
-                onClick={() => { if (o.id === "listing") router.push("/add/catalogue"); else setStage("compose"); }}
-                style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", cursor: "pointer", background: "var(--card-surface)", border: "1px solid var(--slate-200)", borderRadius: 16, padding: 16, boxShadow: "var(--card-shadow)" }}
-              >
-                <div style={{ width: 50, height: 50, borderRadius: 13, background: o.color, color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <o.icon size={23} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{o.label}</div>
-                  <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>{o.desc}</div>
-                </div>
-                <ChevronRight size={18} style={{ color: "var(--ink-faint)" }} />
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Stage 1 — the composer ──
   const placeholder = type === "poll"
     ? "Ask your question…"
     : type === "review"
@@ -261,8 +225,15 @@ export default function ComposePage() {
     <div className="w-full max-w-[680px] flex flex-col pb-10" style={{ background: "var(--canvas)", minHeight: "100vh" }}>
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]" style={{ padding: "12px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button onClick={() => setStage("choose")} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--slate-200)", background: "transparent", color: "var(--ink)", cursor: "pointer" }}>
-            <ChevronLeft size={18} />
+          {/* Spec §1.1 — Back CLOSES the composer. With the chooser gone there is no screen
+              behind this one, so it returns to wherever Create was opened from (feed, market,
+              a community…), or /feed on a cold deep-link entry with no in-app history. */}
+          <button
+            aria-label="Close"
+            onClick={() => (window.history.length > 1 ? router.back() : router.push("/feed"))}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--slate-200)", background: "transparent", color: "var(--ink)", cursor: "pointer" }}
+          >
+            <X size={18} />
           </button>
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Add a post</span>
           <button onClick={publish} disabled={!canPost || publishing} style={{ height: 36, padding: "0 18px", borderRadius: 9, border: "none", background: canPost ? "var(--stamp-red)" : "var(--slate-100)", color: canPost ? "var(--paper)" : "var(--slate-400)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, cursor: canPost ? "pointer" : "not-allowed" }}>
@@ -557,5 +528,15 @@ function PostToChip({ active, onClick, children }: { active: boolean; onClick: (
     >
       {active && <Check size={13} strokeWidth={3} />}{children}
     </button>
+  );
+}
+
+// useSearchParams must sit under a Suspense boundary for the production build
+// (same wrapper as /add/catalogue).
+export default function ComposePageWrapper() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-[680px]" style={{ minHeight: "100vh", background: "var(--canvas)" }} />}>
+      <ComposePage />
+    </Suspense>
   );
 }

@@ -14,21 +14,20 @@ const CAT_FILTER_FIELDS = {
 
 function ExploreView() {
   const { push, flashToast, tab, stacks } = useNav();
-  const { dbWishlist, toggleDbWishlist, catalogueVersion, posts } = useAppState();
+  const { dbWishlist, toggleDbWishlist, catalogueVersion } = useAppState();
   const isRoot = tab === 'database' && stacks.database && stacks.database.length === 1;
   const [q, setQ] = React.useState('');
-  const [cat, setCat] = React.useState('all');
+  const [cats, setCats] = React.useState(() => CATEGORIES.filter(c => ME.interests.includes(c.id)).map(c => c.id));
   const [scale, setScale] = React.useState('all');
   const [sort, setSort] = React.useState('owned'); // owned | wishlisted | newest
   const [sheetOpen, setSheetOpen] = React.useState(false);
-  const [scope, setScope] = React.useState('items'); // items | posts | people | communities | events
-  const [draftCat, setDraftCat] = React.useState('all');
+  const [draftCats, setDraftCats] = React.useState(() => CATEGORIES.filter(c => ME.interests.includes(c.id)).map(c => c.id));
   const [draftScale, setDraftScale] = React.useState('all');
   const [draftSort, setDraftSort] = React.useState('owned');
 
   const items = React.useMemo(() => {
     let l = CATALOGUE.slice();
-    if (cat !== 'all') l = l.filter(c => c.cat === cat);
+    if (cats.length) l = l.filter(c => cats.includes(c.cat));
     if (scale !== 'all') l = l.filter(c => c.scale === scale);
     if (q.trim()) {
       const s = q.toLowerCase();
@@ -38,112 +37,61 @@ function ExploreView() {
     else if (sort === 'wishlisted') l = l.slice().sort((a, b) => ((b.wishCount || 0) + (dbWishlist[b.sku] ? 1 : 0)) - ((a.wishCount || 0) + (dbWishlist[a.sku] ? 1 : 0)));
     else if (sort === 'newest') l = l.slice().sort((a, b) => (b.year || 0) - (a.year || 0));
     return l;
-  }, [q, cat, scale, sort, dbWishlist, catalogueVersion]);
+  }, [q, cats, scale, sort, dbWishlist, catalogueVersion]);
 
-  const draftFields = draftCat !== 'all' ? (CAT_FILTER_FIELDS[draftCat] || []) : ['scale'];
-  const scaleOptions = Array.from(new Set(CATALOGUE.filter(c => (draftCat === 'all' || c.cat === draftCat) && c.scale !== '—').map(c => c.scale)));
-  const activeFilterCount = (cat !== 'all' ? 1 : 0) + (scale !== 'all' ? 1 : 0) + (sort !== 'owned' ? 1 : 0);
+  const toggleDraftCat = id => setDraftCats(prev => { const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]; setDraftScale('all'); return next; });
+  const catAllows = id => !draftCats.length || draftCats.includes(id);
+  const draftFields = draftCats.length === 1 ? (CAT_FILTER_FIELDS[draftCats[0]] || []) : ['scale'];
+  const scaleOptions = Array.from(new Set(CATALOGUE.filter(c => catAllows(c.cat) && c.scale !== '—').map(c => c.scale)));
+  const activeFilterCount = cats.length + (scale !== 'all' ? 1 : 0) + (sort !== 'owned' ? 1 : 0);
 
-  // global search results (non-catalogue scopes) — Discover searches everything
   const ql = q.trim().toLowerCase();
   const searching = ql.length > 0;
-  const allPosts = [...(posts || []), ...POSTS, ...(typeof ISO_POSTS !== 'undefined' ? ISO_POSTS : [])];
-  const resPosts = !searching ? [] : allPosts.filter(p =>
-    (p.body || '').toLowerCase().includes(ql) || (p.isoItem || '').toLowerCase().includes(ql) ||
-    (p.user || '').toLowerCase().includes(ql) || (p.community || '').toLowerCase().includes(ql));
-  const resPeople = !searching ? [] : Object.values(USERS).filter(u => (u.name + u.handle).toLowerCase().includes(ql));
-  const resComs = !searching ? [] : COMMUNITIES.filter(c => c.name.toLowerCase().includes(ql));
-  const resEvs = !searching ? [] : EVENTS.filter(e => e.title.toLowerCase().includes(ql));
-  const SCOPES = [
-    { id: 'items', label: 'Items', n: items.length },
-    { id: 'posts', label: 'Posts', n: resPosts.length },
-    { id: 'people', label: 'People', n: resPeople.length },
-    { id: 'communities', label: 'Communities', n: resComs.length },
-    { id: 'events', label: 'Events', n: resEvs.length },
-  ];
-  React.useEffect(() => { if (!searching) setScope('items'); }, [searching]);
 
-  const openSheet = () => { setDraftCat(cat); setDraftScale(scale); setDraftSort(sort); setSheetOpen(true); };
-  const applySheet = () => { setCat(draftCat); setScale(draftScale); setSort(draftSort); setSheetOpen(false); };
-  const clearSheet = () => { setDraftCat('all'); setDraftScale('all'); setDraftSort('owned'); };
+  const PAGE = 8;
+  const [shownCount, setShownCount] = React.useState(PAGE);
+  React.useEffect(() => { setShownCount(PAGE); }, [ql, cats, scale, sort]);
+  const visible = items.slice(0, shownCount);
+  const remaining = items.length - visible.length;
+
+  const openSheet = () => { setDraftCats(cats); setDraftScale(scale); setDraftSort(sort); setSheetOpen(true); };
+  const applySheet = () => { setCats(draftCats); setScale(draftScale); setSort(draftSort); setSheetOpen(false); };
+  const clearSheet = () => { setDraftCats([]); setDraftScale('all'); setDraftSort('owned'); };
 
   return (
-    <Screen nav={isRoot} header={isRoot ? <AppBar title="Explore"/> : <DetailHeader title="Explore"/>}>
+    <Screen nav={isRoot} header={isRoot ? <AppBar title="Database"/> : <DetailHeader title="Database"/>}>
       <div style={{ padding: '12px 16px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 9, height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--paper-soft)' }}>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 9, height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--paper-soft)' }}>
             <Ico d={Icons.search} size={18} style={{ color: 'var(--ink-faint)' }}/>
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Items, posts, people, communities…"
-              style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontFamily: 'var(--font-body)', fontSize: 14.5, color: 'var(--ink)' }}/>
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search items…"
+              style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', outline: 'none', fontFamily: 'var(--font-body)', fontSize: 14.5, color: 'var(--ink)' }}/>
+            <button onClick={openSheet} aria-label={`Filters${activeFilterCount ? ` · ${activeFilterCount} active` : ''}`} style={{
+              display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, padding: 0, marginRight: -2,
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: activeFilterCount ? 'var(--stamp-red)' : 'var(--ink-faint)' }}>
+              <Ico d={Icons.filter} size={18} stroke={2}/>
+              {activeFilterCount > 0 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700 }}>{activeFilterCount}</span>}
+            </button>
           </div>
-          <button onClick={openSheet} aria-label="Filters" style={{
-            width: 44, height: 44, flexShrink: 0, borderRadius: 12, cursor: 'pointer', position: 'relative',
-            border: `1px solid ${activeFilterCount ? 'var(--stamp-red)' : 'var(--border-strong)'}`,
-            background: activeFilterCount ? 'var(--stamp-red-soft)' : 'var(--paper-soft)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Ico d={Icons.filter} size={18} style={{ color: activeFilterCount ? 'var(--stamp-red)' : 'var(--ink-mute)' }}/>
-            {activeFilterCount > 0 && (
-              <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 999, background: 'var(--stamp-red)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', fontFamily: 'var(--font-mono)' }}>{activeFilterCount}</span>
-            )}
-          </button>
-          <button onClick={() => push({ name: 'add-to-db' })} aria-label="Add item — can't find something?" style={{
-            width: 44, height: 44, flexShrink: 0, borderRadius: 12, border: '1px solid var(--slate-200)',
-            background: 'var(--slate-50)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Ico d={Icons.plusCircle} size={18} stroke={1.8} style={{ color: 'var(--stamp-red)' }}/>
+          <button onClick={() => push({ name: 'add-to-db' })} style={{
+            display: 'flex', alignItems: 'center', gap: 5, height: 44, padding: '0 13px', flexShrink: 0,
+            borderRadius: 12, border: 'none', background: 'var(--stamp-red)', cursor: 'pointer',
+            fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
+            <Ico d={Icons.plus} size={15} stroke={2.4}/>
+            Add item
           </button>
         </div>
 
-        {searching && (
-          <div style={{ display: 'flex', gap: 7, marginTop: 12, overflowX: 'auto', paddingBottom: 2 }}>
-            {SCOPES.map(s => (
-              <CategoryChip key={s.id} active={scope === s.id} onClick={() => setScope(s.id)}>{s.label} {s.n}</CategoryChip>
-            ))}
-          </div>
-        )}
-
-        {scope === 'items' && <div style={{ fontSize: 12, color: 'var(--ink-faint)', margin: '12px 2px 8px' }}>{items.length} items</div>}
+        <div style={{ fontSize: 12, color: 'var(--ink-faint)', margin: '12px 2px 8px' }}>{items.length} items</div>
       </div>
 
-      {searching && scope !== 'items' && (
-        <div style={{ padding: '4px 16px 20px' }}>
-          {scope === 'posts' && (resPosts.length ? resPosts.slice(0, 20).map(p => {
-            const u = p.user === 'you' ? ME : (USERS[p.user] || ME);
-            const com = p.community ? COMMUNITIES.find(c => c.id === p.community) : null;
-            const txt = p.isoItem || p.body || '';
-            return <ResRow key={p.id} onClick={() => push({ name: 'post', id: p.id })}
-              media={<Avatar name={u.name} color={u.color} size={40}/>}
-              title={txt.slice(0, 72) + (txt.length > 72 ? '…' : '') || '(no text)'}
-              sub={`@${u.handle}${com ? ' · ' + com.name : ''}`}/>;
-          }) : <EmptyScope label="posts"/>)}
-          {scope === 'people' && (resPeople.length ? resPeople.slice(0, 20).map(u => (
-            <ResRow key={u.handle} onClick={() => push({ name: 'profile', user: u.handle })}
-              media={<Avatar name={u.name} color={u.color} size={40} verified={u.tier !== 'Verified'}/>}
-              title={u.name} sub={`@${u.handle} · ${u.deals} deals · ${u.vouchesReceived} vouches`}/>
-          )) : <EmptyScope label="people"/>)}
-          {scope === 'communities' && (resComs.length ? resComs.slice(0, 20).map(c => (
-            <ResRow key={c.id} onClick={() => push({ name: 'community-detail', id: c.id })}
-              media={<div style={{ width: 40, height: 40, borderRadius: 9, background: 'var(--ink)', color: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15 }}>{c.tag}</div>}
-              title={c.name} sub={`${c.members.toLocaleString('en-IN')} members`}/>
-          )) : <EmptyScope label="communities"/>)}
-          {scope === 'events' && (resEvs.length ? resEvs.slice(0, 20).map(e => (
-            <ResRow key={e.id} onClick={() => push({ name: 'event', id: e.id })}
-              media={<div style={{ width: 40, height: 40, borderRadius: 9, background: 'var(--plum)', color: 'var(--paper)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: 8, fontWeight: 700 }}>{e.month}</span><span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15, lineHeight: 1 }}>{e.date}</span></div>}
-              title={e.title} sub={e.when}/>
-          )) : <EmptyScope label="events"/>)}
-        </div>
+      {searching && items.length === 0 && (
+        <div style={{ padding: '28px 24px 32px', textAlign: 'center', fontSize: 13.5, color: 'var(--ink-faint)' }}>No items match that search.</div>
       )}
 
-      {searching && scope === 'items' && items.length === 0 && (
-        <div style={{ padding: '28px 24px 32px', textAlign: 'center' }}>
-          <div style={{ fontSize: 13.5, color: 'var(--ink-faint)' }}>No items match that search.</div>
-          {(resPosts.length + resPeople.length + resComs.length + resEvs.length) > 0 && (
-            <div style={{ fontSize: 13, color: 'var(--ink-mute)', marginTop: 8 }}>Try {resPosts.length ? 'Posts' : resPeople.length ? 'People' : resComs.length ? 'Communities' : 'Events'} above.</div>
-          )}
-        </div>
-      )}
-
-      {scope === 'items' && <div style={{ padding: '0 16px 8px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        {items.map(c => (
+      <div style={{ padding: '0 16px 8px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {visible.map(c => (
           <div key={c.sku} style={{ background: 'var(--paper-soft)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
             <div style={{ position: 'relative' }}>
               <button onClick={() => push({ name: 'explore-item', sku: c.sku })} style={{ display: 'block', width: '100%', border: 'none', background: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
@@ -173,7 +121,30 @@ function ExploreView() {
             </button>
           </div>
         ))}
-      </div>}
+      </div>
+
+      {remaining > 0 && (
+        <div style={{ padding: '4px 16px 8px' }}>
+          <button onClick={() => setShownCount(n => n + PAGE)} style={{
+            width: '100%', height: 44, borderRadius: 12, cursor: 'pointer',
+            border: '1px solid var(--border-strong)', background: 'var(--paper-soft)',
+            fontFamily: 'var(--font-body)', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>
+            Show {Math.min(PAGE, remaining)} more
+          </button>
+        </div>
+      )}
+
+      <div style={{ margin: '10px 16px 24px', padding: '16px 16px 15px', borderRadius: 14, border: '1px dashed var(--border-strong)', background: 'var(--paper-soft)', textAlign: 'center' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14.5, letterSpacing: '-0.01em' }}>Can’t find what you’re looking for?</div>
+        <div style={{ fontSize: 12.5, color: 'var(--ink-faint)', marginTop: 4, lineHeight: 1.45 }}>Add it to the database and earn XP once it’s reviewed.</div>
+        <button onClick={() => push({ name: 'add-to-db' })} style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, height: 38, padding: '0 16px', marginTop: 12,
+          borderRadius: 10, border: 'none', background: 'var(--stamp-red)', cursor: 'pointer',
+          fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: '-0.01em' }}>
+          <Ico d={Icons.plus} size={15} stroke={2.4}/>
+          Add an item
+        </button>
+      </div>
 
       {sheetOpen && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 40, display: 'flex', alignItems: 'flex-end' }}>
@@ -194,8 +165,20 @@ function ExploreView() {
 
             <div style={{ marginTop: 20 }}><SectionLabel>Category</SectionLabel></div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 9 }}>
-              <FilterChip active={draftCat === 'all'} onClick={() => { setDraftCat('all'); setDraftScale('all'); }}>All categories</FilterChip>
-              {CATEGORIES.map(c => <FilterChip key={c.id} active={draftCat === c.id} onClick={() => { setDraftCat(c.id); setDraftScale('all'); }}>{c.chipLabel}</FilterChip>)}
+              {CATEGORIES.map(c => {
+                const on = draftCats.includes(c.id);
+                return (
+                  <button key={c.id} onClick={() => toggleDraftCat(c.id)} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5, height: 32, padding: '0 12px', cursor: 'pointer',
+                    borderRadius: 9, whiteSpace: 'nowrap', fontFamily: 'var(--font-body)', fontSize: 12.5, fontWeight: 600,
+                    border: `1px solid ${on ? 'var(--stamp-red)' : 'var(--border-strong)'}`,
+                    background: on ? 'var(--stamp-red-soft)' : 'var(--paper-soft)',
+                    color: on ? 'var(--stamp-red)' : 'var(--ink-mute)' }}>
+                    {on && <Ico d={Icons.check} size={12} stroke={3.4}/>}
+                    {c.label}
+                  </button>
+                );
+              })}
             </div>
 
             {draftFields.includes('scale') && scaleOptions.length > 0 && (
@@ -210,7 +193,7 @@ function ExploreView() {
 
             <Button variant="dark" size="block" style={{ marginTop: 22 }} onClick={applySheet}>Show {(() => {
               let l = CATALOGUE.slice();
-              if (draftCat !== 'all') l = l.filter(c => c.cat === draftCat);
+              if (draftCats.length) l = l.filter(c => draftCats.includes(c.cat));
               if (draftScale !== 'all') l = l.filter(c => c.scale === draftScale);
               return l.length;
             })()} items</Button>
@@ -529,8 +512,4 @@ function DbPeopleList({ route }) {
   );
 }
 
-function EmptyScope({ label }) {
-  return <div style={{ padding: '32px 8px', textAlign: 'center', fontSize: 13.5, color: 'var(--ink-faint)' }}>No {label} match that search.</div>;
-}
-
-Object.assign(window, { ExploreView, ExploreItemDetail, AddToDbView, DbPeopleList, EmptyScope });
+Object.assign(window, { ExploreView, ExploreItemDetail, AddToDbView, DbPeopleList });

@@ -7,12 +7,13 @@ import { hideBottomNav } from "@/lib/mobileChrome";
 
 /**
  * Mobile bottom tab bar (design_v7 Chrome.jsx BottomNav — DV7-02).
- * The 5 tabs EXACTLY: Home · Market · Explore · Community · My Space.
+ * The 5 tabs EXACTLY: Home · Market · Database · Community · My Space.
  * v7 change: the Scorred DB gets a first-class tab, and Events gives up its slot
  * to make room — it moves UP to the MobileAppBar as a calendar icon (founder call
  * 2026-07-30; desktop keeps Events in the Sidebar, unchanged). DV7-06 renamed that
- * tab Database → Explore: the same `/db` route, but its search now covers items,
- * posts, people, communities and events rather than just the catalogue.
+ * tab Database → Explore and made its search global; BOTH were reverted on 2026-08-01 —
+ * it is the Database again, at `/db`, and its search matches catalogue items only.
+ * Global search stayed where it was, behind the header's search icon at `/search`.
  * Create, Search, Events and the merged Activity inbox live in the MobileAppBar. Stash +
  * Settings live behind the `≡` menu on the My Space screen (MobileMenuDrawer) —
  * My Space stays a first-class thumb-reachable tab (Instagram/Threads pattern).
@@ -27,7 +28,7 @@ type Tab = {
 const TABS: Tab[] = [
   { href: "/feed", label: "Home", icon: Home },
   { href: "/market", label: "Market", icon: ShoppingBag },
-  { href: "/db", label: "Explore", icon: LayoutGrid },
+  { href: "/db", label: "Database", icon: LayoutGrid },
   { href: "/community", label: "Community", icon: Users },
   { href: "/profile", label: "My Space", icon: User },
 ];

@@ -17,7 +17,7 @@ from app.models.event import Event
 from app.models.community import Community
 from app.models.item import Item
 from app.models.deal import Vouch
-from app.services.catalogue import norm_title
+from app.services.catalogue import norm_title, norm_scale
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -450,7 +450,9 @@ async def edit_catalogue(
     if "category" in data and data["category"]:
         item.category = data["category"]
     if "scale" in data:
-        item.scale = (data["scale"] or None) or None
+        # Slash form only — a hand-typed "1:300" would not group with its "1/300"
+        # siblings in the Database's scale filter (Change Spec §5).
+        item.scale = norm_scale(data["scale"])
     if "year" in data:
         item.year = (data["year"] or None) or None
     if "description" in data:

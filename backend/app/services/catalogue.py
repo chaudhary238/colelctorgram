@@ -28,6 +28,28 @@ MATCH_HIGH = 0.7
 MATCH_MEDIUM = 0.35
 
 
+def norm_scale(s: Optional[str]) -> Optional[str]:
+    """Canonical scale notation: a FORWARD SLASH, never a colon (Change Spec §5).
+
+    `1:300` and `1/300` are the same scale, but they are different strings, so a
+    colon-form row silently drops out of its own filter group and shows up as a second,
+    near-duplicate option in the Database's scale list. Everything that writes a scale —
+    the add flow, the admin console, importers, seeds — goes through here so the two forms
+    can never coexist.
+
+    Only the `1:N` shape is rewritten. Free-text scales ("Non-scale", "1/6 scale") are
+    trimmed and otherwise left alone; empty and the "—" placeholder become NULL.
+    """
+    s = (s or "").strip()
+    if not s or s == "—":
+        return None
+    # 1 : 300 → 1/300, with any spacing around the separator collapsed.
+    m = re.fullmatch(r"(\d+)\s*[:/]\s*(\d+)", s)
+    if m:
+        return f"{m.group(1)}/{m.group(2)}"
+    return s
+
+
 def norm_title(s: Optional[str]) -> str:
     """Lowercase, strip diacritics, collapse every non-alphanumeric run to a single
     space, and trim. Mirrors the SQL backfill (lower(unaccent(...)) + regexp)."""
@@ -104,7 +126,7 @@ async def resolve_or_create(
         norm_title=q_norm,
         brand=(brand or "Unknown").strip(),
         category=cat,
-        scale=scale,
+        scale=norm_scale(scale),  # slash form only (§5)
         year=str(release_year) if release_year else None,
         description=(description or "").strip() or None,
         est_retail_price=value or 0,

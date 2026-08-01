@@ -90,12 +90,15 @@ SEED_USERS = [
     },
 ]
 
+# Scale is written with a FORWARD SLASH — `1/6`, `1/64` — never a colon (Change Spec §5).
+# A colon-form value would not group with its slash-form siblings in the Database's scale
+# filter. (`Mezco One:12` below is a product line name, not a scale.)
 SEED_CATALOGUE = [
     # Action Figures
-    ("SKU-FIG-001", "Hot Toys MMS - Iron Man Mark LXXXV", "Hot Toys", "figures", "1:6", "2019", 3200000),
-    ("SKU-FIG-002", "MAFEX No.147 - Spider-Man (Comic Ver.)", "Medicom Toy", "figures", "1:12", "2021", 850000),
-    ("SKU-FIG-003", "S.H.Figuarts - Goku Ultra Instinct", "Bandai", "figures", "1:12", "2022", 650000),
-    ("SKU-FIG-004", "Mezco One:12 - Batman (Ascending Knight)", "Mezco", "figures", "1:12", "2020", 950000),
+    ("SKU-FIG-001", "Hot Toys MMS - Iron Man Mark LXXXV", "Hot Toys", "figures", "1/6", "2019", 3200000),
+    ("SKU-FIG-002", "MAFEX No.147 - Spider-Man (Comic Ver.)", "Medicom Toy", "figures", "1/12", "2021", 850000),
+    ("SKU-FIG-003", "S.H.Figuarts - Goku Ultra Instinct", "Bandai", "figures", "1/12", "2022", 650000),
+    ("SKU-FIG-004", "Mezco One:12 - Batman (Ascending Knight)", "Mezco", "figures", "1/12", "2020", 950000),
     # Designer Toys & Blind Boxes
     ("SKU-DSN-001", "Popmart - Labubu The Monsters Series 1", "Popmart", "designer", None, "2022", 89900),
     ("SKU-DSN-002", "Kennyswork - Molly Mini Figure", "Kennyswork", "designer", None, "2021", 350000),
@@ -104,13 +107,13 @@ SEED_CATALOGUE = [
     # Model Kits & Lego
     ("SKU-KIT-001", "LEGO Icons - Eiffel Tower (10307)", "LEGO", "kits", None, "2023", 4499900),
     ("SKU-KIT-002", "LEGO Technic - Bugatti Chiron (42151)", "LEGO", "kits", None, "2023", 3999900),
-    ("SKU-KIT-003", "Bandai MG 1/100 - Wing Gundam EW Ver.", "Bandai", "kits", "1:100", "2020", 450000),
-    ("SKU-KIT-004", "Bandai RG 1/144 - Nu Gundam", "Bandai", "kits", "1:144", "2019", 320000),
+    ("SKU-KIT-003", "Bandai MG 1/100 - Wing Gundam EW Ver.", "Bandai", "kits", "1/100", "2020", 450000),
+    ("SKU-KIT-004", "Bandai RG 1/144 - Nu Gundam", "Bandai", "kits", "1/144", "2019", 320000),
     # Diecast
-    ("SKU-DCS-001", "Hot Wheels RLC - '69 COPO Camaro (Red)", "Hot Wheels", "diecast", "1:64", "2023", 300000),
-    ("SKU-DCS-002", "Tomica Limited Vintage - TLV Toyota 2000GT", "Tomytec", "diecast", "1:64", "2022", 450000),
-    ("SKU-DCS-003", "Matchbox Collectors - '70 Dodge Charger", "Matchbox", "diecast", "1:64", "2023", 89900),
-    ("SKU-DCS-004", "AutoArt - Lamborghini Urus Pearl White", "AutoArt", "diecast", "1:18", "2021", 2200000),
+    ("SKU-DCS-001", "Hot Wheels RLC - '69 COPO Camaro (Red)", "Hot Wheels", "diecast", "1/64", "2023", 300000),
+    ("SKU-DCS-002", "Tomica Limited Vintage - TLV Toyota 2000GT", "Tomytec", "diecast", "1/64", "2022", 450000),
+    ("SKU-DCS-003", "Matchbox Collectors - '70 Dodge Charger", "Matchbox", "diecast", "1/64", "2023", 89900),
+    ("SKU-DCS-004", "AutoArt - Lamborghini Urus Pearl White", "AutoArt", "diecast", "1/18", "2021", 2200000),
 ]
 
 

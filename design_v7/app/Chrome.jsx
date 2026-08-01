@@ -123,7 +123,7 @@ function BottomNav() {
   const tabs = [
     { id: 'feed',      label: 'Home',      icon: Icons.home },
     { id: 'market',    label: 'Market',    icon: Icons.bag },
-    { id: 'database',  label: 'Explore',   icon: Icons.grid },
+    { id: 'database',  label: 'Database',  icon: Icons.grid },
     { id: 'community', label: 'Community', icon: Icons.users },
     { id: 'me',        label: 'My Space',  icon: Icons.user },
   ];

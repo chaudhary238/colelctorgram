@@ -24,8 +24,12 @@ export function formatMoney(amountMinor: number, currency: string = "INR"): stri
 }
 
 // ── Category chips for the add forms — figure-first, with TCG (DV4-01). ──
+// These are the app's ONE set of category names (Change Spec §4.2): the Database filter
+// sheet, Create-a-community, Create-an-event, the Market filter and the composer all read
+// them from here, so a category can never be worded two ways in two places. Full names
+// only — "Action Figures", not "Action Figure" or "Figures".
 export const ADD_CATEGORIES = [
-  { id: "figures", label: "Action Figure" },
+  { id: "figures", label: "Action Figures" },
   { id: "diecast", label: "Diecast" },
   { id: "kits", label: "Model Kits & Lego" },
   { id: "designer", label: "Designer Toys & Blind Boxes" },

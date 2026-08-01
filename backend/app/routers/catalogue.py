@@ -12,7 +12,7 @@ from app.models.catalogue import Catalogue
 from app.models.item import Item
 from app.models.trust import Report
 from app.models.user import Follow, User
-from app.services.catalogue import norm_title, MATCH_MEDIUM
+from app.services.catalogue import norm_title, norm_scale, MATCH_MEDIUM
 from app.services.gamification import award_xp
 
 router = APIRouter(prefix="/catalogue", tags=["catalogue"])
@@ -127,23 +127,30 @@ async def catalogue_brands(
     return {"brands": brands}
 
 
+def _categories(category: Optional[str]) -> list[str]:
+    """Parse the `category` query param, which accepts a comma-separated LIST (DV7-08 —
+    the Database filter panel is multi-select). A single value still works unchanged."""
+    return [c.strip() for c in (category or "").split(",") if c.strip()]
+
+
 @router.get("/scales")
 async def catalogue_scales(
     category: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Distinct scales present in the catalogue (optionally within a category), for the
-    Database browse filter sheet (DV7-02). The frontend unions these with its canonical
-    CAT_SCALES list — designer/tcg have no scale, so this comes back empty there.
+    """Distinct scales present in the catalogue (optionally within one or more categories),
+    for the Database browse filter panel (DV7-02). The frontend unions these with its
+    canonical CAT_SCALES list — designer/tcg have no scale, so those come back empty.
 
     Must stay registered BEFORE /{sku} so the literal path wins the route match.
     """
     stmt = select(Catalogue.scale).where(
         Catalogue.scale.isnot(None), Catalogue.status != "removed"
     ).distinct()
-    if category:
-        stmt = stmt.where(Catalogue.category == category)
+    cats = _categories(category)
+    if cats:
+        stmt = stmt.where(Catalogue.category.in_(cats))
     rows = (await db.execute(stmt)).scalars().all()
     scales = sorted({s.strip() for s in rows if s and s.strip() and s.strip() != "—"})
     return {"scales": scales}
@@ -191,7 +198,7 @@ async def _viewer_statuses(db: AsyncSession, user_id, skus: list[str]) -> dict[s
 @router.get("/browse")
 async def browse_catalogue(
     q: Optional[str] = None,
-    category: Optional[str] = None,
+    category: Optional[str] = Query(None, description="one category, or several comma-separated (OR)"),
     brand: Optional[str] = None,
     scale: Optional[str] = None,
     sort: str = Query("owned", pattern="^(owned|wishlisted|newest)$"),
@@ -215,10 +222,12 @@ async def browse_catalogue(
     owners_n = func.coalesce(owners.c.n, 0)
     wishes_n = func.coalesce(wishes.c.n, 0)
 
+    cats = _categories(category)  # comma-separated = OR across categories (DV7-08)
+
     def _filtered(stmt):
         stmt = stmt.where(Catalogue.status != "removed")
-        if category:
-            stmt = stmt.where(Catalogue.category == category)
+        if cats:
+            stmt = stmt.where(Catalogue.category.in_(cats))
         if brand:
             stmt = stmt.where(func.lower(Catalogue.brand) == brand.lower())
         if scale:
@@ -517,7 +526,7 @@ async def submit_catalogue(
         norm_title=norm_title(body.title),
         brand=body.brand,
         category=body.category,
-        scale=body.scale,
+        scale=norm_scale(body.scale),  # slash form only (§5)
         year=body.year,
         est_retail_price=body.est_retail_price,
         thumbnail_url=body.thumbnail_url,

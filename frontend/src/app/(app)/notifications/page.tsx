@@ -4,9 +4,13 @@
 //
 // DV7-05: Messages moved back IN. The header now has one bell for one combined inbox,
 // and this screen splits it with two segments — Activity (the notification feed, 5
-// category cards: Likes · Follows · Replies · Vouch · Other) and DMs (the thread list
-// that /inbox renders). Both lists stay MOUNTED and toggle with `display`, so switching
-// segments preserves scroll position and the read state each list arrived with.
+// category cards: Likes · Follows · Replies · Vouch · Other) and Messages (the thread
+// list that /inbox renders). Both lists stay MOUNTED and toggle with `display`, so
+// switching segments preserves scroll position and the read state each list arrived with.
+//
+// The second segment is labelled **Messages**, not "DMs" (Change Spec §2) — that is the
+// word the rest of the app uses for the same thing, and one feature must not be named
+// two ways. The internal `seg` value stays "dms"; only the user-facing label is the term.
 //
 // v3 SQUARE icon-only tiles fill with the category colour when active; tapping one
 // filters the activity list below. Rows show the ACTOR avatar + @handle when the
@@ -95,9 +99,9 @@ export default function ActivityPage() {
     api.patch("/notifications/read-all").catch(console.error);
   }, []);
 
-  // DMs load alongside, not on segment switch: the DMs count has to be right in the
+  // Messages load alongside, not on segment switch: the count has to be right in the
   // segment label before you ever tap it. Threads keep their own unread — reading a
-  // DM happens in the thread, so nothing is marked read here (DV7-05).
+  // message happens in the thread, so nothing is marked read here (DV7-05).
   useEffect(() => {
     api.get<Thread[]>("/threads").then((t) => setThreads(t ?? [])).catch(() => setThreads([]));
   }, []);
@@ -130,11 +134,11 @@ export default function ActivityPage() {
           Activity{activityUnread ? ` ${activityUnread}` : ""}
         </CategoryChip>
         <CategoryChip active={seg === "dms"} onClick={() => setSeg("dms")}>
-          DMs{dmUnread ? ` ${dmUnread}` : ""}
+          Messages{dmUnread ? ` ${dmUnread}` : ""}
         </CategoryChip>
       </div>
 
-      {/* ── DMs ── kept mounted so switching back restores scroll (DV7-05) */}
+      {/* ── Messages ── kept mounted so switching back restores scroll (DV7-05) */}
       <div style={{ display: seg === "dms" ? "block" : "none", padding: "10px 0 24px" }}>
         {threads === null
           ? Array.from({ length: 4 }).map((_, i) => (

@@ -22,7 +22,7 @@ function OverlayShell({ children, onClose, onBack, title, trailing }) {
 
 // ── Compose / Post composer — BRD §9.6 (v1.2: type-first + Poll) ──
 function ComposeOverlay({ community, kind: initialKind }) {
-  const { setOverlay, flashToast, push } = useNav();
+  const { setOverlay, flashToast, push, switchTab } = useNav();
   const { addPost } = useAppState();
   const [kind, setKind] = React.useState(initialKind || null); // null = choose Post vs Listing first
   const [type, setType] = React.useState('post'); // post | poll | review (single-window switch)
@@ -95,7 +95,7 @@ function ComposeOverlay({ community, kind: initialKind }) {
   if (!kind) {
     const OPTIONS = [
       { id: 'post',    label: 'Create a Post', desc: 'Showcase, ask, review or poll the community.', c: 'var(--plum)', bg: 'oklch(96% 0.02 300)', icon: Icons.edit },
-      { id: 'listing', label: 'Add an item',    desc: 'Add to your shelf — in hand, pre-order, or DB contribution.', c: 'var(--stamp-red)', bg: 'var(--stamp-red-soft)', icon: Icons.tag },
+      { id: 'listing', label: 'Add an item',    desc: 'Browse the database — add it there if it’s missing.', c: 'var(--stamp-red)', bg: 'var(--stamp-red-soft)', icon: Icons.tag },
     ];
     return (
       <OverlayShell title="Create" onClose={() => setOverlay(null)}>
@@ -104,7 +104,7 @@ function ComposeOverlay({ community, kind: initialKind }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {OPTIONS.map(o => (
               <button key={o.id} onClick={() => {
-                if (o.id === 'listing') { setOverlay(null); setTimeout(() => push({ name: 'add-listing' }), 10); }
+                if (o.id === 'listing') { setOverlay(null); setTimeout(() => switchTab('database'), 10); }
                 else setKind(o.id);
               }} style={{
                 display: 'flex', alignItems: 'flex-start', gap: 14, width: '100%', textAlign: 'left', cursor: 'pointer',
@@ -556,7 +556,7 @@ function NotificationsOverlay() {
         {/* ── segments: Activity / DMs ── */}
         <div style={{ flexShrink: 0, display: 'flex', gap: 7, padding: '12px 16px 0' }}>
           {[{ id: 'activity', label: 'Activity', n: allNotifs.filter(n => n.unread && !readNotifs[n.id]).length },
-            { id: 'dms', label: 'DMs', n: msgUnread }].map(s => (
+            { id: 'dms', label: 'Messages', n: msgUnread }].map(s => (
             <CategoryChip key={s.id} active={seg === s.id} onClick={() => setSeg(s.id)}>{s.label}{s.n ? ` ${s.n}` : ''}</CategoryChip>
           ))}
         </div>

@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"CollectorHubDesignSystemRC_293274","components":[{"name":"Button","sourcePath":"components/actions/Button.jsx"},{"name":"IconButton","sourcePath":"components/actions/IconButton.jsx"},{"name":"CategoryChip","sourcePath":"components/forms/CategoryChip.jsx"},{"name":"Input","sourcePath":"components/forms/Input.jsx"},{"name":"Segmented","sourcePath":"components/forms/Segmented.jsx"},{"name":"Avatar","sourcePath":"components/identity/Avatar.jsx"},{"name":"TierChip","sourcePath":"components/identity/TierChip.jsx"},{"name":"Badge","sourcePath":"components/labels/Badge.jsx"},{"name":"PostTypeTag","sourcePath":"components/labels/PostTypeTag.jsx"},{"name":"Stamp","sourcePath":"components/labels/Stamp.jsx"},{"name":"Tag","sourcePath":"components/labels/Tag.jsx"}],"sourceHashes":{"app/AddListing.jsx":"2300ce192bfd","app/AddToCollection.jsx":"e4f85ebfc7e1","app/App.jsx":"6f703278e284","app/Cards.jsx":"c5ce6af3e358","app/Chat.jsx":"b232cd5f4d7d","app/Chrome.jsx":"b5b0aadd999c","app/CommunityDetail.jsx":"7f361e1adcaa","app/CommunityManage.jsx":"5b0e36e54c81","app/CommunityView.jsx":"e24a2dff19e6","app/CreateCommunity.jsx":"4af3ffdff464","app/EventCreate.jsx":"2ddca99a9572","app/EventDetail.jsx":"e0925f9e594c","app/EventManage.jsx":"436879257ca8","app/EventsView.jsx":"dd68cf14e6d8","app/ExploreView.jsx":"6793b6e4c6db","app/FeedView.jsx":"4c34b3cedae5","app/IOSFrame.jsx":"d67eb3ffe562","app/ItemDetail.jsx":"af566d0cb151","app/ListingView.jsx":"e1c8133bfcb7","app/MarketView.jsx":"4546d03ff9d5","app/Nav.jsx":"48ce7f4549db","app/Onboarding.jsx":"597895b8c82c","app/Overlays.jsx":"a129caf8b59e","app/PostDetail.jsx":"c0703c689ae1","app/ProfileCollection.jsx":"01449121662c","app/ProfileEdit.jsx":"e6f55d30b0d9","app/ProfileSettings.jsx":"605b71559495","app/ProfileView.jsx":"eb21863ab3b1","app/ReferView.jsx":"92da3a5d0078","app/Rewards.jsx":"396b8e7d3677","app/data.jsx":"6189cbe53e92","app/shared.jsx":"1bc4b04881d6","app/tweaks-panel.jsx":"6591467622ed","components/actions/Button.jsx":"4e96ef0448a9","components/actions/IconButton.jsx":"a29b67a27746","components/forms/CategoryChip.jsx":"ca8690329cc5","components/forms/Input.jsx":"36f89ce86824","components/forms/Segmented.jsx":"e39016cc53e8","components/identity/Avatar.jsx":"8db614a890e9","components/identity/TierChip.jsx":"402864cb8957","components/labels/Badge.jsx":"6ea6fd872bde","components/labels/PostTypeTag.jsx":"e94e19dcb8bb","components/labels/Stamp.jsx":"94834e3a18ad","components/labels/Tag.jsx":"bbefafb1681d","deck-stage.js":"94b80df773e6","doc-page.js":"7feb7a4009b0","web/Web.jsx":"2bae422928a9"},"inlinedExternals":[],"unexposedExports":[]} */
+/* @ds-bundle: {"format":4,"namespace":"CollectorHubDesignSystemRC_293274","components":[{"name":"Button","sourcePath":"components/actions/Button.jsx"},{"name":"IconButton","sourcePath":"components/actions/IconButton.jsx"},{"name":"CategoryChip","sourcePath":"components/forms/CategoryChip.jsx"},{"name":"Input","sourcePath":"components/forms/Input.jsx"},{"name":"Segmented","sourcePath":"components/forms/Segmented.jsx"},{"name":"Avatar","sourcePath":"components/identity/Avatar.jsx"},{"name":"TierChip","sourcePath":"components/identity/TierChip.jsx"},{"name":"Badge","sourcePath":"components/labels/Badge.jsx"},{"name":"PostTypeTag","sourcePath":"components/labels/PostTypeTag.jsx"},{"name":"Stamp","sourcePath":"components/labels/Stamp.jsx"},{"name":"Tag","sourcePath":"components/labels/Tag.jsx"}],"sourceHashes":{"app/AddListing.jsx":"2300ce192bfd","app/AddToCollection.jsx":"e4f85ebfc7e1","app/App.jsx":"6f703278e284","app/Cards.jsx":"c5ce6af3e358","app/Chat.jsx":"b232cd5f4d7d","app/Chrome.jsx":"785ceaa3ec93","app/CommunityDetail.jsx":"7f361e1adcaa","app/CommunityManage.jsx":"5b0e36e54c81","app/CommunityView.jsx":"e24a2dff19e6","app/CreateCommunity.jsx":"4af3ffdff464","app/EventCreate.jsx":"2ddca99a9572","app/EventDetail.jsx":"e0925f9e594c","app/EventManage.jsx":"436879257ca8","app/EventsView.jsx":"dd68cf14e6d8","app/ExploreView.jsx":"5d87cb185cc3","app/FeedView.jsx":"4d5a9deecdf0","app/IOSFrame.jsx":"d67eb3ffe562","app/ItemDetail.jsx":"af566d0cb151","app/ListingView.jsx":"e1c8133bfcb7","app/MarketView.jsx":"4546d03ff9d5","app/Nav.jsx":"48ce7f4549db","app/Onboarding.jsx":"597895b8c82c","app/Overlays.jsx":"427d83378e81","app/PostDetail.jsx":"c0703c689ae1","app/ProfileCollection.jsx":"01449121662c","app/ProfileEdit.jsx":"e6f55d30b0d9","app/ProfileSettings.jsx":"605b71559495","app/ProfileView.jsx":"eb21863ab3b1","app/ReferView.jsx":"92da3a5d0078","app/Rewards.jsx":"396b8e7d3677","app/data.jsx":"0087d890c16c","app/shared.jsx":"1bc4b04881d6","app/tweaks-panel.jsx":"6591467622ed","components/actions/Button.jsx":"4e96ef0448a9","components/actions/IconButton.jsx":"a29b67a27746","components/forms/CategoryChip.jsx":"ca8690329cc5","components/forms/Input.jsx":"36f89ce86824","components/forms/Segmented.jsx":"e39016cc53e8","components/identity/Avatar.jsx":"8db614a890e9","components/identity/TierChip.jsx":"402864cb8957","components/labels/Badge.jsx":"6ea6fd872bde","components/labels/PostTypeTag.jsx":"e94e19dcb8bb","components/labels/Stamp.jsx":"94834e3a18ad","components/labels/Tag.jsx":"bbefafb1681d","deck-stage.js":"94b80df773e6","doc-page.js":"7feb7a4009b0","web/Web.jsx":"2bae422928a9"},"inlinedExternals":[],"unexposedExports":[]} */
 
 (() => {
 
@@ -6264,7 +6264,7 @@ function BottomNav() {
     icon: Icons.bag
   }, {
     id: 'database',
-    label: 'Explore',
+    label: 'Database',
     icon: Icons.grid
   }, {
     id: 'community',
@@ -10738,22 +10738,20 @@ function ExploreView() {
   const {
     dbWishlist,
     toggleDbWishlist,
-    catalogueVersion,
-    posts
+    catalogueVersion
   } = useAppState();
   const isRoot = tab === 'database' && stacks.database && stacks.database.length === 1;
   const [q, setQ] = React.useState('');
-  const [cat, setCat] = React.useState('all');
+  const [cats, setCats] = React.useState(() => CATEGORIES.filter(c => ME.interests.includes(c.id)).map(c => c.id));
   const [scale, setScale] = React.useState('all');
   const [sort, setSort] = React.useState('owned'); // owned | wishlisted | newest
   const [sheetOpen, setSheetOpen] = React.useState(false);
-  const [scope, setScope] = React.useState('items'); // items | posts | people | communities | events
-  const [draftCat, setDraftCat] = React.useState('all');
+  const [draftCats, setDraftCats] = React.useState(() => CATEGORIES.filter(c => ME.interests.includes(c.id)).map(c => c.id));
   const [draftScale, setDraftScale] = React.useState('all');
   const [draftSort, setDraftSort] = React.useState('owned');
   const items = React.useMemo(() => {
     let l = CATALOGUE.slice();
-    if (cat !== 'all') l = l.filter(c => c.cat === cat);
+    if (cats.length) l = l.filter(c => cats.includes(c.cat));
     if (scale !== 'all') l = l.filter(c => c.scale === scale);
     if (q.trim()) {
       const s = q.toLowerCase();
@@ -10761,66 +10759,48 @@ function ExploreView() {
     }
     if (sort === 'owned') l = l.slice().sort((a, b) => (b.ownersCount || 0) - (a.ownersCount || 0));else if (sort === 'wishlisted') l = l.slice().sort((a, b) => (b.wishCount || 0) + (dbWishlist[b.sku] ? 1 : 0) - ((a.wishCount || 0) + (dbWishlist[a.sku] ? 1 : 0)));else if (sort === 'newest') l = l.slice().sort((a, b) => (b.year || 0) - (a.year || 0));
     return l;
-  }, [q, cat, scale, sort, dbWishlist, catalogueVersion]);
-  const draftFields = draftCat !== 'all' ? CAT_FILTER_FIELDS[draftCat] || [] : ['scale'];
-  const scaleOptions = Array.from(new Set(CATALOGUE.filter(c => (draftCat === 'all' || c.cat === draftCat) && c.scale !== '—').map(c => c.scale)));
-  const activeFilterCount = (cat !== 'all' ? 1 : 0) + (scale !== 'all' ? 1 : 0) + (sort !== 'owned' ? 1 : 0);
-
-  // global search results (non-catalogue scopes) — Discover searches everything
+  }, [q, cats, scale, sort, dbWishlist, catalogueVersion]);
+  const toggleDraftCat = id => setDraftCats(prev => {
+    const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+    setDraftScale('all');
+    return next;
+  });
+  const catAllows = id => !draftCats.length || draftCats.includes(id);
+  const draftFields = draftCats.length === 1 ? CAT_FILTER_FIELDS[draftCats[0]] || [] : ['scale'];
+  const scaleOptions = Array.from(new Set(CATALOGUE.filter(c => catAllows(c.cat) && c.scale !== '—').map(c => c.scale)));
+  const activeFilterCount = cats.length + (scale !== 'all' ? 1 : 0) + (sort !== 'owned' ? 1 : 0);
   const ql = q.trim().toLowerCase();
   const searching = ql.length > 0;
-  const allPosts = [...(posts || []), ...POSTS, ...(typeof ISO_POSTS !== 'undefined' ? ISO_POSTS : [])];
-  const resPosts = !searching ? [] : allPosts.filter(p => (p.body || '').toLowerCase().includes(ql) || (p.isoItem || '').toLowerCase().includes(ql) || (p.user || '').toLowerCase().includes(ql) || (p.community || '').toLowerCase().includes(ql));
-  const resPeople = !searching ? [] : Object.values(USERS).filter(u => (u.name + u.handle).toLowerCase().includes(ql));
-  const resComs = !searching ? [] : COMMUNITIES.filter(c => c.name.toLowerCase().includes(ql));
-  const resEvs = !searching ? [] : EVENTS.filter(e => e.title.toLowerCase().includes(ql));
-  const SCOPES = [{
-    id: 'items',
-    label: 'Items',
-    n: items.length
-  }, {
-    id: 'posts',
-    label: 'Posts',
-    n: resPosts.length
-  }, {
-    id: 'people',
-    label: 'People',
-    n: resPeople.length
-  }, {
-    id: 'communities',
-    label: 'Communities',
-    n: resComs.length
-  }, {
-    id: 'events',
-    label: 'Events',
-    n: resEvs.length
-  }];
+  const PAGE = 8;
+  const [shownCount, setShownCount] = React.useState(PAGE);
   React.useEffect(() => {
-    if (!searching) setScope('items');
-  }, [searching]);
+    setShownCount(PAGE);
+  }, [ql, cats, scale, sort]);
+  const visible = items.slice(0, shownCount);
+  const remaining = items.length - visible.length;
   const openSheet = () => {
-    setDraftCat(cat);
+    setDraftCats(cats);
     setDraftScale(scale);
     setDraftSort(sort);
     setSheetOpen(true);
   };
   const applySheet = () => {
-    setCat(draftCat);
+    setCats(draftCats);
     setScale(draftScale);
     setSort(draftSort);
     setSheetOpen(false);
   };
   const clearSheet = () => {
-    setDraftCat('all');
+    setDraftCats([]);
     setDraftScale('all');
     setDraftSort('owned');
   };
   return /*#__PURE__*/React.createElement(Screen, {
     nav: isRoot,
     header: isRoot ? /*#__PURE__*/React.createElement(AppBar, {
-      title: "Explore"
+      title: "Database"
     }) : /*#__PURE__*/React.createElement(DetailHeader, {
-      title: "Explore"
+      title: "Database"
     })
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -10835,6 +10815,7 @@ function ExploreView() {
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
+      minWidth: 0,
       display: 'flex',
       alignItems: 'center',
       gap: 9,
@@ -10853,9 +10834,10 @@ function ExploreView() {
   }), /*#__PURE__*/React.createElement("input", {
     value: q,
     onChange: e => setQ(e.target.value),
-    placeholder: "Items, posts, people, communities\u2026",
+    placeholder: "Search items\u2026",
     style: {
       flex: 1,
+      minWidth: 0,
       border: 'none',
       background: 'transparent',
       outline: 'none',
@@ -10863,212 +10845,78 @@ function ExploreView() {
       fontSize: 14.5,
       color: 'var(--ink)'
     }
-  })), /*#__PURE__*/React.createElement("button", {
+  }), /*#__PURE__*/React.createElement("button", {
     onClick: openSheet,
-    "aria-label": "Filters",
+    "aria-label": `Filters${activeFilterCount ? ` · ${activeFilterCount} active` : ''}`,
     style: {
-      width: 44,
-      height: 44,
-      flexShrink: 0,
-      borderRadius: 12,
-      cursor: 'pointer',
-      position: 'relative',
-      border: `1px solid ${activeFilterCount ? 'var(--stamp-red)' : 'var(--border-strong)'}`,
-      background: activeFilterCount ? 'var(--stamp-red-soft)' : 'var(--paper-soft)',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'center'
+      gap: 4,
+      flexShrink: 0,
+      padding: 0,
+      marginRight: -2,
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      color: activeFilterCount ? 'var(--stamp-red)' : 'var(--ink-faint)'
     }
   }, /*#__PURE__*/React.createElement(Ico, {
     d: Icons.filter,
     size: 18,
-    style: {
-      color: activeFilterCount ? 'var(--stamp-red)' : 'var(--ink-mute)'
-    }
+    stroke: 2
   }), activeFilterCount > 0 && /*#__PURE__*/React.createElement("span", {
     style: {
-      position: 'absolute',
-      top: -4,
-      right: -4,
-      minWidth: 16,
-      height: 16,
-      borderRadius: 999,
-      background: 'var(--stamp-red)',
-      color: '#fff',
-      fontSize: 10,
-      fontWeight: 700,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '0 3px',
-      fontFamily: 'var(--font-mono)'
+      fontFamily: 'var(--font-mono)',
+      fontSize: 12,
+      fontWeight: 700
     }
-  }, activeFilterCount)), /*#__PURE__*/React.createElement("button", {
+  }, activeFilterCount))), /*#__PURE__*/React.createElement("button", {
     onClick: () => push({
       name: 'add-to-db'
     }),
-    "aria-label": "Add item \u2014 can't find something?",
     style: {
-      width: 44,
-      height: 44,
-      flexShrink: 0,
-      borderRadius: 12,
-      border: '1px solid var(--slate-200)',
-      background: 'var(--slate-50)',
-      cursor: 'pointer',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'center'
+      gap: 5,
+      height: 44,
+      padding: '0 13px',
+      flexShrink: 0,
+      borderRadius: 12,
+      border: 'none',
+      background: 'var(--stamp-red)',
+      cursor: 'pointer',
+      fontFamily: 'var(--font-body)',
+      fontSize: 13,
+      fontWeight: 700,
+      color: '#fff',
+      letterSpacing: '-0.01em',
+      whiteSpace: 'nowrap'
     }
   }, /*#__PURE__*/React.createElement(Ico, {
-    d: Icons.plusCircle,
-    size: 18,
-    stroke: 1.8,
-    style: {
-      color: 'var(--stamp-red)'
-    }
-  }))), searching && /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 7,
-      marginTop: 12,
-      overflowX: 'auto',
-      paddingBottom: 2
-    }
-  }, SCOPES.map(s => /*#__PURE__*/React.createElement(CategoryChip, {
-    key: s.id,
-    active: scope === s.id,
-    onClick: () => setScope(s.id)
-  }, s.label, " ", s.n))), scope === 'items' && /*#__PURE__*/React.createElement("div", {
+    d: Icons.plus,
+    size: 15,
+    stroke: 2.4
+  }), "Add item")), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 12,
       color: 'var(--ink-faint)',
       margin: '12px 2px 8px'
     }
-  }, items.length, " items")), searching && scope !== 'items' && /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: '4px 16px 20px'
-    }
-  }, scope === 'posts' && (resPosts.length ? resPosts.slice(0, 20).map(p => {
-    const u = p.user === 'you' ? ME : USERS[p.user] || ME;
-    const com = p.community ? COMMUNITIES.find(c => c.id === p.community) : null;
-    const txt = p.isoItem || p.body || '';
-    return /*#__PURE__*/React.createElement(ResRow, {
-      key: p.id,
-      onClick: () => push({
-        name: 'post',
-        id: p.id
-      }),
-      media: /*#__PURE__*/React.createElement(Avatar, {
-        name: u.name,
-        color: u.color,
-        size: 40
-      }),
-      title: txt.slice(0, 72) + (txt.length > 72 ? '…' : '') || '(no text)',
-      sub: `@${u.handle}${com ? ' · ' + com.name : ''}`
-    });
-  }) : /*#__PURE__*/React.createElement(EmptyScope, {
-    label: "posts"
-  })), scope === 'people' && (resPeople.length ? resPeople.slice(0, 20).map(u => /*#__PURE__*/React.createElement(ResRow, {
-    key: u.handle,
-    onClick: () => push({
-      name: 'profile',
-      user: u.handle
-    }),
-    media: /*#__PURE__*/React.createElement(Avatar, {
-      name: u.name,
-      color: u.color,
-      size: 40,
-      verified: u.tier !== 'Verified'
-    }),
-    title: u.name,
-    sub: `@${u.handle} · ${u.deals} deals · ${u.vouchesReceived} vouches`
-  })) : /*#__PURE__*/React.createElement(EmptyScope, {
-    label: "people"
-  })), scope === 'communities' && (resComs.length ? resComs.slice(0, 20).map(c => /*#__PURE__*/React.createElement(ResRow, {
-    key: c.id,
-    onClick: () => push({
-      name: 'community-detail',
-      id: c.id
-    }),
-    media: /*#__PURE__*/React.createElement("div", {
-      style: {
-        width: 40,
-        height: 40,
-        borderRadius: 9,
-        background: 'var(--ink)',
-        color: 'var(--paper)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: 'var(--font-display)',
-        fontWeight: 800,
-        fontSize: 15
-      }
-    }, c.tag),
-    title: c.name,
-    sub: `${c.members.toLocaleString('en-IN')} members`
-  })) : /*#__PURE__*/React.createElement(EmptyScope, {
-    label: "communities"
-  })), scope === 'events' && (resEvs.length ? resEvs.slice(0, 20).map(e => /*#__PURE__*/React.createElement(ResRow, {
-    key: e.id,
-    onClick: () => push({
-      name: 'event',
-      id: e.id
-    }),
-    media: /*#__PURE__*/React.createElement("div", {
-      style: {
-        width: 40,
-        height: 40,
-        borderRadius: 9,
-        background: 'var(--plum)',
-        color: 'var(--paper)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 8,
-        fontWeight: 700
-      }
-    }, e.month), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontFamily: 'var(--font-display)',
-        fontWeight: 800,
-        fontSize: 15,
-        lineHeight: 1
-      }
-    }, e.date)),
-    title: e.title,
-    sub: e.when
-  })) : /*#__PURE__*/React.createElement(EmptyScope, {
-    label: "events"
-  }))), searching && scope === 'items' && items.length === 0 && /*#__PURE__*/React.createElement("div", {
+  }, items.length, " items")), searching && items.length === 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       padding: '28px 24px 32px',
-      textAlign: 'center'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
+      textAlign: 'center',
       fontSize: 13.5,
       color: 'var(--ink-faint)'
     }
-  }, "No items match that search."), resPosts.length + resPeople.length + resComs.length + resEvs.length > 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 13,
-      color: 'var(--ink-mute)',
-      marginTop: 8
-    }
-  }, "Try ", resPosts.length ? 'Posts' : resPeople.length ? 'People' : resComs.length ? 'Communities' : 'Events', " above.")), scope === 'items' && /*#__PURE__*/React.createElement("div", {
+  }, "No items match that search."), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: '0 16px 8px',
       display: 'grid',
       gridTemplateColumns: '1fr 1fr',
       gap: 10
     }
-  }, items.map(c => /*#__PURE__*/React.createElement("div", {
+  }, visible.map(c => /*#__PURE__*/React.createElement("div", {
     key: c.sku,
     style: {
       background: 'var(--paper-soft)',
@@ -11199,7 +11047,73 @@ function ExploreView() {
     }
   }, c.brand)), /*#__PURE__*/React.createElement(ReviewIcon, {
     reviewed: c.scorredReviewed || !c.intelBy
-  })))))), sheetOpen && /*#__PURE__*/React.createElement("div", {
+  })))))), remaining > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '4px 16px 8px'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShownCount(n => n + PAGE),
+    style: {
+      width: '100%',
+      height: 44,
+      borderRadius: 12,
+      cursor: 'pointer',
+      border: '1px solid var(--border-strong)',
+      background: 'var(--paper-soft)',
+      fontFamily: 'var(--font-body)',
+      fontSize: 13.5,
+      fontWeight: 600,
+      color: 'var(--ink)'
+    }
+  }, "Show ", Math.min(PAGE, remaining), " more")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      margin: '10px 16px 24px',
+      padding: '16px 16px 15px',
+      borderRadius: 14,
+      border: '1px dashed var(--border-strong)',
+      background: 'var(--paper-soft)',
+      textAlign: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: 'var(--font-display)',
+      fontWeight: 700,
+      fontSize: 14.5,
+      letterSpacing: '-0.01em'
+    }
+  }, "Can\u2019t find what you\u2019re looking for?"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12.5,
+      color: 'var(--ink-faint)',
+      marginTop: 4,
+      lineHeight: 1.45
+    }
+  }, "Add it to the database and earn XP once it\u2019s reviewed."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => push({
+      name: 'add-to-db'
+    }),
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      height: 38,
+      padding: '0 16px',
+      marginTop: 12,
+      borderRadius: 10,
+      border: 'none',
+      background: 'var(--stamp-red)',
+      cursor: 'pointer',
+      fontFamily: 'var(--font-body)',
+      fontSize: 13,
+      fontWeight: 700,
+      color: '#fff',
+      letterSpacing: '-0.01em'
+    }
+  }, /*#__PURE__*/React.createElement(Ico, {
+    d: Icons.plus,
+    size: 15,
+    stroke: 2.4
+  }), "Add an item")), sheetOpen && /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'absolute',
       inset: 0,
@@ -11285,20 +11199,33 @@ function ExploreView() {
       flexWrap: 'wrap',
       marginTop: 9
     }
-  }, /*#__PURE__*/React.createElement(FilterChip, {
-    active: draftCat === 'all',
-    onClick: () => {
-      setDraftCat('all');
-      setDraftScale('all');
-    }
-  }, "All categories"), CATEGORIES.map(c => /*#__PURE__*/React.createElement(FilterChip, {
-    key: c.id,
-    active: draftCat === c.id,
-    onClick: () => {
-      setDraftCat(c.id);
-      setDraftScale('all');
-    }
-  }, c.chipLabel))), draftFields.includes('scale') && scaleOptions.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, CATEGORIES.map(c => {
+    const on = draftCats.includes(c.id);
+    return /*#__PURE__*/React.createElement("button", {
+      key: c.id,
+      onClick: () => toggleDraftCat(c.id),
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        height: 32,
+        padding: '0 12px',
+        cursor: 'pointer',
+        borderRadius: 9,
+        whiteSpace: 'nowrap',
+        fontFamily: 'var(--font-body)',
+        fontSize: 12.5,
+        fontWeight: 600,
+        border: `1px solid ${on ? 'var(--stamp-red)' : 'var(--border-strong)'}`,
+        background: on ? 'var(--stamp-red-soft)' : 'var(--paper-soft)',
+        color: on ? 'var(--stamp-red)' : 'var(--ink-mute)'
+      }
+    }, on && /*#__PURE__*/React.createElement(Ico, {
+      d: Icons.check,
+      size: 12,
+      stroke: 3.4
+    }), c.label);
+  })), draftFields.includes('scale') && scaleOptions.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 20
     }
@@ -11325,7 +11252,7 @@ function ExploreView() {
     onClick: applySheet
   }, "Show ", (() => {
     let l = CATALOGUE.slice();
-    if (draftCat !== 'all') l = l.filter(c => c.cat === draftCat);
+    if (draftCats.length) l = l.filter(c => draftCats.includes(c.cat));
     if (draftScale !== 'all') l = l.filter(c => c.scale === draftScale);
     return l.length;
   })(), " items"))));
@@ -12219,24 +12146,11 @@ function DbPeopleList({
     }, isFollowing ? 'Following' : 'Follow'));
   }), people.length === 0 && /*#__PURE__*/React.createElement(EmptyNote, null, isOwners ? 'No one owns this yet.' : 'No one has wishlisted this yet.')));
 }
-function EmptyScope({
-  label
-}) {
-  return /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: '32px 8px',
-      textAlign: 'center',
-      fontSize: 13.5,
-      color: 'var(--ink-faint)'
-    }
-  }, "No ", label, " match that search.");
-}
 Object.assign(window, {
   ExploreView,
   ExploreItemDetail,
   AddToDbView,
-  DbPeopleList,
-  EmptyScope
+  DbPeopleList
 });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "app/ExploreView.jsx", error: String((e && e.message) || e) }); }
 
@@ -12401,9 +12315,9 @@ function FeedView() {
           boxShadow: '0 2px 8px rgba(199,42,42,0.28)'
         }
       }, /*#__PURE__*/React.createElement(Ico, {
-        d: Icons.edit,
-        size: 18,
-        stroke: 2
+        d: Icons.plus,
+        size: 20,
+        stroke: 2.4
       }))
     })
   }, /*#__PURE__*/React.createElement("div", {
@@ -17830,7 +17744,8 @@ function ComposeOverlay({
   const {
     setOverlay,
     flashToast,
-    push
+    push,
+    switchTab
   } = useNav();
   const {
     addPost
@@ -17955,7 +17870,7 @@ function ComposeOverlay({
     }, {
       id: 'listing',
       label: 'Add an item',
-      desc: 'Add to your shelf — in hand, pre-order, or DB contribution.',
+      desc: 'Browse the database — add it there if it’s missing.',
       c: 'var(--stamp-red)',
       bg: 'var(--stamp-red-soft)',
       icon: Icons.tag
@@ -17984,9 +17899,7 @@ function ComposeOverlay({
       onClick: () => {
         if (o.id === 'listing') {
           setOverlay(null);
-          setTimeout(() => push({
-            name: 'add-listing'
-          }), 10);
+          setTimeout(() => switchTab('database'), 10);
         } else setKind(o.id);
       },
       style: {
@@ -19314,7 +19227,7 @@ function NotificationsOverlay() {
     n: allNotifs.filter(n => n.unread && !readNotifs[n.id]).length
   }, {
     id: 'dms',
-    label: 'DMs',
+    label: 'Messages',
     n: msgUnread
   }].map(s => /*#__PURE__*/React.createElement(CategoryChip, {
     key: s.id,
@@ -25829,7 +25742,7 @@ const CATALOGUE = [{
   title: 'LEGO 10307 · Eiffel Tower',
   brand: 'LEGO',
   cat: 'kits',
-  scale: '1:300',
+  scale: '1/300',
   year: '2023',
   tone: 'gold',
   est: 52000,
@@ -28667,7 +28580,7 @@ const ME = {
 const CONDITION_LADDER = ['Sealed / MISB', 'Mint', 'Like new', 'Good', 'Fair', 'For parts'];
 
 // ── Onboarding sub-interests added in v1.2 (§9.2): Scale + Universe ──
-const SCALES = ['1/4', '1/6', '1/10', '1/12', '1/64', '1/100', '1:300'];
+const SCALES = ['1/4', '1/6', '1/10', '1/12', '1/64', '1/100', '1/300'];
 const UNIVERSES = ['Marvel', 'DC', 'Dragon Ball', 'Star Wars', 'Gundam', 'JDM Cars', 'Pop Mart IP'];
 
 // ── Presence / online status (§9.11) ──────────────────────────

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="design_doc_mode" content="canvas"><title>Database — filter placement options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@400..700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font-body);color:var(--ink)}
+a{color:var(--stamp-red)}a:hover{color:#a52020}
+.frame{position:absolute;width:390px;background:var(--paper);border:1px solid var(--border);border-radius:26px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.10)}
+.lbl{position:absolute;font-family:var(--font-display);font-weight:700;font-size:15px;letter-spacing:-.02em;color:#111}
+.sub{position:absolute;font-size:12.5px;line-height:1.45;color:#666;width:390px}
+.bar{display:flex;align-items:center;gap:9px;height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--border-strong);background:var(--paper-soft);flex:1;min-width:0}
+.bar input{flex:1;min-width:0;border:none;background:transparent;outline:none;font-family:var(--font-body);font-size:14.5px;color:var(--ink)}
+.bar input::placeholder{color:var(--ink-faint)}
+.row{display:flex;align-items:center;gap:8px;padding:12px 16px 0}
+.add{display:flex;align-items:center;gap:5px;height:44px;padding:0 13px;flex-shrink:0;border-radius:12px;border:none;background:var(--stamp-red);cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:700;color:#fff;letter-spacing:-.01em;white-space:nowrap}
+.count{font-size:12px;color:var(--ink-faint);padding:12px 18px 8px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px 16px}
+.card{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--paper)}
+.ph{height:96px;background:linear-gradient(135deg,#efece6,#e3dfd7)}
+.cb{padding:8px 10px 10px}
+.ct{font-size:12.5px;font-weight:600;line-height:1.3}
+.cs{font-size:11px;color:var(--ink-faint);margin-top:3px}
+.hdr{display:flex;align-items:center;justify-content:center;padding:10px 18px 12px;border-bottom:1px solid var(--border);font-family:var(--font-display);font-weight:800;font-size:22px;letter-spacing:-.03em}
+svg{display:block}
+.fbtn{display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer}
+.pill{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px;border-radius:8px;font-size:11.5px;font-weight:600;white-space:nowrap}
+</style></head>
+<body>
+
+<!-- ══ A ══ -->
+<div class="lbl" style="left:60px;top:40px">A · Icon inside the field</div>
+<div class="sub" style="left:60px;top:64px">Filter glyph lives at the right edge of the search box. Red with a count when active. Maximum space saved; the count row is free for anything else.</div>
+<div class="frame" id="A" style="left:60px;top:120px">
+  <div class="hdr">Database</div>
+  <div class="row">
+    <div class="bar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8f8a80" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Search items…" value="">
+      <div style="width:1px;height:20px;background:var(--border-strong);flex-shrink:0"></div>
+      <div class="fbtn" style="position:relative;width:24px;height:24px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--stamp-red)" stroke-width="2" stroke-linecap="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+        <span style="position:absolute;top:-5px;right:-6px;min-width:15px;height:15px;border-radius:999px;background:var(--stamp-red);color:#fff;font-size:9.5px;font-weight:700;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center;padding:0 3px">2</span>
+      </div>
+    </div>
+    <button class="add"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add item</button>
+  </div>
+  <div class="count">18 items</div>
+  <div class="grid">
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Nendoroid Hatsune Miku</div><div class="cs">Good Smile · 1/8</div></div></div>
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Ichiban Kuji Gojo</div><div class="cs">Banpresto · Prize</div></div></div>
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">S.H.Figuarts Luffy</div><div class="cs">Bandai · 1/12</div></div></div>
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Pop Up Parade Zenitsu</div><div class="cs">Good Smile · 1/7</div></div></div>
+  </div>
+</div>
+
+<!-- ══ B ══ -->
+<div class="lbl" style="left:520px;top:40px">B · Applied filters as chips inside the field</div>
+<div class="sub" style="left:520px;top:64px">Active filters sit inside the input as removable chips, ahead of the cursor. Nothing is hidden — you always see exactly what's applied. Input shrinks as filters stack.</div>
+<div class="frame" id="B" style="left:520px;top:120px">
+  <div class="hdr">Database</div>
+  <div class="row">
+    <div class="bar" style="padding-left:11px">
+      <div class="fbtn" style="position:relative;width:22px;height:22px" title="Filters">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--stamp-red)" stroke-width="2" stroke-linecap="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0">
+        <span class="pill" style="background:var(--stamp-red-soft);color:var(--stamp-red)">Figures <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></span>
+        <span class="pill" style="background:var(--stamp-red-soft);color:var(--stamp-red)">1/7 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></span>
+      </div>
+      <input placeholder="Search…" value="" style="min-width:40px">
+    </div>
+    <button class="add"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add item</button>
+  </div>
+  <div class="count">6 items</div>
+  <div class="grid">
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Pop Up Parade Zenitsu</div><div class="cs">Good Smile · 1/7</div></div></div>
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Figma Saber Alter</div><div class="cs">Max Factory · 1/7</div></div></div>
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Kotobukiya Rem</div><div class="cs">Kotobukiya · 1/7</div></div></div>
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Alter Shinobu</div><div class="cs">Alter · 1/7</div></div></div>
+  </div>
+</div>
+
+<!-- ══ C ══ -->
+<div class="lbl" style="left:980px;top:40px">C · Split control, labelled</div>
+<div class="sub" style="left:980px;top:64px">Search and Filters share one rounded container, divided by a hairline. Keeps the word "Filters" visible — most discoverable of the three — at the cost of ~70px of input width.</div>
+<div class="frame" id="C" style="left:980px;top:120px">
+  <div class="hdr">Database</div>
+  <div class="row">
+    <div class="bar" style="padding-right:0">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8f8a80" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Search items…" value="">
+      <div style="display:flex;align-items:center;gap:6px;height:100%;padding:0 13px 0 12px;border-left:1px solid var(--border-strong);background:var(--stamp-red-soft);border-radius:0 11px 11px 0;flex-shrink:0;cursor:pointer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--stamp-red)" stroke-width="2.2" stroke-linecap="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+        <span style="font-size:12.5px;font-weight:700;color:var(--stamp-red)">2</span>
+      </div>
+    </div>
+    <button class="add"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add item</button>
+  </div>
+  <div class="count">18 items</div>
+  <div class="grid">
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Nendoroid Hatsune Miku</div><div class="cs">Good Smile · 1/8</div></div></div>
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Ichiban Kuji Gojo</div><div class="cs">Banpresto · Prize</div></div></div>
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">S.H.Figuarts Luffy</div><div class="cs">Bandai · 1/12</div></div></div>
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Pop Up Parade Zenitsu</div><div class="cs">Good Smile · 1/7</div></div></div>
+  </div>
+</div>
+
+<!-- ══ D ══ -->
+<div class="lbl" style="left:60px;top:660px">D · Filter icon, no divider (quietest)</div>
+<div class="sub" style="left:60px;top:684px">Same as A but with no hairline and a grey glyph until something is applied — the field reads as one clean object. Least visual noise, lowest discoverability.</div>
+<div class="frame" id="D" style="left:60px;top:740px">
+  <div class="hdr">Database</div>
+  <div class="row">
+    <div class="bar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8f8a80" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Search items…" value="">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8f8a80" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;cursor:pointer"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+    </div>
+    <button class="add"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add item</button>
+  </div>
+  <div class="count">18 items</div>
+  <div class="grid">
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Nendoroid Hatsune Miku</div><div class="cs">Good Smile · 1/8</div></div></div>
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Ichiban Kuji Gojo</div><div class="cs">Banpresto · Prize</div></div></div>
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">S.H.Figuarts Luffy</div><div class="cs">Bandai · 1/12</div></div></div>
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Pop Up Parade Zenitsu</div><div class="cs">Good Smile · 1/7</div></div></div>
+  </div>
+</div>
+
+<!-- ══ E ══ -->
+<div class="lbl" style="left:520px;top:660px">E · Icon in field + applied filters below</div>
+<div class="sub" style="left:520px;top:684px">Trigger is inside the field (as A), but what's applied shows as removable chips on the count row — which already exists, so it costs no new vertical space. Row is empty when nothing is filtered.</div>
+<div class="frame" id="E" style="left:520px;top:740px">
+  <div class="hdr">Database</div>
+  <div class="row">
+    <div class="bar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8f8a80" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Search items…" value="">
+      <div style="width:1px;height:20px;background:var(--border-strong);flex-shrink:0"></div>
+      <div class="fbtn" style="position:relative;width:24px;height:24px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--stamp-red)" stroke-width="2" stroke-linecap="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+        <span style="position:absolute;top:-5px;right:-6px;min-width:15px;height:15px;border-radius:999px;background:var(--stamp-red);color:#fff;font-size:9.5px;font-weight:700;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center;padding:0 3px">2</span>
+      </div>
+    </div>
+    <button class="add"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add item</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:7px;padding:12px 18px 8px;overflow:hidden">
+    <span style="font-size:12px;color:var(--ink-faint);flex-shrink:0">6 items</span>
+    <div style="width:1px;height:14px;background:var(--border-strong);flex-shrink:0"></div>
+    <span class="pill" style="background:var(--stamp-red-soft);color:var(--stamp-red)">Figures <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></span>
+    <span class="pill" style="background:var(--stamp-red-soft);color:var(--stamp-red)">1/7 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></span>
+  </div>
+  <div class="grid">
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Pop Up Parade Zenitsu</div><div class="cs">Good Smile · 1/7</div></div></div>
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Figma Saber Alter</div><div class="cs">Max Factory · 1/7</div></div></div>
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Kotobukiya Rem</div><div class="cs">Kotobukiya · 1/7</div></div></div>
+    <div class="card"><div class="ph"></div><div class="cb"><div class="ct">Alter Shinobu</div><div class="cs">Alter · 1/7</div></div></div>
+  </div>
+</div>
+
+</body></html>

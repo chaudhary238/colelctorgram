@@ -68,7 +68,7 @@ function FeedView() {
       <button onClick={() => setOverlay({ name: 'compose', kind: 'post' })} aria-label="Create post" style={{
         width: 40, height: 40, borderRadius: 12, border: 'none', background: 'var(--stamp-red)', color: '#fff',
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(199,42,42,0.28)' }}>
-        <Ico d={Icons.edit} size={18} stroke={2}/>
+        <Ico d={Icons.plus} size={20} stroke={2.4}/>
       </button>
     }/>}>
       {/* feed tabs: Your Feed (customisable) · Latest · Following */}

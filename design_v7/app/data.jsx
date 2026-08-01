@@ -95,7 +95,7 @@ const USERS = {
 // ── Catalogue (BRD §8.3 / §9.4) — what search & scan resolve to ─
 const CATALOGUE = [
   { sku: 'MMS601',   title: 'Hot Toys MMS601 · Iron Man Mark 85', brand: 'Hot Toys', cat: 'figures', scale: '1/6',  year: '2022', tone: 'red',  est: 21000, scorredReviewed: true, ownersCount: 214, wishCount: 88, rating: { avg: 4.7, count: 96 } },
-  { sku: '10307',    title: 'LEGO 10307 · Eiffel Tower',          brand: 'LEGO',     cat: 'kits',    scale: '1:300', year: '2023', tone: 'gold', est: 52000, scorredReviewed: true, ownersCount: 96, wishCount: 140, rating: { avg: 4.9, count: 61 } },
+  { sku: '10307',    title: 'LEGO 10307 · Eiffel Tower',          brand: 'LEGO',     cat: 'kits',    scale: '1/300', year: '2023', tone: 'gold', est: 52000, scorredReviewed: true, ownersCount: 96, wishCount: 140, rating: { avg: 4.9, count: 61 } },
   { sku: 'SHF-GUI',  title: 'Bandai Goku Ultra Instinct · SH Figuarts', brand: 'Bandai', cat: 'figures', scale: '1/12', year: '2025', tone: 'gold', est: 6800, intelBy: 'meera', ownersCount: 58, wishCount: 203, rating: { avg: 4.5, count: 34 } },
   { sku: 'TL-R34',   title: 'Tomica Limited · Skyline GT-R R34',  brand: 'Tomica',   cat: 'diecast', scale: '1/64',  year: '2021', tone: 'teal', est: 5200, intelBy: 'karan_die', ownersCount: 142, wishCount: 51, rating: { avg: 4.3, count: 40 } },
   { sku: 'SP-TMWYW', title: 'Pop Mart · Skullpanda · Tell Me What You Want', brand: 'Pop Mart', cat: 'designer', scale: '—', year: '2024', tone: 'plum', est: 11000, intelBy: 'rohit_scale', ownersCount: 77, wishCount: 112, rating: { avg: 4.1, count: 28 } },
@@ -1003,7 +1003,7 @@ const ME = {
 const CONDITION_LADDER = ['Sealed / MISB', 'Mint', 'Like new', 'Good', 'Fair', 'For parts'];
 
 // ── Onboarding sub-interests added in v1.2 (§9.2): Scale + Universe ──
-const SCALES = ['1/4', '1/6', '1/10', '1/12', '1/64', '1/100', '1:300'];
+const SCALES = ['1/4', '1/6', '1/10', '1/12', '1/64', '1/100', '1/300'];
 const UNIVERSES = ['Marvel', 'DC', 'Dragon Ball', 'Star Wars', 'Gundam', 'JDM Cars', 'Pop Mart IP'];
 
 // ── Presence / online status (§9.11) ──────────────────────────

@@ -6,17 +6,14 @@ import { Search, SlidersHorizontal, Bookmark, X, Plus, Send, ShoppingBag, Edit3 
 import { api } from "@/lib/api";
 import { ApiListing, ApiPost, MarketCard, PostCard } from "@/components/cards";
 import { Segmented } from "@/components/ui";
+import { ADD_CATEGORIES } from "@/lib/catalog";
 
 // Category multi-select (design: [] = All). ids match the substring stored on listings.
 // v4 MarketView renders these from the global CATEGORIES using chipLabel, in this
-// order (figures → diecast → kits → designer → tcg). Kept in lockstep with v4.
-const CATEGORIES = [
-  { id: "figures", label: "Action Figure" },
-  { id: "diecast", label: "Diecast" },
-  { id: "kits", label: "Model Kits & Lego" },
-  { id: "designer", label: "Designer Toys & Blind Boxes" },
-  { id: "tcg", label: "Trading Cards (TCG)" },
-];
+// order (figures → diecast → kits → designer → tcg). Read from the shared list rather
+// than re-typed here — a local copy is how "Action Figure" and "Action Figures" ended up
+// naming the same category on two screens (Change Spec §4.2).
+const CATEGORIES = ADD_CATEGORIES;
 
 const SORTS = [
   { id: "new", label: "Newest" },

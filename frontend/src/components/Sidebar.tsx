@@ -4,38 +4,48 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Home, Search, ShoppingBag, Users, Calendar, LayoutGrid,
-  Bell, PlusCircle, Settings, User, MessageSquare, Bookmark,
+  Bell, Plus, Settings, User, Bookmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SealMark, ScorredWordmark } from "@/components/ui";
 import { useUnread } from "@/components/useUnread";
 
-// Order mirrors the DF-12 header: create+search cluster up top, Messages paired directly
-// with Notifications. badgeKey wires a live unread count (DF-38), not a hardcoded number.
-// DV7-05 NOTE: the MOBILE AppBar merged Messages into one Activity bell. The sidebar keeps
-// them as two rows — design_v7 web/Web.jsx does the same, and a vertical list has no reason
-// to collapse two destinations that a 5-icon top bar did. This is also what keeps /inbox
-// reachable without a deep link.
+// Desktop nav. DV7-04/05/06 apply here too — the handoff is written against the mobile
+// AppBar, but "one Activity inbox" and "Create is the only coloured control" are product
+// decisions, not viewport tricks. Leaving the sidebar on the old shape meant desktop had
+// two Messages entry points and a half-merged inbox (caught in QA 2026-08-01).
+// NOTE design_v7 web/Web.jsx was NOT re-synced in this batch — it still lists "Database"
+// and a separate bell, so it is STALE here, not a contrary decision. Follow the handoff.
+//   • Messages row REMOVED — merged into "Activity" (badge = msgs + notifs), which opens
+//     /notifications where the Messages segment lives. /inbox stays routed for deep links
+//     (chat back button, listing/post "message seller" fallbacks).
+//   • Create is a PLAIN row here, styled exactly like Search (founder call 2026-08-01 — a
+//     filled red row read as an ad against a quiet vertical list). The "only coloured
+//     control" rule stays where the handoff put it: the mobile header, where Create has to
+//     win against four grey icons on one line. The GLYPH is a plus, not a pencil — Create
+//     is the same "add" verb as every other add affordance. `?type=post` opens the composer
+//     straight on the four post types (the Post-vs-Add-item chooser no longer exists).
+// badgeKey wires a live unread count (DF-38), not a hardcoded number.
 type NavDef = {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
-  badgeKey?: "msgs" | "notifs";
+  badgeKey?: "msgs" | "notifs" | "activity";
 };
 const NAV: NavDef[] = [
   { href: "/feed",          label: "Home",          icon: Home },
   { href: "/search",        label: "Search",        icon: Search },
-  { href: "/compose",       label: "Add",           icon: PlusCircle },
+  { href: "/compose?type=post", label: "Create",    icon: Plus },
   { href: "/market",        label: "Market",        icon: ShoppingBag },
   { href: "/community",     label: "Community",     icon: Users },
   // DV7-02 — the Scorred DB gets its own destination, slotted after Community exactly as
-  // design_v7 web/Web.jsx orders it. Renamed Database → "Explore" in DV7-06 (it searches
-  // everything now, not just the catalogue). Events KEEPS its sidebar slot on desktop;
+  // design_v7 web/Web.jsx orders it. v7 wanted it renamed "Explore" with a global search;
+  // the founder reverted both on 2026-08-01 — it's the Database, and it searches items
+  // only (global search is the Search row above). Events KEEPS its sidebar slot;
   // only the mobile bottom nav traded Events out (founder call 2026-07-30).
-  { href: "/db",            label: "Explore",       icon: LayoutGrid },
+  { href: "/db",            label: "Database",      icon: LayoutGrid },
   { href: "/events",        label: "Events",        icon: Calendar },
-  { href: "/inbox",         label: "Messages",      icon: MessageSquare, badgeKey: "msgs" as const },
-  { href: "/notifications", label: "Notifications", icon: Bell,       badgeKey: "notifs" as const },
+  { href: "/notifications", label: "Activity",      icon: Bell,       badgeKey: "activity" as const },
   { href: "/saved",         label: "Stash",         icon: Bookmark },
   { href: "/profile",       label: "My Space",      icon: User },
 ];
@@ -82,6 +92,9 @@ export function Sidebar() {
   // Live unread counts (DF-38) — replaces the old hardcoded badge:3.
   const unread = useUnread();
   const items = NAV;
+  // DV7-05 — the merged inbox counts both, same as the mobile bell.
+  const badgeFor = (key: NavDef["badgeKey"]) =>
+    (key === "activity" ? unread.msgs + unread.notifs : key ? unread[key] : 0) || undefined;
 
   return (
     <nav
@@ -102,16 +115,20 @@ export function Sidebar() {
       </Link>
 
       <div className="flex flex-col gap-1 flex-1">
-        {items.map(({ href, label, icon, badgeKey }) => (
-          <NavItem
-            key={href}
-            href={href}
-            label={label}
-            icon={icon}
-            badge={badgeKey ? unread[badgeKey] || undefined : undefined}
-            active={pathname === href || (href !== "/" && pathname.startsWith(href))}
-          />
-        ))}
+        {items.map(({ href, label, icon, badgeKey }) => {
+          // Compare against the path only — Create carries a ?type= query (DV7-04).
+          const path = href.split("?")[0];
+          return (
+            <NavItem
+              key={href}
+              href={href}
+              label={label}
+              icon={icon}
+              badge={badgeFor(badgeKey)}
+              active={pathname === path || (path !== "/" && pathname.startsWith(path))}
+            />
+          );
+        })}
       </div>
 
       <NavItem href="/settings" label="Settings" icon={Settings} />

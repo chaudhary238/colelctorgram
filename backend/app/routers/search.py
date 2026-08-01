@@ -127,6 +127,7 @@ async def global_search(
             User.id,
             User.handle,
             User.name,
+            User.avatar_url,
             func.coalesce(vouch_sq.c.vouches, 0).label("vouches"),
         )
         .outerjoin(vouch_sq, vouch_sq.c.to_user_id == User.id)
@@ -141,13 +142,16 @@ async def global_search(
             "id": str(r.id),
             "handle": r.handle,
             "name": r.name,
+            # DV7-06 — Explore's People rows show a real avatar, not just initials.
+            "avatar_url": r.avatar_url,
             "vouches_count": r.vouches or 0,
         }
         for r in users_q
     ]
 
     posts_base = (
-        select(Post.id, Post.type, Post.title, Post.body, Post.iso_item, Post.community_id, User.handle, User.name)
+        select(Post.id, Post.type, Post.title, Post.body, Post.iso_item, Post.community_id,
+               User.handle, User.name, User.avatar_url)
         .join(User, User.id == Post.user_id)
         # QA2 — a post that lives in an unapproved (pending/rejected) community must not
         # surface in search. Feed posts (community_id NULL) are unaffected.
@@ -188,6 +192,7 @@ async def global_search(
             "snippet": _snippet(r.iso_item or r.title or r.body),
             "handle": r.handle,
             "name": r.name,
+            "avatar_url": r.avatar_url,  # DV7-06 — author avatar on Explore's Posts rows
             "community": com_names.get(r.community_id) if r.community_id else None,
         }
         for r in post_rows

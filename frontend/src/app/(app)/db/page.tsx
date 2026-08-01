@@ -1,39 +1,40 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, SlidersHorizontal, X, Plus, Star, Check, ShieldCheck, Clock, PlusCircle } from "lucide-react";
+import { Search, SlidersHorizontal, X, Plus, Star, Check, ShieldCheck, Clock } from "lucide-react";
 import { api } from "@/lib/api";
-import { ProductPhoto, SectionLabel, CategoryChip, Button, Avatar } from "@/components/ui";
+import { useUser } from "@/lib/auth-context";
+import { ProductPhoto, SectionLabel, Button } from "@/components/ui";
 import { fireToast } from "@/components/gamification";
 import { ContributeGuidelines } from "@/components/ContributeGuidelines";
 import { ADD_CATEGORIES, CAT_SCALES } from "@/lib/catalog";
 
 /**
- * Explore tab — the Scorred DB plus global search (design_v7 app/ExploreView.jsx,
- * DV7-02 + DV7-06). Route stays `/db`; the tab was renamed Database → Explore once the
- * search field stopped being catalogue-only.
+ * Database tab — the Scorred DB (design_v7 app/ExploreView.jsx, DV7-02 + DV7-07 + DV7-08).
+ * Route is `/db`.
  *
- * Two modes, driven purely by whether the search box has text:
- *  - **Empty query** — the catalogue browse it always was: Filters sheet, item count,
- *    grid of entries with owner/want counts.
- *  - **Non-empty query** — scope chips appear (`Items N · Posts N · People N ·
- *    Communities N · Events N`, zeros included). Items keeps the grid, filtered by the
- *    query; the other four render result rows. Clearing the field resets to Items.
+ * NAME: v7's handoff renamed this tab Database → "Explore"; the founder reverted it to
+ * **Database** on 2026-08-01. Don't re-apply the v7 rename.
  *
- * Counts come from two places on purpose: **Items** from `/catalogue/browse`'s `total`
- * (the same query that fills the grid, so chip and grid can't disagree) and the rest from
- * `/search`'s `counts` (true totals, not `len(rows)` — rows cap at 20).
+ * SCOPE: the search box matches **catalogue items only** — title, brand, SKU. DV7-06 briefly
+ * made it global (scope chips across Posts / People / Communities / Events); that was
+ * reverted (Change Spec §3), so there is no `/search` call here any more. Global search is
+ * its own screen at `/search`, reached from the header.
+ *
+ * Layout (Change Spec §3.1) — ONE row of three controls:
+ *   [ 🔍 search field …………………………… ⚙ ] [ ＋ Add item ]
+ * The filter trigger lives INSIDE the field at its right edge (icon only, no divider, no
+ * container of its own) so the field reads as a single object; it carries the active-filter
+ * count inline when filters are on. The field may shrink; Add item may not — that pairing is
+ * what keeps all three visible at the 390px baseline without wrapping or clipping. The item
+ * count sits BELOW the row, and the old full-width "Add item" footer button is gone.
  *
  * Web deviations from v7 (deliberate):
  *  - Star = wishlist, not Bookmark. The web icon law (2026-07-11) reserves Bookmark for
  *    saving CONTENT; v7's prototype uses a bookmark glyph here. Star keeps /db, /db/[sku]
  *    and the profile grid consistent.
- *  - **People rows read `@handle · N vouches`, NOT v7's `N deals · N vouches`** — the deal
- *    flow was retired in DV6-07 and `users.deals_count` was dropped from the schema. v7's
- *    fixture data still carries `u.deals`; the product doesn't. Same reason its `verified`
- *    avatar state is gone (VerifyBadge/TierChip both removed 2026-07-18).
  *  - No star-rating row: ratings were removed app-wide in the 2026-07-18 QA pass.
  *  - 3-up grid from `sm` (the web column is 680px, not a 390px phone).
  */
@@ -54,29 +55,26 @@ interface DbItem {
   viewer_status: string | null;
 }
 
-// GET /search — rows capped at `limit`, with true totals alongside in `counts`.
-interface SearchResults {
-  users: { id: string; handle: string; name: string; vouches_count: number }[];
-  posts: { id: string; type: string; snippet: string; handle: string; name: string; community: string | null }[];
-  communities: { id: string; name: string; description: string | null; category: string; member_count: number }[];
-  events: { id: string; title: string; city: string | null; mode: string; starts_at: string }[];
-  counts: { users: number; posts: number; catalogue: number; communities: number; events: number };
-}
-
 type SortId = "owned" | "wishlisted" | "newest";
 const SORTS: { id: SortId; label: string }[] = [
   { id: "owned", label: "Most owned" },
   { id: "wishlisted", label: "Most wishlisted" },
   { id: "newest", label: "Newest" },
 ];
+const DEFAULT_SORT: SortId = "owned";
 
-type ScopeId = "items" | "posts" | "people" | "communities" | "events";
-
-const PAGE_SIZE = 24;
-const ROW_CAP = 20; // v7: non-item scopes show at most 20 rows
+// Change Spec §3.2 — 8 up front, +8 per tap. Server-side paging, so "show more" is one
+// request for one page rather than a slice of an oversized payload.
+const PAGE_SIZE = 8;
 const OWNS = (s: string | null) => s === "owned" || s === "preorder";
 
-const MONTH_SHORT = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+/** Sort scales the way a collector reads them: 1/6 before 1/12 before 1/144, text last. */
+const scaleRank = (s: string) => {
+  const m = /^1\s*\/\s*(\d+)$/.exec(s.trim());
+  return m ? Number(m[1]) : Number.POSITIVE_INFINITY;
+};
+const sortScales = (xs: string[]) =>
+  [...new Set(xs)].sort((a, b) => scaleRank(a) - scaleRank(b) || a.localeCompare(b));
 
 function FilterChip({ active, onClick, children }: { active?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -91,31 +89,78 @@ function FilterChip({ active, onClick, children }: { active?: boolean; onClick: 
   );
 }
 
-export default function ExplorePage() {
+/**
+ * Category chip for the filter sheet (Change Spec §4.1). A TICK chip, not a radio row:
+ * the check mark is what tells you at a glance that several can be on at once. There is
+ * deliberately no "All categories" option — an empty selection already means unrestricted,
+ * and an explicit "all" alongside real ticks reads like a sixth category.
+ */
+function TickChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 6, padding: active ? "7px 13px 7px 10px" : "7px 13px",
+        borderRadius: 999, cursor: "pointer", transition: "all 120ms",
+        border: `1px solid ${active ? "var(--stamp-red)" : "var(--border-strong)"}`,
+        background: active ? "var(--stamp-red)" : "var(--paper-soft)",
+        color: active ? "var(--paper)" : "var(--ink)",
+        fontFamily: "var(--font-body)", fontWeight: active ? 700 : 500, fontSize: 12.5,
+        whiteSpace: "nowrap", lineHeight: 1.2,
+      }}
+    >
+      {active && <Check size={13} strokeWidth={3} />}
+      {children}
+    </button>
+  );
+}
+
+export default function DatabasePage() {
   const router = useRouter();
+  const { user, loading: userLoading } = useUser();
 
-  // applied filters
+  // applied filters. `cats` is a LIST — category is multi-select (DV7-08).
   const [q, setQ] = useState("");
-  const [scope, setScope] = useState<ScopeId>("items");
   const [debouncedQ, setDebouncedQ] = useState("");
-  const [cat, setCat] = useState("");
+  const [cats, setCats] = useState<string[]>([]);
   const [scale, setScale] = useState("");
-  const [sort, setSort] = useState<SortId>("owned");
+  const [sort, setSort] = useState<SortId>(DEFAULT_SORT);
 
-  // filter sheet (draft until Apply, like v7)
+  // filter panel (draft until Apply, like v7)
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [dCat, setDCat] = useState("");
+  const [dCats, setDCats] = useState<string[]>([]);
   const [dScale, setDScale] = useState("");
-  const [dSort, setDSort] = useState<SortId>("owned");
+  const [dSort, setDSort] = useState<SortId>(DEFAULT_SORT);
   const [dbScales, setDbScales] = useState<string[]>([]);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const [items, setItems] = useState<DbItem[] | null>(null);
-  const [results, setResults] = useState<SearchResults | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const [guidelines, setGuidelines] = useState(false);
   const deb = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Change Spec §4.3 — the sheet opens with the categories you picked at sign-up already
+  // ticked, live AND drafted. A collector who signed up for Diecast shouldn't have to
+  // filter to Diecast on every visit.
+  //
+  // Seeded exactly once, and DURING RENDER rather than in an effect: `user` arrives async,
+  // so an effect would paint (and fetch) the unfiltered grid first and then immediately
+  // refetch the filtered one. This is React's "adjusting state when a prop changes"
+  // pattern — the guarded setState re-renders before anything commits, so no request is
+  // wasted. After the seed the user's own selection owns this state, including a
+  // deliberately empty one — which is why the guard is a flag, not `cats.length === 0`.
+  // Clear still empties the selection; it does NOT restore these.
+  const [seeded, setSeeded] = useState(false);
+  if (!seeded && !userLoading) {
+    setSeeded(true);
+    const known = new Set<string>(ADD_CATEGORIES.map((c) => c.id));
+    const picks = (user?.interests ?? []).filter((c) => known.has(c));
+    if (picks.length) { setCats(picks); setDCats(picks); }
+  }
 
   // Debounce the search box so typing doesn't fire a request per keystroke.
   useEffect(() => {
@@ -124,54 +169,69 @@ export default function ExplorePage() {
     return () => { if (deb.current) clearTimeout(deb.current); };
   }, [q]);
 
+  // `cats` joins with commas — the backend ORs them (DV7-08).
+  const catKey = cats.join(",");
   const query = useCallback((p: number) => {
     const s = new URLSearchParams({ sort, page: String(p), limit: String(PAGE_SIZE) });
     if (debouncedQ) s.set("q", debouncedQ);
-    if (cat) s.set("category", cat);
+    if (catKey) s.set("category", catKey);
     if (scale) s.set("scale", scale);
     return s.toString();
-  }, [debouncedQ, cat, scale, sort]);
+  }, [debouncedQ, catKey, scale, sort]);
 
-  // First page — refetches whenever a filter changes.
+  // First page — refetches whenever the query or a filter changes, which is also what
+  // resets the page size back to 8 (Change Spec §3.2): paging deep and then filtering must
+  // not drop you into the middle of a different list.
   useEffect(() => {
     let alive = true;
     api.get<{ items: DbItem[]; total: number }>(`/catalogue/browse?${query(1)}`)
       .then((d) => { if (alive) { setItems(d.items); setTotal(d.total); setPage(1); } })
-      .catch(() => { if (alive) { setItems([]); setTotal(0); } });
+      .catch(() => { if (alive) { setItems([]); setTotal(0); setPage(1); } });
     return () => { alive = false; };
   }, [query]);
 
-  // Global search (DV7-06) — only fires once there's a query; one request covers all four
-  // non-item scopes AND their counts, so the chips can show numbers before you tap them.
-  const searching = debouncedQ.length > 0;
-  useEffect(() => {
-    if (!searching) return;
-    let alive = true;
-    api.get<SearchResults>(`/search?q=${encodeURIComponent(debouncedQ)}&limit=${ROW_CAP}`)
-      .then((d) => { if (alive) setResults(d); })
-      .catch(() => { if (alive) setResults(null); });
-    return () => { alive = false; };
-  }, [debouncedQ, searching]);
-
-  // Clearing the field drops straight back to the catalogue browse (v7). `scope` itself is
-  // reset in the input handler; this also covers the debounce window, where the field is
-  // already empty but `debouncedQ` hasn't caught up yet.
-  const activeScope: ScopeId = searching ? scope : "items";
-
-  // Scale options for the sheet follow the drafted category. Designer toys and TCG have
-  // no scale at all (CAT_SCALES[cat] === null), so skip the request and hide the block.
-  const scaleless = !!dCat && CAT_SCALES[dCat] === null;
-  const scaleOptions = scaleless ? [] : dbScales;
+  // ── Scale options follow the drafted categories (Change Spec §4.4) ──
+  // Designer toys and TCG have no scale at all (CAT_SCALES[cat] === null) — hide the block
+  // only when EVERY picked category is scaleless, since a mixed selection still has scales.
+  const dCatKey = dCats.join(",");
+  const scaleless = dCats.length > 0 && dCats.every((k) => CAT_SCALES[k] === null);
   useEffect(() => {
     if (scaleless) return;
     let alive = true;
-    api.get<{ scales: string[] }>(`/catalogue/scales${dCat ? `?category=${dCat}` : ""}`)
+    api.get<{ scales: string[] }>(`/catalogue/scales${dCatKey ? `?category=${encodeURIComponent(dCatKey)}` : ""}`)
       .then((d) => { if (alive) setDbScales(d.scales); })
       .catch(() => { if (alive) setDbScales([]); });
     return () => { alive = false; };
-  }, [dCat, scaleless]);
+  }, [dCatKey, scaleless]);
 
-  async function loadMore() {
+  // Exactly ONE category → that category's own scale vocabulary (1/6·1/12 for figures,
+  // 1/64·1/18 for diecast — the two lists barely overlap, so offering both is noise).
+  // Zero or several → the union of what's actually in the filtered set, which is what the
+  // backend's /scales returns. Even in the single-category case we union in the DB's own
+  // values, so a seeded scale outside the canonical list stays filterable.
+  const scaleOptions = useMemo(() => {
+    if (scaleless) return [];
+    if (dCats.length === 1) return sortScales([...(CAT_SCALES[dCats[0]] ?? []), ...dbScales]);
+    return sortScales(dbScales);
+  }, [scaleless, dCats, dbScales]);
+
+  // Close the filter panel on an outside click / Escape (it's an anchored dropdown now,
+  // not a modal sheet, so there's no backdrop to catch the click).
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setSheetOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSheetOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [sheetOpen]);
+
+  async function showMore() {
     if (loadingMore || !items) return;
     setLoadingMore(true);
     try {
@@ -204,217 +264,246 @@ export default function ExplorePage() {
     }
   }
 
-  const activeFilters = (cat ? 1 : 0) + (scale ? 1 : 0) + (sort !== "owned" ? 1 : 0);
-  const openSheet = () => { setDCat(cat); setDScale(scale); setDSort(sort); setSheetOpen(true); };
-  const applySheet = () => { setCat(dCat); setScale(dScale); setSort(dSort); setSheetOpen(false); };
-  const clearSheet = () => { setDCat(""); setDScale(""); setDSort("owned"); };
-  const hasMore = !!items && items.length < total;
+  // Change Spec §4.5 — one per picked category, plus one each for a non-default scale and
+  // sort. Drives both the trigger's active state and the number it shows.
+  const activeFilters = cats.length + (scale ? 1 : 0) + (sort !== DEFAULT_SORT ? 1 : 0);
+  const filtersOn = activeFilters > 0;
+  const draftDirty = dCats.length > 0 || !!dScale || dSort !== DEFAULT_SORT;
+  const openSheet = () => { setDCats(cats); setDScale(scale); setDSort(sort); setSheetOpen(true); };
+  const applySheet = () => { setCats(dCats); setScale(dScale); setSort(dSort); setSheetOpen(false); };
+  // Clear empties the selection outright — it does NOT restore the sign-up defaults, which
+  // would make "unrestricted" unreachable for anyone who picked interests (§4.3).
+  // It resets the DRAFT only; Apply commits, so it never silently changes the grid.
+  const clearSheet = () => { setDCats([]); setDScale(""); setDSort(DEFAULT_SORT); };
+  // Any category change resets scale to "all": scale vocabularies differ per category, so
+  // a stale scale would silently zero the results (§4.4).
+  const toggleDraftCat = (id: string) => {
+    setDCats((cs) => (cs.includes(id) ? cs.filter((x) => x !== id) : [...cs, id]));
+    setDScale("");
+  };
 
-  // Items counts from the same query that fills the grid; the rest from /search's totals.
-  const c = results?.counts;
-  const SCOPES: { id: ScopeId; label: string; n: number }[] = [
-    { id: "items", label: "Items", n: total },
-    { id: "posts", label: "Posts", n: c?.posts ?? 0 },
-    { id: "people", label: "People", n: c?.users ?? 0 },
-    { id: "communities", label: "Communities", n: c?.communities ?? 0 },
-    { id: "events", label: "Events", n: c?.events ?? 0 },
-  ];
-  // For the "Try Posts above." hint when Items comes back empty.
-  const firstNonEmpty = SCOPES.find((s) => s.id !== "items" && s.n > 0);
+  const shown = items?.length ?? 0;
+  const hasMore = !!items && shown < total;
+  // "how many more will be shown", not "how many are left" (§3.2) — the last page is short.
+  const nextBatch = Math.min(PAGE_SIZE, total - shown);
 
   return (
     <div className="w-full max-w-[680px] flex flex-col">
-      {/* search + filters + add */}
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
+      {/* ── Search row: field (with the filter trigger inside it) + Add item ── */}
+      <div ref={panelRef} className="sticky top-0 z-20 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px", position: "sticky" }}>
         <div className="hidden lg:block" style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 21, letterSpacing: "-0.03em", marginBottom: 10 }}>
-          Explore
+          Database
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 9, height: 44, padding: "0 13px", borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
+          {/* The field must be allowed to SHRINK (flex:1 + minWidth:0) — without minWidth:0
+              its content sets a floor and Add item clips off the right at 390px. */}
+          <div style={{ flex: "1 1 auto", minWidth: 0, display: "flex", alignItems: "center", gap: 8, height: 44, padding: "0 6px 0 13px", borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>
             <Search size={17} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
             <input
               value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                // v7: clearing the field resets the scope, so the next search starts on Items.
-                if (!e.target.value.trim()) setScope("items");
-              }}
-              placeholder="Items, posts, people, communities…"
+              onChange={(e) => setQ(e.target.value)}
+              /* Short on purpose: the field is the one control here allowed to shrink, so
+                 at 390px with a filter count showing, a longer string truncates mid-word. */
+              placeholder="Search items"
+              aria-label="Search the database"
               style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-body)", fontSize: 14.5, color: "var(--ink)" }}
             />
             {q && (
-              <button onClick={() => { setQ(""); setScope("items"); }} aria-label="Clear search" style={{ background: "none", border: "none", padding: 2, cursor: "pointer", color: "var(--ink-ghost)", display: "flex" }}>
+              <button onClick={() => setQ("")} aria-label="Clear search" style={{ background: "none", border: "none", padding: 2, cursor: "pointer", color: "var(--ink-ghost)", display: "flex", flexShrink: 0 }}>
                 <X size={15} strokeWidth={2} />
               </button>
             )}
+            {/* Filter trigger — INSIDE the field, at its right edge (§3.1). Icon only: no
+                divider, no border, no background of its own, so the field stays one object.
+                Neutral when nothing is applied; accent + inline count when filters are on. */}
+            <button
+              type="button"
+              onClick={() => (sheetOpen ? setSheetOpen(false) : openSheet())}
+              aria-label={filtersOn ? `Filters — ${activeFilters} applied` : "Filters"}
+              aria-expanded={sheetOpen}
+              style={{
+                display: "flex", alignItems: "center", gap: 4, flexShrink: 0,
+                height: 32, padding: "0 8px", borderRadius: 9, cursor: "pointer",
+                border: "none", background: "transparent",
+                color: filtersOn || sheetOpen ? "var(--stamp-red)" : "var(--ink-mute)",
+              }}
+            >
+              <SlidersHorizontal size={18} strokeWidth={filtersOn ? 2.3 : 1.9} />
+              {filtersOn && (
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, lineHeight: 1 }}>
+                  {activeFilters}
+                </span>
+              )}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={openSheet}
-            aria-label="Filters"
-            style={{
-              width: 44, height: 44, flexShrink: 0, borderRadius: 12, cursor: "pointer", position: "relative",
-              border: `1px solid ${activeFilters ? "var(--stamp-red)" : "var(--border-strong)"}`,
-              background: activeFilters ? "var(--stamp-red-soft)" : "var(--paper-soft)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}
-          >
-            <SlidersHorizontal size={18} style={{ color: activeFilters ? "var(--stamp-red)" : "var(--ink-mute)" }} />
-            {activeFilters > 0 && (
-              <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 999, background: "var(--stamp-red)", color: "#fff", fontSize: 10, fontWeight: 700, fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>
-                {activeFilters}
-              </span>
-            )}
-          </button>
-          {/* DV7-07 — Add item moved up here from the old full-width footer button: one tap
-              from the top of Explore, and it can't be missed at the bottom of a long grid. */}
+
+          {/* Add item — LABELLED (§3.1). The old icon-only plus wasn't understandable as
+              "contribute to the shared catalogue". Never shrinks, never wraps. */}
           <button
             type="button"
             onClick={() => setGuidelines(true)}
-            aria-label="Add item — can't find something?"
-            title="Add item — can't find something?"
             style={{
-              width: 44, height: 44, flexShrink: 0, borderRadius: 12, cursor: "pointer",
-              border: "1px solid var(--slate-200)", background: "var(--slate-50)",
-              display: "flex", alignItems: "center", justifyContent: "center",
+              display: "flex", alignItems: "center", gap: 6, flexShrink: 0, whiteSpace: "nowrap",
+              height: 44, padding: "0 14px", borderRadius: 12, cursor: "pointer",
+              border: "1px solid var(--stamp-red)", background: "var(--stamp-red-soft)", color: "var(--stamp-red)",
+              fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5,
             }}
           >
-            <PlusCircle size={18} strokeWidth={1.8} style={{ color: "var(--stamp-red)" }} />
+            <Plus size={17} strokeWidth={2.4} />Add item
           </button>
+
+          {/* ── Filters — an anchored dropdown directly beneath the search row (DV7-08).
+              Was a bottom sheet pinned to the viewport floor, which read as unrelated to the
+              control that opened it and buried Apply off-screen (founder QA 2026-08-01). */}
+          {sheetOpen && (
+            <div
+              role="dialog"
+              aria-label="Filters"
+              style={{
+                position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, zIndex: 30,
+                background: "var(--paper)", border: "1px solid var(--border-strong)", borderRadius: 16,
+                boxShadow: "var(--shadow-4)", padding: "14px 16px 16px",
+                maxHeight: "min(70vh, 560px)", overflowY: "auto",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16 }}>Filters</span>
+                {/* Disabled when there's nothing to clear — previously it looked live but was a
+                    no-op at defaults, which read as "Clear is broken". */}
+                <button
+                  type="button"
+                  onClick={clearSheet}
+                  disabled={!draftDirty}
+                  style={{
+                    border: "1px solid var(--border-strong)", borderRadius: 8, padding: "5px 11px",
+                    background: "var(--paper-soft)",
+                    cursor: draftDirty ? "pointer" : "not-allowed", opacity: draftDirty ? 1 : 0.45,
+                    color: draftDirty ? "var(--stamp-red)" : "var(--ink-faint)",
+                    fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5,
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
+
+              <SectionLabel>Sort by</SectionLabel>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 9 }}>
+                {SORTS.map((s) => (
+                  <FilterChip key={s.id} active={dSort === s.id} onClick={() => setDSort(s.id)}>{s.label}</FilterChip>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 18, display: "flex", alignItems: "baseline", gap: 8 }}>
+                <SectionLabel>Category</SectionLabel>
+                <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>
+                  {dCats.length ? `${dCats.length} selected` : "all categories"}
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 9 }}>
+                {ADD_CATEGORIES.map((cg) => (
+                  <TickChip key={cg.id} active={dCats.includes(cg.id)} onClick={() => toggleDraftCat(cg.id)}>
+                    {cg.label}
+                  </TickChip>
+                ))}
+              </div>
+
+              {scaleOptions.length > 0 && (
+                <>
+                  <div style={{ marginTop: 18 }}><SectionLabel>Scale</SectionLabel></div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 9 }}>
+                    <FilterChip active={!dScale} onClick={() => setDScale("")}>All scales</FilterChip>
+                    {scaleOptions.map((s) => (
+                      <FilterChip key={s} active={dScale === s} onClick={() => setDScale(s)}>{s}</FilterChip>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <Button variant="dark" size="block" style={{ marginTop: 18 }} onClick={applySheet}>Apply</Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── The catalogue grid ── */}
+      <div style={{ padding: "12px 20px 28px" }}>
+        {/* item count — below the search row (§3.1) */}
+        <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 10 }}>
+          {items === null ? "Loading…" : `${total.toLocaleString("en-IN")} item${total === 1 ? "" : "s"}`}
+          {filtersOn && items !== null && (
+            <button onClick={() => { setCats([]); setScale(""); setSort(DEFAULT_SORT); }} style={{ marginLeft: 8, background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12 }}>
+              Clear filters
+            </button>
+          )}
         </div>
 
-        {/* scope chips — only while searching; every scope shows a count, zeros included */}
-        {searching && (
-          <div style={{ display: "flex", gap: 7, marginTop: 12, overflowX: "auto", paddingBottom: 2 }}>
-            {SCOPES.map((s) => (
-              <CategoryChip key={s.id} active={activeScope === s.id} onClick={() => setScope(s.id)}>
-                {s.label} {s.n.toLocaleString("en-IN")}
-              </CategoryChip>
+        {items === null ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="aspect-square rounded-2xl bg-[var(--bone-deep)] animate-pulse" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <div style={{ padding: "28px 4px 8px", textAlign: "center" }}>
+            <div style={{ fontSize: 13.5, color: "var(--ink-faint)" }}>
+              {debouncedQ ? "No items match that search." : "No entries match these filters."}
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {items.map((it) => (
+              <DbTile key={it.sku} item={it} onWishlist={() => toggleWishlist(it)} />
             ))}
           </div>
         )}
-      </div>
 
-      {/* ── Items: the catalogue browse ── */}
-      {activeScope === "items" && (
-        <div style={{ padding: "12px 20px 28px" }}>
-          <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 10 }}>
-            {items === null ? "Loading…" : `${total.toLocaleString("en-IN")} item${total === 1 ? "" : "s"}`}
-            {activeFilters > 0 && items !== null && (
-              <button onClick={() => { setCat(""); setScale(""); setSort("owned"); }} style={{ marginLeft: 8, background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12 }}>
-                Clear filters
-              </button>
-            )}
+        {/* §3.2 — full-width "Show N more"; disappears once everything is on screen. */}
+        {hasMore && (
+          <button
+            type="button"
+            onClick={showMore}
+            disabled={loadingMore}
+            style={{
+              width: "100%", marginTop: 14, height: 46, borderRadius: 13, cursor: loadingMore ? "wait" : "pointer",
+              border: "1px solid var(--border-strong)", background: "var(--paper-soft)", color: "var(--ink)",
+              fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14,
+            }}
+          >
+            {loadingMore ? "Loading…" : `Show ${nextBatch} more`}
+          </button>
+        )}
+
+        {/* §3.3 — "Can't find it?" — the LAST thing in the list, after the pagination
+            button. Dashed border so it never reads as another result tile. Third and final
+            entry point into the add-to-database flow (search row · here · profile). */}
+        {items !== null && (
+          <div
+            style={{
+              marginTop: 20, padding: "20px 18px", borderRadius: 16, textAlign: "center",
+              border: "1.5px dashed var(--border-strong)", background: "transparent",
+            }}
+          >
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16.5, letterSpacing: "-0.01em", color: "var(--ink)" }}>
+              Didn&apos;t find what you were looking for?
+            </div>
+            <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 6, lineHeight: 1.5 }}>
+              Add it to the Scorred DB — you earn XP once it passes review.
+            </div>
+            <button
+              type="button"
+              onClick={() => setGuidelines(true)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 7, marginTop: 14,
+                height: 42, padding: "0 18px", borderRadius: 12, cursor: "pointer", border: "none",
+                background: "var(--stamp-red)", color: "var(--paper)",
+                fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14,
+              }}
+            >
+              <Plus size={17} strokeWidth={2.4} />Add an item
+            </button>
           </div>
-
-          {items === null ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="aspect-square rounded-2xl bg-[var(--bone-deep)] animate-pulse" />
-              ))}
-            </div>
-          ) : items.length === 0 ? (
-            <div style={{ padding: "28px 4px 8px", textAlign: "center" }}>
-              <div style={{ fontSize: 13.5, color: "var(--ink-faint)" }}>
-                {searching ? "No items match that search." : "No entries match these filters."}
-              </div>
-              {searching && firstNonEmpty && (
-                <div style={{ fontSize: 13, color: "var(--ink-mute)", marginTop: 8 }}>Try {firstNonEmpty.label} above.</div>
-              )}
-              {searching && !firstNonEmpty && (
-                <div style={{ fontSize: 13, color: "var(--ink-mute)", marginTop: 8 }}>
-                  Nothing in the Scorred DB yet — use <PlusCircle size={13} style={{ display: "inline", verticalAlign: "-2px", color: "var(--stamp-red)" }} /> to add it and earn XP for being first.
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {items.map((it) => (
-                <DbTile key={it.sku} item={it} onWishlist={() => toggleWishlist(it)} />
-              ))}
-            </div>
-          )}
-
-          {hasMore && (
-            <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
-              <Button variant="secondary" onClick={loadMore} disabled={loadingMore}>
-                {loadingMore ? "Loading…" : `Load more (${(total - items!.length).toLocaleString("en-IN")} left)`}
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Posts / People / Communities / Events ── */}
-      {activeScope !== "items" && (
-        <div style={{ padding: "8px 20px 28px" }}>
-          {results === null ? (
-            <SearchRowSkeleton />
-          ) : activeScope === "posts" ? (
-            results.posts.length
-              ? results.posts.slice(0, ROW_CAP).map((p) => (
-                  <ResRow
-                    key={p.id}
-                    href={`/post/${p.id}`}
-                    media={<Avatar name={p.name} size={40} />}
-                    title={truncate(p.snippet, 72) || "(no text)"}
-                    sub={`@${p.handle}${p.community ? ` · ${p.community}` : ""}`}
-                  />
-                ))
-              : <EmptyScope label="posts" />
-          ) : activeScope === "people" ? (
-            results.users.length
-              ? results.users.slice(0, ROW_CAP).map((u) => (
-                  <ResRow
-                    key={u.handle}
-                    href={`/profile/${u.handle}`}
-                    media={<Avatar name={u.name} size={40} />}
-                    title={u.name}
-                    /* v7 says "N deals · N vouches" — deals were retired in DV6-07 and the
-                       column is gone, so vouches carry the trust signal on their own. */
-                    sub={`@${u.handle} · ${u.vouches_count} vouch${u.vouches_count === 1 ? "" : "es"}`}
-                  />
-                ))
-              : <EmptyScope label="people" />
-          ) : activeScope === "communities" ? (
-            results.communities.length
-              ? results.communities.slice(0, ROW_CAP).map((cm) => (
-                  <ResRow
-                    key={cm.id}
-                    href={`/community/${cm.id}`}
-                    media={
-                      <div style={{ width: 40, height: 40, borderRadius: 9, background: "var(--ink)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, flexShrink: 0 }}>
-                        {cm.name.slice(0, 2).toUpperCase()}
-                      </div>
-                    }
-                    title={cm.name}
-                    sub={`${cm.member_count.toLocaleString("en-IN")} member${cm.member_count === 1 ? "" : "s"}`}
-                  />
-                ))
-              : <EmptyScope label="communities" />
-          ) : (
-            results.events.length
-              ? results.events.slice(0, ROW_CAP).map((ev) => {
-                  const d = new Date(ev.starts_at);
-                  return (
-                    <ResRow
-                      key={ev.id}
-                      href={`/events/${ev.id}`}
-                      media={
-                        <div style={{ width: 40, height: 40, borderRadius: 9, background: "var(--plum)", color: "var(--paper)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.04em" }}>{MONTH_SHORT[d.getMonth()]}</span>
-                          <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, lineHeight: 1 }}>{d.getDate()}</span>
-                        </div>
-                      }
-                      title={ev.title}
-                      sub={`${d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}${ev.city ? ` · ${ev.city}` : ""}`}
-                    />
-                  );
-                })
-              : <EmptyScope label="events" />
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
       {guidelines && (
         <ContributeGuidelines
@@ -422,100 +511,9 @@ export default function ExplorePage() {
           onAccept={() => router.push("/add/catalogue?mode=intel&new=1")}
         />
       )}
-
-      {/* filter bottom sheet — sort / category / scale, drafted then applied (v7) */}
-      {sheetOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setSheetOpen(false)} />
-          <div
-            className="relative z-10 w-full sm:max-w-[520px] bg-[var(--paper)] rounded-t-[20px] sm:rounded-[20px] sm:mb-8 shadow-[var(--shadow-4)] overflow-y-auto"
-            style={{ maxHeight: "80vh", padding: "10px 18px calc(20px + env(safe-area-inset-bottom))" }}
-          >
-            <div style={{ width: 36, height: 4, borderRadius: 999, background: "var(--border-strong)", margin: "4px auto 14px" }} />
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-              <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17 }}>Filters</span>
-              <button onClick={clearSheet} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--ink-faint)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13 }}>
-                Clear
-              </button>
-            </div>
-
-            <SectionLabel>Sort by</SectionLabel>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 9 }}>
-              {SORTS.map((s) => (
-                <FilterChip key={s.id} active={dSort === s.id} onClick={() => setDSort(s.id)}>{s.label}</FilterChip>
-              ))}
-            </div>
-
-            <div style={{ marginTop: 20 }}><SectionLabel>Category</SectionLabel></div>
-            <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 9 }}>
-              <CategoryChip active={!dCat} onClick={() => { setDCat(""); setDScale(""); }}>All categories</CategoryChip>
-              {ADD_CATEGORIES.map((c) => (
-                <CategoryChip key={c.id} active={dCat === c.id} onClick={() => { setDCat(c.id); setDScale(""); }}>{c.label}</CategoryChip>
-              ))}
-            </div>
-
-            {scaleOptions.length > 0 && (
-              <>
-                <div style={{ marginTop: 20 }}><SectionLabel>Scale</SectionLabel></div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 9 }}>
-                  <FilterChip active={!dScale} onClick={() => setDScale("")}>All scales</FilterChip>
-                  {scaleOptions.map((s) => (
-                    <FilterChip key={s} active={dScale === s} onClick={() => setDScale(s)}>{s}</FilterChip>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <Button variant="dark" size="block" style={{ marginTop: 22 }} onClick={applySheet}>Apply</Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
-
-/* ── Search result row — 40px media, title, sub line (v7 ExploreView ResRow) ── */
-function ResRow({ href, media, title, sub }: { href: string; media: React.ReactNode; title: string; sub: string }) {
-  return (
-    <Link href={href} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textDecoration: "none", padding: "8px 0" }}>
-      {media}
-      <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {title}
-        </span>
-        <span style={{ display: "block", fontSize: 12, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {sub}
-        </span>
-      </span>
-    </Link>
-  );
-}
-
-function EmptyScope({ label }: { label: string }) {
-  return (
-    <div style={{ padding: "32px 8px", textAlign: "center", fontSize: 13.5, color: "var(--ink-faint)" }}>
-      No {label} match that search.
-    </div>
-  );
-}
-
-function SearchRowSkeleton() {
-  return (
-    <div>
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0" }} className="animate-pulse">
-          <div style={{ width: 40, height: 40, borderRadius: 9, background: "var(--bone-deep)", flexShrink: 0 }} />
-          <div style={{ flex: 1 }}>
-            <div style={{ width: "60%", height: 11, borderRadius: 6, background: "var(--bone)", marginBottom: 7 }} />
-            <div style={{ width: "35%", height: 10, borderRadius: 6, background: "var(--bone)" }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-const truncate = (s: string, n: number) => (s.length > n ? s.slice(0, n) + "…" : s);
 
 /* ── Grid tile — full-bleed photo with wishlist + add overlays (v7 ExploreView) ── */
 function DbTile({ item, onWishlist }: { item: DbItem; onWishlist: () => void }) {
