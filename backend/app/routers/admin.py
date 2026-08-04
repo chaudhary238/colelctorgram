@@ -18,6 +18,7 @@ from app.models.community import Community
 from app.models.item import Item
 from app.models.deal import Vouch
 from app.services.catalogue import norm_title, norm_scale
+from app.services.gamification import FIRST_START
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -236,6 +237,8 @@ async def list_users(
             "is_suspended": u.is_suspended,
             "is_admin": u.is_admin,
             "is_seed_account": u.is_seed_account,
+            # First Start badge code (founding / early_believer / pioneer) or None.
+            "first_start_badge": u.first_start_badge,
             "followers_count": u.followers_count,
             "active_listings_count": u.active_listings_count,
             "vouches": v,
@@ -243,6 +246,38 @@ async def list_users(
         }
         for u, v in rows
     ]
+
+
+class FirstStartBody(BaseModel):
+    """`code` = a FIRST_START key, or null to revoke."""
+    code: str | None = None
+
+
+@router.put("/users/{user_id}/first-start-badge", status_code=204)
+async def set_first_start_badge(
+    user_id: uuid.UUID,
+    body: FirstStartBody,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    """Grant or revoke a First Start badge (Rewards v5 §6.1 — permanent, manually
+    team-assigned). Built for UAT: the team hands **Founding Member** to the
+    testers who take part, by handle, from the user console.
+
+    Staff can't hold one — admins sit outside the rewards system entirely
+    (QA 2026-08-04 §4), so awarding them a badge would contradict the byline they
+    already get ("Scorred · Official")."""
+    code = (body.code or "").strip() or None
+    if code is not None and code not in FIRST_START:
+        raise HTTPException(status_code=400, detail=f"Unknown badge '{code}'")
+
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.is_admin and code is not None:
+        raise HTTPException(status_code=400, detail="Admin accounts are outside the rewards system")
+
+    user.first_start_badge = code
 
 
 @router.post("/users/{user_id}/suspend", status_code=204)

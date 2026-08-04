@@ -24,6 +24,19 @@ function loadPins(): string[] {
 
 type Tab = "discover" | "joined";
 
+/**
+ * QA 2026-08-04 §15 — "how do I tell my created communities from the ones I joined?"
+ *
+ * The answer is sections, not a third tab. Nearly every collector creates zero
+ * communities, so a permanent "Created" tab would be an empty screen for most people
+ * and would push Discover — the tab that actually grows the product — further away. A
+ * section header costs nothing when it has no rows: it simply doesn't render. Cards you
+ * own also carry an Owner chip (see CommunityCard) so the distinction survives outside
+ * this screen, in Discover and in search.
+ *
+ * The tab is called "My communities" rather than "Joined" because it now holds both.
+ */
+
 // Most-active first: fresh (last-24h) posts, then total members. Pins float above all.
 const byActivity = (a: ApiCommunity, b: ApiCommunity) =>
   (b.recent_post_count ?? 0) - (a.recent_post_count ?? 0) || b.member_count - a.member_count;
@@ -61,19 +74,26 @@ function CommunityPageInner() {
       .finally(() => setLoading(false));
   }, []);
 
-  const joined = useMemo(() => {
-    const mine = communities.filter((c) => c.is_member);
+  // Everything on the "My communities" tab: created OR joined. A community you created
+  // but somehow aren't a member of would still be yours, hence the `||`.
+  const mine = useMemo(() => {
+    const ours = communities.filter((c) => c.is_member || c.is_founder);
     const isPinned = (c: ApiCommunity) => pins.includes(c.id);
     // Pinned first (in pin order), then the rest by activity.
-    const pinnedCards = pins.map((id) => mine.find((c) => c.id === id)).filter(Boolean) as ApiCommunity[];
-    const rest = mine.filter((c) => !isPinned(c)).sort(byActivity);
+    const pinnedCards = pins.map((id) => ours.find((c) => c.id === id)).filter(Boolean) as ApiCommunity[];
+    const rest = ours.filter((c) => !isPinned(c)).sort(byActivity);
     return [...pinnedCards, ...rest];
   }, [communities, pins]);
+
+  // The split. `created` renders its own header only when non-empty, so a collector who
+  // has never created one sees exactly the list they saw before.
+  const created = useMemo(() => mine.filter((c) => c.is_founder), [mine]);
+  const joined = useMemo(() => mine.filter((c) => !c.is_founder), [mine]);
 
   const discover = useMemo(
     () =>
       communities
-        .filter((c) => !c.is_member && (cats.length === 0 || cats.includes(c.category)))
+        .filter((c) => !c.is_member && !c.is_founder && (cats.length === 0 || cats.includes(c.category)))
         .sort(byActivity),
     [communities, cats],
   );
@@ -106,7 +126,7 @@ function CommunityPageInner() {
           onChange={(v) => selectTab(v as Tab)}
           options={[
             { id: "discover", label: "Discover" },
-            { id: "joined", label: joined.length ? `Joined · ${joined.length}` : "Joined" },
+            { id: "joined", label: mine.length ? `My communities · ${mine.length}` : "My communities" },
           ]}
         />
       </div>
@@ -119,7 +139,22 @@ function CommunityPageInner() {
         </div>
       ) : tab === "joined" ? (
         <div style={{ padding: "16px 20px 0" }}>
-          <SectionLabel>Your communities</SectionLabel>
+          {/* Created by you — only rendered when you actually own one (§15). */}
+          {created.length > 0 && (
+            <div style={{ marginBottom: 22 }}>
+              <SectionLabel>Created by you</SectionLabel>
+              <div style={{ fontSize: 12, color: "var(--ink-faint)", margin: "5px 0 12px" }}>
+                You run {created.length === 1 ? "this one" : "these"} — Manage opens moderation, members and rules.
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {created.map((c) => (
+                  <CommunityCard key={c.id} community={c} pinned={pins.includes(c.id)} onTogglePin={() => togglePin(c.id)} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <SectionLabel>{created.length > 0 ? "Joined" : "Your communities"}</SectionLabel>
           <div style={{ fontSize: 12, color: "var(--ink-faint)", margin: "5px 0 12px" }}>
             Pin a community to keep it on top; otherwise the most active (last 24h) leads.
           </div>
@@ -127,7 +162,13 @@ function CommunityPageInner() {
             {joined.map((c) => (
               <CommunityCard key={c.id} community={c} pinned={pins.includes(c.id)} onTogglePin={() => togglePin(c.id)} />
             ))}
-            {joined.length === 0 && <EmptyNote>You haven&rsquo;t joined any communities yet — head to Discover.</EmptyNote>}
+            {joined.length === 0 && (
+              <EmptyNote>
+                {created.length > 0
+                  ? "You haven't joined anyone else's community yet — head to Discover."
+                  : "You haven't joined any communities yet — head to Discover."}
+              </EmptyNote>
+            )}
           </div>
         </div>
       ) : (

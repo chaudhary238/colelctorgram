@@ -35,7 +35,11 @@ const ACQ_MODES: {
   { id: "preorder", label: "Pre-order", desc: "Ordered, not arrived yet.",
     detail: "Track the release window, deposit paid and expected delivery.",
     color: "var(--grail-gold-deep)", bg: "var(--grail-gold-soft)", border: "var(--grail-gold)", Icon: Clock },
-  { id: "intel", label: "DB Contribution", desc: "Spotted it? Help the community find it.",
+  // QA 2026-08-04 §14 — "DB Contribution" was our internal word for it. The screen is
+  // called **Add to database** everywhere now (design_v7 ExploreView.jsx:410), which is
+  // also what the button that opens it says. `acq` stays "intel" — that's the item
+  // status on the wire, not user-facing copy.
+  { id: "intel", label: "Add to database", desc: "Spotted it? Help the community find it.",
     detail: "Share what you know — brand, scale and title. Other collectors can track, wishlist and discover it. Earns +50 XP if you're first to add it to Scorred.",
     color: "var(--verified-teal)", bg: "var(--verified-teal-soft)", border: "var(--verified-teal)", Icon: Eye },
 ];
@@ -257,6 +261,8 @@ function AddListingPageInner() {
   const [tcgGrader, setTcgGrader] = useState<string>("PSA");
   const [tcgGrade, setTcgGrade] = useState("");
   const [year, setYear] = useState("");
+  // Estimated market value, DB-contribution only — seeds catalogue.est_retail_price.
+  const [est, setEst] = useState("");
   const [desc, setDesc] = useState("");
 
   // catalogue search-select on Title (DV6-12) — debounced fuzzy search filtered by
@@ -401,7 +407,7 @@ function AddListingPageInner() {
     setTitle(""); setBrand(""); setBrandFocus(false);
     setScale(""); setScaleOther(""); setSize("");
     setTcgLang(""); setTcgFormat(""); setTcgGraded(false); setTcgGrader("PSA"); setTcgGrade("");
-    setYear(""); setDesc("");
+    setYear(""); setEst(""); setDesc("");
     setDupes([]); setLinkedSku(null);
     setCond(""); setPaid(""); setPaidCur("INR");
     setPoPrec("month"); setPoDate(""); setPoMonth(""); setPoQuarter(""); setPoYear("2026");
@@ -434,8 +440,11 @@ function AddListingPageInner() {
         description: desc.trim() || null,
         category: cat,
         status,
-        value: paid ? Number(paid) * 100 : 0,
-        value_currency: paidCur,
+        // `value` seeds catalogue.est_retail_price when this add creates a NEW entry.
+        // In-hand adds pass what you paid (private); a DB contribution passes the public
+        // estimated value, since there's no purchase to record (QA §14).
+        value: isIntel ? (est ? Number(est) * 100 : 0) : (paid ? Number(paid) * 100 : 0),
+        value_currency: isIntel ? "INR" : paidCur,
         // TCG spec (DV4-01b)
         tcg_language: cat === "tcg" ? (tcgLang || null) : null,
         tcg_product_type: cat === "tcg" ? (tcgFormat || null) : null,
@@ -563,13 +572,13 @@ function AddListingPageInner() {
             <ChevronRight size={18} style={{ transform: "rotate(180deg)" }} />
           </button>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{isIntel ? "DB Contribution" : "Add an item"}</div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{mode.label} · {meta.label}</div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{isIntel ? "Add to database" : "Add an item"}</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{isIntel ? `Scorred DB · ${meta.label}` : `${mode.label} · ${meta.label}`}</div>
           </div>
           {/* No header save for a duplicate DB entry (QA 2.1) — flag-only below. */}
           {!existingDuplicate && (
             <button onClick={submit} disabled={submitting} style={{ height: 36, padding: "0 16px", borderRadius: 9, border: "none", background: invalid ? "var(--bone)" : headerAccent, color: invalid ? "var(--ink-ghost)" : "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, cursor: submitting ? "wait" : "pointer" }}>
-              {submitting ? "Saving…" : isIntel ? "Contribute" : forSale ? "List" : "Add"}
+              {submitting ? "Saving…" : forSale ? "List" : "Add"}
             </button>
           )}
         </div>
@@ -634,6 +643,72 @@ function AddListingPageInner() {
               <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>Balance due</span>
               <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 17, color: "var(--stamp-red)" }}>₹{poBalance.toLocaleString("en-IN")}</span>
             </div>
+          </div>
+        )}
+
+        {/* Title leads the form (design_v7 ContributeItemForm) — it is also the
+            catalogue de-dup field, so asking for it first is what surfaces "already in
+            Scorred" before anyone fills the rest in. DV6-11's Category-first order is
+            superseded (QA 2026-08-04 §14). */}
+        <Label required missing={tried && miss.title}>Title</Label>
+        <input value={title} readOnly={locked} onChange={(e) => { setTitle(e.target.value); setLinkedSku(null); setRefImage(null); }} placeholder={meta.titleEg} style={{ ...fieldStyle, borderColor: tried && miss.title ? "var(--stamp-red)" : "var(--border-strong)", ...(locked ? { background: "var(--bone)", color: "var(--ink-mute)", cursor: "default" } : {}) }} />
+        {/* Central-catalogue search results — tap to link instead of creating a duplicate (DV6-12) */}
+        {!linkedSku && dupes.length > 0 && (
+          <div style={{ marginTop: 7, borderRadius: 11, border: "1px solid var(--border-strong)", overflow: "hidden", background: "var(--paper)" }}>
+            <div style={{ padding: "7px 11px", background: "var(--bone)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 6 }}>
+              <Search size={12} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink-soft)" }}>Already in Scorred — tap to link (don&rsquo;t create a duplicate)</span>
+            </div>
+            {dupes.map((m, i) => (
+              <button key={m.sku} type="button" onMouseDown={(e) => { e.preventDefault(); linkDupe(m); }} style={{
+                display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", cursor: "pointer",
+                padding: "9px 11px", background: "transparent", border: "none",
+                borderBottom: i < dupes.length - 1 ? "1px solid var(--border)" : "none",
+              }}>
+                <div style={{ width: 34, height: 34, flexShrink: 0 }}>
+                  <ProductPhoto tone="ink" src={m.thumbnail_url ?? undefined} ratio="1/1" rounded={7} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title}</div>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 1 }}>
+                    {m.brand}{m.scale && m.scale !== "—" ? ` · ${m.scale}` : ""}
+                    {m.pending && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--grail-gold-deep)", background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 4, padding: "1px 5px" }}>Pending review</span>}
+                  </div>
+                </div>
+                <Plus size={16} style={{ color: "var(--stamp-red)", flexShrink: 0 }} />
+              </button>
+            ))}
+          </div>
+        )}
+        {linkedSku && !existingDuplicate && (
+          <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 9, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)" }}>
+            <Check size={13} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: "var(--verified-teal)", fontWeight: 600 }}>Linked to catalogue — pre-filled from the Scorred DB</span>
+          </div>
+        )}
+        {existingDuplicate && (
+          <div style={{ marginTop: 9, padding: "12px 13px", borderRadius: 11, background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+              <Info size={15} style={{ color: "var(--grail-gold-deep)", flexShrink: 0, marginTop: 1 }} />
+              <div style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+                <b>Already in the Scorred database.</b> This entry can&rsquo;t be edited or re-added. If you own one, add it to your collection; if something looks wrong, report it for our admins to review.
+              </div>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+              {/* "I own" — add your copy of the existing entry instead of a dead-end (QA 2.1). */}
+              <button type="button" onClick={() => setAcq("inhand")} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 9, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>
+                <PlusCircle size={13} /> I own this — add to my collection
+              </button>
+              <button type="button" onClick={() => setReporting(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 9, border: "1px solid var(--grail-gold)", background: "var(--paper)", color: "var(--grail-gold-deep)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>
+                <Info size={13} /> Report an error to admins
+              </button>
+            </div>
+          </div>
+        )}
+        {isNewToDb && (
+          <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 9, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)" }}>
+            <Sparkles size={13} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: "var(--verified-teal)", fontWeight: 600 }}>New to Scorred DB — you&rsquo;ll earn +50 XP as first contributor</span>
           </div>
         )}
 
@@ -797,71 +872,24 @@ function AddListingPageInner() {
           </>
         )}
 
-        {/* Title */}
-        <Label required missing={tried && miss.title}>Title</Label>
-        <input value={title} readOnly={locked} onChange={(e) => { setTitle(e.target.value); setLinkedSku(null); setRefImage(null); }} placeholder={meta.titleEg} style={{ ...fieldStyle, borderColor: tried && miss.title ? "var(--stamp-red)" : "var(--border-strong)", ...(locked ? { background: "var(--bone)", color: "var(--ink-mute)", cursor: "default" } : {}) }} />
-        {/* Central-catalogue search results — tap to link instead of creating a duplicate (DV6-12) */}
-        {!linkedSku && dupes.length > 0 && (
-          <div style={{ marginTop: 7, borderRadius: 11, border: "1px solid var(--border-strong)", overflow: "hidden", background: "var(--paper)" }}>
-            <div style={{ padding: "7px 11px", background: "var(--bone)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 6 }}>
-              <Search size={12} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
-              <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink-soft)" }}>Already in Scorred — tap to link (don&rsquo;t create a duplicate)</span>
-            </div>
-            {dupes.map((m, i) => (
-              <button key={m.sku} type="button" onMouseDown={(e) => { e.preventDefault(); linkDupe(m); }} style={{
-                display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", cursor: "pointer",
-                padding: "9px 11px", background: "transparent", border: "none",
-                borderBottom: i < dupes.length - 1 ? "1px solid var(--border)" : "none",
-              }}>
-                <div style={{ width: 34, height: 34, flexShrink: 0 }}>
-                  <ProductPhoto tone="ink" src={m.thumbnail_url ?? undefined} ratio="1/1" rounded={7} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title}</div>
-                  <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 1 }}>
-                    {m.brand}{m.scale && m.scale !== "—" ? ` · ${m.scale}` : ""}
-                    {m.pending && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--grail-gold-deep)", background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 4, padding: "1px 5px" }}>Pending review</span>}
-                  </div>
-                </div>
-                <Plus size={16} style={{ color: "var(--stamp-red)", flexShrink: 0 }} />
-              </button>
-            ))}
-          </div>
-        )}
-        {linkedSku && !existingDuplicate && (
-          <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 9, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)" }}>
-            <Check size={13} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: "var(--verified-teal)", fontWeight: 600 }}>Linked to catalogue — pre-filled from the Scorred DB</span>
-          </div>
-        )}
-        {existingDuplicate && (
-          <div style={{ marginTop: 9, padding: "12px 13px", borderRadius: 11, background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)" }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-              <Info size={15} style={{ color: "var(--grail-gold-deep)", flexShrink: 0, marginTop: 1 }} />
-              <div style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
-                <b>Already in the Scorred database.</b> This entry can&rsquo;t be edited or re-added. If you own one, add it to your collection; if something looks wrong, report it for our admins to review.
-              </div>
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-              {/* "I own" — add your copy of the existing entry instead of a dead-end (QA 2.1). */}
-              <button type="button" onClick={() => setAcq("inhand")} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 9, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>
-                <PlusCircle size={13} /> I own this — add to my collection
-              </button>
-              <button type="button" onClick={() => setReporting(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 9, border: "1px solid var(--grail-gold)", background: "var(--paper)", color: "var(--grail-gold-deep)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>
-                <Info size={13} /> Report an error to admins
-              </button>
-            </div>
-          </div>
-        )}
-        {isNewToDb && (
-          <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 9, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)" }}>
-            <Sparkles size={13} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: "var(--verified-teal)", fontWeight: 600 }}>New to Scorred DB — you&rsquo;ll earn +50 XP as first contributor</span>
-          </div>
-        )}
-
         <Label hint="optional">Release year</Label>
         <input value={year} readOnly={locked} onChange={(e) => setYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))} inputMode="numeric" placeholder="e.g. 2022" style={{ ...fieldStyle, height: 42, fontSize: 14.5, fontFamily: "var(--font-mono)", ...(locked ? { background: "var(--bone)", color: "var(--ink-mute)", cursor: "default" } : {}) }} />
+
+        {/* Estimated value — DB-contribution only (design_v7 ContributeItemForm). It seeds
+            the catalogue entry's est_retail_price, so it's a PUBLIC fact about the item,
+            not the private "what you paid" that In-hand adds collect further down.
+            Nothing to fill in when the entry already exists (locked). */}
+        {isIntel && !locked && (
+          <>
+            <Label hint="optional">Estimated value (₹)</Label>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, height: 46, padding: "0 13px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 17, color: "var(--ink-faint)" }}>₹</span>
+              <input value={est} onChange={(e) => setEst(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="Retail / market price"
+                style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 16, color: "var(--ink)" }} />
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>Roughly what it sells for — helps other collectors value their shelf.</div>
+          </>
+        )}
 
         {/* Photos */}
         <Label required missing={tried && miss.photo} hint={refImage ? "your own — optional" : photos.length ? `${photos.length} added · first = cover` : "min 1 · up to 4"}>Photos</Label>

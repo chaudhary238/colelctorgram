@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, SlidersHorizontal, X, Plus, Star, Check, ShieldCheck, Clock } from "lucide-react";
+import { Search, Filter, X, Plus, PlusCircle, Star, Check, Clock } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
-import { ProductPhoto, SectionLabel, Button } from "@/components/ui";
+import { ProductPhoto, SectionLabel, Button, SealMark } from "@/components/ui";
 import { fireToast } from "@/components/gamification";
 import { ContributeGuidelines } from "@/components/ContributeGuidelines";
 import { ADD_CATEGORIES, CAT_SCALES } from "@/lib/catalog";
@@ -34,9 +34,21 @@ import { ADD_CATEGORIES, CAT_SCALES } from "@/lib/catalog";
  * Web deviations from v7 (deliberate):
  *  - Star = wishlist, not Bookmark. The web icon law (2026-07-11) reserves Bookmark for
  *    saving CONTENT; v7's prototype uses a bookmark glyph here. Star keeps /db, /db/[sku]
- *    and the profile grid consistent.
+ *    and the profile grid consistent. RE-CONFIRMED by the founder on 2026-08-04 when the
+ *    QA list flagged the glyph — there is ONE control on a tile and it is the wishlist;
+ *    catalogue entries have no separate "save".
  *  - No star-rating row: ratings were removed app-wide in the 2026-07-18 QA pass.
  *  - 3-up grid from `sm` (the web column is 680px, not a 390px phone).
+ *
+ * QA 2026-08-04 (§8–§13) — brought back in line with v7's ExploreView:
+ *  - Filter trigger is the FUNNEL (`Filter`), matching Market. Sliders is reserved for
+ *    the Home feed's "customise" control; using it for both read as two names for one
+ *    thing on adjacent tabs.
+ *  - Add item is a SOLID stamp-red button (was a soft outline), and the tile's add
+ *    overlay is `plusCircle` at 32px, both per v7.
+ *  - Tiles drop the "N own · N want" line — it's detail-page data, and it made the card
+ *    read as a stat block. The Scorred seal moves to the photo's BOTTOM-RIGHT corner and
+ *    marks entries the team owns (seeded/admin-approved, `is_official`).
  */
 
 interface DbItem {
@@ -328,7 +340,7 @@ export default function DatabasePage() {
                 color: filtersOn || sheetOpen ? "var(--stamp-red)" : "var(--ink-mute)",
               }}
             >
-              <SlidersHorizontal size={18} strokeWidth={filtersOn ? 2.3 : 1.9} />
+              <Filter size={18} strokeWidth={filtersOn ? 2.3 : 2} />
               {filtersOn && (
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, lineHeight: 1 }}>
                   {activeFilters}
@@ -338,18 +350,20 @@ export default function DatabasePage() {
           </div>
 
           {/* Add item — LABELLED (§3.1). The old icon-only plus wasn't understandable as
-              "contribute to the shared catalogue". Never shrinks, never wraps. */}
+              "contribute to the shared catalogue". Never shrinks, never wraps.
+              SOLID stamp-red per v7 (ExploreView.jsx:77) — the soft outline version read
+              as a secondary control next to the search field. */}
           <button
             type="button"
             onClick={() => setGuidelines(true)}
             style={{
-              display: "flex", alignItems: "center", gap: 6, flexShrink: 0, whiteSpace: "nowrap",
-              height: 44, padding: "0 14px", borderRadius: 12, cursor: "pointer",
-              border: "1px solid var(--stamp-red)", background: "var(--stamp-red-soft)", color: "var(--stamp-red)",
-              fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5,
+              display: "flex", alignItems: "center", gap: 5, flexShrink: 0, whiteSpace: "nowrap",
+              height: 44, padding: "0 13px", borderRadius: 12, cursor: "pointer",
+              border: "none", background: "var(--stamp-red)", color: "#fff",
+              fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13, letterSpacing: "-0.01em",
             }}
           >
-            <Plus size={17} strokeWidth={2.4} />Add item
+            <Plus size={15} strokeWidth={2.4} />Add item
           </button>
 
           {/* ── Filters — an anchored dropdown directly beneath the search row (DV7-08).
@@ -550,38 +564,61 @@ function DbTile({ item, onWishlist }: { item: DbItem; onWishlist: () => void }) 
           </button>
         )}
 
-        {/* Add a copy — deep-links the add flow with the SKU already resolved */}
+        {/* Add a copy — deep-links the add flow with the SKU already resolved.
+            `plusCircle` at 32px per v7 (ExploreView.jsx:106); a bare plus read as a
+            second "add item to the database" next to the search row's button. */}
         <Link
           href={`/add/catalogue?sku=${encodeURIComponent(item.sku)}`}
           aria-label={`Add ${item.title} to your collection`}
           title="Add to my collection"
           style={{
-            position: "absolute", bottom: 8, right: 8, width: 30, height: 30, borderRadius: 999,
+            position: "absolute", bottom: 8, left: 8, width: 32, height: 32, borderRadius: 999,
             background: "var(--stamp-red)", color: "var(--paper)", boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >
-          <Plus size={16} strokeWidth={2.4} />
+          <PlusCircle size={17} strokeWidth={2} />
         </Link>
+
+        {/* §13 — the Scorred seal marks entries the TEAM owns: seeded from the backend
+            or approved by an admin (`is_official`). Bottom-right of the photo, opposite
+            the add button. Community entries still awaiting review show the clock. */}
+        {item.is_official ? (
+          <span
+            title="Scorred Reviewed — catalogue entry verified by Scorred"
+            aria-label="Scorred reviewed"
+            style={{
+              position: "absolute", bottom: 8, right: 8, width: 26, height: 26, borderRadius: 999,
+              background: "rgba(255,255,255,0.94)", boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <SealMark size={17} />
+          </span>
+        ) : item.pending ? (
+          <span
+            title="Pending review — community entry"
+            aria-label="Pending review"
+            style={{
+              position: "absolute", bottom: 8, right: 8, width: 26, height: 26, borderRadius: 999,
+              background: "var(--bone-deep)", border: "1px solid var(--border-strong)", color: "var(--ink-faint)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <Clock size={14} strokeWidth={2.4} />
+          </span>
+        ) : null}
       </div>
 
+      {/* §13 — title + brand only. "N own · N want" belonged to the detail page; on a
+          140px tile it turned every card into a stat block. */}
       <Link href={`/db/${encodeURIComponent(item.sku)}`} style={{ textDecoration: "none", color: "inherit" }}>
         <div style={{ padding: "9px 10px 11px" }}>
           <div style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.3, color: "var(--ink)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", minHeight: 32 }}>
             {item.title}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4 }}>
-            <span style={{ flex: 1, minWidth: 0, fontSize: 10.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {item.brand}
-            </span>
-            {item.is_official ? (
-              <ShieldCheck size={12} style={{ color: "var(--verified-teal)", flexShrink: 0 }} aria-label="Scorred reviewed" />
-            ) : item.pending ? (
-              <Clock size={12} style={{ color: "var(--ink-ghost)", flexShrink: 0 }} aria-label="Pending review" />
-            ) : null}
-          </div>
-          <div style={{ fontSize: 10.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", marginTop: 3 }}>
-            {item.owners_count} own · {item.wishlists_count} want
+          <div style={{ fontSize: 10.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {item.brand}
           </div>
         </div>
       </Link>

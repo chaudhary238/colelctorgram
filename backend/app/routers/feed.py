@@ -13,6 +13,7 @@ from app.models.user import User, Follow
 from app.models.post import Post, PostLike, PostSave, PostCommunity, PollVote
 from app.routers.posts import _iso_fields
 from app.services.blocks import blocked_user_ids
+from app.services.social import likers_preview
 
 router = APIRouter(prefix="/feed", tags=["feed"])
 
@@ -176,6 +177,9 @@ async def get_feed(
     for pid, cid in pc_result.all():
         communities_by_post.setdefault(pid, []).append(cid)
 
+    # QA §5 — the three newest likers per post, for the social-proof strip.
+    likers_by_post = await likers_preview(db, post_ids)
+
     return {
         "page": page,
         "limit": limit,
@@ -188,6 +192,7 @@ async def get_feed(
                 str(p.user_id) in followed_ids,
                 communities_by_post.get(p.id, []),
                 poll_votes_by_post.get(p.id),
+                likers_by_post.get(p.id, []),
             )
             for p in page_posts
         ],
@@ -202,7 +207,7 @@ def _feed_badge(author: Optional[User]) -> Optional[dict]:
     return feed_badge(author)
 
 
-def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, is_following: bool = False, community_ids: Optional[list] = None, my_poll_vote: Optional[int] = None) -> dict:
+def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, is_following: bool = False, community_ids: Optional[list] = None, my_poll_vote: Optional[int] = None, likers: Optional[list] = None) -> dict:
     return {
         "id": str(p.id),
         "user_id": str(p.user_id),
@@ -210,8 +215,13 @@ def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, 
         "name": author.name if author else None,
         "avatar_url": author.avatar_url if author else None,
         # Rewards badge shown next to the author (v3 §2.4/§3): First Start badge if
-        # the author has one, else their rank badge. Exactly one per post.
+        # the author has one, else their rank badge. Exactly one per post — and
+        # None for staff, who carry the Official tag instead (QA 2026-08-04 §4).
         "badge": _feed_badge(author),
+        # Authored by staff → renders as "Scorred · Official", not as the person.
+        "is_official": bool(author is not None and author.is_admin),
+        # QA §5 — up to 3 recent likers for the social-proof strip.
+        "likers": likers or [],
         "type": p.type,
         "title": p.title,
         "body": p.body,

@@ -26,7 +26,12 @@ export interface ApiPost {
   name: string | null;
   avatar_url: string | null;
   // Rewards badge shown next to the author (v3 §3): First Start badge or rank badge.
+  // Null for staff authors — they carry the Official tag instead (QA 2026-08-04 §4).
   badge?: { kind: "first_start" | "rank"; code: string; name: string; emoji: string | null } | null;
+  // Authored by an admin → the byline is "Scorred · Official", not the person.
+  is_official?: boolean;
+  // Up to 3 recent likers for the social-proof strip under the actions (QA §5).
+  likers?: { handle: string | null; name: string | null; avatar_url: string | null }[];
   type: string;
   body: string;
   images: string[];
@@ -177,6 +182,10 @@ export interface ApiCommunity {
   rules: string[];
   is_invite_only: boolean;
   is_member: boolean;
+  // Viewer's role in this community — founder | mod | member, null when not a member.
+  member_role?: string | null;
+  // Viewer CREATED it — what the "Created by you" section groups on (QA §15).
+  is_founder?: boolean;
   join_state?: string; // member | requested | none (QA2 — persists a private "Requested")
   status?: string; // pending | approved | rejected (founder sees own pending)
   created_at: string;
@@ -243,12 +252,88 @@ function ActionBtn({
 }
 
 /* ── Author line ─────────────────────────────────────────────────── */
+/**
+ * Social-proof strip — who liked this (design_v7 shared.jsx `StackedAvatars`).
+ * Overlapping 26px circles, initials when there's no photo, then the count. The
+ * server sends at most 3 likers, so the "+N" bubble is computed from likes_count
+ * rather than the array length.
+ */
+function StackedLikers({ likers, total }: { likers: ApiPost["likers"]; total: number }) {
+  const shown = (likers ?? []).slice(0, 3);
+  if (total <= 0) return null;
+  const overflow = total - shown.length;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      {shown.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center" }}>
+          {shown.map((u, i) => (
+            <div
+              key={u.handle ?? i}
+              title={u.name ?? undefined}
+              style={{
+                borderRadius: "50%", flexShrink: 0, display: "flex",
+                boxShadow: "0 0 0 2px var(--card-surface)",
+                marginLeft: i === 0 ? 0 : -9, position: "relative", zIndex: shown.length - i,
+              }}
+            >
+              {/* Same Avatar as the byline — initials fall out of it for free, and the
+                  photo path stays consistent with every other face in the app. */}
+              <Avatar name={u.name ?? "?"} photo={u.avatar_url} size={26} />
+            </div>
+          ))}
+          {overflow > 0 && (
+            <div style={{
+              width: 26, height: 26, borderRadius: "50%", flexShrink: 0, marginLeft: -9,
+              boxShadow: "0 0 0 2px var(--card-surface)", background: "var(--slate-200)",
+              color: "var(--slate-600)", fontFamily: "var(--font-mono)", fontSize: 9, fontWeight: 800,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              +{overflow > 99 ? "99" : overflow}
+            </div>
+          )}
+        </div>
+      )}
+      <span style={{ fontSize: 12, color: "var(--slate-500)", fontWeight: 500 }}>
+        {total.toLocaleString("en-IN")} {total === 1 ? "like" : "likes"}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Byline for a staff post (QA 2026-08-04 §4): the platform speaks as **Scorred**,
+ * with the seal for an avatar and an Official tag — never the admin's own name,
+ * handle, rewards badge or a Follow button. Admins hold no badges and no rank, so
+ * there is deliberately nothing else to show here.
+ */
+function OfficialAuthorLine({ post }: { post: ApiPost }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <SealMark size={38} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 600, fontSize: 14, color: "var(--ink)" }}>Scorred</span>
+          <Badge style={{ background: "var(--slate-800)", color: "var(--paper)", borderRadius: 5, fontWeight: 700, fontSize: 10.5, letterSpacing: "0.04em", textTransform: "uppercase", padding: "2px 7px" }}>
+            Official
+          </Badge>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--slate-400)", marginTop: 1 }}>
+          {timeAgo(post.created_at)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AuthorLine({ post, showFollow }: { post: ApiPost; showFollow?: boolean }) {
   const { user } = useUser();
   const [following, setFollowing] = useState(post.is_following ?? false);
   const [busy, setBusy] = useState(false);
   // Never offer a Follow button on your own post — you can't follow yourself.
   const isOwn = !!user && user.id === post.user_id;
+
+  if (post.is_official) return <OfficialAuthorLine post={post} />;
 
   async function toggleFollow() {
     if (busy || !post.handle) return;
@@ -750,6 +835,8 @@ export function PostCard({ post, showFollow = false }: { post: ApiPost; showFoll
 
   if (post.type === "iso") return <ISOCard post={post} />;
 
+  const metaStrip = likes > 0 || !!post.city;
+
   async function toggleLike() {
     if (likeBusy) return;
     const next = !liked;
@@ -845,7 +932,7 @@ export function PostCard({ post, showFollow = false }: { post: ApiPost; showFoll
         <PollBlock postId={post.id} options={post.poll_options} initialVote={post.my_poll_vote} />
       )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "12px 18px 14px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 18, padding: metaStrip ? "12px 18px 10px" : "12px 18px 14px" }}>
         <ActionBtn icon={<Heart size={20} strokeWidth={1.8} fill={liked ? "var(--stamp-red)" : "none"} />} label={likes.toLocaleString()} active={liked} onClick={toggleLike} />
         <ActionBtn icon={<MessageCircle size={20} strokeWidth={1.8} />} label={commentCount.toLocaleString()} active={showComments} onClick={() => setShowComments((v) => !v)} />
         <ActionBtn icon={<Share2 size={19} strokeWidth={1.8} />} label={shared ? "Copied" : undefined} active={shared} activeColor="var(--ink)" onClick={sharePost} />
@@ -853,9 +940,13 @@ export function PostCard({ post, showFollow = false }: { post: ApiPost; showFoll
         <ActionBtn icon={<Bookmark size={20} strokeWidth={1.8} fill={saved ? "var(--ink)" : "none"} />} active={saved} activeColor="var(--ink)" onClick={toggleSave} />
       </div>
 
-      {post.city && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 18px 14px" }}>
-          <LocationTag>{post.city}</LocationTag>
+      {/* Social-proof + location strip (design_v7 Cards.jsx:137). The liker faces
+          come from the server; `likes` is the optimistic local count, so your own
+          like bumps the number the instant you tap. */}
+      {metaStrip && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 18px 14px", flexWrap: "wrap" }}>
+          <StackedLikers likers={post.likers} total={likes} />
+          {post.city && <LocationTag>{post.city}</LocationTag>}
         </div>
       )}
 
@@ -1317,6 +1408,9 @@ export function CommunityCard({ community, pinned, onTogglePin }: {
         <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "space-between" }}>
           <span style={{ fontWeight: 700, fontSize: 14.5, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{community.name}</span>
           <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+            {/* §15 — "Owner" reads on the card itself, so a community you created is
+                still identifiable in Discover, search or anywhere outside the section. */}
+            {community.is_founder && <Badge style={{ background: "var(--plum)", color: "var(--paper)" }}>Owner</Badge>}
             {fresh > 0 && <Badge variant="default">{fresh} new</Badge>}
             {community.is_invite_only && <Badge variant="secondary">Private</Badge>}
             {community.status === "pending" && <Badge variant="warning">Under review</Badge>}
@@ -1343,9 +1437,18 @@ export function CommunityCard({ community, pinned, onTogglePin }: {
           <Pin size={15} fill={pinned ? "currentColor" : "none"} />
         </button>
       )}
-      <Button size="sm" variant={isMember || isRequested ? "secondary" : "dark"} onClick={toggleJoin} disabled={busy}>
-        {joinLabel}
-      </Button>
+      {/* §15 — a founder can't leave their own community (the API refuses), so a
+          "Joined" toggle there is a button that only ever errors. Give them the action
+          they actually want instead: Manage. Mods keep the normal Joined control. */}
+      {community.is_founder ? (
+        <Link href={`/community/${community.id}/manage`} style={{ textDecoration: "none", flexShrink: 0 }}>
+          <Button size="sm" variant="secondary">Manage</Button>
+        </Link>
+      ) : (
+        <Button size="sm" variant={isMember || isRequested ? "secondary" : "dark"} onClick={toggleJoin} disabled={busy}>
+          {joinLabel}
+        </Button>
+      )}
     </div>
   );
 }

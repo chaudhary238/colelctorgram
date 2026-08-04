@@ -112,6 +112,7 @@ async def browse_listings(
     trade: Optional[bool] = None,
     ship: Optional[bool] = None,
     saved: bool = False,
+    liked: bool = False,
     sort: str = "new",
     db: AsyncSession = Depends(get_db),
     viewer: User = Depends(get_current_user),
@@ -153,13 +154,23 @@ async def browse_listings(
         base = base.where(Listing.id.in_(
             select(ListingSave.listing_id).where(ListingSave.user_id == viewer.id)
         ))
+    # QA 2026-08-04 §6 — Market's "your list" filter is LIKES, not saves. Because the
+    # base query is already pinned to status == "available", a like drops off this list
+    # the moment the listing sells or closes: it lives exactly as long as the listing.
+    if liked:
+        if not viewer:
+            return {"page": page, "limit": limit, "total": 0, "has_more": False, "items": []}
+        base = base.where(Listing.id.in_(
+            select(ListingLike.listing_id).where(ListingLike.user_id == viewer.id)
+        ))
 
     total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
 
     order = {
         "low": Listing.price.asc(),
         "high": Listing.price.desc(),
-        "saved": Listing.saves_count.desc(),
+        "liked": Listing.likes_count.desc(),
+        "saved": Listing.saves_count.desc(),   # legacy key — no UI points at it any more
         "watched": Listing.watching_count.desc(),
     }.get(sort, Listing.created_at.desc())
 
@@ -208,18 +219,20 @@ async def update_listing(
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(listing, field, value)
 
-    # C-06 (MK-09): alert users who saved this listing when its price drops or it
-    # sells. Gated by each recipient's `price_drops` toggle (see NOTIF_KIND_PREF).
+    # C-06 (MK-09): alert the collectors watching this listing when its price drops or
+    # it sells. Gated by each recipient's `price_drops` toggle (see NOTIF_KIND_PREF).
+    # QA 2026-08-04 §6 — the audience is now LIKERS: listing "save" was retired from
+    # the UI, so ListingSave has no way to grow and would notify nobody.
     price_dropped = body.price is not None and listing.price < old_price
     just_sold = old_status != "sold" and listing.status == "sold"
     if price_dropped or just_sold:
-        label = listing.sku or "A listing you saved"
-        saver_ids = (await db.execute(
-            select(ListingSave.user_id).where(ListingSave.listing_id == listing_id)
+        label = listing.sku or "A listing you liked"
+        liker_ids = (await db.execute(
+            select(ListingLike.user_id).where(ListingLike.listing_id == listing_id)
         )).scalars().all()
-        for uid in saver_ids:
+        for uid in liker_ids:
             if uid == current_user.id:
-                continue  # the seller is (implausibly) also a saver — don't self-notify
+                continue  # the seller is (implausibly) also a liker — don't self-notify
             if price_dropped:
                 await notify(
                     db, user_id=uid, kind="price_drop", title="Price drop",

@@ -10,7 +10,7 @@ import { ApiPost, PollBlock, CommentThread, PostImages } from "@/components/card
 import { BackButton } from "@/components/BackButton";
 import { ReportSheet } from "@/components/ReportSheet";
 import { useUser } from "@/lib/auth-context";
-import { Avatar, Stars, PostTypeTag, ProductPhoto } from "@/components/ui";
+import { Avatar, Stars, PostTypeTag, ProductPhoto, SealMark, Badge } from "@/components/ui";
 
 interface Comment {
   id: string;
@@ -174,17 +174,34 @@ export default function PostDetailPage() {
 
       <div style={{ padding: "16px 20px 0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Link href={`/profile/${post.handle}`}>
-              <Avatar name={post.name ?? "?"} size={40} />
-            </Link>
-            <div>
-              <Link href={`/profile/${post.handle}`} style={{ textDecoration: "none", color: "inherit" }} className="hover:underline">
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{post.name}</div>
-              </Link>
-              <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{post.handle} · {timeAgo(post.created_at)}</div>
+          {/* Staff posts speak as Scorred (QA 2026-08-04 §4) — seal, Official tag, no
+              handle and no link through to the admin's personal profile. */}
+          {post.is_official ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <SealMark size={40} />
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>Scorred</span>
+                  <Badge style={{ background: "var(--slate-800)", color: "var(--paper)", borderRadius: 5, fontWeight: 700, fontSize: 10.5, letterSpacing: "0.04em", textTransform: "uppercase", padding: "2px 7px" }}>
+                    Official
+                  </Badge>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{timeAgo(post.created_at)}</div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Link href={`/profile/${post.handle}`}>
+                <Avatar name={post.name ?? "?"} size={40} />
+              </Link>
+              <div>
+                <Link href={`/profile/${post.handle}`} style={{ textDecoration: "none", color: "inherit" }} className="hover:underline">
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{post.name}</div>
+                </Link>
+                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{post.handle} · {timeAgo(post.created_at)}</div>
+              </div>
+            </div>
+          )}
           <PostTypeTag type={post.type as "showcase" | "discussion" | "review" | "iso"} />
         </div>
 

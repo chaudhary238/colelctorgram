@@ -160,11 +160,23 @@ def rank_payload(xp: int) -> dict:
     }
 
 
-def feed_badge(user: User) -> dict:
+def is_gamification_excluded(user: User | None) -> bool:
+    """Admin/staff accounts sit OUTSIDE the rewards system entirely (QA 2026-08-04 §4).
+
+    They earn no XP, hold no rank or First Start badge, and never appear on a
+    leaderboard. Their posts are the house voice ("Scorred · Official"), so a rank
+    pill next to one would read as the platform competing with its own users."""
+    return bool(user is not None and getattr(user, "is_admin", False))
+
+
+def feed_badge(user: User) -> dict | None:
     """The single badge shown next to an author in the feed/leaderboard (v3 §3).
 
     Priority: (1) First Start badge if the user has one, else (2) the rank badge.
-    Everyone has a rank, so this is never empty."""
+    Every ordinary user has a rank, so this is only empty for excluded (admin)
+    accounts — those render the Official tag instead."""
+    if is_gamification_excluded(user):
+        return None
     fs = first_start_payload(getattr(user, "first_start_badge", None))
     if fs:
         return {"kind": "first_start", "code": fs["id"], "name": fs["name"], "emoji": fs["emoji"]}
@@ -213,6 +225,11 @@ async def award_xp(
     """
     rule = EARN_RULES.get(action)
     if rule is None:
+        return False
+
+    # Staff accounts are outside the rewards system (QA 2026-08-04 §4) — no ledger
+    # row, so nothing to reverse if an account is promoted/demoted later.
+    if is_gamification_excluded(user):
         return False
 
     # Per-day cap on repeatable actions (v3 §7). 'once' is guarded by ref_id dedup;
@@ -479,7 +496,7 @@ async def rank_card(db: AsyncSession, user: User) -> dict:
         "xp": xp,
         "xp_week": await _windowed_xp(db, user.id, week_start()),
         "rank": rank_payload(xp),
-        "first_start": first_start_payload(user.first_start_badge),
+        "first_start": None if is_gamification_excluded(user) else first_start_payload(user.first_start_badge),
     }
 
 
@@ -508,9 +525,13 @@ async def leaderboard(db: AsyncSession, *, period: str, me: User | None) -> dict
             .subquery()
         )
 
+    # Staff never rank (QA 2026-08-04 §4). They earn no XP either, so this is belt
+    # and braces — it also cleans up any XP banked before the exclusion landed.
+    not_staff = User.is_admin.is_(False)
     if use_lifetime:
         q = (
             select(User, User.xp.label("points"))
+            .where(not_staff)
             .order_by(User.xp.desc(), User.followers_count.desc())
             .limit(TOP_N)
         )
@@ -518,6 +539,7 @@ async def leaderboard(db: AsyncSession, *, period: str, me: User | None) -> dict
         q = (
             select(User, agg.c.points)
             .join(agg, agg.c.user_id == User.id)
+            .where(not_staff)
             .order_by(agg.c.points.desc(), User.followers_count.desc())
             .limit(TOP_N)
         )
@@ -545,8 +567,11 @@ def _row(u: User, points: int, me: User | None) -> dict:
 
 
 async def _my_standing(db, me, period, since, use_lifetime, rows) -> dict | None:
-    """Caller's rank + score for this board, even when outside the top-N."""
-    if me is None:
+    """Caller's rank + score for this board, even when outside the top-N.
+
+    None for staff — they're not on the board at all, so a "you're #4,213" strip
+    would be a rank they can never move."""
+    if me is None or is_gamification_excluded(me):
         return None
     # If already in the displayed rows, reuse it.
     for i, r in enumerate(rows):
@@ -555,7 +580,9 @@ async def _my_standing(db, me, period, since, use_lifetime, rows) -> dict | None
 
     if use_lifetime:
         my_points = me.xp or 0
-        higher = await _scalar(db, select(func.count()).select_from(User).where(User.xp > my_points))
+        higher = await _scalar(db, select(func.count()).select_from(User).where(
+            User.xp > my_points, User.is_admin.is_(False)
+        ))
     else:
         my_points = await _windowed_xp(db, me.id, since)
         higher = await _count_users_above_window(db, since, my_points)
@@ -577,7 +604,8 @@ async def _scalar(db, stmt) -> int:
 async def _count_users_above_window(db, since, my_points) -> int:
     sub = (
         select(XpEvent.user_id, func.sum(XpEvent.points).label("p"))
-        .where(XpEvent.created_at >= since)
+        .join(User, User.id == XpEvent.user_id)
+        .where(XpEvent.created_at >= since, User.is_admin.is_(False))
         .group_by(XpEvent.user_id)
         .having(func.sum(XpEvent.points) > my_points)
         .subquery()
@@ -605,6 +633,9 @@ def badge_payload(b: SeasonBadge) -> dict:
 
 
 async def trophy_case(db: AsyncSession, user: User) -> dict:
+    # Staff hold no badges at all (QA 2026-08-04 §4) — an empty case, not a shelf.
+    if is_gamification_excluded(user):
+        return {"first_start": None, "count": 0, "bonus_xp_total": 0, "badges": []}
     badges = await badges_of(db, user.id)
     return {
         # First Start badges sit first on the shelf (v3 §2.1).

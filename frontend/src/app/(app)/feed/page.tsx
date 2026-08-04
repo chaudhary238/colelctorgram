@@ -1,12 +1,19 @@
 "use client";
 
-// Home feed — design feedback round 1 (DF-07..DF-09):
-// Tabs: For You (caret → "Customize feed" popover) · Explore (was Latest) · Following.
-// Hashtag pill slider below the tabs filters the stream; "Remove Listing posts"
-// (default ON) hides interspersed listing cards from For You.
+// Home feed — tabs: For You · Explore · Following.
+//
+// QA 2026-08-04 (DV7-09):
+//  1. The hashtag pill slider under the tabs is GONE. It filtered the stream server-side
+//     (`?tag=`) off a curated /feed/tags list; v7's FeedView has no such row and the founder
+//     cut it. Hashtags are still rendered on each post and still link to /search.
+//  2. The For You tab's LEADING icon is the settings/sliders glyph, and that is the only
+//     icon on it — the house glyph and the trailing caret are both gone. The control is
+//     unchanged: tap For You while it's active to open the Customize-feed popover.
+//     Tried and rejected in QA: a standalone sliders button beside the tab group, and
+//     keeping the house icon with a sliders glyph trailing the label.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Globe, Home, UserPlus, Check, ChevronDown } from "lucide-react";
+import { Globe, SlidersHorizontal, UserPlus, Check } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser, AuthUser } from "@/lib/auth-context";
 import { PostCard, ListingFeedCard, FeedEventCard, ApiPost, ApiListing, ApiEvent } from "@/components/cards";
@@ -19,7 +26,7 @@ type StreamItem =
   | { t: "event"; key: string; data: ApiEvent };
 
 const TABS = [
-  { id: "foryou", label: "For You", icon: Home },
+  { id: "foryou", label: "For You", icon: SlidersHorizontal },
   { id: "explore", label: "Explore", icon: Globe },
   { id: "following", label: "Following", icon: UserPlus },
 ] as const;
@@ -30,15 +37,12 @@ type Tab = (typeof TABS)[number]["id"];
 // Shared list — see lib/catalog.ts; one wording per category app-wide (Change Spec §4.2).
 const CATEGORIES = ADD_CATEGORIES;
 
-const FALLBACK_TAGS = ["#NewDrops", "#Grails", "#Sealed", "#Restock", "#Meetups"];
-
 const PAGE_SIZE = 20;
 
-function buildFeedQuery(tab: Tab, tag: string, page: number): string {
+function buildFeedQuery(tab: Tab, page: number): string {
   const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
   params.set("sort", tab === "foryou" ? "foryou" : "latest");
   if (tab === "following") params.set("following_only", "true");
-  if (tag !== "All") params.set("tag", tag);
   return `/feed?${params.toString()}`;
 }
 
@@ -181,7 +185,7 @@ function CustomizePopover({
 }
 
 // Scroll/state restoration (issue #6): when you open a post and come back, the
-// feed must resume where you left off — same posts, same tab/tag, same scroll —
+// feed must resume where you left off — same posts, same tab, same scroll —
 // instead of refetching page 1 and jumping to the top. We snapshot the feed to
 // sessionStorage on leave and rehydrate from it on mount (5-min TTL).
 const FEED_SNAPSHOT_KEY = "feed:snapshot";
@@ -189,7 +193,7 @@ const SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 const MAX_SNAPSHOT_POSTS = 100;
 
 interface FeedSnapshot {
-  tab: Tab; tag: string; posts: ApiPost[]; page: number; hasMore: boolean; scrollTop: number; ts: number;
+  tab: Tab; posts: ApiPost[]; page: number; hasMore: boolean; scrollTop: number; ts: number;
 }
 
 function readFeedSnapshot(): FeedSnapshot | null {
@@ -211,8 +215,6 @@ export default function FeedPage() {
   const [snap] = useState<FeedSnapshot | null>(readFeedSnapshot);
 
   const [tab, setTab] = useState<Tab>(snap?.tab ?? "foryou");
-  const [tag, setTag] = useState(snap?.tag ?? "All");
-  const [tags, setTags] = useState<string[]>(FALLBACK_TAGS);
   const [customOpen, setCustomOpen] = useState(false);
   const [posts, setPosts] = useState<ApiPost[]>(snap?.posts ?? []);
   const [listings, setListings] = useState<ApiListing[]>([]);
@@ -223,17 +225,17 @@ export default function FeedPage() {
   const [hasMore, setHasMore] = useState(snap?.hasMore ?? true);
   // bump to refetch after Customize-feed save (For You filter is server-side)
   const [prefsVersion, setPrefsVersion] = useState(0);
-  // When we've rehydrated posts from a snapshot, remember which tab/tag/prefs
+  // When we've rehydrated posts from a snapshot, remember which tab/prefs
   // combo they belong to so the fetch effect can skip refetching it — kept as a
   // key (not a one-shot boolean) so React StrictMode's double-invoke doesn't
   // wipe the restored posts by refetching page 1.
-  const restoredKeyRef = useRef<string | null>(snap ? `${snap.tab}|${snap.tag}|0` : null);
+  const restoredKeyRef = useRef<string | null>(snap ? `${snap.tab}|0` : null);
 
   const hideListings = user?.feed_prefs?.hide_listings ?? true;
 
   // Keep the latest feed state in a ref so the unmount cleanup can snapshot it.
-  const stateRef = useRef({ tab, tag, posts, page, hasMore });
-  useEffect(() => { stateRef.current = { tab, tag, posts, page, hasMore }; });
+  const stateRef = useRef({ tab, posts, page, hasMore });
+  useEffect(() => { stateRef.current = { tab, posts, page, hasMore }; });
   const scrollTopRef = useRef(snap?.scrollTop ?? 0);
 
   // Track scroll on the <main> scroll container; write a snapshot on leave, and
@@ -274,7 +276,7 @@ export default function FeedPage() {
       const s = stateRef.current;
       try {
         sessionStorage.setItem(FEED_SNAPSHOT_KEY, JSON.stringify({
-          tab: s.tab, tag: s.tag,
+          tab: s.tab,
           posts: s.posts.slice(0, MAX_SNAPSHOT_POSTS),
           page: Math.min(s.page, Math.ceil(MAX_SNAPSHOT_POSTS / PAGE_SIZE)),
           hasMore: s.hasMore,
@@ -284,28 +286,6 @@ export default function FeedPage() {
       } catch { /* quota / serialization — skip restore next time */ }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Hashtag slider: drag-to-scroll on desktop (DF-09)
-  const tagBar = useRef<HTMLDivElement | null>(null);
-  const drag = useRef({ down: false, startX: 0, startScroll: 0 });
-  const onTagDown = (e: React.MouseEvent) => {
-    const el = tagBar.current;
-    if (!el) return;
-    drag.current = { down: true, startX: e.pageX, startScroll: el.scrollLeft };
-  };
-  const onTagMove = (e: React.MouseEvent) => {
-    const el = tagBar.current;
-    if (!el || !drag.current.down) return;
-    el.scrollLeft = drag.current.startScroll - (e.pageX - drag.current.startX);
-  };
-  const endTagDrag = () => { drag.current.down = false; };
-
-  // Popular hashtags (curated server-side, DF-10)
-  useEffect(() => {
-    api.get<{ tags: string[] }>("/feed/tags")
-      .then((d) => { if (d?.tags?.length) setTags(d.tags); })
-      .catch(() => {});
   }, []);
 
   // Side cards (listings + events) load once — they're interspersed, not paginated.
@@ -321,11 +301,11 @@ export default function FeedPage() {
       .catch(console.error);
   }, []);
 
-  // Posts reload whenever tab/tag/prefs change (server-side). Skip the fetch for
+  // Posts reload whenever tab/prefs change (server-side). Skip the fetch for
   // the exact combo we rehydrated from a snapshot (the posts are already there);
   // any other combo fetches normally.
   useEffect(() => {
-    const key = `${tab}|${tag}|${prefsVersion}`;
+    const key = `${tab}|${prefsVersion}`;
     if (restoredKeyRef.current === key) return;   // restored — keep those posts
     restoredKeyRef.current = null;                // consumed; future changes refetch
     let cancelled = false;
@@ -333,7 +313,7 @@ export default function FeedPage() {
     setPosts([]);
     setPage(1);
     setHasMore(true);
-    api.get<{ items: ApiPost[] }>(buildFeedQuery(tab, tag, 1))
+    api.get<{ items: ApiPost[] }>(buildFeedQuery(tab, 1))
       .then((d) => {
         if (cancelled) return;
         const items = d?.items ?? [];
@@ -343,7 +323,7 @@ export default function FeedPage() {
       .catch((e) => { if (!cancelled) console.error(e); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [tab, tag, prefsVersion]);
+  }, [tab, prefsVersion]);
 
   // Keep the latest loadMore logic in a ref so the IntersectionObserver effect
   // (set up once) always calls the current closure without re-subscribing.
@@ -353,7 +333,7 @@ export default function FeedPage() {
     setLoadingMore(true);
     const next = page + 1;
     try {
-      const d = await api.get<{ items: ApiPost[] }>(buildFeedQuery(tab, tag, next));
+      const d = await api.get<{ items: ApiPost[] }>(buildFeedQuery(tab, next));
       const items = d?.items ?? [];
       setPosts((prev) => [...prev, ...items]);
       setPage(next);
@@ -378,14 +358,12 @@ export default function FeedPage() {
     return () => obs.disconnect();
   }, [hasMore, loading]);
 
-  // Build the display stream. Interspersed listing/event cards are untagged, so a
-  // hashtag filter hides them; "Remove Listing posts" applies on For You (DF-08).
+  // Build the display stream. "Remove Listing posts" applies on For You (DF-08).
   const stream = useMemo<StreamItem[]>(() => {
     const base: StreamItem[] = [];
     let li = 0, ei = 0;
-    const showExtras = tag === "All";
-    const showListings = showExtras && !(tab === "foryou" && hideListings) && tab !== "following";
-    const showEvents = showExtras && tab !== "following";
+    const showListings = !(tab === "foryou" && hideListings) && tab !== "following";
+    const showEvents = tab !== "following";
     for (let i = 0; i < posts.length; i++) {
       const p = posts[i];
       // Scorred/official posts render as normal posts (same as any user) —
@@ -401,14 +379,15 @@ export default function FeedPage() {
       }
     }
     return base;
-  }, [posts, listings, events, tab, tag, hideListings]);
+  }, [posts, listings, events, tab, hideListings]);
 
   return (
     <div className="w-full max-w-[680px] min-h-screen border-r border-[var(--slate-200)] bg-[var(--canvas)]">
         <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]" style={{ padding: "12px 16px" }}>
           {/* feed sort tabs — "For You" doubles as the Customise control: tapping it
-              while active opens the Customize-feed popover (caret ▾), matching the
-              original design (DF-07). No separate chip. */}
+              while active opens the Customize-feed popover (DF-07). No separate chip.
+              QA 2026-08-04 §2 changed ONLY the trigger glyph: the caret is now the
+              settings/sliders icon. Layout and behaviour are otherwise untouched. */}
           <div className="relative">
             <div className="flex gap-1 bg-[var(--slate-100)] rounded-[14px] p-1">
               {TABS.map((t) => {
@@ -424,7 +403,8 @@ export default function FeedPage() {
                     }}
                     aria-label={isForYou ? "For You — tap again to customise feed" : t.label}
                     className={cn(
-                      "flex-1 flex items-center justify-center gap-1.5 rounded-[10px] py-2 px-1.5 text-[13.5px] whitespace-nowrap cursor-pointer border-none transition-all duration-150",
+                      // gap-2.5 (10px), not the old 6px — the icon was crowding the label.
+                      "flex-1 flex items-center justify-center gap-2.5 rounded-[10px] py-2 px-1.5 text-[13.5px] whitespace-nowrap cursor-pointer border-none transition-all duration-150",
                       on
                         ? "bg-[var(--paper)] text-[var(--ink)] font-bold shadow-[var(--shadow-2)]"
                         : "bg-transparent text-[var(--slate-500)] font-medium"
@@ -432,19 +412,6 @@ export default function FeedPage() {
                   >
                     <Icon size={16} strokeWidth={on ? 2.3 : 1.9} />
                     {t.label}
-                    {isForYou && (
-                      <ChevronDown
-                        size={14}
-                        strokeWidth={2.2}
-                        style={{
-                          marginLeft: -2,
-                          opacity: on ? 1 : 0.55,
-                          transition: "transform 150ms var(--ease-out)",
-                          transform: customOpen && on ? "rotate(180deg)" : "none",
-                          color: customOpen && on ? "var(--stamp-red)" : undefined,
-                        }}
-                      />
-                    )}
                   </button>
                 );
               })}
@@ -458,39 +425,6 @@ export default function FeedPage() {
               />
             )}
           </div>
-
-          {/* hashtag slider (DF-09) */}
-          <div
-            ref={tagBar}
-            onMouseDown={onTagDown}
-            onMouseMove={onTagMove}
-            onMouseUp={endTagDrag}
-            onMouseLeave={endTagDrag}
-            className="flex gap-[7px] mt-[10px] overflow-x-auto select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          >
-            {["All", ...tags].map((t) => {
-              const on = tag === t;
-              const isAll = t === "All";
-              return (
-                <button
-                  key={t}
-                  onClick={() => setTag(t)}
-                  className={cn(
-                    "shrink-0 rounded-full px-4 py-2 text-[13px] leading-none whitespace-nowrap cursor-pointer border transition-colors",
-                    on
-                      ? isAll
-                        ? "bg-[var(--stamp-red)] border-[var(--stamp-red)] text-white font-bold"
-                        : "bg-[var(--slate-800)] border-[var(--slate-800)] text-[var(--paper)] font-bold"
-                      : isAll
-                        ? "bg-[var(--card-surface)] border-[var(--slate-200)] text-[var(--slate-500)] font-medium"
-                        : "bg-[var(--rose-tint-bg)] border-[var(--rose-tint-border)] text-[var(--rose-tint-text)] font-medium"
-                  )}
-                >
-                  {t}
-                </button>
-              );
-            })}
-          </div>
         </div>
 
         <div style={{ paddingTop: 8 }}>
@@ -499,18 +433,12 @@ export default function FeedPage() {
           : stream.length === 0
             ? <div style={{ padding: "52px 24px", textAlign: "center" }}>
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--ink)" }}>
-                  {tag !== "All"
-                    ? `No posts under ${tag}`
-                    : tab === "following"
-                      ? "Nothing from your follows yet"
-                      : "Nothing to show here"}
+                  {tab === "following" ? "Nothing from your follows yet" : "Nothing to show here"}
                 </div>
                 <div style={{ fontSize: 13.5, color: "var(--ink-faint)", marginTop: 5 }}>
-                  {tag !== "All"
-                    ? "Try another hashtag or tap All."
-                    : tab === "following"
-                      ? "Posts from people you follow will show here."
-                      : "Check back soon."}
+                  {tab === "following"
+                    ? "Posts from people you follow will show here."
+                    : "Check back soon."}
                 </div>
               </div>
             : stream.map((x) => {

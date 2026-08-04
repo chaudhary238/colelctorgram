@@ -117,11 +117,18 @@ async def list_communities(
 
     member_ids: set[str] = set()
     requested_ids: set[str] = set()
+    # QA 2026-08-04 §15 — the "My communities" tab splits Created by you / Joined, so the
+    # list has to say which one each row is. Role comes along for the Manage shortcut
+    # (founders and mods can manage; only founders "created" it).
+    roles_by_id: dict[str, str] = {}
     if current_user:
         mem_result = await db.execute(
-            select(CommunityMember.community_id).where(CommunityMember.user_id == current_user.id)
+            select(CommunityMember.community_id, CommunityMember.role)
+            .where(CommunityMember.user_id == current_user.id)
         )
-        member_ids = set(mem_result.scalars().all())
+        for cid, role in mem_result.all():
+            member_ids.add(cid)
+            roles_by_id[cid] = role
         # QA2 — pending join requests so a private "Requested" state survives a reload.
         req_result = await db.execute(
             select(CommunityJoinRequest.community_id).where(
@@ -140,7 +147,9 @@ async def list_communities(
 
     return [
         _community_dict(c, c.id in member_ids, join_state=_js(c.id),
-                        recent_post_count=recent_counts.get(c.id, 0))
+                        recent_post_count=recent_counts.get(c.id, 0),
+                        member_role=roles_by_id.get(c.id),
+                        is_founder=bool(current_user and c.founder_id == current_user.id))
         for c in communities
     ]
 
@@ -249,6 +258,7 @@ async def get_community(
 
     d = _community_dict(community, is_member, recent_post_count=recent)
     d["member_role"] = member_role
+    d["is_founder"] = bool(current_user and community.founder_id == current_user.id)
     d["join_state"] = join_state
     d["admins"] = admins
     return d
@@ -771,6 +781,8 @@ def _community_dict(
     is_member: bool = False,
     join_state: str = "none",
     recent_post_count: int = 0,
+    member_role: str | None = None,
+    is_founder: bool = False,
 ) -> dict:
     return {
         "id": c.id,
@@ -788,6 +800,11 @@ def _community_dict(
         "is_invite_only": c.is_invite_only,
         "is_member": is_member,
         "join_state": join_state,
+        # founder | mod | member — the viewer's role, or null when not a member.
+        "member_role": member_role,
+        # The viewer CREATED this one (§15). Distinct from member_role == "founder"
+        # only in theory, but the flag is what the UI groups on.
+        "is_founder": is_founder,
         "status": c.status,
         "created_at": c.created_at.isoformat(),
     }

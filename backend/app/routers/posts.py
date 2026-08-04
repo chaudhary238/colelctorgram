@@ -17,6 +17,7 @@ from app.models.community import Community, CommunityMember
 from app.services.notifications import notify
 from app.services.gamification import award_xp, feed_badge
 from app.services.blocks import blocked_user_ids
+from app.services.social import likers_preview
 from app.services.ratelimit import rate_limit_user
 
 router = APIRouter(prefix="/posts", tags=["posts"])
@@ -243,7 +244,11 @@ async def get_post(
         "name": author.name if author else None,
         "avatar_url": author.avatar_url if author else None,
         # Rewards badge (v3 §3): First Start badge if any, else the rank badge.
+        # None for staff — they show the Official tag instead (QA 2026-08-04 §4).
         "badge": feed_badge(author) if author else None,
+        "is_official": bool(author is not None and author.is_admin),
+        # QA §5 — up to 3 recent likers for the social-proof strip.
+        "likers": (await likers_preview(db, [post.id])).get(post.id, []),
         "type": post.type,
         "title": post.title,
         "body": post.body,

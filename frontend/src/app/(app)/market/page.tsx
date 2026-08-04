@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Search, SlidersHorizontal, Bookmark, X, Plus, Send, ShoppingBag, Edit3 } from "lucide-react";
+import { Search, Filter, Heart, X, Plus, Send, ShoppingBag, Edit3 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiListing, ApiPost, MarketCard, PostCard } from "@/components/cards";
 import { Segmented } from "@/components/ui";
@@ -15,11 +15,16 @@ import { ADD_CATEGORIES } from "@/lib/catalog";
 // naming the same category on two screens (Change Spec §4.2).
 const CATEGORIES = ADD_CATEGORIES;
 
+// QA 2026-08-04 §6 — Market has no "save": a listing is a temporary object, so the
+// keep-for-later action is a LIKE that lives exactly as long as the listing (the
+// browse query is pinned to status == "available"). Saving-for-later across time is
+// what the catalogue wishlist is for. Matches design_v7 MarketView, which draws a
+// heart — not a bookmark — beside the search field.
 const SORTS = [
   { id: "new", label: "Newest" },
   { id: "low", label: "Price ↑" },
   { id: "high", label: "Price ↓" },
-  { id: "saved", label: "Most Saved" },
+  { id: "liked", label: "Most Liked" },
   { id: "watched", label: "Most Watched" },
 ] as const;
 type SortId = (typeof SORTS)[number]["id"];
@@ -122,11 +127,11 @@ export default function MarketPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [savedCount, setSavedCount] = useState(0);
+  const [likedCount, setLikedCount] = useState(0);
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [showSaved, setShowSaved] = useState(false);
+  const [showLiked, setShowLiked] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [sort, setSort] = useState<SortId>("new");
   const [cats, setCats] = useState<string[]>([]);
@@ -152,9 +157,9 @@ export default function MarketPage() {
     if (minPrice) p.set("min_price", String(Number(minPrice) * 100));
     if (maxPrice) p.set("max_price", String(Number(maxPrice) * 100));
     if (shipOnly) p.set("ship", "true");
-    if (showSaved) p.set("saved", "true");
+    if (showLiked) p.set("liked", "true");
     return p.toString();
-  }, [sort, debouncedQuery, cats, conds, minPrice, maxPrice, shipOnly, showSaved]);
+  }, [sort, debouncedQuery, cats, conds, minPrice, maxPrice, shipOnly, showLiked]);
 
   // Refetch from page 1 whenever a filter/search/sort changes.
   useEffect(() => {
@@ -167,9 +172,9 @@ export default function MarketPage() {
     return () => { cancelled = true; };
   }, [buildParams]);
 
-  // Saved-count badge (best-effort, fetched once).
+  // Liked-count badge (best-effort, fetched once).
   useEffect(() => {
-    api.get<{ total: number }>("/listings?saved=true&limit=1").then((d) => setSavedCount(d?.total ?? 0)).catch(() => {});
+    api.get<{ total: number }>("/listings?liked=true&limit=1").then((d) => setLikedCount(d?.total ?? 0)).catch(() => {});
   }, []);
 
   const loadMore = () => {
@@ -196,9 +201,9 @@ export default function MarketPage() {
   };
 
   const filtersActive = activeCount > 0 || debouncedQuery.trim() !== "";
-  const isEmpty = !loading && total === 0 && !filtersActive && !showSaved;
+  const isEmpty = !loading && total === 0 && !filtersActive && !showLiked;
 
-  // 44×44 slate icon button; saved active = stamp-red, filter active = slate-900.
+  // 44×44 slate icon button; liked active = stamp-red, filter active = slate-900.
   const iconBtn = (active: boolean, activeBg: string): React.CSSProperties => ({
     position: "relative", width: 44, height: 44, borderRadius: 13, flexShrink: 0,
     display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
@@ -236,12 +241,14 @@ export default function MarketPage() {
                 </button>
               )}
             </div>
-            <button type="button" onClick={() => { setShowSaved((v) => !v); setShowFilter(false); }} style={iconBtn(showSaved, "var(--stamp-red)")} aria-label="Saved listings">
-              <Bookmark size={18} fill={showSaved ? "currentColor" : "none"} />
-              {savedCount > 0 && !showSaved && badge(savedCount)}
+            <button type="button" onClick={() => { setShowLiked((v) => !v); setShowFilter(false); }} style={iconBtn(showLiked, "var(--stamp-red)")} aria-label="Listings you liked">
+              <Heart size={18} fill={showLiked ? "currentColor" : "none"} />
+              {likedCount > 0 && !showLiked && badge(likedCount)}
             </button>
-            <button type="button" onClick={() => { setShowFilter((v) => !v); setShowSaved(false); }} style={iconBtn(showFilter || activeCount > 0, "var(--slate-900)")} aria-label="Filters">
-              <SlidersHorizontal size={18} />
+            {/* Funnel, not sliders — v7 uses Icons.filter here and on the Database tab;
+                sliders is the Home-feed "customise" glyph and must not double up. */}
+            <button type="button" onClick={() => { setShowFilter((v) => !v); setShowLiked(false); }} style={iconBtn(showFilter || activeCount > 0, "var(--slate-900)")} aria-label="Filters">
+              <Filter size={18} />
               {activeCount > 0 && badge(activeCount)}
             </button>
           </div>
@@ -314,9 +321,9 @@ export default function MarketPage() {
         <>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px 10px" }}>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-faint)", letterSpacing: "0.04em" }}>
-              {showSaved ? `${total} SAVED` : `${total} ${total === 1 ? "LISTING" : "LISTINGS"}`}
+              {showLiked ? `${total} LIKED` : `${total} ${total === 1 ? "LISTING" : "LISTINGS"}`}
             </span>
-            {filtersActive && !showSaved && (
+            {filtersActive && !showLiked && (
               <button type="button" onClick={resetAll} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5 }}>Clear filters</button>
             )}
           </div>
@@ -324,10 +331,10 @@ export default function MarketPage() {
             {list.map((l) => <MarketCard key={l.id} listing={l} />)}
             {list.length === 0 && (
               <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", alignItems: "center", padding: "44px 0", color: "var(--ink-faint)", textAlign: "center" }}>
-                {showSaved ? <Bookmark size={26} style={{ opacity: 0.35 }} /> : <SlidersHorizontal size={26} style={{ opacity: 0.35 }} />}
-                <div style={{ fontSize: 13.5, marginTop: 10 }}>{showSaved ? "No saved listings yet." : "No listings match these filters."}</div>
-                {showSaved ? (
-                  <div style={{ fontSize: 12.5, marginTop: 4, color: "var(--ink-ghost)" }}>Tap the bookmark on any listing to save it here.</div>
+                {showLiked ? <Heart size={26} style={{ opacity: 0.35 }} /> : <Filter size={26} style={{ opacity: 0.35 }} />}
+                <div style={{ fontSize: 13.5, marginTop: 10 }}>{showLiked ? "You haven't liked any listings yet." : "No listings match these filters."}</div>
+                {showLiked ? (
+                  <div style={{ fontSize: 12.5, marginTop: 4, color: "var(--ink-ghost)" }}>Tap the heart on any listing to keep it here while it&rsquo;s live.</div>
                 ) : (
                   <button type="button" onClick={resetAll} style={{ marginTop: 10, background: "none", border: "none", cursor: "pointer", color: "var(--stamp-red)", fontWeight: 600, fontFamily: "var(--font-body)", fontSize: 13 }}>Clear filters</button>
                 )}
