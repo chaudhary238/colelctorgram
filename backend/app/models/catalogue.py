@@ -31,11 +31,14 @@ class Catalogue(Base):
     thumbnail_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     submitted_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
-    is_approved: Mapped[bool] = mapped_column(Boolean, default=True)
-    # DV6-13 — trust-by-default moderation. Community entries are live immediately;
-    # `is_official` is an admin-blessed badge (not a gate); `status` supports reactive
-    # takedown ('live' | 'removed'). Visibility = status != 'removed'.
-    is_official: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # DV6-13 — trust-by-default moderation: community entries are live immediately and
+    # `status` supports reactive takedown ('live' | 'removed'). Visibility = status !=
+    # 'removed'. Verification is a SEPARATE, purely informational axis:
+    #   is_verified TRUE  -> "Scorred Verified" (an admin checked this record)
+    #   is_verified FALSE -> "Pending verification"
+    # Defaults FALSE and is only ever set by an admin action — creating an entry, even
+    # as an admin, must never self-verify it (migration d4f2a7c9e610).
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     status: Mapped[str] = mapped_column(String(16), default="live", nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

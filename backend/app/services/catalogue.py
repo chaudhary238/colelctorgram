@@ -132,11 +132,42 @@ async def resolve_or_create(
         est_retail_price=value or 0,
         thumbnail_url=cover_url.strip(),
         submitted_by=user.id,
-        is_approved=True,            # trust-by-default: live immediately
-        is_official=user.is_admin,   # admin adds are Official
+        # Trust-by-default: live immediately (visibility is `status`), but NEVER
+        # self-verified — not even for an admin adding to their own collection.
+        # "Scorred Verified" has to mean a human checked the record.
+        is_verified=False,
         status="live",
     )
     db.add(entry)
     await db.flush()
     granted = await award_xp(db, user, "db_new", ref_id=entry.sku, ref_type="catalogue")
     return sku, (50 if granted else 0), False
+
+
+# ── Display facts for a personal item (QA 2026-08-05 §5/§6) ──────────────────
+def resolved_item_facts(item, cat: Catalogue | None) -> dict:
+    """Merge a personal Item with the catalogue entry it links to, for READ paths.
+
+    The schema is already right — `items.sku` → `catalogue.sku` — but the read paths
+    weren't using it, so an item added from the Database (which carries a `sku` and no
+    `custom_title`, because the add form locks the shared facts) came back with a null
+    title and no brand/scale/year. The grid then fell through to the raw SKU code and
+    the detail screen looked empty next to the same item on the Database tab.
+
+    Precedence is **the owner's own value first, catalogue as the fallback** — never the
+    other way round. A collector who typed their own title or corrected the scale keeps
+    it; the catalogue only fills gaps. That also makes this safe to apply everywhere:
+    for an item with no SKU, or one whose fields are all set, the output is unchanged.
+    """
+    year: int | None = item.release_year
+    if year is None and cat and cat.year and cat.year.strip().isdigit():
+        year = int(cat.year.strip())
+    return {
+        # Always a renderable string — this is what clients should show.
+        "title": item.custom_title or (cat.title if cat else None) or item.sku or "Item",
+        "brand": item.brand or (cat.brand if cat else None),
+        "scale": item.scale or (cat.scale if cat else None),
+        "release_year": year,
+        "description": item.description or (cat.description if cat else None),
+        "category": item.category or (cat.category if cat else None),
+    }

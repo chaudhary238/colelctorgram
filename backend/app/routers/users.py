@@ -13,6 +13,7 @@ from app.dependencies import get_current_user, get_current_user_unverified
 from app.models.user import User, Follow
 from app.models.item import Item, ItemPhoto
 from app.models.catalogue import Catalogue
+from app.services.catalogue import resolved_item_facts
 from app.models.listing import Listing
 from app.models.post import Post, PostLike, PostSave
 from app.models.deal import Vouch, VouchRequest
@@ -853,6 +854,17 @@ async def get_collection(
                 if i.id not in covers and i.sku and cat_thumb.get(i.sku):
                     covers[i.id] = cat_thumb[i.sku]
 
+    # QA 2026-08-05 §5 — resolve display facts against the linked catalogue entry, with
+    # the SAME helper (and precedence) the item detail uses, so a title can never differ
+    # between the two screens. An item added from the Database carries a `sku` and NO
+    # custom_title — the add form locks the shared facts and posts the SKU — so without
+    # this the grid fell through to the raw SKU code and "Owned" read as part numbers.
+    cat_by_sku: dict = {}
+    skus = {i.sku for i in items if i.sku}
+    if skus:
+        rows = await db.execute(select(Catalogue).where(Catalogue.sku.in_(skus)))
+        cat_by_sku = {c.sku: c for c in rows.scalars().all()}
+
     return {
         "page": page,
         "items": [
@@ -860,6 +872,10 @@ async def get_collection(
                 "id": str(i.id),
                 "sku": i.sku,
                 "custom_title": i.custom_title,
+                # `title`/`brand` are ready to render — clients should use these rather
+                # than re-deriving from custom_title/sku. custom_title + sku are still
+                # returned unchanged so existing consumers keep working.
+                **resolved_item_facts(i, cat_by_sku.get(i.sku or "")),
                 "status": i.status,
                 "value": i.value,
                 "is_listed": i.is_listed,

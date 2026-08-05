@@ -15,13 +15,16 @@ import {
   TCG_LANGUAGES, TCG_PRODUCT_TYPES, TCG_GRADERS, type PoPrecision,
 } from "@/lib/catalog";
 
-type AcqMode = "inhand" | "preorder" | "intel";
+// `intel` (contribute a catalogue entry) moved to its own screen at /add/database —
+// design_v7's ContributeItemForm is a six-field form and shared nothing useful with
+// these two (QA 2026-08-05). This form is now only about adding YOUR copy of something.
+type AcqMode = "inhand" | "preorder";
 
 interface CatalogueHit {
   sku: string; title: string; brand: string; category: string;
   scale?: string | null; thumbnail_url: string | null;
   year?: string | null; description?: string | null;
-  pending?: boolean; score?: number | null; is_official?: boolean;
+  pending?: boolean; score?: number | null; is_verified?: boolean;
 }
 
 // v6 "What are you adding?" mode picker (design_v6/app/AddListing.jsx → AcqModePicker).
@@ -35,13 +38,6 @@ const ACQ_MODES: {
   { id: "preorder", label: "Pre-order", desc: "Ordered, not arrived yet.",
     detail: "Track the release window, deposit paid and expected delivery.",
     color: "var(--grail-gold-deep)", bg: "var(--grail-gold-soft)", border: "var(--grail-gold)", Icon: Clock },
-  // QA 2026-08-04 §14 — "DB Contribution" was our internal word for it. The screen is
-  // called **Add to database** everywhere now (design_v7 ExploreView.jsx:410), which is
-  // also what the button that opens it says. `acq` stays "intel" — that's the item
-  // status on the wire, not user-facing copy.
-  { id: "intel", label: "Add to database", desc: "Spotted it? Help the community find it.",
-    detail: "Share what you know — brand, scale and title. Other collectors can track, wishlist and discover it. Earns +50 XP if you're first to add it to Scorred.",
-    color: "var(--verified-teal)", bg: "var(--verified-teal-soft)", border: "var(--verified-teal)", Icon: Eye },
 ];
 
 function ModePicker({ onPick, onClose }: { onPick: (m: AcqMode) => void; onClose: () => void }) {
@@ -146,10 +142,10 @@ function SearchStep({ onPick, onAddNew, onBack }: { onPick: (h: CatalogueHit) =>
                   <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.title}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{h.brand}{h.scale && h.scale !== "—" ? ` · ${h.scale}` : ""}</span>
-                    {h.is_official
-                      ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: "var(--verified-teal)" }}><ShieldCheck size={10} />Official</span>
+                    {h.is_verified
+                      ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: "var(--verified-teal)" }}><ShieldCheck size={10} />Scorred Verified</span>
                       : h.pending
-                        ? <span style={{ fontSize: 10, fontWeight: 700, color: "var(--grail-gold-deep)" }}>Pending review</span>
+                        ? <span style={{ fontSize: 10, fontWeight: 700, color: "var(--grail-gold-deep)" }}>Pending verification</span>
                         : null}
                   </div>
                 </div>
@@ -227,10 +223,12 @@ function AddListingPageInner() {
   const searchParams = useSearchParams();
   const preMode = searchParams.get("mode");
   const skuParam = searchParams.get("sku");
-  const initAcq: AcqMode = preMode === "preorder" || preMode === "intel" ? preMode : "inhand";
+  // ?mode=intel used to land here; that flow lives at /add/database now, and the
+  // redirect below sends any stale link there.
+  const initAcq: AcqMode = preMode === "preorder" ? preMode : "inhand";
   const [acq, setAcq] = useState<AcqMode>(initAcq);
   // DV6-13 — flow is pick (mode) → search (find in catalogue) → form. ?mode/?sku deep-links skip
-  // ahead. Every mode (In Hand, Pre-order, DB Contribution) is search-first: find it in the
+  // ahead. Both modes (In Hand, Pre-order) are search-first: find it in the
   // shared catalogue before adding, so we don't mint a duplicate. A ?sku deep-link is already
   // resolved to an entry, so it lands straight on the form.
   // DV7-02 — ?new=1 also lands on the form: it comes from the Database tab's "can't find
@@ -310,7 +308,7 @@ function AddListingPageInner() {
   const scales = CAT_SCALES[cat];
   const usesScale = !!scales;
   const meta = CAT_META[cat] ?? CAT_META.figures;
-  const isIntel = acq === "intel"; // DB Contribution — unowned, no condition/sale
+  const isIntel = false as const; // `intel` moved to /add/database (QA 2026-08-05)
   const canSell = acq === "inhand"; // pre-orders & DB contributions can't be listed
   const photoMax = 4; // DV6-13 — up to 4 personal photos per item
   // DV6-13 — linked to an existing catalogue entry: its facts (title/brand/category/scale/
@@ -511,6 +509,12 @@ function AddListingPageInner() {
     setStep("form");
   };
 
+  // Stale `?mode=intel` links (bookmarks, an old tab) belong to /add/database now.
+  // Redirect rather than 404 or silently drop them into the In-hand form.
+  useEffect(() => {
+    if (preMode === "intel") router.replace("/add/database");
+  }, [preMode, router]);
+
   // ?sku= deep-link (Scorred DB page "Add to my collection", DV6-13 catalogue Sell):
   // fetch the entry and land on the form prefilled + locked, same as picking it at
   // the search step — never the mode picker. Keyed on the param (not mount-only) so
@@ -672,7 +676,7 @@ function AddListingPageInner() {
                   <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title}</div>
                   <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 1 }}>
                     {m.brand}{m.scale && m.scale !== "—" ? ` · ${m.scale}` : ""}
-                    {m.pending && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--grail-gold-deep)", background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 4, padding: "1px 5px" }}>Pending review</span>}
+                    {m.pending && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--grail-gold-deep)", background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 4, padding: "1px 5px" }}>Pending verification</span>}
                   </div>
                 </div>
                 <Plus size={16} style={{ color: "var(--stamp-red)", flexShrink: 0 }} />
@@ -1131,12 +1135,6 @@ function AddListingPageInner() {
             secondary: "View my collection",
             onSecondary: () => router.push(user ? `/profile/${user.handle}` : "/market"),
           },
-          intel: {
-            title: "Thanks for the contribution!",
-            body: "Your entry is in the Scorred DB for other collectors to track and wishlist. Add another, or head to your feed.",
-            secondary: "Done",
-            onSecondary: () => router.push("/feed"),
-          },
         }[success];
         const addAnother = () => { setSuccess(null); resetForm(); };
         return (
@@ -1144,7 +1142,7 @@ function AddListingPageInner() {
             <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={addAnother} />
             <div className="relative z-10 w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-4)] p-6 text-center">
               <div style={{ width: 56, height: 56, borderRadius: 16, margin: "0 auto 14px", background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {success === "intel" ? <Sparkles size={26} style={{ color: "var(--verified-teal)" }} /> : <Check size={26} style={{ color: "var(--verified-teal)" }} />}
+                <Check size={26} style={{ color: "var(--verified-teal)" }} />
               </div>
               <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19 }}>{cfg.title}</h2>
               <p style={{ fontSize: 13.5, color: "var(--ink-mute)", lineHeight: 1.55, marginTop: 8 }}>

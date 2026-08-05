@@ -48,7 +48,8 @@ import { ADD_CATEGORIES, CAT_SCALES } from "@/lib/catalog";
  *    overlay is `plusCircle` at 32px, both per v7.
  *  - Tiles drop the "N own · N want" line — it's detail-page data, and it made the card
  *    read as a stat block. The Scorred seal moves to the photo's BOTTOM-RIGHT corner and
- *    marks entries the team owns (seeded/admin-approved, `is_official`).
+ *    marks entries the team has VERIFIED (`is_verified`); everything else shows the
+ *    pending clock. See DECISIONS 2026-08-05 for the is_official+is_approved collapse.
  */
 
 interface DbItem {
@@ -61,7 +62,8 @@ interface DbItem {
   thumbnail_url: string | null;
   est_retail_price: number;
   pending: boolean;
-  is_official: boolean;
+  /** Verified by an admin → "Scorred Verified"; otherwise pending verification. */
+  is_verified: boolean;
   owners_count: number;
   wishlists_count: number;
   viewer_status: string | null;
@@ -522,7 +524,7 @@ export default function DatabasePage() {
       {guidelines && (
         <ContributeGuidelines
           onCancel={() => setGuidelines(false)}
-          onAccept={() => router.push("/add/catalogue?mode=intel&new=1")}
+          onAccept={() => router.push("/add/database")}
         />
       )}
     </div>
@@ -538,7 +540,7 @@ function DbTile({ item, onWishlist }: { item: DbItem; onWishlist: () => void }) 
     <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ position: "relative" }}>
         <Link href={`/db/${encodeURIComponent(item.sku)}`} aria-label={item.title} style={{ display: "block" }}>
-          <ProductPhoto tone={item.is_official ? "ink" : "bone"} src={item.thumbnail_url} ratio="1/1" rounded={0} label="catalogue reference" />
+          <ProductPhoto tone={item.is_verified ? "ink" : "bone"} src={item.thumbnail_url} ratio="1/1" rounded={0} label="catalogue reference" />
         </Link>
 
         {/* Star = wishlist (web icon law). Hidden once it's on your shelf — the server
@@ -581,12 +583,12 @@ function DbTile({ item, onWishlist }: { item: DbItem; onWishlist: () => void }) 
         </Link>
 
         {/* §13 — the Scorred seal marks entries the TEAM owns: seeded from the backend
-            or approved by an admin (`is_official`). Bottom-right of the photo, opposite
+            verified by an admin (`is_verified`). Bottom-right of the photo, opposite
             the add button. Community entries still awaiting review show the clock. */}
-        {item.is_official ? (
+        {item.is_verified ? (
           <span
-            title="Scorred Reviewed — catalogue entry verified by Scorred"
-            aria-label="Scorred reviewed"
+            title="Scorred Verified — this catalogue entry was checked by the Scorred team"
+            aria-label="Scorred Verified"
             style={{
               position: "absolute", bottom: 8, right: 8, width: 26, height: 26, borderRadius: 999,
               background: "rgba(255,255,255,0.94)", boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
@@ -597,8 +599,8 @@ function DbTile({ item, onWishlist }: { item: DbItem; onWishlist: () => void }) 
           </span>
         ) : item.pending ? (
           <span
-            title="Pending review — community entry"
-            aria-label="Pending review"
+            title="Pending verification — not yet checked by the Scorred team"
+            aria-label="Pending verification"
             style={{
               position: "absolute", bottom: 8, right: 8, width: 26, height: 26, borderRadius: 999,
               background: "var(--bone-deep)", border: "1px solid var(--border-strong)", color: "var(--ink-faint)",

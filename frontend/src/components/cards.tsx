@@ -43,7 +43,6 @@ export interface ApiPost {
   poll_options: Record<string, unknown> | null;
   // Viewer's locked poll choice (index into poll_options keys), or null if unvoted.
   my_poll_vote?: number | null;
-  is_admin_post: boolean;
   likes_count: number;
   comments_count: number;
   saves_count: number;
@@ -833,6 +832,25 @@ export function PostCard({ post, showFollow = false }: { post: ApiPost; showFoll
   const [shared, setShared] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
+  // Adopt fresh server counts when the `post` prop changes (QA 2026-08-05 §3).
+  // These useState calls only read their argument on the FIRST render, and the feed
+  // keeps each card mounted under a stable key — so once a card existed, a refetch
+  // handed it new props that it silently ignored, and the like count sat at whatever
+  // it was when the card first mounted while the post's own page showed the truth.
+  // This is React's documented "adjusting state when a prop changes" pattern: the
+  // setState during render is re-run immediately, before anything commits.
+  const [syncedFrom, setSyncedFrom] = useState(post);
+  if (syncedFrom !== post) {
+    setSyncedFrom(post);
+    // Don't clobber an in-flight optimistic toggle — only adopt when idle.
+    if (!likeBusy) {
+      setLiked(post.is_liked ?? false);
+      setLikes(post.likes_count);
+    }
+    if (!saveBusy) setSaved(post.is_saved ?? false);
+    setCommentCount(post.comments_count);
+  }
+
   if (post.type === "iso") return <ISOCard post={post} />;
 
   const metaStrip = likes > 0 || !!post.city;
@@ -1056,40 +1074,6 @@ function ISOCard({ post }: { post: ApiPost }) {
   );
 }
 
-/* ── Admin / release card ────────────────────────────────────────── */
-export function AdminCard({ post }: { post: ApiPost }) {
-  const [interested, setInterested] = useState(false);
-  return (
-    <div style={{ ...CARD_BASE, padding: "16px 18px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <SealMark size={30} />
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontWeight: 600, fontSize: 14 }}>Scorred</span>
-            <Badge variant="dark" style={{ borderRadius: 5 }}>Official</Badge>
-          </div>
-          <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>New release · {timeAgo(post.created_at)}</div>
-        </div>
-      </div>
-      <div style={{ display: "flex", gap: 12 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", lineHeight: 1.2, marginBottom: 5 }}>
-            {post.title ?? post.body.slice(0, 60)}
-          </div>
-          <div style={{ fontSize: 13.5, color: "var(--ink-mute)", lineHeight: 1.5 }}>{post.body}</div>
-          <div style={{ marginTop: 11 }}>
-            <Button size="sm" variant={interested ? "secondary" : "grail"} icon={<Bell size={15} />} onClick={() => setInterested((v) => !v)}>
-              {interested ? "Alert on" : "Notify me"}
-            </Button>
-          </div>
-        </div>
-        <div style={{ width: 88, flexShrink: 0 }}>
-          <ProductPhoto tone={post.tone ?? "ink"} ratio="1/1" />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ── Listing feed card ───────────────────────────────────────────── */
 export function ListingFeedCard({ listing }: { listing: ApiListing }) {

@@ -27,7 +27,7 @@ interface DbEntry {
   est_retail_price: number;
   thumbnail_url: string | null;
   pending: boolean;
-  is_official: boolean;
+  is_verified: boolean;
   tone: string;
   collectors_count: number;
   wishlists_count: number;
@@ -124,16 +124,16 @@ export default function DbEntryPage() {
 
       <div style={{ padding: "14px 20px 0" }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8, alignItems: "center" }}>
-          {entry.is_official ? (
+          {entry.is_verified ? (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: "var(--verified-teal)", background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", borderRadius: 5, padding: "2px 7px" }}>
-              <ShieldCheck size={11} /> Official
+              <ShieldCheck size={11} /> Scorred Verified
             </span>
           ) : (
-            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-mute)", background: "var(--bone)", borderRadius: 5, padding: "2px 7px" }}>Community</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-mute)", background: "var(--bone)", borderRadius: 5, padding: "2px 7px" }}>Pending verification</span>
           )}
           {entry.pending && (
             <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: 5, background: "var(--grail-gold)", color: "var(--paper)" }}>
-              Pending review
+              Pending verification
             </span>
           )}
           {entry.viewer_item && (
@@ -197,7 +197,7 @@ export default function DbEntryPage() {
           </>
         )}
 
-        {!entry.is_official && entry.submitted_by_handle && (
+        {!entry.is_verified && entry.submitted_by_handle && (
           <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 18 }}>
             Added to the Scorred DB by{" "}
             <Link href={`/profile/${entry.submitted_by_handle}`} style={{ color: "var(--verified-teal)", fontWeight: 600, textDecoration: "none" }}>

@@ -27,13 +27,13 @@ comments_router = APIRouter(prefix="/comments", tags=["posts"])
 def _iso_fields(post: Post) -> dict:
     """ISO ("In Search Of") fields for the feed/detail card (DF-30c).
 
-    iso_cond is the conditions joined for the single chip the ISOCard renders;
-    iso_budget stays in paise (the card divides by 100, money convention).
+    iso_cond is the single acceptable condition for the chip the ISOCard renders
+    (NULL = "Any"); iso_budget stays in paise (the card divides by 100).
     """
     return {
         "iso_item": post.iso_item,
         "iso_budget": post.iso_budget,
-        "iso_cond": ", ".join(post.iso_conditions) if post.iso_conditions else None,
+        "iso_cond": post.iso_condition,
     }
 
 
@@ -56,7 +56,8 @@ class CreatePostBody(BaseModel):
     # DF-30c — ISO ("In Search Of") fields (only when type == 'iso')
     iso_item: Optional[str] = None
     iso_budget: Optional[int] = None  # max budget, paise
-    iso_conditions: list[str] = []
+    # Single choice; "any" (or omitted) means no condition restriction.
+    iso_condition: Optional[str] = None
 
 
 class CreateCommentBody(BaseModel):
@@ -101,7 +102,9 @@ async def create_post(
     # DF-30c — ISO posts carry the wanted item + budget/condition; body holds the
     # optional extra details (may be empty, which the NOT NULL body tolerates).
     is_iso = body.type == "iso"
-    iso_conditions = [c for c in body.iso_conditions if c and c.lower() != "any"] or None
+    # "any" is the absence of a restriction, so it's stored as NULL rather than a value.
+    _cond = (body.iso_condition or "").strip()
+    iso_condition = _cond if _cond and _cond.lower() != "any" else None
 
     # Overall post.status: the global feed gate. Published unless the post is
     # NOT on the feed and every target community is still pending review.
@@ -128,7 +131,7 @@ async def create_post(
         review_rating=body.review_rating,
         iso_item=(body.iso_item or None) if is_iso else None,
         iso_budget=body.iso_budget if is_iso else None,
-        iso_conditions=iso_conditions if is_iso else None,
+        iso_condition=iso_condition if is_iso else None,
         status=post_status,
     )
     db.add(post)
@@ -302,7 +305,7 @@ class EditPostBody(BaseModel):
     review_rating: Optional[int] = None
     iso_item: Optional[str] = None
     iso_budget: Optional[int] = None
-    iso_conditions: Optional[list[str]] = None
+    iso_condition: Optional[str] = None
 
 
 @router.patch("/{post_id}")

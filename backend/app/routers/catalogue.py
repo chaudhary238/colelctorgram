@@ -42,10 +42,11 @@ def _hit(c: Catalogue, score: float | None = None) -> dict:
         "thumbnail_url": c.thumbnail_url,
         # DV6-12 — de-dup search surfaces pending (unreviewed) community entries too,
         # flagged so the UI can badge them; `score` is the fuzzy match strength (0..1).
-        "pending": not c.is_approved,
+        # Pending = awaiting Scorred verification (not a visibility gate).
+        "pending": not c.is_verified,
         "score": round(score, 3) if score is not None else None,
         # DV6-13 — Official = admin-blessed (a badge, not a gate); everything else is community.
-        "is_official": c.is_official,
+        "is_verified": c.is_verified,
     }
 
 
@@ -61,7 +62,9 @@ async def popular_catalogue(
     Prefers the caller's interest categories when provided, then fills with other approved items.
     """
     cats = [c.strip() for c in category.split(",") if c.strip()] if category else []
-    stmt = select(Catalogue).where(Catalogue.is_approved == True, Catalogue.status != "removed")
+    # Visibility is `status` alone (DV6-13). Unverified entries still browse — the
+    # tile marks them "Pending verification"; hiding them would make the badge unreachable.
+    stmt = select(Catalogue).where(Catalogue.status != "removed")
     if cats:
         stmt = stmt.order_by(Catalogue.category.in_(cats).desc(), Catalogue.est_retail_price.desc())
     else:
@@ -105,7 +108,7 @@ async def search_catalogue(
     if scale:
         stmt = stmt.where(Catalogue.scale == scale)
     # Best matches first (NULL similarity = substring-only hit → last); approved wins ties.
-    stmt = stmt.order_by(score.desc().nullslast(), Catalogue.is_approved.desc()).limit(limit)
+    stmt = stmt.order_by(score.desc().nullslast(), Catalogue.is_verified.desc()).limit(limit)
     rows = (await db.execute(stmt)).all()
     return {"hits": [_hit(c, s) for c, s in rows], "query": q}
 
@@ -531,11 +534,12 @@ async def submit_catalogue(
         est_retail_price=body.est_retail_price,
         thumbnail_url=body.thumbnail_url,
         submitted_by=current_user.id,
-        is_approved=current_user.is_admin,  # auto-approve for admins
+        # Never self-verify on create — verification is an admin action (see model).
+        is_verified=False,
     )
     db.add(item)
     await db.flush()
     # DV6-02 — first collector to add this item to the shared DB earns +50 XP.
     # Deduped per item (ref_id) so re-submits never double-award.
     await award_xp(db, current_user, "db_new", ref_id=item.sku, ref_type="catalogue")
-    return {"sku": item.sku, "pending_approval": not item.is_approved}
+    return {"sku": item.sku, "pending_verification": not item.is_verified}

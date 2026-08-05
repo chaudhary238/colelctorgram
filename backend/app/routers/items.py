@@ -14,7 +14,7 @@ from app.models.item import Item, ItemPhoto
 from app.models.catalogue import Catalogue
 from app.models.user import Follow, User
 from app.services.gamification import resolve_referral
-from app.services.catalogue import resolve_or_create, norm_scale
+from app.services.catalogue import resolve_or_create, norm_scale, resolved_item_facts
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,15 @@ class ItemOut(BaseModel):
     user_id: uuid.UUID
     sku: Optional[str]
     custom_title: Optional[str]
+    # QA 2026-08-05 §5/§6 — ready-to-render name: custom_title → catalogue title → sku.
+    # Clients should show this instead of re-deriving from custom_title/sku, which is
+    # how items added from the Database ended up displaying raw SKU codes. NOTE: this
+    # model is a `response_model`, so a field missing HERE is stripped from the response
+    # no matter what the handler puts in the dict.
+    title: Optional[str] = None
+    # The linked catalogue entry's own title, when there is one (lets the UI show
+    # "your name for it" alongside the shared record).
+    catalogue_title: Optional[str] = None
     brand: Optional[str] = None
     scale: Optional[str] = None
     release_year: Optional[int] = None
@@ -107,7 +116,7 @@ class ItemOut(BaseModel):
     owner_handle: Optional[str] = None
     owner_name: Optional[str] = None
     # v6 DV6-13 — Official badge from the linked catalogue entry (admin-blessed).
-    catalogue_is_official: bool = False
+    catalogue_is_verified: bool = False
     # Wishlist taxonomy (2026-07-11) — whether the VIEWER has a wishlist copy of this
     # item's identity (drives the Star toggle's initial state on item detail).
     is_wishlisted: bool = False
@@ -339,8 +348,13 @@ async def get_item(
     # DV6-13 — cover fallback + Official badge from the linked catalogue entry: if the
     # viewer has no visible photo, show the shared reference image instead of a blank.
     cat = await db.get(Catalogue, item.sku) if item.sku else None
+    # QA 2026-08-05 §6 — inherit the catalogue's facts so an item linked to a SKU reads
+    # the same here as it does on the Database tab. Owner values still win; the
+    # catalogue only fills the gaps, so nothing a user typed is overwritten.
+    out.update(resolved_item_facts(item, cat))
     if cat:
-        out["catalogue_is_official"] = cat.is_official
+        out["catalogue_is_verified"] = cat.is_verified
+        out["catalogue_title"] = cat.title
         if not out.get("images") and cat.thumbnail_url:
             out["images"] = [cat.thumbnail_url]
             out["image_url"] = cat.thumbnail_url

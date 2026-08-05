@@ -201,7 +201,8 @@ async def global_search(
     catalogue_base = (
         select(Catalogue.sku, Catalogue.title, Catalogue.brand, Catalogue.category, Catalogue.thumbnail_url)
         .where(
-            Catalogue.is_approved == True,
+            # Visibility = status != removed (DV6-13); verification is a badge, not a gate.
+            Catalogue.status != "removed",
             _match(q, pattern, Catalogue.title, Catalogue.brand, Catalogue.sku),
         )
     )

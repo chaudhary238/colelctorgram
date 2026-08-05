@@ -10,13 +10,21 @@ import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { ProductPhoto, SectionLabel } from "@/components/ui";
 import { ReleaseWindowPicker } from "@/components/forms";
-import { formatMoney, buildPoEta, type PoPrecision } from "@/lib/catalog";
+import { formatMoney, buildPoEta, ADD_CATEGORIES, type PoPrecision } from "@/lib/catalog";
 
 interface ApiItem {
   id: string;
   user_id: string;
   sku: string | null;
   custom_title: string | null;
+  /** Server-resolved display name: custom_title → catalogue title → sku (QA §5/§6). */
+  title?: string | null;
+  catalogue_title?: string | null;
+  brand?: string | null;
+  scale?: string | null;
+  release_year?: number | null;
+  description?: string | null;
+  category?: string | null;
   status: string;
   value: number;
   value_currency?: string;
@@ -33,7 +41,7 @@ interface ApiItem {
   created_at: string;
   owner_handle?: string | null;
   owner_name?: string | null;
-  catalogue_is_official?: boolean;
+  catalogue_is_verified?: boolean;
   // viewer's wishlist state for this item's identity (Star toggle, taxonomy 2026-07-11)
   is_wishlisted?: boolean;
 }
@@ -56,6 +64,21 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const TONES = ["teal", "plum", "forest", "gold", "red", "ink"];
+
+/** Spec row — same shape as the Database entry page, so the two read as one product. */
+function SpecRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
+      <span style={{ fontSize: 13, color: "var(--ink-faint)" }}>{label}</span>
+      <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 13.5, color: "var(--ink)" }}>{value}</span>
+    </div>
+  );
+}
+
+// One wording per category app-wide (Change Spec §4.2) — read from the shared list.
+const CAT_LABEL: Record<string, string> = Object.fromEntries(
+  ADD_CATEGORIES.map((c) => [c.id, c.label]),
+);
 
 function PoRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
@@ -251,7 +274,9 @@ export default function ItemDetailPage() {
     );
   }
 
-  const title = item.custom_title ?? item.sku ?? "Item";
+  // Server-resolved name (custom_title → catalogue title → sku). The old chain stays as
+  // a fallback for any cached/older payload (QA 2026-08-05 §5/§6).
+  const title = item.title ?? item.custom_title ?? item.sku ?? "Item";
   const tone = TONES[parseInt(id, 16) % TONES.length] ?? "teal";
   const isOwned = item.status === "owned";
   const isWish = item.status === "wishlist";
@@ -312,13 +337,14 @@ export default function ItemDetailPage() {
         {item.sku && !isPreorder && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--ink-faint)" }}>SKU {item.sku}</span>
-            {/* DV6-13 — Official (admin-blessed) vs Community catalogue entry */}
-            {item.catalogue_is_official ? (
+            {/* Verification state of the linked catalogue entry (QA 2026-08-05):
+                admin-verified → Scorred Verified, otherwise Pending verification. */}
+            {item.catalogue_is_verified ? (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: "var(--verified-teal)", background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", borderRadius: 5, padding: "1px 7px" }}>
-                <ShieldCheck size={11} /> Official
+                <ShieldCheck size={11} /> Scorred Verified
               </span>
             ) : (
-              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-mute)", background: "var(--bone)", borderRadius: 5, padding: "1px 7px" }}>Community</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-mute)", background: "var(--bone)", borderRadius: 5, padding: "1px 7px" }}>Pending verification</span>
             )}
             <button type="button" onClick={() => setReporting(true)} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--ink-faint)" }}>
               <Flag size={12} /> Report
@@ -360,6 +386,31 @@ export default function ItemDetailPage() {
             </div>
           )}
         </div>
+
+        {/* QA 2026-08-05 §6 — the same Details block the Database entry shows. Your copy
+            of an item used to render as just a photo + title, which read as a different
+            (and much emptier) product than the same item one tap away on /db. Values
+            come from the item, falling back to the linked catalogue entry server-side. */}
+        {(item.brand || item.scale || item.release_year || item.category) && (
+          <>
+            <SectionLabel>Details</SectionLabel>
+            <div style={{ marginTop: 4, marginBottom: 18 }}>
+              {item.brand && <SpecRow label="Brand" value={item.brand} />}
+              {item.category && <SpecRow label="Category" value={CAT_LABEL[item.category] ?? item.category} />}
+              {item.scale && <SpecRow label="Scale" value={item.scale} />}
+              {item.release_year != null && <SpecRow label="Year" value={String(item.release_year)} />}
+            </div>
+          </>
+        )}
+
+        {item.description && (
+          <>
+            <SectionLabel>About this item</SectionLabel>
+            <div style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--ink-soft)", marginTop: 10, marginBottom: 18 }}>
+              {item.description}
+            </div>
+          </>
+        )}
 
         {isPreorder && (
           <div style={{ background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 13, padding: "12px 14px", marginBottom: 16 }}>
@@ -426,10 +477,12 @@ export default function ItemDetailPage() {
                 Manage listing
               </Link>
             ) : (
-              // QA 14.1 — list THIS item: deep-link to the create flow prefilled with the
-              // item (sku) and the List-for-sale toggle on, not the generic catalogue search.
+              // QA 2026-08-05 §7 — list THIS item, via a flow that posts a Listing against
+              // the existing item_id. It used to deep-link into /add/catalogue, whose job
+              // is to CREATE an item, so selling something you already owned added a
+              // second copy of it to your collection.
               <Link
-                href={item.sku ? `/add/catalogue?sku=${encodeURIComponent(item.sku)}&sell=1` : "/add/catalogue?sell=1"}
+                href={`/item/${item.id}/sell`}
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, borderRadius: 13, background: "var(--stamp-red)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
                 <Tag size={18} />Sell / Trade this item
               </Link>

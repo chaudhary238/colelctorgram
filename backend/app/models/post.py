@@ -42,13 +42,18 @@ class Post(Base):
     # DF-30c — ISO ("In Search Of" / Wanted) post type. Set only when type='iso'.
     iso_item: Mapped[str | None] = mapped_column(Text, nullable=True)
     iso_budget: Mapped[int | None] = mapped_column(Integer, nullable=True)  # max budget, paise
-    iso_conditions: Mapped[list[str] | None] = mapped_column(PG_ARRAY(Text), nullable=True)
+    # Single acceptable condition, or NULL for "Any" (migration c7e1b4a9d302). Was a
+    # TEXT[] that every read path collapsed to one string — the composer is a single
+    # select, so the list shape was redundant.
+    iso_condition: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     # DF-30h — multi-community posting. community_id stays the PRIMARY community;
     # post_communities holds every target. to_feed gates the global feed.
     to_feed: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
 
-    is_admin_post: Mapped[bool] = mapped_column(Boolean, default=False)
+    # NOTE: `is_admin_post` was dropped in c7e1b4a9d302. "Is this the platform talking?"
+    # is answered by the author's `is_admin` at serialisation time (`is_official`), which
+    # also covers an admin's ordinary post — something the stored flag never did.
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False)
     # DF-27 — community post approval: published | pending (awaiting mod review)
     # B-70 — "removed" = admin takedown (reason in removed_reason)

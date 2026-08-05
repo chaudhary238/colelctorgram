@@ -12,13 +12,14 @@
 //     Tried and rejected in QA: a standalone sliders button beside the tab group, and
 //     keeping the house icon with a sliders glyph trailing the label.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Globe, SlidersHorizontal, UserPlus, Check } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser, AuthUser } from "@/lib/auth-context";
 import { PostCard, ListingFeedCard, FeedEventCard, ApiPost, ApiListing, ApiEvent } from "@/components/cards";
 import { cn } from "@/lib/utils";
 import { ADD_CATEGORIES } from "@/lib/catalog";
+import { MAX_SNAPSHOT_POSTS, readFeedSnapshot, writeFeedSnapshot } from "@/lib/feedSnapshot";
 
 type StreamItem =
   | { t: "post"; key: string; data: ApiPost }
@@ -184,59 +185,67 @@ function CustomizePopover({
   );
 }
 
-// Scroll/state restoration (issue #6): when you open a post and come back, the
-// feed must resume where you left off — same posts, same tab, same scroll —
-// instead of refetching page 1 and jumping to the top. We snapshot the feed to
-// sessionStorage on leave and rehydrate from it on mount (5-min TTL).
-const FEED_SNAPSHOT_KEY = "feed:snapshot";
-const SNAPSHOT_TTL_MS = 5 * 60 * 1000;
-const MAX_SNAPSHOT_POSTS = 100;
-
-interface FeedSnapshot {
-  tab: Tab; posts: ApiPost[]; page: number; hasMore: boolean; scrollTop: number; ts: number;
-}
-
-function readFeedSnapshot(): FeedSnapshot | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(FEED_SNAPSHOT_KEY);
-    if (!raw) return null;
-    const s = JSON.parse(raw) as FeedSnapshot;
-    if (!s.posts?.length || Date.now() - s.ts > SNAPSHOT_TTL_MS) return null;
-    return s;
-  } catch {
-    return null;
-  }
-}
-
 export default function FeedPage() {
   const { user, setUser } = useUser();
-  // Read any restore snapshot exactly once (lazy initializer → runs on mount only).
-  const [snap] = useState<FeedSnapshot | null>(readFeedSnapshot);
 
-  const [tab, setTab] = useState<Tab>(snap?.tab ?? "foryou");
+  // NOTE (hydration): the snapshot lives in sessionStorage, which the SERVER cannot see.
+  // Seeding these useState calls from it — which is what this used to do, via a lazy
+  // initializer — meant the server rendered skeletons while the first client render
+  // rendered restored posts, and React threw "Hydration failed … server rendered HTML
+  // didn't match the client" on every reload that had a snapshot. So the first client
+  // render must match the server exactly (empty + loading), and the snapshot is applied
+  // in a LAYOUT effect below: it runs before paint, so there's still no visible flash.
+  const [tab, setTab] = useState<Tab>("foryou");
   const [customOpen, setCustomOpen] = useState(false);
-  const [posts, setPosts] = useState<ApiPost[]>(snap?.posts ?? []);
+  const [posts, setPosts] = useState<ApiPost[]>([]);
   const [listings, setListings] = useState<ApiListing[]>([]);
   const [events, setEvents] = useState<ApiEvent[]>([]);
-  const [loading, setLoading] = useState(!snap);
+  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(snap?.page ?? 1);
-  const [hasMore, setHasMore] = useState(snap?.hasMore ?? true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   // bump to refetch after Customize-feed save (For You filter is server-side)
   const [prefsVersion, setPrefsVersion] = useState(0);
+  // Gate for the fetch effect: stays false until the restore below has had its say, so
+  // a snapshot can never lose a race with a page-1 fetch.
+  const [restoreChecked, setRestoreChecked] = useState(false);
   // When we've rehydrated posts from a snapshot, remember which tab/prefs
   // combo they belong to so the fetch effect can skip refetching it — kept as a
   // key (not a one-shot boolean) so React StrictMode's double-invoke doesn't
   // wipe the restored posts by refetching page 1.
-  const restoredKeyRef = useRef<string | null>(snap ? `${snap.tab}|0` : null);
+  const restoredKeyRef = useRef<string | null>(null);
 
   const hideListings = user?.feed_prefs?.hide_listings ?? true;
 
   // Keep the latest feed state in a ref so the unmount cleanup can snapshot it.
   const stateRef = useRef({ tab, posts, page, hasMore });
   useEffect(() => { stateRef.current = { tab, posts, page, hasMore }; });
-  const scrollTopRef = useRef(snap?.scrollTop ?? 0);
+  const scrollTopRef = useRef(0);
+
+  // Apply the restore snapshot, once, before the browser paints. Everything this sets
+  // is guarded on there actually BEING a snapshot; with none, the feed just carries on
+  // to its normal page-1 fetch.
+  //
+  // `set-state-in-effect` is disabled deliberately. The rule guards against cascading
+  // renders hurting performance — here the single extra render is the entire point: it
+  // is what lets the first render match the server (no hydration mismatch) while the
+  // restored list still reaches the screen before paint. A layout effect, not a passive
+  // one, so it also wins the race against the fetch effect below.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useLayoutEffect(() => {
+    const s = readFeedSnapshot<ApiPost, Tab>();
+    if (s) {
+      restoredKeyRef.current = `${s.tab}|0`;
+      scrollTopRef.current = s.scrollTop;
+      setTab(s.tab);
+      setPosts(s.posts);
+      setPage(s.page);
+      setHasMore(s.hasMore);
+      setLoading(false);
+    }
+    setRestoreChecked(true);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Track scroll on the <main> scroll container; write a snapshot on leave, and
   // restore the saved scroll position on a snapshot rehydrate (issue #6).
@@ -254,8 +263,8 @@ export default function FeedPage() {
     // bail the moment the user scrolls themselves.
     let raf = 0;
     let userScrolled = false;
-    if (snap && snap.scrollTop > 0) {
-      const target = snap.scrollTop;
+    if (scrollTopRef.current > 0) {
+      const target = scrollTopRef.current;
       const deadline = performance.now() + 600;
       const bail = () => { userScrolled = true; };
       main.addEventListener("wheel", bail, { passive: true, signal: ac.signal });
@@ -274,18 +283,15 @@ export default function FeedPage() {
       if (raf) cancelAnimationFrame(raf);
       ac.abort();
       const s = stateRef.current;
-      try {
-        sessionStorage.setItem(FEED_SNAPSHOT_KEY, JSON.stringify({
-          tab: s.tab,
-          posts: s.posts.slice(0, MAX_SNAPSHOT_POSTS),
-          page: Math.min(s.page, Math.ceil(MAX_SNAPSHOT_POSTS / PAGE_SIZE)),
-          hasMore: s.hasMore,
-          scrollTop: scrollTopRef.current,
-          ts: Date.now(),
-        }));
-      } catch { /* quota / serialization — skip restore next time */ }
+      writeFeedSnapshot({
+        tab: s.tab,
+        posts: s.posts.slice(0, MAX_SNAPSHOT_POSTS),
+        page: Math.min(s.page, Math.ceil(MAX_SNAPSHOT_POSTS / PAGE_SIZE)),
+        hasMore: s.hasMore,
+        scrollTop: scrollTopRef.current,
+        ts: Date.now(),
+      });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Side cards (listings + events) load once — they're interspersed, not paginated.
@@ -305,6 +311,7 @@ export default function FeedPage() {
   // the exact combo we rehydrated from a snapshot (the posts are already there);
   // any other combo fetches normally.
   useEffect(() => {
+    if (!restoreChecked) return;                  // snapshot hasn't been consulted yet
     const key = `${tab}|${prefsVersion}`;
     if (restoredKeyRef.current === key) return;   // restored — keep those posts
     restoredKeyRef.current = null;                // consumed; future changes refetch
@@ -323,7 +330,7 @@ export default function FeedPage() {
       .catch((e) => { if (!cancelled) console.error(e); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [tab, prefsVersion]);
+  }, [restoreChecked, tab, prefsVersion]);
 
   // Keep the latest loadMore logic in a ref so the IntersectionObserver effect
   // (set up once) always calls the current closure without re-subscribing.

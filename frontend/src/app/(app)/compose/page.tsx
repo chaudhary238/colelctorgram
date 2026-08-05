@@ -13,12 +13,13 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X, Check, Camera, Plus, Smile, Star } from "lucide-react";
+import { X, Check, Camera, Plus, Smile, Star, ChevronDown } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiCommunity } from "@/components/cards";
 import { Avatar, Segmented, SectionLabel } from "@/components/ui";
 import { fireXpToast } from "@/components/gamification";
 import { ADD_CATEGORIES } from "@/lib/catalog";
+import { invalidateFeedSnapshot } from "@/lib/feedSnapshot";
 
 type ComposeType = "post" | "iso" | "poll" | "review";
 
@@ -30,8 +31,8 @@ const TYPES: { id: ComposeType; label: string }[] = [
 ];
 
 const BODY_MAX = 600;
-const TAG_SUGGEST = ["NewDrops", "Grails", "HotToys", "Gunpla", "Diecast", "PopMart", "Sealed", "Marvel"];
 const EMOJIS = ["😍", "🔥", "🤩", "😎", "🥹", "👀", "🙌", "👏", "💎", "🏆", "📦", "🚀", "✨", "❤️", "🤝", "💰", "🫡", "🧩", "🎯", "😱"];
+// Single choice per design_v7 — a dropdown, not multi-select chips. "Any" = no restriction.
 const CONDITIONS = ["Any", "Sealed", "MIB", "BIB", "Loose"];
 
 interface UploadUrlResponse { upload_url: string; key: string; public_url: string; }
@@ -90,10 +91,12 @@ function ComposePage() {
   const [rating, setRating] = useState(0);
   const [isoItem, setIsoItem] = useState("");
   const [isoBudget, setIsoBudget] = useState("");
-  const [isoConds, setIsoConds] = useState<string[]>(["Any"]);
+  // Single acceptable condition ("Any" = no restriction) — design_v7 uses a dropdown.
+  const [isoCond, setIsoCond] = useState("Any");
   // "Post to" — feed + any joined communities (DF-30h). 'feed' is a sentinel id.
   const [postTo, setPostTo] = useState<string[]>(preCommunity ? [preCommunity] : ["feed"]);
   const [communities, setCommunities] = useState<ApiCommunity[]>([]);
+  const [showPostTo, setShowPostTo] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
@@ -134,14 +137,6 @@ function ComposePage() {
   }
   const rmTag = (t: string) => setTags((ts) => ts.filter((x) => x !== t));
   const addEmoji = (e: string) => setBody((b) => (b + e).slice(0, BODY_MAX));
-
-  function toggleIsoCond(c: string) {
-    if (c === "Any") { setIsoConds(["Any"]); return; }
-    setIsoConds((cs) => {
-      const base = cs.filter((x) => x !== "Any" && x !== c);
-      return cs.includes(c) ? (base.length ? base : ["Any"]) : [...base, c];
-    });
-  }
 
   function togglePostTo(id: string) {
     setPostTo((ps) =>
@@ -189,11 +184,15 @@ function ComposePage() {
         review_rating: type === "review" ? rating : null,
         iso_item: type === "iso" ? isoItem.trim() : null,
         iso_budget: type === "iso" && isoBudget ? Math.round(Number(isoBudget) * 100) : null,
-        iso_conditions: type === "iso" ? isoConds : [],
+        iso_condition: type === "iso" ? isoCond : null,
         communities: targetCommunities,
         community_id: targetCommunities[0] ?? null,
         to_feed: postTo.includes("feed"),
       });
+      // The feed's restore snapshot predates this post, so leaving it in place would
+      // send the author back to a list their own post isn't in until the 5-min TTL
+      // lapsed (founder QA 2026-08-05). Drop it so /feed fetches fresh.
+      invalidateFeedSnapshot();
       // DV6-04 — surface the XP earned (review +15; showcase/poll/ISO +25).
       fireXpToast(type === "review" ? 15 : 25);
       // Held for mod review and not on the feed → land the author in the community.
@@ -216,9 +215,9 @@ function ComposePage() {
       : "What's on your mind? Use # to tag topics.";
 
   const postToSummary = postTo.includes("feed") && postTo.length === 1
-    ? "your feed"
+    ? "Your feed"
     : postTo.includes("feed")
-      ? `feed + ${postTo.length - 1} more`
+      ? `Feed + ${postTo.length - 1} more`
       : `${postTo.length} ${postTo.length === 1 ? "community" : "communities"}`;
 
   return (
@@ -235,7 +234,7 @@ function ComposePage() {
           >
             <X size={18} />
           </button>
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Add a post</span>
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Create a post</span>
           <button onClick={publish} disabled={!canPost || publishing} style={{ height: 36, padding: "0 18px", borderRadius: 9, border: "none", background: canPost ? "var(--stamp-red)" : "var(--slate-100)", color: canPost ? "var(--paper)" : "var(--slate-400)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, cursor: canPost ? "pointer" : "not-allowed" }}>
             {publishing ? "Posting…" : "Post"}
           </button>
@@ -246,13 +245,40 @@ function ComposePage() {
         {/* type switch */}
         <Segmented value={type} onChange={setType} options={TYPES} />
 
-        {/* author + destination summary */}
+        {/* author + audience — the destination is a TAPPABLE PILL here (design_v7), not a
+            read-only line with a separate "Post to" section further down the form. That
+            was the same control stated twice, and the one you could actually use was the
+            one furthest from the thing it described. */}
         <div style={{ display: "flex", gap: 10, marginTop: 16, alignItems: "center" }}>
           <Avatar name="You" size={38} />
-          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
-            You<span style={{ color: "var(--ink-faint)", fontWeight: 400 }}> · {postToSummary}</span>
-          </div>
+          <button
+            onClick={() => setShowPostTo((v) => !v)}
+            aria-expanded={showPostTo}
+            style={{ display: "flex", alignItems: "center", gap: 5, background: "var(--paper-soft)", border: "1px solid var(--border-strong)", borderRadius: 999, padding: "5px 10px 5px 12px", cursor: "pointer", fontFamily: "var(--font-body)", whiteSpace: "nowrap" }}
+          >
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{postToSummary}</span>
+            <ChevronDown size={13} strokeWidth={2.4} style={{ color: "var(--ink-faint)", transform: showPostTo ? "rotate(180deg)" : "none", transition: "transform 140ms" }} />
+          </button>
         </div>
+        {showPostTo && (
+          <div style={{ display: "flex", flexDirection: "column", marginTop: 8, border: "1px solid var(--border-strong)", borderRadius: 12, overflow: "hidden", background: "var(--paper-soft)" }}>
+            {[{ id: "feed", name: "Your feed" }, ...communities.map((c) => ({ id: c.id, name: c.name }))].map((c, i) => {
+              const on = postTo.includes(c.id);
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => togglePostTo(c.id)}
+                  style={{ display: "flex", alignItems: "center", gap: 9, minHeight: 40, padding: "0 12px", border: "none", borderTop: i > 0 ? "1px solid var(--border)" : "none", background: "transparent", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--ink)", textAlign: "left" }}
+                >
+                  <span style={{ width: 16, height: 16, borderRadius: 5, flexShrink: 0, border: `1.5px solid ${on ? "var(--stamp-red)" : "var(--border-strong)"}`, background: on ? "var(--stamp-red)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {on && <Check size={11} strokeWidth={3} style={{ color: "var(--paper)" }} />}
+                  </span>
+                  {c.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* title — all types incl. ISO (v4 ComposeOverlay shows the title field for ISO too, DV4-07e) */}
         <input
@@ -270,11 +296,10 @@ function ComposePage() {
           </div>
         )}
 
-        {/* body + emoji + counter — all types except ISO. For ISO the body holds the
-            optional "Extra details" and is rendered (labeled) inside the ISO block below,
-            matching design_v4's ComposeOverlay layout (item → budget/condition → details). */}
-        {type !== "iso" && (
-          <>
+        {/* body + emoji + counter — EVERY type, including ISO. design_v7 uses one body
+            field throughout; ISO used to get a second, separately-labelled "Extra details"
+            textarea bound to the same state, which was the same field twice. */}
+        <>
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value.slice(0, BODY_MAX))}
@@ -304,10 +329,9 @@ function ComposePage() {
                 ))}
               </div>
             )}
-          </>
-        )}
+        </>
 
-        {/* ISO fields — what you're looking for + budget + condition (v4 places these after the body) */}
+        {/* ISO fields — what you're looking for + budget + condition */}
         {type === "iso" && (
           <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 12 }}>
             <div>
@@ -335,31 +359,17 @@ function ComposePage() {
               </div>
               <div style={{ flex: "1 1 180px" }}>
                 <SectionLabel>Condition</SectionLabel>
-                <div style={{ display: "flex", gap: 5, marginTop: 8, flexWrap: "wrap" }}>
-                  {CONDITIONS.map((c) => {
-                    const on = isoConds.includes(c);
-                    return (
-                      <button
-                        key={c}
-                        onClick={() => toggleIsoCond(c)}
-                        style={{ padding: "6px 10px", borderRadius: 7, border: `1px solid ${on ? "var(--stamp-red)" : "var(--border-strong)"}`, background: on ? "var(--stamp-red)" : "var(--paper-soft)", color: on ? "var(--paper)" : "var(--ink)", fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
-                      >
-                        {c}
-                      </button>
-                    );
-                  })}
-                </div>
+                {/* One choice, not several (design_v7). Every read path only ever
+                    rendered a single chip, and the column is now a scalar. */}
+                <select
+                  value={isoCond}
+                  onChange={(e) => setIsoCond(e.target.value)}
+                  aria-label="Acceptable condition"
+                  style={{ width: "100%", boxSizing: "border-box", marginTop: 8, height: 44, padding: "0 13px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--ink)", outline: "none" }}
+                >
+                  {CONDITIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
               </div>
-            </div>
-            <div>
-              <SectionLabel>Extra details (optional)</SectionLabel>
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value.slice(0, BODY_MAX))}
-                rows={3}
-                placeholder="Variant, colourway, packaging notes…"
-                style={{ width: "100%", boxSizing: "border-box", marginTop: 8, padding: "10px 13px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none", resize: "none" }}
-              />
             </div>
           </div>
         )}
@@ -488,22 +498,6 @@ function ComposePage() {
             ))}
           </div>
         )}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10 }}>
-          {TAG_SUGGEST.filter((t) => !tags.includes(t)).map((t) => (
-            <button key={t} onClick={() => addTag(t)} style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "5px 11px", borderRadius: 999, background: "var(--paper-soft)", border: "1px solid var(--border-strong)", color: "var(--ink-soft)", fontSize: 12.5, fontWeight: 500, cursor: "pointer" }}>
-              <span style={{ color: "var(--ink-faint)" }}>#</span>{t}
-            </button>
-          ))}
-        </div>
-
-        {/* post to — multi-select feed + communities */}
-        <div style={{ marginTop: 20 }}><SectionLabel>Post to</SectionLabel></div>
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 10 }}>
-          <PostToChip active={postTo.includes("feed")} onClick={() => togglePostTo("feed")}>Your feed</PostToChip>
-          {communities.map((c) => (
-            <PostToChip key={c.id} active={postTo.includes(c.id)} onClick={() => togglePostTo(c.id)}>{c.name}</PostToChip>
-          ))}
-        </div>
         {approvalNote && (
           <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--ink-faint)", lineHeight: 1.5 }}>
             Some selected communities review posts before they appear.
@@ -511,23 +505,6 @@ function ComposePage() {
         )}
       </div>
     </div>
-  );
-}
-
-function PostToChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 999, cursor: "pointer",
-        border: `1px solid ${active ? "var(--stamp-red)" : "var(--border-strong)"}`,
-        background: active ? "var(--stamp-red)" : "var(--paper-soft)",
-        color: active ? "var(--paper)" : "var(--ink)",
-        fontFamily: "var(--font-body)", fontWeight: active ? 700 : 500, fontSize: 13, whiteSpace: "nowrap",
-      }}
-    >
-      {active && <Check size={13} strokeWidth={3} />}{children}
-    </button>
   );
 }
 

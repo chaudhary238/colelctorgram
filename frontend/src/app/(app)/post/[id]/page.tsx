@@ -11,6 +11,7 @@ import { BackButton } from "@/components/BackButton";
 import { ReportSheet } from "@/components/ReportSheet";
 import { useUser } from "@/lib/auth-context";
 import { Avatar, Stars, PostTypeTag, ProductPhoto, SealMark, Badge } from "@/components/ui";
+import { patchFeedSnapshotPost } from "@/lib/feedSnapshot";
 
 interface Comment {
   id: string;
@@ -79,6 +80,9 @@ export default function PostDetailPage() {
     setLikeBusy(true);
     try {
       await api.post(`/posts/${id}/like`);
+      // Keep the feed's restore snapshot honest, or going Back shows the pre-like
+      // count while this page shows the new one (QA 2026-08-05 §3).
+      patchFeedSnapshotPost(id, { is_liked: next, likes_count: likes + (next ? 1 : -1) });
     } catch {
       setLiked(!next);
       setLikes((n) => n + (next ? -1 : 1));
@@ -94,6 +98,7 @@ export default function PostDetailPage() {
     setSaveBusy(true);
     try {
       await api.post(`/posts/${id}/save`);
+      patchFeedSnapshotPost(id, { is_saved: next });
     } catch {
       setSaved(!next);
     } finally {

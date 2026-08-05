@@ -54,6 +54,9 @@ interface CollectionItem {
   id: string;
   sku: string | null;
   custom_title: string | null;
+  /** Server-resolved display name: custom_title → catalogue title → sku (QA §5). */
+  title?: string | null;
+  brand?: string | null;
   status: string;
   value: number; // paise
   is_listed: boolean;
@@ -109,8 +112,12 @@ function skuPrefix(sku: string | null): string {
 function catForItem(it: CollectionItem) {
   return SKU_CAT[skuPrefix(it.sku)] ?? { key: "other", label: "Other", tone: "bone" };
 }
+// Prefer the server-resolved `title` (custom_title → catalogue title → sku). The old
+// client-side chain stays as the fallback so nothing breaks if an older/cached payload
+// arrives without it — items added from the Database carry only a `sku`, which is why
+// this used to render raw SKU codes in Owned (QA 2026-08-05 §5).
 function titleForItem(it: CollectionItem): string {
-  return it.custom_title || it.sku || "Item";
+  return it.title || it.custom_title || it.sku || "Item";
 }
 const paiseToRupees = (p: number) => Math.round(p / 100);
 // Compact stat counts (1.2k) like v3's compactNum; small counts stay exact.
@@ -953,7 +960,6 @@ function PostsTab({ posts, profile, isOwn }: { posts: RawPost[] | null; profile:
     community_id: null,
     review_rating: null,
     poll_options: null,
-    is_admin_post: false,
     likes_count: p.likes_count,
     comments_count: p.comments_count,
     saves_count: p.saves_count,

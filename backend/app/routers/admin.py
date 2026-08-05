@@ -374,7 +374,7 @@ async def list_catalogue(
     category: str | None = Query(None, description="filter by category"),
     status: str = Query("all", pattern="^(all|live|removed)$"),
     approval: str = Query("all", pattern="^(all|approved|pending)$"),
-    official: bool | None = Query(None, description="filter by Official badge"),
+    verified: bool | None = Query(None, description="filter by Scorred Verified"),
     page: int = Query(1, ge=1),
     limit: int = Query(30, le=100),
     db: AsyncSession = Depends(get_db),
@@ -397,11 +397,11 @@ async def list_catalogue(
     if status != "all":
         stmt = stmt.where(Catalogue.status == status)
     if approval == "approved":
-        stmt = stmt.where(Catalogue.is_approved == True)  # noqa: E712
+        stmt = stmt.where(Catalogue.is_verified == True)  # noqa: E712
     elif approval == "pending":
-        stmt = stmt.where(Catalogue.is_approved == False)  # noqa: E712
-    if official is not None:
-        stmt = stmt.where(Catalogue.is_official == official)
+        stmt = stmt.where(Catalogue.is_verified == False)  # noqa: E712
+    if verified is not None:
+        stmt = stmt.where(Catalogue.is_verified == verified)
 
     total = (await db.execute(
         select(func.count()).select_from(stmt.subquery())
@@ -436,8 +436,7 @@ async def list_catalogue(
                 "description": c.description,
                 "est_retail_price": c.est_retail_price,
                 "thumbnail_url": c.thumbnail_url,
-                "is_approved": c.is_approved,
-                "is_official": c.is_official,
+                "is_verified": c.is_verified,
                 "status": c.status,
                 "submitted_by_handle": handles.get(c.submitted_by),
                 "created_at": c.created_at.isoformat() if c.created_at else None,
@@ -523,41 +522,34 @@ async def remove_catalogue(
         item.status = "removed"
 
 
-@router.patch("/catalogue/{sku}/official", status_code=204)
-async def mark_catalogue_official(
+@router.patch("/catalogue/{sku}/verify", status_code=204)
+async def verify_catalogue_entry(
     sku: str,
-    official: bool = Query(True),
+    verified: bool = Query(True),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
-    """Toggle the admin-blessed 'Official' badge on a catalogue entry (DV6-13)."""
+    """Mark a catalogue entry **Scorred Verified**, or send it back to pending.
+
+    This is the ONLY way `is_verified` is ever set — creating an entry never
+    self-verifies it, even for an admin (migration d4f2a7c9e610)."""
     item = (await db.execute(select(Catalogue).where(Catalogue.sku == sku))).scalar_one_or_none()
     if item:
-        item.is_official = official
-        if official and item.status == "removed":
+        item.is_verified = verified
+        if verified and item.status == "removed":
             item.status = "live"
 
 
+# NOTE: the old `/catalogue/{sku}/approve` was deleted — with is_approved folded into
+# is_verified it did exactly what `/catalogue/{sku}/verify` does (QA 2026-08-05).
 @router.get("/catalogue/pending")
 async def pending_catalogue(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
-    result = await db.execute(select(Catalogue).where(Catalogue.is_approved == False))
+    result = await db.execute(select(Catalogue).where(Catalogue.is_verified == False))
     items = result.scalars().all()
     return [{"sku": i.sku, "title": i.title, "brand": i.brand, "category": i.category} for i in items]
-
-
-@router.patch("/catalogue/{sku}/approve", status_code=204)
-async def approve_catalogue(
-    sku: str,
-    db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_admin),
-):
-    result = await db.execute(select(Catalogue).where(Catalogue.sku == sku))
-    item = result.scalar_one_or_none()
-    if item:
-        item.is_approved = True
 
 
 @router.get("/catalogue/{sku}")
@@ -604,8 +596,7 @@ async def get_catalogue_admin(
         "tone": entry.tone,
         "est_retail_price": entry.est_retail_price,
         "thumbnail_url": entry.thumbnail_url,
-        "is_approved": entry.is_approved,
-        "is_official": entry.is_official,
+        "is_verified": entry.is_verified,
         "status": entry.status,
         "submitted_by_handle": submitted_by_handle,
         "collectors_count": collectors,
@@ -778,7 +769,6 @@ async def create_seed_post(
         body=body.body.strip(),
         images=body.images,
         category=body.category,
-        is_admin_post=account.is_admin,
         to_feed=True,
         status="published",
     )

@@ -17,7 +17,7 @@ interface CatalogueEntry {
   est_retail_price: number;
   thumbnail_url: string | null;
   is_approved: boolean;
-  is_official: boolean;
+  is_verified: boolean;
   status: string; // "live" | "removed"
   submitted_by_handle: string | null;
   created_at: string | null;
@@ -116,7 +116,7 @@ export default function CatalogueAdminPage() {
                   : <span style={{ fontSize: 12, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>no image</span>}
                 {/* badges over image */}
                 <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 5, flexWrap: "wrap" }}>
-                  {e.is_official && <Badge color="var(--verified-teal)" icon={<BadgeCheck size={11} />}>Official</Badge>}
+                  {e.is_verified && <Badge color="var(--verified-teal)" icon={<BadgeCheck size={11} />}>Scorred Verified</Badge>}
                   {!e.is_approved && <Badge color="var(--grail-gold-deep)">Pending</Badge>}
                   {removed && <Badge color="var(--stamp-red)">Removed</Badge>}
                 </div>

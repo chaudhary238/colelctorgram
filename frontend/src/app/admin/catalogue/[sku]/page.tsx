@@ -18,8 +18,7 @@ interface CatalogueDetail {
   description: string | null;
   est_retail_price: number;
   thumbnail_url: string | null;
-  is_approved: boolean;
-  is_official: boolean;
+  is_verified: boolean;
   status: string; // "live" | "removed"
   submitted_by_handle: string | null;
   collectors_count: number;
@@ -123,10 +122,11 @@ export default function CatalogueDetailPage() {
     }
   };
 
-  const approve = () => moderate(() => api.patch(`/admin/catalogue/${encodeURIComponent(sku)}/approve`), { is_approved: true });
-  const toggleOfficial = () => moderate(
-    () => api.patch(`/admin/catalogue/${encodeURIComponent(sku)}/official?official=${!entry!.is_official}`),
-    { is_official: !entry!.is_official, ...(!entry!.is_official && entry!.status === "removed" ? { status: "live" } : {}) },
+  // One control, one flag: verified ⇄ pending. The old separate "Approve entry" action
+  // did the same thing once is_approved folded into is_verified (QA 2026-08-05).
+  const toggleVerified = () => moderate(
+    () => api.patch(`/admin/catalogue/${encodeURIComponent(sku)}/verify?verified=${!entry!.is_verified}`),
+    { is_verified: !entry!.is_verified, ...(!entry!.is_verified && entry!.status === "removed" ? { status: "live" } : {}) },
   );
   const remove = () => moderate(() => api.patch(`/admin/catalogue/${encodeURIComponent(sku)}/remove`), { status: "removed" });
   const restore = () => moderate(() => api.patch(`/admin/catalogue/${encodeURIComponent(sku)}/restore`), { status: "live" });
@@ -147,8 +147,9 @@ export default function CatalogueDetailPage() {
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "10px 0 4px", flexWrap: "wrap" }}>
         <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 23, letterSpacing: "-0.03em", margin: 0 }}>{entry.title}</h1>
-        {entry.is_official && <Badge color="var(--verified-teal)" icon={<BadgeCheck size={11} />}>Official</Badge>}
-        {!entry.is_approved && <Badge color="var(--grail-gold-deep)">Pending</Badge>}
+        {entry.is_verified
+          ? <Badge color="var(--verified-teal)" icon={<BadgeCheck size={11} />}>Scorred Verified</Badge>
+          : <Badge color="var(--grail-gold-deep)">Pending verification</Badge>}
         {removed && <Badge color="var(--stamp-red)">Removed</Badge>}
       </div>
       <div style={{ fontSize: 12.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", marginBottom: 20 }}>
@@ -176,12 +177,9 @@ export default function CatalogueDetailPage() {
           {/* moderation actions */}
           <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 14, background: "var(--paper-soft)", display: "flex", flexDirection: "column", gap: 9 }}>
             <Label>Moderation</Label>
-            {!entry.is_approved && (
-              <ActionBtn onClick={approve} disabled={busy} bg="var(--forest)" fg="var(--paper)"><Check size={15} />Approve entry</ActionBtn>
-            )}
-            <ActionBtn onClick={toggleOfficial} disabled={busy}
-              bg={entry.is_official ? "transparent" : "var(--verified-teal)"} fg={entry.is_official ? "var(--ink)" : "var(--paper)"} outline={entry.is_official}>
-              <BadgeCheck size={15} />{entry.is_official ? "Remove Official badge" : "Mark as Official"}
+            <ActionBtn onClick={toggleVerified} disabled={busy}
+              bg={entry.is_verified ? "transparent" : "var(--verified-teal)"} fg={entry.is_verified ? "var(--ink)" : "var(--paper)"} outline={entry.is_verified}>
+              <BadgeCheck size={15} />{entry.is_verified ? "Move back to pending" : "Mark Scorred Verified"}
             </ActionBtn>
             {removed
               ? <ActionBtn onClick={restore} disabled={busy} bg="var(--forest)" fg="var(--paper)"><RotateCcw size={15} />Restore entry</ActionBtn>
