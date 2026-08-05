@@ -216,7 +216,7 @@ export default function DbEntryPage() {
           <div style={{ display: "flex", gap: 10 }}>
             {/* Single add flow: deep-link into /add/catalogue with this SKU — the form arrives
                 prefilled with the shared facts locked (DV6-13), same as picking it in search. */}
-            <Link href={`/add/catalogue?sku=${encodeURIComponent(entry.sku)}`} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
+            <Link href={`/add/collection?sku=${encodeURIComponent(entry.sku)}`} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
               <Plus size={18} /> Add to my collection
             </Link>
             {/* Star = wishlist (icon law 2026-07-11): casual intent, lands in Saved → Wishlist */}

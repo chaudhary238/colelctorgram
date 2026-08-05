@@ -566,11 +566,13 @@ function DbTile({ item, onWishlist }: { item: DbItem; onWishlist: () => void }) 
           </button>
         )}
 
-        {/* Add a copy — deep-links the add flow with the SKU already resolved.
+        {/* Add a copy — opens the v7 "Add to collection" screen with the SKU resolved.
+            NOT the multi-mode /add/catalogue form: the catalogue already knows what this
+            item IS, so that form showed mostly locked pills (QA 2026-08-05).
             `plusCircle` at 32px per v7 (ExploreView.jsx:106); a bare plus read as a
             second "add item to the database" next to the search row's button. */}
         <Link
-          href={`/add/catalogue?sku=${encodeURIComponent(item.sku)}`}
+          href={`/add/collection?sku=${encodeURIComponent(item.sku)}`}
           aria-label={`Add ${item.title} to your collection`}
           title="Add to my collection"
           style={{

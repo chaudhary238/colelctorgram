@@ -509,11 +509,14 @@ function AddListingPageInner() {
     setStep("form");
   };
 
-  // Stale `?mode=intel` links (bookmarks, an old tab) belong to /add/database now.
-  // Redirect rather than 404 or silently drop them into the In-hand form.
+  // Stale deep links belong to the two purpose-built screens now (QA 2026-08-05):
+  //   ?mode=intel  -> /add/database   (contribute a catalogue entry)
+  //   ?sku=…       -> /add/collection (add YOUR copy of an existing entry)
+  // Redirect rather than 404 or drop them into a form full of locked fields.
   useEffect(() => {
     if (preMode === "intel") router.replace("/add/database");
-  }, [preMode, router]);
+    else if (skuParam) router.replace(`/add/collection?sku=${encodeURIComponent(skuParam)}`);
+  }, [preMode, skuParam, router]);
 
   // ?sku= deep-link (Scorred DB page "Add to my collection", DV6-13 catalogue Sell):
   // fetch the entry and land on the form prefilled + locked, same as picking it at

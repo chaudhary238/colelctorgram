@@ -17,8 +17,14 @@ Collapsed into **`is_verified`**, defaulting to FALSE. Two states, matching the 
 wording exactly: verified by an admin -> "Scorred Verified"; otherwise -> "Pending
 verification".
 
-Backfill is `is_official AND is_approved` — an entry is verified only if it was both
-blessed and approved, which is what the seal actually claimed.
+Backfill is `is_official AND is_approved AND submitted_by IS NULL`. The last clause is the
+data CORRECTION, not just a shape change: because `resolve_or_create` set
+`is_official=user.is_admin`, every catalogue entry an admin created by adding something to
+their own collection was already flagged official. Those are user submissions that were
+never reviewed by anyone, so carrying them over as "Scorred Verified" would launder the
+bug into the new model. `submitted_by IS NULL` is exactly the team-loaded set — the seed
+fixtures and the bulk importers (`ingestion/`), which set it to NULL — so anything a USER
+created starts at Pending verification and needs a real admin action to be promoted.
 
 DEFAULT FALSE is the important half: `resolve_or_create` used to set
 `is_official=user.is_admin`, so an admin merely adding something to their own collection
@@ -45,7 +51,12 @@ def upgrade() -> None:
         "catalogue",
         sa.Column("is_verified", sa.Boolean(), nullable=False, server_default=sa.false()),
     )
-    op.execute("UPDATE catalogue SET is_verified = (is_official AND is_approved)")
+    op.execute(
+        """
+        UPDATE catalogue
+           SET is_verified = (is_official AND is_approved AND submitted_by IS NULL)
+        """
+    )
     op.drop_column("catalogue", "is_official")
     op.drop_column("catalogue", "is_approved")
 
@@ -59,8 +70,8 @@ def downgrade() -> None:
         "catalogue",
         sa.Column("is_approved", sa.Boolean(), nullable=False, server_default=sa.true()),
     )
-    # Both old flags are recoverable from the collapsed one: verified rows were the
-    # official+approved ones; everything else was approved-but-not-official, which is
-    # what trust-by-default produced.
+    # Best-effort inverse. NOTE it is not exact: the admin-self-verified entries this
+    # upgrade deliberately demoted come back as is_official = false, because that is the
+    # state they SHOULD have been in. The bug is not restored.
     op.execute("UPDATE catalogue SET is_official = is_verified, is_approved = true")
     op.drop_column("catalogue", "is_verified")
