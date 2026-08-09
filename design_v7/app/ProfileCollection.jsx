@@ -5,6 +5,8 @@
 // Collection portfolio tab — grid + chart / calendar / collage views (BRD v1.2 §9.5)
 function CollectionTab({ items, u, isMe }) {
   const [seg, setSeg] = React.useState('owned');
+  const [ownedFilter, setOwnedFilter] = React.useState({ preorder: false, listed: false });
+  const [ownedFilterOpen, setOwnedFilterOpen] = React.useState(false);
   const [view, setView] = React.useState('grid');
   // per-view visibility (BRD v1.2 §9.5) — owner sets each view public/private
   const [vis, setVis] = React.useState({ grid: 'public', chart: 'public', calendar: 'public', collage: 'private' });
@@ -20,7 +22,10 @@ function CollectionTab({ items, u, isMe }) {
   const wishlistItems = items.filter(i => i.status === 'wishlist')
     .concat(isMe ? Object.keys(dbWishlist || {}).filter(sku => dbWishlist[sku]).map(sku => ({ id: 'wish-' + sku, sku, status: 'wishlist' })) : []);
   // "Owned" segment folds in pre-orders too — they show inline with a PO tag rather than a separate tab
-  const filtered = seg === 'intel' ? intelItems : seg === 'wishlist' ? wishlistItems : owned;
+  const anyOwnedFilter = ownedFilter.preorder || ownedFilter.listed;
+  const filteredOwned = !anyOwnedFilter ? owned
+    : owned.filter(i => (ownedFilter.preorder && i.status === 'preorder') || (ownedFilter.listed && i.listed));
+  const filtered = seg === 'intel' ? intelItems : seg === 'wishlist' ? wishlistItems : filteredOwned;
 
   const views = [
     { id: 'grid', icon: Icons.grid, label: 'Grid' },
@@ -94,12 +99,57 @@ function CollectionTab({ items, u, isMe }) {
         )}
 
         {view === 'grid' && <>
-          <Segmented value={seg} onChange={setSeg}
-            options={[{ id: 'owned', label: 'Owned' }, { id: 'wishlist', label: 'Wishlist' }, { id: 'intel', label: 'DB Contributions' }]}/>
+          <div style={{ position: 'relative' }}>
+            <Segmented value={seg}
+              onChange={v => {
+                if (v === 'owned' && seg === 'owned') { setOwnedFilterOpen(o => !o); return; }
+                setSeg(v); setOwnedFilterOpen(false);
+              }}
+              options={[{ id: 'owned', label: 'Owned', icon: Icons.sliders }, { id: 'wishlist', label: 'Wishlist' }, { id: 'intel', label: 'DB Contributions' }]}/>
+            {ownedFilterOpen && seg === 'owned' && (
+              <>
+                <div onClick={() => setOwnedFilterOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 30 }}/>
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 31, width: 'min(300px, 100%)',
+                  background: 'var(--paper)', border: '1px solid var(--slate-200)', borderRadius: 20,
+                  boxShadow: 'var(--shadow-4)', padding: '18px 18px 14px', animation: 'fadeIn 140ms ease' }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16.5, letterSpacing: '-0.01em', color: 'var(--ink)' }}>Filter items</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--ink-faint)', marginTop: 2, marginBottom: 12 }}>Leave both off to see everything you own.</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {[{ id: 'preorder', label: 'Pre-order', n: owned.filter(i => i.status === 'preorder').length },
+                      { id: 'listed', label: 'Listed', n: owned.filter(i => i.listed).length }].map(f => {
+                      const on = ownedFilter[f.id];
+                      return (
+                        <button key={f.id} onClick={() => setOwnedFilter(s => ({ ...s, [f.id]: !s[f.id] }))} style={{
+                          display: 'flex', alignItems: 'center', gap: 13, width: '100%', textAlign: 'left',
+                          border: 'none', background: 'none', cursor: 'pointer', padding: '9px 4px', borderRadius: 9 }}>
+                          <span style={{
+                            width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+                            border: `1.5px solid ${on ? 'var(--stamp-red)' : 'var(--border-strong)'}`,
+                            background: on ? 'var(--stamp-red)' : 'transparent', color: 'var(--paper)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 120ms' }}>
+                            {on && <Ico d={Icons.check} size={15} stroke={3}/>}
+                          </span>
+                          <span style={{ flex: 1, fontSize: 15, fontWeight: 500, color: 'var(--ink)' }}>{f.label}</span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, color: 'var(--ink-faint)' }}>{f.n}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {anyOwnedFilter && (
+                    <button onClick={() => setOwnedFilter({ preorder: false, listed: false })} style={{
+                      marginTop: 10, width: '100%', padding: '9px 0', borderRadius: 10, cursor: 'pointer',
+                      border: '1px solid var(--border-strong)', background: 'var(--paper-soft)',
+                      fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--ink-soft)' }}>Clear filters</button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 11, marginTop: 14 }}>
             {filtered.map(it => <ItemTile key={it.id} item={it} isMe={isMe} owner={isMe ? 'you' : u.handle}/>)}
           </div>
-          {filtered.length === 0 && <EmptyNote>{isMe ? 'Nothing here yet — add from the Scorred database.' : 'Private or empty.'}</EmptyNote>}
+          {filtered.length === 0 && <EmptyNote>{isMe ? (seg === 'owned' && anyOwnedFilter ? 'Nothing matches this filter.' : 'Nothing here yet — add from the Scorred database.') : 'Private or empty.'}</EmptyNote>}
         </>}
 
         {view === 'chart' && <PortfolioChart items={owned}/>}

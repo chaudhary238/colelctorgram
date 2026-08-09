@@ -15,7 +15,7 @@ import { hideBottomNav } from "@/lib/mobileChrome";
  * it is the Database again, at `/db`, and its search matches catalogue items only.
  * Global search stayed where it was, behind the header's search icon at `/search`.
  * Create, Search, Events and the merged Activity inbox live in the MobileAppBar. Stash +
- * Settings live behind the `≡` menu on the My Space screen (MobileMenuDrawer) —
+ * Settings live behind the `≡` menu on the My Space screen (AccountDrawer) —
  * My Space stays a first-class thumb-reachable tab (Instagram/Threads pattern).
  * Active Home renders the white seal in a red pill (v6). Shown only below `lg`;
  * desktop keeps the Sidebar. Safe-area-inset-bottom pad for the home indicator (R-04).

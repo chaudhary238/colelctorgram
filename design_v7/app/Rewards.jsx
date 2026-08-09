@@ -175,20 +175,7 @@ function RewardCard({ u, isMe }) {
             onClick={() => push({ name: 'leaderboard' })}>Leaderboard</Button>
         </div>
       </div>
-      {isMe && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignSelf: 'stretch' }}>
-          <button onClick={() => push({ name: 'refer' })} aria-label="Refer" style={{
-            flex: 1, width: 52, borderRadius: 13, border: '1px solid var(--border)', background: 'var(--paper-soft)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <Ico d={Icons.gift} size={18} style={{ color: 'var(--ink)' }}/>
-          </button>
-          <button onClick={() => push({ name: 'settings' })} aria-label="Settings" style={{
-            flex: 1, width: 52, borderRadius: 13, border: '1px solid var(--border)', background: 'var(--paper-soft)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <Ico d={Icons.settings} size={18} style={{ color: 'var(--ink)' }}/>
-          </button>
-        </div>
-      )}
+      {isMe && null}
     </div>
   );
 }

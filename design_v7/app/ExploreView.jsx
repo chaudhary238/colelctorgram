@@ -101,7 +101,7 @@ function ExploreView() {
                 position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: 999, flexShrink: 0, border: 'none',
                 background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(2px)', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Ico d={Icons.bookmark} size={15} fill={dbWishlist[c.sku] ? 'var(--stamp-red)' : 'none'} style={{ color: dbWishlist[c.sku] ? 'var(--stamp-red)' : 'var(--ink-mute)' }}/>
+                <Ico d={Icons.star} size={16} fill={dbWishlist[c.sku] ? 'var(--stamp-red)' : 'none'} style={{ color: dbWishlist[c.sku] ? 'var(--stamp-red)' : 'var(--ink-mute)' }}/>
               </button>
               <button onClick={() => push({ name: 'add-item', sku: c.sku })} style={{
                 position: 'absolute', bottom: 8, right: 8, width: 32, height: 32, borderRadius: 999, flexShrink: 0, border: 'none',
@@ -238,7 +238,7 @@ function ExploreItemDetail({ route }) {
             width: 52, flexShrink: 0, borderRadius: 12, border: '1px solid var(--border-strong)',
             background: dbWishlist[c.sku] ? 'var(--stamp-red-soft)' : 'var(--paper)', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Ico d={Icons.bookmark} size={20} fill={dbWishlist[c.sku] ? 'var(--stamp-red)' : 'none'} style={{ color: dbWishlist[c.sku] ? 'var(--stamp-red)' : 'var(--ink-faint)' }}/>
+            <Ico d={Icons.star} size={21} fill={dbWishlist[c.sku] ? 'var(--stamp-red)' : 'none'} style={{ color: dbWishlist[c.sku] ? 'var(--stamp-red)' : 'var(--ink-faint)' }}/>
           </button>
         </div>
       }>

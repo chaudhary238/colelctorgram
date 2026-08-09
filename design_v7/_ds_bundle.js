@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"CollectorHubDesignSystemRC_293274","components":[{"name":"Button","sourcePath":"components/actions/Button.jsx"},{"name":"IconButton","sourcePath":"components/actions/IconButton.jsx"},{"name":"CategoryChip","sourcePath":"components/forms/CategoryChip.jsx"},{"name":"Input","sourcePath":"components/forms/Input.jsx"},{"name":"Segmented","sourcePath":"components/forms/Segmented.jsx"},{"name":"Avatar","sourcePath":"components/identity/Avatar.jsx"},{"name":"TierChip","sourcePath":"components/identity/TierChip.jsx"},{"name":"Badge","sourcePath":"components/labels/Badge.jsx"},{"name":"PostTypeTag","sourcePath":"components/labels/PostTypeTag.jsx"},{"name":"Stamp","sourcePath":"components/labels/Stamp.jsx"},{"name":"Tag","sourcePath":"components/labels/Tag.jsx"}],"sourceHashes":{"app/AddListing.jsx":"2300ce192bfd","app/AddToCollection.jsx":"e4f85ebfc7e1","app/App.jsx":"6f703278e284","app/Cards.jsx":"c5ce6af3e358","app/Chat.jsx":"b232cd5f4d7d","app/Chrome.jsx":"785ceaa3ec93","app/CommunityDetail.jsx":"7f361e1adcaa","app/CommunityManage.jsx":"5b0e36e54c81","app/CommunityView.jsx":"e24a2dff19e6","app/CreateCommunity.jsx":"4af3ffdff464","app/EventCreate.jsx":"2ddca99a9572","app/EventDetail.jsx":"e0925f9e594c","app/EventManage.jsx":"436879257ca8","app/EventsView.jsx":"dd68cf14e6d8","app/ExploreView.jsx":"5d87cb185cc3","app/FeedView.jsx":"4d5a9deecdf0","app/IOSFrame.jsx":"d67eb3ffe562","app/ItemDetail.jsx":"af566d0cb151","app/ListingView.jsx":"e1c8133bfcb7","app/MarketView.jsx":"4546d03ff9d5","app/Nav.jsx":"48ce7f4549db","app/Onboarding.jsx":"597895b8c82c","app/Overlays.jsx":"427d83378e81","app/PostDetail.jsx":"c0703c689ae1","app/ProfileCollection.jsx":"01449121662c","app/ProfileEdit.jsx":"e6f55d30b0d9","app/ProfileSettings.jsx":"605b71559495","app/ProfileView.jsx":"eb21863ab3b1","app/ReferView.jsx":"92da3a5d0078","app/Rewards.jsx":"396b8e7d3677","app/data.jsx":"0087d890c16c","app/shared.jsx":"1bc4b04881d6","app/tweaks-panel.jsx":"6591467622ed","components/actions/Button.jsx":"4e96ef0448a9","components/actions/IconButton.jsx":"a29b67a27746","components/forms/CategoryChip.jsx":"ca8690329cc5","components/forms/Input.jsx":"36f89ce86824","components/forms/Segmented.jsx":"e39016cc53e8","components/identity/Avatar.jsx":"8db614a890e9","components/identity/TierChip.jsx":"402864cb8957","components/labels/Badge.jsx":"6ea6fd872bde","components/labels/PostTypeTag.jsx":"e94e19dcb8bb","components/labels/Stamp.jsx":"94834e3a18ad","components/labels/Tag.jsx":"bbefafb1681d","deck-stage.js":"94b80df773e6","doc-page.js":"7feb7a4009b0","web/Web.jsx":"2bae422928a9"},"inlinedExternals":[],"unexposedExports":[]} */
+/* @ds-bundle: {"format":4,"namespace":"CollectorHubDesignSystemRC_293274","components":[{"name":"Button","sourcePath":"components/actions/Button.jsx"},{"name":"IconButton","sourcePath":"components/actions/IconButton.jsx"},{"name":"CategoryChip","sourcePath":"components/forms/CategoryChip.jsx"},{"name":"Input","sourcePath":"components/forms/Input.jsx"},{"name":"Segmented","sourcePath":"components/forms/Segmented.jsx"},{"name":"Avatar","sourcePath":"components/identity/Avatar.jsx"},{"name":"TierChip","sourcePath":"components/identity/TierChip.jsx"},{"name":"Badge","sourcePath":"components/labels/Badge.jsx"},{"name":"PostTypeTag","sourcePath":"components/labels/PostTypeTag.jsx"},{"name":"Stamp","sourcePath":"components/labels/Stamp.jsx"},{"name":"Tag","sourcePath":"components/labels/Tag.jsx"}],"sourceHashes":{"app/AddListing.jsx":"2300ce192bfd","app/AddToCollection.jsx":"e4f85ebfc7e1","app/App.jsx":"2ec4a73f3328","app/Cards.jsx":"364605c50758","app/Chat.jsx":"b232cd5f4d7d","app/Chrome.jsx":"de6fb2884d8c","app/CommunityDetail.jsx":"7f361e1adcaa","app/CommunityManage.jsx":"5b0e36e54c81","app/CommunityView.jsx":"e24a2dff19e6","app/CreateCommunity.jsx":"4af3ffdff464","app/EventCreate.jsx":"2ddca99a9572","app/EventDetail.jsx":"e0925f9e594c","app/EventManage.jsx":"436879257ca8","app/EventsView.jsx":"dd68cf14e6d8","app/ExploreView.jsx":"af3fe8f3823b","app/FeedView.jsx":"4d5a9deecdf0","app/IOSFrame.jsx":"d67eb3ffe562","app/ItemDetail.jsx":"af566d0cb151","app/ListingView.jsx":"e1c8133bfcb7","app/MarketView.jsx":"4546d03ff9d5","app/Nav.jsx":"48ce7f4549db","app/Onboarding.jsx":"597895b8c82c","app/Overlays.jsx":"6082246ea4bd","app/PostDetail.jsx":"c0703c689ae1","app/ProfileCollection.jsx":"610862b09a00","app/ProfileEdit.jsx":"e6f55d30b0d9","app/ProfileSettings.jsx":"605b71559495","app/ProfileView.jsx":"aab24de923f2","app/ReferView.jsx":"92da3a5d0078","app/Rewards.jsx":"3b3f5ef5ebb4","app/data.jsx":"0087d890c16c","app/shared.jsx":"1394d286d60a","app/tweaks-panel.jsx":"6591467622ed","components/actions/Button.jsx":"4e96ef0448a9","components/actions/IconButton.jsx":"a29b67a27746","components/forms/CategoryChip.jsx":"ca8690329cc5","components/forms/Input.jsx":"36f89ce86824","components/forms/Segmented.jsx":"e39016cc53e8","components/identity/Avatar.jsx":"8db614a890e9","components/identity/TierChip.jsx":"402864cb8957","components/labels/Badge.jsx":"6ea6fd872bde","components/labels/PostTypeTag.jsx":"e94e19dcb8bb","components/labels/Stamp.jsx":"94834e3a18ad","components/labels/Tag.jsx":"bbefafb1681d","deck-stage.js":"94b80df773e6","doc-page.js":"7feb7a4009b0","web/Web.jsx":"2bae422928a9"},"inlinedExternals":[],"unexposedExports":[]} */
 
 (() => {
 
@@ -2991,7 +2991,9 @@ function Router() {
   }, (ROUTES[route.name] || ROUTES.feed)(route)))), overlay && overlay.name === 'compose' && /*#__PURE__*/React.createElement(ComposeOverlay, {
     community: overlay.community,
     kind: overlay.kind
-  }), overlay && overlay.name === 'search' && /*#__PURE__*/React.createElement(SearchOverlay, null), overlay && overlay.name === 'notifications' && /*#__PURE__*/React.createElement(NotificationsOverlay, null), overlay && overlay.name === 'share' && /*#__PURE__*/React.createElement(ShareSheet, {
+  }), overlay && overlay.name === 'search' && /*#__PURE__*/React.createElement(SearchOverlay, null), overlay && overlay.name === 'notifications' && /*#__PURE__*/React.createElement(NotificationsOverlay, {
+    seg: overlay.seg
+  }), overlay && overlay.name === 'share' && /*#__PURE__*/React.createElement(ShareSheet, {
     label: overlay.label
   }), /*#__PURE__*/React.createElement(Toast, null));
 }
@@ -4231,7 +4233,9 @@ function MarketCard({
   } = useNav();
   const {
     saved,
-    toggleSave
+    toggleSave,
+    dbWishlist,
+    toggleDbWishlist
   } = useAppState();
   const l = listing || listingOf(id);
   const c = l.sku ? catOf(l.sku) : {
@@ -4241,6 +4245,8 @@ function MarketCard({
   };
   const seller = userOf(l.seller);
   const isSaved = saved[id];
+  const wishKey = l.sku || id;
+  const isWished = !!(dbWishlist || {})[wishKey];
   const status = l.status;
   const sym = l.sym || '₹';
   return /*#__PURE__*/React.createElement("button", {
@@ -4292,11 +4298,41 @@ function MarketCard({
   }), /*#__PURE__*/React.createElement("div", {
     onClick: e => {
       e.stopPropagation();
-      toggleSave(id);
+      toggleDbWishlist(wishKey);
+      flashToast(isWished ? 'Removed from wishlist' : 'Added to wishlist');
     },
+    title: isWished ? 'In your wishlist' : 'Add to wishlist',
     style: {
       position: 'absolute',
       top: 8,
+      right: 8,
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      background: isWished ? 'rgba(176,119,36,0.85)' : 'rgba(15,23,42,0.46)',
+      backdropFilter: 'blur(8px)',
+      WebkitBackdropFilter: 'blur(8px)',
+      border: '1px solid rgba(255,255,255,0.20)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: 'var(--paper)',
+      cursor: 'pointer',
+      transition: 'background 150ms'
+    }
+  }, /*#__PURE__*/React.createElement(Ico, {
+    d: Icons.star,
+    size: 16,
+    fill: isWished ? 'currentColor' : 'none'
+  })), /*#__PURE__*/React.createElement("div", {
+    onClick: e => {
+      e.stopPropagation();
+      toggleSave(id);
+    },
+    title: isSaved ? 'Saved' : 'Save listing',
+    style: {
+      position: 'absolute',
+      bottom: 8,
       right: 8,
       width: 32,
       height: 32,
@@ -6092,15 +6128,15 @@ function AppBar({
     style: {
       display: 'flex',
       alignItems: 'center',
-      gap: 10,
-      padding: '10px 18px 14px',
+      gap: 8,
+      padding: '10px 14px 14px',
       minHeight: 44
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
-      gap: 8,
+      gap: 6,
       flexShrink: 0
     }
   }, leading, /*#__PURE__*/React.createElement(IconButton, {
@@ -6139,7 +6175,7 @@ function AppBar({
     style: {
       display: 'flex',
       alignItems: 'center',
-      gap: 8,
+      gap: 6,
       flexShrink: 0
     }
   }, /*#__PURE__*/React.createElement(IconButton, {
@@ -6155,7 +6191,7 @@ function AppBar({
       d: Icons.bell,
       size: 20
     }),
-    badge: unread + msgUnread || null,
+    badge: unread || null,
     onClick: () => setOverlay({
       name: 'notifications'
     })
@@ -10969,8 +11005,8 @@ function ExploreView() {
       justifyContent: 'center'
     }
   }, /*#__PURE__*/React.createElement(Ico, {
-    d: Icons.bookmark,
-    size: 15,
+    d: Icons.star,
+    size: 16,
     fill: dbWishlist[c.sku] ? 'var(--stamp-red)' : 'none',
     style: {
       color: dbWishlist[c.sku] ? 'var(--stamp-red)' : 'var(--ink-mute)'
@@ -11349,8 +11385,8 @@ function ExploreItemDetail({
         justifyContent: 'center'
       }
     }, /*#__PURE__*/React.createElement(Ico, {
-      d: Icons.bookmark,
-      size: 20,
+      d: Icons.star,
+      size: 21,
       fill: dbWishlist[c.sku] ? 'var(--stamp-red)' : 'none',
       style: {
         color: dbWishlist[c.sku] ? 'var(--stamp-red)' : 'var(--ink-faint)'
@@ -19145,7 +19181,9 @@ const NOTIF_CATS = [{
 // every kind explicitly claimed by a category → the rest fall into "Other"
 const CLAIMED_KINDS = NOTIF_CATS.filter(c => c.kinds).flatMap(c => c.kinds);
 const catOfKind = kind => NOTIF_CATS.find(c => c.kinds && c.kinds.includes(kind)) || NOTIF_CATS.find(c => c.kinds === null);
-function NotificationsOverlay() {
+function NotificationsOverlay({
+  seg: initialSeg
+}) {
   const {
     setOverlay,
     push
@@ -19157,7 +19195,7 @@ function NotificationsOverlay() {
   } = useAppState();
   const allNotifs = React.useMemo(() => [...(liveNotifs || []), ...NOTIFICATIONS], [liveNotifs]);
   const [active, setActive] = React.useState(null); // null = all activity; else a category id
-  const [seg, setSeg] = React.useState('activity'); // activity | dms
+  const [seg, setSeg] = React.useState(initialSeg || 'activity'); // activity | dms
   const msgUnread = INBOX.reduce((s, m) => s + m.unread, 0);
   React.useEffect(() => {
     markNotifsRead();
@@ -19205,7 +19243,7 @@ function NotificationsOverlay() {
   const shown = activeCat ? allNotifs.filter(n => activeCat.kinds ? activeCat.kinds.includes(n.kind) : !CLAIMED_KINDS.includes(n.kind)) : allNotifs;
   const refCode = slug => slug ? slug.toUpperCase().replace(/-/g, '') : null;
   return /*#__PURE__*/React.createElement(OverlayShell, {
-    title: "Activity",
+    title: seg === 'dms' ? 'Messages' : 'Activity',
     onClose: () => setOverlay(null)
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -19970,6 +20008,11 @@ function CollectionTab({
   isMe
 }) {
   const [seg, setSeg] = React.useState('owned');
+  const [ownedFilter, setOwnedFilter] = React.useState({
+    preorder: false,
+    listed: false
+  });
+  const [ownedFilterOpen, setOwnedFilterOpen] = React.useState(false);
   const [view, setView] = React.useState('grid');
   // per-view visibility (BRD v1.2 §9.5) — owner sets each view public/private
   const [vis, setVis] = React.useState({
@@ -19997,7 +20040,9 @@ function CollectionTab({
     status: 'wishlist'
   })) : []);
   // "Owned" segment folds in pre-orders too — they show inline with a PO tag rather than a separate tab
-  const filtered = seg === 'intel' ? intelItems : seg === 'wishlist' ? wishlistItems : owned;
+  const anyOwnedFilter = ownedFilter.preorder || ownedFilter.listed;
+  const filteredOwned = !anyOwnedFilter ? owned : owned.filter(i => ownedFilter.preorder && i.status === 'preorder' || ownedFilter.listed && i.listed);
+  const filtered = seg === 'intel' ? intelItems : seg === 'wishlist' ? wishlistItems : filteredOwned;
   const views = [{
     id: 'grid',
     icon: Icons.grid,
@@ -20188,12 +20233,24 @@ function CollectionTab({
   }, /*#__PURE__*/React.createElement(Ico, {
     d: Icons.eyeOff,
     size: 14
-  }), " Only you can see this view."), view === 'grid' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Segmented, {
+  }), " Only you can see this view."), view === 'grid' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'relative'
+    }
+  }, /*#__PURE__*/React.createElement(Segmented, {
     value: seg,
-    onChange: setSeg,
+    onChange: v => {
+      if (v === 'owned' && seg === 'owned') {
+        setOwnedFilterOpen(o => !o);
+        return;
+      }
+      setSeg(v);
+      setOwnedFilterOpen(false);
+    },
     options: [{
       id: 'owned',
-      label: 'Owned'
+      label: 'Owned',
+      icon: Icons.sliders
     }, {
       id: 'wishlist',
       label: 'Wishlist'
@@ -20201,7 +20258,127 @@ function CollectionTab({
       id: 'intel',
       label: 'DB Contributions'
     }]
+  }), ownedFilterOpen && seg === 'owned' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    onClick: () => setOwnedFilterOpen(false),
+    style: {
+      position: 'fixed',
+      inset: 0,
+      zIndex: 30
+    }
   }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      top: 'calc(100% + 8px)',
+      left: 0,
+      zIndex: 31,
+      width: 'min(300px, 100%)',
+      background: 'var(--paper)',
+      border: '1px solid var(--slate-200)',
+      borderRadius: 20,
+      boxShadow: 'var(--shadow-4)',
+      padding: '18px 18px 14px',
+      animation: 'fadeIn 140ms ease'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: 'var(--font-display)',
+      fontWeight: 700,
+      fontSize: 16.5,
+      letterSpacing: '-0.01em',
+      color: 'var(--ink)'
+    }
+  }, "Filter items"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12.5,
+      color: 'var(--ink-faint)',
+      marginTop: 2,
+      marginBottom: 12
+    }
+  }, "Leave both off to see everything you own."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 2
+    }
+  }, [{
+    id: 'preorder',
+    label: 'Pre-order',
+    n: owned.filter(i => i.status === 'preorder').length
+  }, {
+    id: 'listed',
+    label: 'Listed',
+    n: owned.filter(i => i.listed).length
+  }].map(f => {
+    const on = ownedFilter[f.id];
+    return /*#__PURE__*/React.createElement("button", {
+      key: f.id,
+      onClick: () => setOwnedFilter(s => ({
+        ...s,
+        [f.id]: !s[f.id]
+      })),
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 13,
+        width: '100%',
+        textAlign: 'left',
+        border: 'none',
+        background: 'none',
+        cursor: 'pointer',
+        padding: '9px 4px',
+        borderRadius: 9
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        width: 24,
+        height: 24,
+        borderRadius: 7,
+        flexShrink: 0,
+        border: `1.5px solid ${on ? 'var(--stamp-red)' : 'var(--border-strong)'}`,
+        background: on ? 'var(--stamp-red)' : 'transparent',
+        color: 'var(--paper)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'all 120ms'
+      }
+    }, on && /*#__PURE__*/React.createElement(Ico, {
+      d: Icons.check,
+      size: 15,
+      stroke: 3
+    })), /*#__PURE__*/React.createElement("span", {
+      style: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: 500,
+        color: 'var(--ink)'
+      }
+    }, f.label), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: 'var(--font-mono)',
+        fontSize: 12.5,
+        color: 'var(--ink-faint)'
+      }
+    }, f.n));
+  })), anyOwnedFilter && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setOwnedFilter({
+      preorder: false,
+      listed: false
+    }),
+    style: {
+      marginTop: 10,
+      width: '100%',
+      padding: '9px 0',
+      borderRadius: 10,
+      cursor: 'pointer',
+      border: '1px solid var(--border-strong)',
+      background: 'var(--paper-soft)',
+      fontFamily: 'var(--font-body)',
+      fontSize: 13,
+      fontWeight: 600,
+      color: 'var(--ink-soft)'
+    }
+  }, "Clear filters")))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: '1fr 1fr',
@@ -20213,7 +20390,7 @@ function CollectionTab({
     item: it,
     isMe: isMe,
     owner: isMe ? 'you' : u.handle
-  }))), filtered.length === 0 && /*#__PURE__*/React.createElement(EmptyNote, null, isMe ? 'Nothing here yet — add from the Scorred database.' : 'Private or empty.')), view === 'chart' && /*#__PURE__*/React.createElement(PortfolioChart, {
+  }))), filtered.length === 0 && /*#__PURE__*/React.createElement(EmptyNote, null, isMe ? seg === 'owned' && anyOwnedFilter ? 'Nothing matches this filter.' : 'Nothing here yet — add from the Scorred database.' : 'Private or empty.')), view === 'chart' && /*#__PURE__*/React.createElement(PortfolioChart, {
     items: owned
   }), view === 'calendar' && /*#__PURE__*/React.createElement(PortfolioCalendar, {
     items: items
@@ -22094,6 +22271,8 @@ function ProfileView({
   const [isBlocked, setIsBlocked] = React.useState(false);
   const [reportReason, setReportReason] = React.useState(null);
   const [reportSent, setReportSent] = React.useState(false);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const msgUnread = typeof INBOX !== 'undefined' ? INBOX.reduce((s, m) => s + m.unread, 0) : 0;
   const REPORT_REASONS = ['Fake / impersonation', 'Counterfeit / replica listings', 'Scam or fraud attempt', 'Harassment or abuse', 'Spam', 'Other'];
   const handleBlock = () => {
     setIsBlocked(true);
@@ -22153,10 +22332,10 @@ function ProfileView({
       setReportReason(null);
     },
     style: {
-      position: 'fixed',
+      position: 'absolute',
       inset: 0,
       background: 'rgba(0,0,0,0.38)',
-      zIndex: 50,
+      zIndex: 120,
       display: 'flex',
       alignItems: 'flex-end'
     }
@@ -22408,7 +22587,241 @@ function ProfileView({
       justifyContent: 'center'
     },
     onClick: () => setBlockOpen(false)
-  }, "Cancel")))), /*#__PURE__*/React.createElement("div", {
+  }, "Cancel")))), drawerOpen && /*#__PURE__*/React.createElement("div", {
+    onClick: () => setDrawerOpen(false),
+    style: {
+      position: 'absolute',
+      inset: 0,
+      background: 'rgba(0,0,0,0.38)',
+      zIndex: 120,
+      display: 'flex',
+      justifyContent: 'flex-end'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      width: '78%',
+      maxWidth: 320,
+      background: 'var(--paper)',
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      boxShadow: '-8px 0 30px rgba(0,0,0,0.16)',
+      display: 'flex',
+      flexDirection: 'column',
+      paddingTop: 52,
+      minHeight: 0,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 11,
+      padding: '10px 18px 16px',
+      borderBottom: '1px solid var(--border)'
+    }
+  }, /*#__PURE__*/React.createElement(Avatar, {
+    name: u.name,
+    color: u.color,
+    photo: u.photo,
+    size: 42
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      minWidth: 0,
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: 'var(--font-display)',
+      fontWeight: 700,
+      fontSize: 15,
+      color: 'var(--ink)',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    }
+  }, u.name), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-faint)'
+    }
+  }, "@", u.handle)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setDrawerOpen(false),
+    "aria-label": "Close",
+    style: {
+      width: 32,
+      height: 32,
+      borderRadius: 9,
+      border: 'none',
+      background: 'var(--paper-soft)',
+      color: 'var(--ink-mute)',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }
+  }, /*#__PURE__*/React.createElement(Ico, {
+    d: Icons.close,
+    size: 16
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      padding: '6px 0',
+      flex: 1,
+      minHeight: 0,
+      overflow: 'auto'
+    }
+  }, [{
+    icon: Icons.edit,
+    label: 'Edit profile',
+    go: () => push({
+      name: 'edit-profile'
+    })
+  }, {
+    icon: Icons.settings,
+    label: 'Settings & privacy',
+    go: () => push({
+      name: 'settings'
+    })
+  }, {
+    icon: Icons.lock,
+    label: 'Privacy & visibility',
+    go: () => push({
+      name: 'settings'
+    })
+  }, {
+    icon: Icons.gift,
+    label: 'Refer a friend',
+    go: () => push({
+      name: 'refer'
+    })
+  }, {
+    icon: Icons.zap,
+    label: 'Earn points',
+    go: () => push({
+      name: 'rewards',
+      user: 'you'
+    })
+  }, {
+    icon: Icons.award,
+    label: 'Badges & trophies',
+    go: () => push({
+      name: 'badges',
+      user: 'you'
+    })
+  }, {
+    icon: Icons.info,
+    label: 'Help & support',
+    go: () => flashToast('Help centre — coming soon')
+  }].map(row => /*#__PURE__*/React.createElement("button", {
+    key: row.label,
+    onClick: () => {
+      setDrawerOpen(false);
+      row.go();
+    },
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 13,
+      padding: '13px 18px',
+      width: '100%',
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      textAlign: 'left'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      flexShrink: 0,
+      background: 'var(--paper-soft)',
+      border: '1px solid var(--border)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: 'var(--ink)'
+    }
+  }, /*#__PURE__*/React.createElement(Ico, {
+    d: row.icon,
+    size: 17
+  })), /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontFamily: 'var(--font-body)',
+      fontSize: 14.5,
+      fontWeight: 500,
+      color: 'var(--ink)'
+    }
+  }, row.label), row.badge > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      minWidth: 20,
+      height: 20,
+      padding: '0 6px',
+      borderRadius: 999,
+      background: 'var(--stamp-red)',
+      color: 'var(--paper)',
+      fontFamily: 'var(--font-mono)',
+      fontSize: 11,
+      fontWeight: 700,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0
+    }
+  }, row.badge), /*#__PURE__*/React.createElement(Ico, {
+    d: Icons.chevR,
+    size: 15,
+    style: {
+      color: 'var(--ink-ghost)',
+      flexShrink: 0
+    }
+  })))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flexShrink: 0,
+      borderTop: '1px solid var(--border)',
+      padding: '10px 0 34px'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setDrawerOpen(false);
+      flashToast('Signed out');
+    },
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 13,
+      padding: '13px 18px',
+      width: '100%',
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      color: 'var(--stamp-red)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      flexShrink: 0,
+      background: 'var(--stamp-red-soft)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }
+  }, /*#__PURE__*/React.createElement(Ico, {
+    d: Icons.logout,
+    size: 17
+  })), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 14.5,
+      fontWeight: 600
+    }
+  }, "Log out"))))), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: '18px 16px 0'
     }
@@ -22588,13 +23001,39 @@ function ProfileView({
       letterSpacing: '-0.025em',
       color: 'var(--ink)'
     }
-  }, u.name), /*#__PURE__*/React.createElement(BadgeShelf, {
+  }, u.name), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement(BadgeShelf, {
     u: u,
     onOpen: () => push({
       name: 'badges',
       user: handle
     })
-  })), /*#__PURE__*/React.createElement("div", {
+  }), isMe && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setDrawerOpen(true),
+    "aria-label": "Menu",
+    style: {
+      width: 38,
+      height: 34,
+      borderRadius: 10,
+      flexShrink: 0,
+      cursor: 'pointer',
+      border: '1px solid var(--border-strong)',
+      background: 'var(--paper-soft)',
+      color: 'var(--ink)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }
+  }, /*#__PURE__*/React.createElement(Ico, {
+    d: Icons.menu,
+    size: 18,
+    stroke: 2
+  })))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -22634,17 +23073,23 @@ function ProfileView({
       lineHeight: 1.55,
       marginTop: 7
     }
-  }, u.bio)), isMe && /*#__PURE__*/React.createElement("button", {
+  }, u.bio)), isMe && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      marginTop: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
     onClick: () => push({
       name: 'vouch-request'
     }),
     style: {
+      flex: 1,
+      minWidth: 0,
       display: 'flex',
       alignItems: 'center',
       gap: 8,
-      width: '100%',
-      marginTop: 8,
-      padding: '10px 13px',
+      padding: '10px 12px',
       borderRadius: 11,
       background: 'var(--verified-teal-soft)',
       border: '1px solid var(--verified-teal)',
@@ -22658,25 +23103,18 @@ function ProfileView({
       color: 'var(--verified-teal)',
       flexShrink: 0
     }
-  }), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", {
     style: {
       flex: 1,
-      minWidth: 0
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
+      minWidth: 0,
       fontSize: 13.5,
       fontWeight: 600,
-      color: 'var(--verified-teal)'
-    }
-  }, "Request a vouch"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 12,
       color: 'var(--verified-teal)',
-      opacity: 0.75,
-      marginLeft: 6
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
     }
-  }, "Ask collectors who know you")), /*#__PURE__*/React.createElement(Ico, {
+  }, "Request a vouch"), /*#__PURE__*/React.createElement(Ico, {
     d: Icons.chevR,
     size: 15,
     style: {
@@ -22684,7 +23122,48 @@ function ProfileView({
       opacity: 0.7,
       flexShrink: 0
     }
-  })), /*#__PURE__*/React.createElement(RewardCard, {
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => push({
+      name: 'inbox'
+    }),
+    "aria-label": "Messages",
+    style: {
+      position: 'relative',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 7,
+      flexShrink: 0,
+      padding: '10px 12px',
+      borderRadius: 11,
+      cursor: 'pointer',
+      border: '1px solid var(--border-strong)',
+      background: 'var(--paper-soft)',
+      color: 'var(--ink)'
+    }
+  }, /*#__PURE__*/React.createElement(Ico, {
+    d: Icons.message,
+    size: 16
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13.5,
+      fontWeight: 600
+    }
+  }, "Messages"), msgUnread > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      minWidth: 19,
+      height: 19,
+      padding: '0 5px',
+      borderRadius: 999,
+      background: 'var(--stamp-red)',
+      color: 'var(--paper)',
+      fontFamily: 'var(--font-mono)',
+      fontSize: 10.5,
+      fontWeight: 700,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }
+  }, msgUnread))), /*#__PURE__*/React.createElement(RewardCard, {
     u: u,
     isMe: isMe
   }), isMe ? null : /*#__PURE__*/React.createElement("div", {
@@ -24336,58 +24815,7 @@ function RewardCard({
     onClick: () => push({
       name: 'leaderboard'
     })
-  }, "Leaderboard"))), isMe && /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 8,
-      alignSelf: 'stretch'
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => push({
-      name: 'refer'
-    }),
-    "aria-label": "Refer",
-    style: {
-      flex: 1,
-      width: 52,
-      borderRadius: 13,
-      border: '1px solid var(--border)',
-      background: 'var(--paper-soft)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      cursor: 'pointer'
-    }
-  }, /*#__PURE__*/React.createElement(Ico, {
-    d: Icons.gift,
-    size: 18,
-    style: {
-      color: 'var(--ink)'
-    }
-  })), /*#__PURE__*/React.createElement("button", {
-    onClick: () => push({
-      name: 'settings'
-    }),
-    "aria-label": "Settings",
-    style: {
-      flex: 1,
-      width: 52,
-      borderRadius: 13,
-      border: '1px solid var(--border)',
-      background: 'var(--paper-soft)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      cursor: 'pointer'
-    }
-  }, /*#__PURE__*/React.createElement(Ico, {
-    d: Icons.settings,
-    size: 18,
-    style: {
-      color: 'var(--ink)'
-    }
-  }))));
+  }, "Leaderboard"))), isMe && null);
 }
 function EarnRow({
   a
@@ -28580,7 +29008,7 @@ const ME = {
 const CONDITION_LADDER = ['Sealed / MISB', 'Mint', 'Like new', 'Good', 'Fair', 'For parts'];
 
 // ── Onboarding sub-interests added in v1.2 (§9.2): Scale + Universe ──
-const SCALES = ['1/4', '1/6', '1/10', '1/12', '1/64', '1/100', '1/300'];
+const SCALES = ['1/4', '1/6', '1/10', '1/12', '1/64', '1/100', '1:300'];
 const UNIVERSES = ['Marvel', 'DC', 'Dragon Ball', 'Star Wars', 'Gundam', 'JDM Cars', 'Pop Mart IP'];
 
 // ── Presence / online status (§9.11) ──────────────────────────
@@ -29867,6 +30295,9 @@ const Icons = {
   list: /*#__PURE__*/React.createElement("path", {
     d: "M3 12h.01M3 6h.01M3 18h.01M8 12h13M8 6h13M8 18h13"
   }),
+  menu: /*#__PURE__*/React.createElement("path", {
+    d: "M3 6h18M3 12h18M3 18h18"
+  }),
   store: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
     d: "M3 9a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6a1 1 0 0 0-.6-.92l-8-3.5a1 1 0 0 0-.8 0l-8 3.5A1 1 0 0 0 3 6z"
   }), /*#__PURE__*/React.createElement("path", {
@@ -30437,6 +30868,10 @@ function Segmented({
         padding: '8px 6px',
         borderRadius: 9,
         border: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 5,
         background: active ? 'var(--paper)' : 'transparent',
         color: active ? 'var(--ink)' : 'var(--ink-faint)',
         fontFamily: 'var(--font-body)',
@@ -30448,7 +30883,11 @@ function Segmented({
         boxShadow: active ? 'var(--shadow-2)' : 'none',
         transition: 'all 120ms'
       }
-    }, o.label);
+    }, o.icon && /*#__PURE__*/React.createElement(Ico, {
+      d: o.icon,
+      size: 14,
+      stroke: active ? 2.2 : 1.9
+    }), o.label);
   }));
 }
 function Stamp({

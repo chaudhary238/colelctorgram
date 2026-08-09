@@ -19,9 +19,13 @@ const DEFAULT_NOTIF: NotifPrefs = {
 const DEFAULT_PRIVACY: PrivacyPrefs = { messaging: "everyone", wishlist: "followers", show_online: true };
 
 /* ── Building blocks (converted from design ProfileSettings) ────── */
-function SectionHeader({ children }: { children: React.ReactNode }) {
+/* `id` makes a section deep-linkable — the My Space account drawer sends
+   "Privacy & visibility" and "Help & support" to #privacy / #support so those rows land on
+   the relevant block instead of dead-ending at the top of a long screen (v7 points both at
+   the bare settings route). scrollMarginTop clears the sticky header. */
+function SectionHeader({ children, id }: { children: React.ReactNode; id?: string }) {
   return (
-    <div style={{ padding: "22px 20px 7px", fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-faint)" }}>
+    <div id={id} style={{ padding: "22px 20px 7px", scrollMarginTop: 64, fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-faint)" }}>
       {children}
     </div>
   );
@@ -235,7 +239,7 @@ export default function SettingsPage() {
       <Row icon={<ShoppingBag size={17} />} label="New listings matching wishlist" trailing={<Toggle on={notif.new_listings} onToggle={() => toggleNotif("new_listings")} />} />
 
       {/* ── Privacy & Safety ──────────────────────────────── */}
-      <SectionHeader>Privacy &amp; Safety</SectionHeader>
+      <SectionHeader id="privacy">Privacy &amp; Safety</SectionHeader>
       <RadioRow
         label="Who can see my collection"
         value={collectionVis}
@@ -258,7 +262,7 @@ export default function SettingsPage() {
       <Row icon={<Ban size={17} />} label="Blocked users" sub="Manage users you've blocked" onClick={() => router.push("/settings/blocked")} />
 
       {/* ── Support ───────────────────────────────────────── */}
-      <SectionHeader>Support</SectionHeader>
+      <SectionHeader id="support">Support</SectionHeader>
       <Row icon={<Info size={17} />} label="Help centre" onClick={() => flash("Help centre — coming soon")} />
       <Row icon={<Flag size={17} />} label="Report a bug" onClick={() => flash("Bug report — coming soon")} />
       <Row icon={<FileText size={17} />} label="Terms of service" onClick={() => flash("Terms of service — coming soon")} />

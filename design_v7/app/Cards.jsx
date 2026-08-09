@@ -461,11 +461,13 @@ function ListingFeedCard({ id }) {
 // ── Marketplace grid card — BRD §9.8 ──────────────────────────
 function MarketCard({ id, listing }) {
   const { push, flashToast } = useNav();
-  const { saved, toggleSave } = useAppState();
+  const { saved, toggleSave, dbWishlist, toggleDbWishlist } = useAppState();
   const l = listing || listingOf(id);
   const c = l.sku ? catOf(l.sku) : { tone: l.tone || 'ink', title: l.title, cat: l.cat };
   const seller = userOf(l.seller);
   const isSaved = saved[id];
+  const wishKey = l.sku || id;
+  const isWished = !!(dbWishlist || {})[wishKey];
   const status = l.status;
   const sym = l.sym || '₹';
   return (
@@ -483,8 +485,20 @@ function MarketCard({ id, listing }) {
       }}>
       <div style={{ position: 'relative' }}>
         <ProductPhoto tone={c.tone} ratio="1/1" rounded={0}/>
-        <div onClick={(e) => { e.stopPropagation(); toggleSave(id); }} style={{
+        <div onClick={(e) => { e.stopPropagation(); toggleDbWishlist(wishKey); flashToast(isWished ? 'Removed from wishlist' : 'Added to wishlist'); }}
+          title={isWished ? 'In your wishlist' : 'Add to wishlist'} style={{
           position: 'absolute', top: 8, right: 8, width: 32, height: 32, borderRadius: 10,
+          background: isWished ? 'rgba(176,119,36,0.85)' : 'rgba(15,23,42,0.46)',
+          backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+          border: '1px solid rgba(255,255,255,0.20)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'var(--paper)', cursor: 'pointer', transition: 'background 150ms',
+        }}>
+          <Ico d={Icons.star} size={16} fill={isWished ? 'currentColor' : 'none'}/>
+        </div>
+        <div onClick={(e) => { e.stopPropagation(); toggleSave(id); }}
+          title={isSaved ? 'Saved' : 'Save listing'} style={{
+          position: 'absolute', bottom: 8, right: 8, width: 32, height: 32, borderRadius: 10,
           background: isSaved ? 'rgba(255,36,66,0.80)' : 'rgba(15,23,42,0.46)',
           backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
           border: '1px solid rgba(255,255,255,0.20)',

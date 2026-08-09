@@ -81,6 +81,7 @@ const Icons = {
   layers:    <><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="m22 12.5-8.97 4.08a2 2 0 0 1-1.66 0L2 12.5"/><path d="m22 17.5-8.97 4.08a2 2 0 0 1-1.66 0L2 17.5"/></>,
   verified:  <><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></>,
   list:      <path d="M3 12h.01M3 6h.01M3 18h.01M8 12h13M8 6h13M8 18h13"/>,
+  menu:      <path d="M3 6h18M3 12h18M3 18h18"/>,
   store:     <><path d="M3 9a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6a1 1 0 0 0-.6-.92l-8-3.5a1 1 0 0 0-.8 0l-8 3.5A1 1 0 0 0 3 6z"/><path d="M3 10v10a1 1 0 0 0 1 1h6v-4h4v4h6a1 1 0 0 0 1-1V10"/></>,
 };
 
@@ -341,12 +342,13 @@ function Segmented({ options, value, onChange, style }) {
         return (
           <button key={o.id} onClick={() => onChange(o.id)} style={{
             flex: 1, padding: '8px 6px', borderRadius: 9, border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
             background: active ? 'var(--paper)' : 'transparent',
             color: active ? 'var(--ink)' : 'var(--ink-faint)',
             fontFamily: 'var(--font-body)', fontWeight: active ? 600 : 500, fontSize: 13,
             cursor: 'pointer', whiteSpace: 'nowrap', lineHeight: 1,
             boxShadow: active ? 'var(--shadow-2)' : 'none', transition: 'all 120ms',
-          }}>{o.label}</button>
+          }}>{o.icon && <Ico d={o.icon} size={14} stroke={active ? 2.2 : 1.9}/>}{o.label}</button>
         );
       })}
     </div>

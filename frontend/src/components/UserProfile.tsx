@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   LayoutGrid, BarChart3, CalendarDays, Eye, EyeOff, Clock,
   MessageCircle, Plus, ShieldCheck, Star, Pencil,
-  MoreHorizontal, Check, ChevronRight, Menu,
+  MoreHorizontal, Check, ChevronRight, Menu, SlidersHorizontal,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AuthUser, useUser } from "@/lib/auth-context";
@@ -19,7 +19,8 @@ import { EditProfileSheet } from "@/components/EditProfileSheet";
 import { FollowListModal } from "@/components/FollowListModal";
 import { VouchGiveSheet, VouchListModal, VouchRequestModal } from "@/components/VouchSheets";
 import { ProfileMoreMenu } from "@/components/ProfileMoreMenu";
-import { MobileMenuDrawer } from "@/components/MobileMenuDrawer";
+import { AccountDrawer } from "@/components/AccountDrawer";
+import { useUnread } from "@/components/useUnread";
 import { RewardCard, BadgeShelf, TopSeasonBadge, AvatarFrame } from "@/components/gamification";
 
 /* ── Types ──────────────────────────────────────────────────────── */
@@ -147,7 +148,10 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   const [showVouchList, setShowVouchList] = useState<"received" | "given" | null>(null);
   const [showVouchRequest, setShowVouchRequest] = useState(false);
   const [showMore, setShowMore] = useState(false);
-  const [showMobileMenu, setShowMobileMenu] = useState(false); // ≡ drawer: Stash/Settings/Admin (mobile)
+  const [showAccountMenu, setShowAccountMenu] = useState(false); // ≡ account drawer (v7)
+  // Unread DM count for the header's Messages button. Same hook the Sidebar/AppBar use,
+  // so the number can't disagree with chrome.
+  const { msgs: msgUnread } = useUnread();
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -364,10 +368,11 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
                 when the user has no badges. */}
             <BadgeShelf handle={profile.handle} style={{ marginTop: 0 }} />
             {isOwn ? (
-              // Mobile-only ≡ → Edit profile / Stash / Admin drawer (desktop uses the Sidebar).
-              <span className="lg:hidden">
-                <IconButton icon={<Menu size={19} />} onClick={() => setShowMobileMenu(true)} />
-              </span>
+              // ≡ → the account drawer. NOT mobile-only any more: v7's latest batch deleted
+              // the Refer/Settings squares beside the rank card and moved that whole set in
+              // here, so hiding it above lg would strand Refer / Earn points / Badges / Log
+              // out on desktop.
+              <IconButton icon={<Menu size={19} />} onClick={() => setShowAccountMenu(true)} />
             ) : (
               <IconButton icon={<MoreHorizontal size={18} />} onClick={() => setShowMore(true)} />
             )}
@@ -388,27 +393,45 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
           )}
         </div>
 
-        {/* Request a vouch — own profile only */}
+        {/* Request a vouch + Messages — own profile only.
+            v7 pairs them on one row and, in the same batch, drops DMs out of the header
+            bell's badge (`Chrome.jsx`: `badge={unread}`, was `unread + msgUnread`). My
+            Space is now where you notice unread messages, so this button carries the
+            count. It opens the merged Activity screen on its Messages segment rather than
+            /inbox — DV7-05 made that one inbox on the web, and a second thread-list
+            surface is exactly the "two entry points" split founder QA rejected.
+            The strapline drops here: at two-up the button is too narrow for it. */}
         {isOwn && (
-          <button
-            onClick={() => setShowVouchRequest(true)}
-            style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", marginTop: 8, padding: "10px 13px", borderRadius: 11, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", cursor: "pointer", textAlign: "left" }}
-          >
-            <ShieldCheck size={16} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
-            <span style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--verified-teal)" }}>Request a vouch</span>
-              <span style={{ fontSize: 12, color: "var(--verified-teal)", opacity: 0.75, marginLeft: 6 }}>Ask collectors who know you</span>
-            </span>
-            <ChevronRight size={15} style={{ color: "var(--verified-teal)", opacity: 0.7, flexShrink: 0 }} />
-          </button>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button
+              onClick={() => setShowVouchRequest(true)}
+              style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 11, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", cursor: "pointer", textAlign: "left" }}
+            >
+              <ShieldCheck size={16} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: "var(--verified-teal)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Request a vouch</span>
+              <ChevronRight size={15} style={{ color: "var(--verified-teal)", opacity: 0.7, flexShrink: 0 }} />
+            </button>
+            <Link
+              href="/notifications?seg=messages"
+              aria-label={msgUnread ? `Messages, ${msgUnread} unread` : "Messages"}
+              style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0, padding: "10px 12px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", color: "var(--ink)", textDecoration: "none" }}
+            >
+              <MessageCircle size={16} />
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>Messages</span>
+              {msgUnread > 0 && (
+                <span style={{ minWidth: 19, height: 19, padding: "0 5px", borderRadius: 999, background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-mono)", fontSize: 10.5, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {msgUnread}
+                </span>
+              )}
+            </Link>
+          </div>
         )}
 
-        {/* Collector rank card (GM-15) — own card adds "Earn points" + the v7 Refer /
-            Settings squares alongside. DV7-01: v7 dropped the separate Edit profile /
-            Add item / Refer button row — Edit profile is the avatar tap (and the ≡
-            drawer on mobile), Add item now lives on the Collection tab and opens the
-            Database, and Refer/Settings are these two squares. */}
-        <RewardCard handle={profile.handle} isMe={isOwn} sideActions={isOwn} />
+        {/* Collector rank card (GM-15) — "Earn points" + "Leaderboard" only. v7's latest
+            batch deleted the Refer / Settings squares that used to sit alongside it
+            (`Rewards.jsx` now reads `{isMe && null}`); both moved into the ≡ drawer, which
+            is why that drawer is no longer mobile-only. */}
+        <RewardCard handle={profile.handle} isMe={isOwn} />
 
         {/* actions — other people's profiles only */}
         {isOwn ? null : (
@@ -459,9 +482,9 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
 
       {/* Overlays */}
       {isOwn && (
-        <MobileMenuDrawer
-          open={showMobileMenu}
-          onClose={() => setShowMobileMenu(false)}
+        <AccountDrawer
+          open={showAccountMenu}
+          onClose={() => setShowAccountMenu(false)}
           onEditProfile={() => setShowEdit(true)}
         />
       )}
@@ -507,6 +530,11 @@ function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] 
   // the place to read them by date), and Wishlist is back as a segment now that the
   // Stash's listing-save tab is gone.
   const [seg, setSeg] = useState<"owned" | "wishlist" | "intel">("owned");
+  // v7 (2026-08-09) hangs a filter off the Owned segment itself: tapping Owned while it is
+  // already active opens this popover. Both off = everything you own, which is why the
+  // default state is two `false`s rather than an "All" option.
+  const [ownedFilter, setOwnedFilter] = useState({ preorder: false, listed: false });
+  const [ownedFilterOpen, setOwnedFilterOpen] = useState(false);
   const [view, setView] = useState<CollView>("grid");
   // Seed per-view visibility from the server (eye toggle is persisted in
   // privacy_prefs.collection_views). Falls back to public.
@@ -531,7 +559,13 @@ function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] 
   const owned = items.filter((i) => i.status !== "wishlist" && i.status !== "intel");
   const ownedValue = paiseToRupees(items.filter((i) => i.status === "owned").reduce((s, i) => s + i.value, 0));
   // Owned folds in pre-orders (DV7-01); the other two segments match their status exactly.
-  const filtered = seg === "owned" ? owned : items.filter((i) => i.status === seg);
+  // The two Owned filters are OR-ed, matching v7 — ticking both shows pre-orders AND
+  // listed items, not only items that are both.
+  const anyOwnedFilter = ownedFilter.preorder || ownedFilter.listed;
+  const filteredOwned = anyOwnedFilter
+    ? owned.filter((i) => (ownedFilter.preorder && i.status === "preorder") || (ownedFilter.listed && i.is_listed))
+    : owned;
+  const filtered = seg === "owned" ? filteredOwned : items.filter((i) => i.status === seg);
 
   const views: { id: CollView; icon: React.ReactNode; label: string }[] = [
     { id: "grid", icon: <LayoutGrid size={17} />, label: "Grid" },
@@ -632,15 +666,79 @@ function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] 
 
           {view === "grid" && (
             <>
-              <Segmented
-                value={seg}
-                onChange={setSeg}
-                options={[
-                  { id: "owned", label: "Owned" },
-                  { id: "wishlist", label: "Wishlist" },
-                  { id: "intel", label: "DB Contributions" },
-                ]}
-              />
+              <div style={{ position: "relative" }}>
+                <Segmented
+                  value={seg}
+                  onChange={(v) => {
+                    // Re-tapping the active Owned segment toggles its filter (v7).
+                    if (v === "owned" && seg === "owned") { setOwnedFilterOpen((o) => !o); return; }
+                    setSeg(v);
+                    setOwnedFilterOpen(false);
+                  }}
+                  options={[
+                    { id: "owned", label: "Owned", icon: <SlidersHorizontal size={14} strokeWidth={seg === "owned" ? 2.2 : 1.9} /> },
+                    { id: "wishlist", label: "Wishlist" },
+                    { id: "intel", label: "DB Contributions" },
+                  ]}
+                />
+                {ownedFilterOpen && seg === "owned" && (
+                  <>
+                    {/* Outside-click catcher. An anchored dropdown, not a bottom sheet —
+                        a sheet pinned to the viewport floor reads as unrelated to the
+                        control that opened it (QA 2026-08-01). */}
+                    <div onClick={() => setOwnedFilterOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 30 }} />
+                    <div
+                      style={{
+                        position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 31, width: "min(300px, 100%)",
+                        background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 20,
+                        boxShadow: "0 12px 34px rgba(0,0,0,0.14)", padding: "18px 18px 14px",
+                      }}
+                    >
+                      <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16.5, letterSpacing: "-0.01em", color: "var(--ink)" }}>Filter items</div>
+                      <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2, marginBottom: 12 }}>Leave both off to see everything you own.</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        {([
+                          { id: "preorder" as const, label: "Pre-order", n: owned.filter((i) => i.status === "preorder").length },
+                          { id: "listed" as const, label: "Listed", n: owned.filter((i) => i.is_listed).length },
+                        ]).map((f) => {
+                          const on = ownedFilter[f.id];
+                          return (
+                            <button
+                              key={f.id}
+                              onClick={() => setOwnedFilter((st) => ({ ...st, [f.id]: !st[f.id] }))}
+                              aria-pressed={on}
+                              style={{ display: "flex", alignItems: "center", gap: 13, width: "100%", textAlign: "left", border: "none", background: "none", cursor: "pointer", padding: "9px 4px", borderRadius: 9 }}
+                            >
+                              <span
+                                style={{
+                                  width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+                                  border: `1.5px solid ${on ? "var(--stamp-red)" : "var(--border-strong)"}`,
+                                  background: on ? "var(--stamp-red)" : "transparent", color: "var(--paper)",
+                                  display: "flex", alignItems: "center", justifyContent: "center", transition: "all 120ms",
+                                }}
+                              >
+                                {on && <Check size={15} strokeWidth={3} />}
+                              </span>
+                              <span style={{ flex: 1, fontSize: 15, fontWeight: 500, color: "var(--ink)" }}>{f.label}</span>
+                              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--ink-faint)" }}>{f.n}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {/* Only rendered when there IS something to clear — a reset that
+                          resets to the values already on screen reads as broken. */}
+                      {anyOwnedFilter && (
+                        <button
+                          onClick={() => setOwnedFilter({ preorder: false, listed: false })}
+                          style={{ marginTop: 10, width: "100%", padding: "9px 0", borderRadius: 10, cursor: "pointer", border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, color: "var(--ink-soft)" }}
+                        >
+                          Clear filters
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11, marginTop: 14 }}>
                 {filtered.map((it) => <ItemTile key={it.id} item={it} isOwn={isOwn} />)}
               </div>
@@ -650,6 +748,8 @@ function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] 
                     ? (isOwn ? "No DB contributions yet — add an item that's new to Scorred to help the community." : "No DB contributions yet.")
                     : seg === "wishlist"
                     ? (isOwn ? "Nothing on your wishlist yet — star anything in the Scorred database." : "Private or empty.")
+                    : seg === "owned" && anyOwnedFilter
+                    ? "Nothing matches this filter."
                     : (isOwn ? "Nothing here yet — add from the Scorred database." : "Private or empty.")}
                 </EmptyNote>
               )}

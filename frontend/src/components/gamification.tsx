@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 import {
   Box, Sparkles, Medal, Gem, Flame, Crown, Star, Camera, Heart,
   User, Shield, Calendar, MessageCircle, Gift, Zap, Database,
-  ChevronRight, Trophy, X, Settings, type LucideIcon,
+  ChevronRight, Trophy, X, type LucideIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui";
@@ -352,10 +352,11 @@ export function FilterChip({ active, color, icon, onClick, children }: { active?
  * design_v7 (DV7-01) tightened this: tier-tinted surface, XP inline in the title row,
  * a slimmer 6px bar, and the CTAs inside the card — it now costs one row of vertical
  * space instead of three, which is what let the v7 profile header lose its separate
- * stat bar. `sideActions` adds the v7 Refer/Settings squares alongside (own profile
- * only — the ContextualRail leaves them off, the Sidebar already carries Settings).
- * The First Start pill moved out: it's a slot in the BadgeShelf next to the name. */
-export function RewardCard({ handle, isMe, sideActions = false }: { handle: string; isMe: boolean; sideActions?: boolean }) {
+ * stat bar. The First Start pill moved out: it's a slot in the BadgeShelf next to the
+ * name. The Refer/Settings squares that used to sit alongside are GONE — design_v7's
+ * 2026-08-09 batch replaced them with `{isMe && null}` in Rewards.jsx and moved both into
+ * the profile's ≡ account drawer. */
+export function RewardCard({ handle, isMe }: { handle: string; isMe: boolean }) {
   const router = useRouter();
   const [d, setD] = useState<RankCardData | null>(null);
   useEffect(() => {
@@ -403,30 +404,7 @@ export function RewardCard({ handle, isMe, sideActions = false }: { handle: stri
             onClick={() => router.push("/leaderboard")}>Leaderboard</Button>
         </div>
       </div>
-      {sideActions && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignSelf: "stretch" }}>
-          <SideAction label="Refer a friend" icon={<Gift size={18} />} onClick={() => router.push("/refer")} />
-          <SideAction label="Settings" icon={<Settings size={18} />} onClick={() => router.push("/settings")} />
-        </div>
-      )}
     </div>
-  );
-}
-
-function SideAction({ label, icon, onClick }: { label: string; icon: React.ReactNode; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      style={{
-        flex: 1, width: 52, borderRadius: 13, border: "1px solid var(--border)", background: "var(--paper-soft)",
-        color: "var(--ink)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-      }}
-    >
-      {icon}
-    </button>
   );
 }
 

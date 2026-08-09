@@ -512,12 +512,12 @@ const CLAIMED_KINDS = NOTIF_CATS.filter(c => c.kinds).flatMap(c => c.kinds);
 const catOfKind = (kind) => NOTIF_CATS.find(c => c.kinds && c.kinds.includes(kind))
   || NOTIF_CATS.find(c => c.kinds === null);
 
-function NotificationsOverlay() {
+function NotificationsOverlay({ seg: initialSeg }) {
   const { setOverlay, push } = useNav();
   const { readNotifs, markNotifsRead, liveNotifs } = useAppState();
   const allNotifs = React.useMemo(() => [...(liveNotifs || []), ...NOTIFICATIONS], [liveNotifs]);
   const [active, setActive] = React.useState(null); // null = all activity; else a category id
-  const [seg, setSeg] = React.useState('activity'); // activity | dms
+  const [seg, setSeg] = React.useState(initialSeg || 'activity'); // activity | dms
   const msgUnread = INBOX.reduce((s, m) => s + m.unread, 0);
   React.useEffect(() => { markNotifsRead(); }, []);
 
@@ -550,7 +550,7 @@ function NotificationsOverlay() {
   const refCode = (slug) => slug ? slug.toUpperCase().replace(/-/g, '') : null;
 
   return (
-    <OverlayShell title="Activity" onClose={() => setOverlay(null)}>
+    <OverlayShell title={seg === 'dms' ? 'Messages' : 'Activity'} onClose={() => setOverlay(null)}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
 
         {/* ── segments: Activity / DMs ── */}

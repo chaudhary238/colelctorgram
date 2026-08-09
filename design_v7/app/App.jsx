@@ -63,7 +63,7 @@ function Router() {
       {/* overlays */}
       {overlay && overlay.name === 'compose' && <ComposeOverlay community={overlay.community} kind={overlay.kind}/>}
       {overlay && overlay.name === 'search' && <SearchOverlay/>}
-      {overlay && overlay.name === 'notifications' && <NotificationsOverlay/>}
+      {overlay && overlay.name === 'notifications' && <NotificationsOverlay seg={overlay.seg}/>}
       {overlay && overlay.name === 'share' && <ShareSheet label={overlay.label}/>}
 
       <Toast/>

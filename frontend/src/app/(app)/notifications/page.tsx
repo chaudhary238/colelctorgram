@@ -17,8 +17,9 @@
 // notification was user-triggered, else the category icon.
 // v3 marks all read on OPEN (no button) — the bell badge clears on visit.
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { MessageCircle, Shield, UserPlus, Heart, LayoutGrid, X } from "lucide-react";
 import { Avatar, CategoryChip, Money } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -81,11 +82,19 @@ function refHref(refType: string | null, refId: string | null): string {
   }
 }
 
-export default function ActivityPage() {
+function ActivityScreen() {
+  // `?seg=messages` opens straight on the Messages segment — how My Space's Messages
+  // button arrives here (design_v7 App.jsx now threads `overlay.seg` into the
+  // notifications overlay for exactly this). Read once as the initial state: the
+  // segment is user-controlled from then on, and re-syncing it to the URL would fight
+  // the taps. The param uses the USER-FACING word; `seg` stays "dms" internally.
+  const params = useSearchParams();
   const [notifications, setNotifications] = useState<ApiNotification[]>([]);
   const [selected, setSelected] = useState<CategoryId | null>(null);
   const [loading, setLoading] = useState(true);
-  const [seg, setSeg] = useState<"activity" | "dms">("activity");
+  const [seg, setSeg] = useState<"activity" | "dms">(
+    params.get("seg") === "messages" ? "dms" : "activity"
+  );
   const [threads, setThreads] = useState<Thread[] | null>(null);
 
   // v3: load the feed, then mark everything read on OPEN so the bell badge
@@ -125,7 +134,11 @@ export default function ActivityPage() {
   return (
     <div className="w-full max-w-[680px] flex flex-col">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]" style={{ padding: "12px 20px" }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, letterSpacing: "-0.025em", margin: 0 }}>Activity</h1>
+        {/* v7 retitles the screen to match the segment you're on, so arriving from the
+            Messages button doesn't land you on a screen headed "Activity". */}
+        <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, letterSpacing: "-0.025em", margin: 0 }}>
+          {seg === "dms" ? "Messages" : "Activity"}
+        </h1>
       </div>
 
       {/* DV7-05 segments — each label carries its own unread count */}
@@ -302,5 +315,14 @@ export default function ActivityPage() {
       </div>
       </div>
     </div>
+  );
+}
+
+// useSearchParams must sit under a Suspense boundary for the production build.
+export default function ActivityPage() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-[680px]" style={{ minHeight: "100vh" }} />}>
+      <ActivityScreen />
+    </Suspense>
   );
 }

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Messages + Menu next to the rank card — style options</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+body{margin:0;background:var(--bone);font-family:var(--font-body);color:var(--ink);padding:34px 26px 60px}
+h1{font-family:var(--font-display);font-size:22px;letter-spacing:-.02em;margin:0 0 4px}
+.sub{font-size:13px;color:var(--ink-faint);margin:0 0 26px;max-width:640px;line-height:1.55}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(404px,1fr));gap:26px;max-width:1300px}
+.opt{background:var(--paper);border:1px solid var(--border);border-radius:18px;padding:18px 18px 20px;box-shadow:var(--shadow-sm)}
+.tag{display:flex;align-items:baseline;gap:8px;margin-bottom:3px}
+.tag b{font-family:var(--font-display);font-size:15px}
+.tag span{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-ghost)}
+.note{font-size:12px;color:var(--ink-faint);line-height:1.5;margin:0 0 14px}
+.stage{background:var(--canvas);border:1px solid var(--slate-200);border-radius:14px;padding:14px}
+/* rank card */
+.rank{flex:1;background:color-mix(in oklab,var(--verified-teal) 12%,var(--paper-soft));border:1px solid color-mix(in oklab,var(--verified-teal) 45%,var(--border));border-radius:14px;padding:11px 13px}
+.rowtop{display:flex;align-items:center;gap:10px}
+.badge34{width:34px;height:34px;border-radius:10px;background:var(--verified-teal);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tier{font-family:var(--font-display);font-weight:700;font-size:14.5px;flex:1}
+.xp{font-family:var(--font-mono);font-weight:700;font-size:16px}
+.xp i{font-size:9.5px;font-weight:600;color:var(--ink-soft);letter-spacing:.08em;font-style:normal}
+.bar{height:6px;border-radius:999px;background:rgba(255,255,255,.55);overflow:hidden;margin:8px 0 5px}
+.bar i{display:block;height:100%;width:41%;background:var(--verified-teal);border-radius:999px}
+.meta{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-soft)}
+.meta b{color:var(--ink);font-family:var(--font-mono)}
+.btnrow{display:flex;gap:7px;margin-top:10px}
+.btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:32px;border-radius:9px;font-size:12.5px;font-weight:600;border:1px solid var(--ink);background:var(--ink);color:var(--paper)}
+.btn.ghost{background:var(--paper);color:var(--ink);border-color:var(--verified-teal)}
+.icobtn{width:52px;border-radius:13px;border:1px solid var(--border);background:var(--paper-soft);display:flex;align-items:center;justify-content:center;position:relative;flex:1}
+.sq{width:32px;height:32px;border-radius:9px;border:1px solid var(--border-strong);background:var(--paper);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
+.pip{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--stamp-red);color:#fff;border:1.5px solid var(--paper);font-family:var(--font-mono);font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.pipsm{position:absolute;top:-4px;right:-4px;min-width:14px;height:14px;padding:0 3px;border-radius:999px;background:var(--stamp-red);color:#fff;border:1.5px solid var(--paper);font-family:var(--font-mono);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.railpill{display:flex;align-items:center;gap:2px;background:var(--bone);border:1px solid var(--border);border-radius:999px;padding:3px}
+.railbtn{width:34px;height:30px;border-radius:999px;display:flex;align-items:center;justify-content:center;position:relative;background:transparent;color:var(--ink)}
+.railbtn.on{background:var(--paper);box-shadow:var(--shadow-2)}
+.wide{display:flex;align-items:center;gap:9px;height:36px;padding:0 12px;border-radius:11px;border:1px solid var(--border-strong);background:var(--paper);font-size:13px;font-weight:600;position:relative}
+svg{display:block}
+</style>
+</head>
+<body>
+<h1>Messages + menu, moved beside the rank card</h1>
+<p class="sub">Same two controls (Messages with unread badge, ☰ account menu), four placements around the Collector / Leaderboard block. All shown at the real 402 px screen width with app tokens.</p>
+<div class="grid">
+
+  <div class="opt">
+    <div class="tag"><b>A · Icon rail on the right</b><span>recommended</span></div>
+    <p class="note">Two square buttons stacked flush with the card's full height — reuses the old gear/gift slot, so the card keeps its width rhythm and nothing shifts inside it.</p>
+    <div class="stage">
+      <div style="display:flex;gap:10px;align-items:stretch">
+        <div class="rank">
+          <div class="rowtop"><div class="badge34"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="14" r="6"/><path d="M8.5 8.5 6 2H9l2 4M15.5 8.5 18 2h-3l-2 4"/></svg></div><span class="tier">Collector</span><span class="xp">1,240 <i>XP</i></span></div>
+          <div class="bar"><i></i></div>
+          <div class="meta"><span><b>1,760 XP</b> to Curator</span><span style="font-family:var(--font-mono)">+180 this week</span></div>
+          <div class="btnrow"><div class="btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Earn points</div><div class="btn ghost"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M18 2H6v7a6 6 0 0 0 12 0z"/></svg>Leaderboard</div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;width:52px">
+          <div class="icobtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="pip">3</span></div>
+          <div class="icobtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <div class="tag"><b>B · In the card's button row</b><span>most compact</span></div>
+    <p class="note">Earn points / Leaderboard shrink and the two icons join them as square chips — everything about "you" lives in one 32 px row, no extra vertical space at all.</p>
+    <div class="stage">
+      <div class="rank">
+        <div class="rowtop"><div class="badge34"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="14" r="6"/><path d="M8.5 8.5 6 2H9l2 4M15.5 8.5 18 2h-3l-2 4"/></svg></div><span class="tier">Collector</span><span class="xp">1,240 <i>XP</i></span></div>
+        <div class="bar"><i></i></div>
+        <div class="meta"><span><b>1,760 XP</b> to Curator</span><span style="font-family:var(--font-mono)">+180 this week</span></div>
+        <div class="btnrow">
+          <div class="btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Earn</div>
+          <div class="btn ghost"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M18 2H6v7a6 6 0 0 0 12 0z"/></svg>Leaderboard</div>
+          <div class="sq"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="pipsm">3</span></div>
+          <div class="sq"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <div class="tag"><b>C · Floating pill above the card</b><span>lightest touch</span></div>
+    <p class="note">A small segmented pill sits on the canvas just above the rank card, right-aligned. Reads as chrome rather than card content, and the rank card stays untouched.</p>
+    <div class="stage">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:9px">
+        <div class="railpill">
+          <div class="railbtn on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="pipsm">3</span></div>
+          <div class="railbtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></div>
+        </div>
+      </div>
+      <div class="rank">
+        <div class="rowtop"><div class="badge34"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="14" r="6"/><path d="M8.5 8.5 6 2H9l2 4M15.5 8.5 18 2h-3l-2 4"/></svg></div><span class="tier">Collector</span><span class="xp">1,240 <i>XP</i></span></div>
+        <div class="bar"><i></i></div>
+        <div class="meta"><span><b>1,760 XP</b> to Curator</span><span style="font-family:var(--font-mono)">+180 this week</span></div>
+        <div class="btnrow"><div class="btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Earn points</div><div class="btn ghost"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M18 2H6v7a6 6 0 0 0 12 0z"/></svg>Leaderboard</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <div class="tag"><b>D · Labelled row under the card</b><span>clearest</span></div>
+    <p class="note">Messages gets a real label and count, ☰ stays an icon. Best if you expect people to hunt for messages — costs one extra 36 px row.</p>
+    <div class="stage">
+      <div class="rank">
+        <div class="rowtop"><div class="badge34"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="14" r="6"/><path d="M8.5 8.5 6 2H9l2 4M15.5 8.5 18 2h-3l-2 4"/></svg></div><span class="tier">Collector</span><span class="xp">1,240 <i>XP</i></span></div>
+        <div class="bar"><i></i></div>
+        <div class="meta"><span><b>1,760 XP</b> to Curator</span><span style="font-family:var(--font-mono)">+180 this week</span></div>
+        <div class="btnrow"><div class="btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Earn points</div><div class="btn ghost"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M18 2H6v7a6 6 0 0 0 12 0z"/></svg>Leaderboard</div></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:9px">
+        <div class="wide" style="flex:1">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span style="flex:1">Messages</span>
+          <span style="min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--stamp-red);color:#fff;font-family:var(--font-mono);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">3</span>
+        </div>
+        <div class="wide" style="width:44px;justify-content:center;padding:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

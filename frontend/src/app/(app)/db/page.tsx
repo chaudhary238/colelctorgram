@@ -261,8 +261,15 @@ export default function DatabasePage() {
   }
 
   // Wishlist toggle — mirrors the entry page: the server flips a status="wishlist" Item,
-  // and refuses (400) once the SKU is already on your shelf, so the star is hidden then.
+  // and refuses (400) once the SKU is already on your shelf. The tile used to hide the star
+  // behind a tick for that case; the star is always drawn now (founder QA 2026-08-09), so
+  // the rule is enforced here instead — otherwise an owned item optimistically flips, 400s,
+  // reverts, and blames the user with "Couldn't update your wishlist".
   async function toggleWishlist(it: DbItem) {
+    if (OWNS(it.viewer_status)) {
+      fireToast("Already in your collection");
+      return;
+    }
     const on = it.viewer_status === "wishlist";
     setItems((prev) => prev?.map((x) => x.sku === it.sku
       ? { ...x, viewer_status: on ? null : "wishlist", wishlists_count: Math.max(0, x.wishlists_count + (on ? -1 : 1)) }
@@ -543,86 +550,101 @@ function DbTile({ item, onWishlist }: { item: DbItem; onWishlist: () => void }) 
           <ProductPhoto tone={item.is_verified ? "ink" : "bone"} src={item.thumbnail_url} ratio="1/1" rounded={0} label="catalogue reference" />
         </Link>
 
-        {/* Star = wishlist (web icon law). Hidden once it's on your shelf — the server
-            refuses to wishlist something you already own. */}
-        {owned ? (
-          <span title="In your collection" style={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 999, background: "var(--verified-teal)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.18)" }}>
-            <Check size={15} strokeWidth={2.6} />
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={onWishlist}
-            aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-            title={wishlisted ? "Remove from your wishlist" : "Add to your wishlist"}
-            style={{
-              position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 999, border: "none", cursor: "pointer",
-              background: wishlisted ? "var(--stamp-red)" : "rgba(255,255,255,0.92)",
-              color: wishlisted ? "var(--paper)" : "var(--ink-mute)",
-              display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
-            }}
-          >
-            <Star size={14} fill={wishlisted ? "currentColor" : "none"} strokeWidth={wishlisted ? 0 : 1.9} />
-          </button>
-        )}
+        {/* ── Overlay column, RIGHT edge — exactly as design_v7 has it ─────────────
+            v7's ExploreView keeps all three marks on ONE axis: star top-right, add
+            bottom-right (same x), and the review seal at the right end of the caption
+            row. Ours had drifted to three different corners at three different sizes
+            (star top-right 28 / add bottom-LEFT 32 / seal bottom-right 26) — that scatter
+            is the misalignment founder QA called out on 2026-08-09. Fixed by matching the
+            prototype rather than inventing: one right-hand column, v7's sizes (star 30,
+            add 32), nothing on the photo's left edge.
+
+            Star = wishlist (web icon law — v7 draws a bookmark here, the web does not).
+            TWO STATES ONLY, exactly as v7 draws it (founder QA 2026-08-09): the chip's
+            white background never changes — only the STAR turns stamp-red and fills when
+            the item is on your wishlist. There is deliberately NO third "you own this"
+            tick: it swapped the glyph mid-grid and made the column read as two different
+            controls. Owned items keep the plain star and are handled in `toggleWishlist`,
+            which explains itself rather than firing a request the API rejects. */}
+        <button
+          type="button"
+          onClick={onWishlist}
+          aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+          title={owned ? "Already in your collection" : wishlisted ? "Remove from your wishlist" : "Add to your wishlist"}
+          style={{
+            position: "absolute", top: 8, right: 8, width: 30, height: 30, borderRadius: 999, border: "none", cursor: "pointer",
+            background: "rgba(255,255,255,0.92)",
+            display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
+          }}
+        >
+          <Star
+            size={16}
+            fill={wishlisted ? "var(--stamp-red)" : "none"}
+            strokeWidth={1.9}
+            style={{ color: wishlisted ? "var(--stamp-red)" : "var(--ink-mute)" }}
+          />
+        </button>
 
         {/* Add a copy — opens the v7 "Add to collection" screen with the SKU resolved.
             NOT the multi-mode /add/catalogue form: the catalogue already knows what this
             item IS, so that form showed mostly locked pills (QA 2026-08-05).
             `plusCircle` at 32px per v7 (ExploreView.jsx:106); a bare plus read as a
-            second "add item to the database" next to the search row's button. */}
+            second "add item to the database" next to the search row's button.
+            Sits at the SAME x as the star above it — that shared axis is the whole
+            point of the column, so nothing may share this corner with it. */}
         <Link
           href={`/add/collection?sku=${encodeURIComponent(item.sku)}`}
           aria-label={`Add ${item.title} to your collection`}
           title="Add to my collection"
           style={{
-            position: "absolute", bottom: 8, left: 8, width: 32, height: 32, borderRadius: 999,
+            position: "absolute", bottom: 8, right: 8, width: 32, height: 32, borderRadius: 999,
             background: "var(--stamp-red)", color: "var(--paper)", boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >
           <PlusCircle size={17} strokeWidth={2} />
         </Link>
-
-        {/* §13 — the Scorred seal marks entries the TEAM owns: seeded from the backend
-            verified by an admin (`is_verified`). Bottom-right of the photo, opposite
-            the add button. Community entries still awaiting review show the clock. */}
-        {item.is_verified ? (
-          <span
-            title="Scorred Verified — this catalogue entry was checked by the Scorred team"
-            aria-label="Scorred Verified"
-            style={{
-              position: "absolute", bottom: 8, right: 8, width: 26, height: 26, borderRadius: 999,
-              background: "rgba(255,255,255,0.94)", boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}
-          >
-            <SealMark size={17} />
-          </span>
-        ) : item.pending ? (
-          <span
-            title="Pending verification — not yet checked by the Scorred team"
-            aria-label="Pending verification"
-            style={{
-              position: "absolute", bottom: 8, right: 8, width: 26, height: 26, borderRadius: 999,
-              background: "var(--bone-deep)", border: "1px solid var(--border-strong)", color: "var(--ink-faint)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}
-          >
-            <Clock size={14} strokeWidth={2.4} />
-          </span>
-        ) : null}
       </div>
 
       {/* §13 — title + brand only. "N own · N want" belonged to the detail page; on a
-          140px tile it turned every card into a stat block. */}
+          140px tile it turned every card into a stat block.
+
+          The verification mark lives HERE, not on the photo — v7 renders it as a bare 16px
+          `ReviewIcon` at the END of this caption row (ExploreView.jsx). It is a passive
+          marker, not a control, so it never belonged in the tap-target column, and moving
+          it off the photo is what lets the star and + share one clean axis.
+          (Supersedes DV7-09 §13's "bottom-right of the photo" — founder QA 2026-08-09
+          asked for one column, and three marks on the photo is not one column.) */}
       <Link href={`/db/${encodeURIComponent(item.sku)}`} style={{ textDecoration: "none", color: "inherit" }}>
         <div style={{ padding: "9px 10px 11px" }}>
           <div style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.3, color: "var(--ink)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", minHeight: 32 }}>
             {item.title}
           </div>
-          <div style={{ fontSize: 10.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {item.brand}
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 10.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {item.brand}
+            </span>
+            {item.is_verified ? (
+              <span
+                title="Scorred Verified — this catalogue entry was checked by the Scorred team"
+                aria-label="Scorred Verified"
+                style={{ width: 16, height: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <SealMark size={16} />
+              </span>
+            ) : item.pending ? (
+              <span
+                title="Pending verification — not yet checked by the Scorred team"
+                aria-label="Pending verification"
+                style={{
+                  width: 16, height: 16, borderRadius: 999, flexShrink: 0,
+                  background: "var(--bone-deep)", border: "1px solid var(--border-strong)", color: "var(--ink-faint)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+              >
+                <Clock size={10} strokeWidth={2.6} />
+              </span>
+            ) : null}
           </div>
         </div>
       </Link>

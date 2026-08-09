@@ -1003,7 +1003,7 @@ const ME = {
 const CONDITION_LADDER = ['Sealed / MISB', 'Mint', 'Like new', 'Good', 'Fair', 'For parts'];
 
 // ── Onboarding sub-interests added in v1.2 (§9.2): Scale + Universe ──
-const SCALES = ['1/4', '1/6', '1/10', '1/12', '1/64', '1/100', '1/300'];
+const SCALES = ['1/4', '1/6', '1/10', '1/12', '1/64', '1/100', '1:300'];
 const UNIVERSES = ['Marvel', 'DC', 'Dragon Ball', 'Star Wars', 'Gundam', 'JDM Cars', 'Pop Mart IP'];
 
 // ── Presence / online status (§9.11) ──────────────────────────

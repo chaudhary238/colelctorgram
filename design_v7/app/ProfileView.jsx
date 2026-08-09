@@ -22,6 +22,8 @@ function ProfileView({ route }) {
   const [isBlocked, setIsBlocked]     = React.useState(false);
   const [reportReason, setReportReason] = React.useState(null);
   const [reportSent, setReportSent]   = React.useState(false);
+  const [drawerOpen, setDrawerOpen]   = React.useState(false);
+  const msgUnread = typeof INBOX !== 'undefined' ? INBOX.reduce((s, m) => s + m.unread, 0) : 0;
 
   const REPORT_REASONS = [
     'Fake / impersonation',
@@ -74,7 +76,7 @@ function ProfileView({ route }) {
       {/* ── More / Report / Block sheets ── */}
       {(moreOpen || reportOpen || blockOpen) && (
         <div onClick={() => { setMoreOpen(false); setReportOpen(false); setBlockOpen(false); setReportReason(null); }}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.38)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }}>
+          style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.38)', zIndex: 120, display: 'flex', alignItems: 'flex-end' }}>
 
           {/* Main more menu */}
           {moreOpen && !reportOpen && !blockOpen && (
@@ -178,6 +180,64 @@ function ProfileView({ route }) {
         </div>
       )}
 
+      {/* — side drawer: account, settings & privacy, refer — */}
+      {drawerOpen && (
+        <div onClick={() => setDrawerOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.38)', zIndex: 120, display: 'flex', justifyContent: 'flex-end' }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            width: '78%', maxWidth: 320, background: 'var(--paper)',
+            position: 'absolute', top: 0, right: 0, bottom: 0,
+            boxShadow: '-8px 0 30px rgba(0,0,0,0.16)', display: 'flex', flexDirection: 'column',
+            paddingTop: 52, minHeight: 0, overflow: 'hidden',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 18px 16px', borderBottom: '1px solid var(--border)' }}>
+              <Avatar name={u.name} color={u.color} photo={u.photo} size={42}/>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>@{u.handle}</div>
+              </div>
+              <button onClick={() => setDrawerOpen(false)} aria-label="Close" style={{ width: 32, height: 32, borderRadius: 9, border: 'none', background: 'var(--paper-soft)', color: 'var(--ink-mute)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Ico d={Icons.close} size={16}/>
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', padding: '6px 0', flex: 1, minHeight: 0, overflow: 'auto' }}>
+              {[{ icon: Icons.edit, label: 'Edit profile', go: () => push({ name: 'edit-profile' }) },
+                { icon: Icons.settings, label: 'Settings & privacy', go: () => push({ name: 'settings' }) },
+                { icon: Icons.lock, label: 'Privacy & visibility', go: () => push({ name: 'settings' }) },
+                { icon: Icons.gift, label: 'Refer a friend', go: () => push({ name: 'refer' }) },
+                { icon: Icons.zap, label: 'Earn points', go: () => push({ name: 'rewards', user: 'you' }) },
+                { icon: Icons.award, label: 'Badges & trophies', go: () => push({ name: 'badges', user: 'you' }) },
+                { icon: Icons.info, label: 'Help & support', go: () => flashToast('Help centre — coming soon') },
+              ].map(row => (
+                <button key={row.label} onClick={() => { setDrawerOpen(false); row.go(); }} style={{
+                  display: 'flex', alignItems: 'center', gap: 13, padding: '13px 18px', width: '100%',
+                  background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
+                }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: 'var(--paper-soft)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)' }}>
+                    <Ico d={row.icon} size={17}/>
+                  </div>
+                  <span style={{ flex: 1, fontFamily: 'var(--font-body)', fontSize: 14.5, fontWeight: 500, color: 'var(--ink)' }}>{row.label}</span>
+                  {row.badge > 0 && (
+                    <span style={{ minWidth: 20, height: 20, padding: '0 6px', borderRadius: 999, background: 'var(--stamp-red)', color: 'var(--paper)', fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{row.badge}</span>
+                  )}
+                  <Ico d={Icons.chevR} size={15} style={{ color: 'var(--ink-ghost)', flexShrink: 0 }}/>
+                </button>
+              ))}
+            </div>
+            <div style={{ flexShrink: 0, borderTop: '1px solid var(--border)', padding: '10px 0 34px' }}>
+              <button onClick={() => { setDrawerOpen(false); flashToast('Signed out'); }} style={{
+                display: 'flex', alignItems: 'center', gap: 13, padding: '13px 18px', width: '100%',
+                background: 'none', border: 'none', cursor: 'pointer', color: 'var(--stamp-red)',
+              }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: 'var(--stamp-red-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ico d={Icons.logout} size={17}/>
+                </div>
+                <span style={{ fontSize: 14.5, fontWeight: 600 }}>Log out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* identity header */}
       <div style={{ padding: '18px 16px 0' }}>
         {/* ── Instagram-style header: avatar + 3 key stats, then name/bio full-width ── */}
@@ -230,7 +290,18 @@ function ProfileView({ route }) {
         <div style={{ marginTop: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, letterSpacing: '-0.025em', color: 'var(--ink)' }}>{u.name}</div>
-            <BadgeShelf u={u} onOpen={() => push({ name: 'badges', user: handle })}/>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <BadgeShelf u={u} onOpen={() => push({ name: 'badges', user: handle })}/>
+              {isMe && (
+                <button onClick={() => setDrawerOpen(true)} aria-label="Menu" style={{
+                  width: 38, height: 34, borderRadius: 10, flexShrink: 0, cursor: 'pointer',
+                  border: '1px solid var(--border-strong)', background: 'var(--paper-soft)', color: 'var(--ink)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Ico d={Icons.menu} size={18} stroke={2}/>
+                </button>
+              )}
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 3, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 13, color: 'var(--slate-400)' }}>@{u.handle} · {u.city}</span>
@@ -242,21 +313,31 @@ function ProfileView({ route }) {
           {u.bio && <div style={{ fontSize: 13.5, color: 'var(--ink-soft)', lineHeight: 1.55, marginTop: 7 }}>{u.bio}</div>}
         </div>
 
-        {/* Request a vouch shortcut — own profile only */}
+        {/* Request a vouch + Messages — own profile only */}
         {isMe && (
-          <button onClick={() => push({ name: 'vouch-request' })} style={{
-            display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-            marginTop: 8, padding: '10px 13px', borderRadius: 11,
-            background: 'var(--verified-teal-soft)', border: '1px solid var(--verified-teal)',
-            cursor: 'pointer', textAlign: 'left',
-          }}>
-            <Ico d={Icons.shield} size={16} style={{ color: 'var(--verified-teal)', flexShrink: 0 }}/>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--verified-teal)' }}>Request a vouch</span>
-              <span style={{ fontSize: 12, color: 'var(--verified-teal)', opacity: 0.75, marginLeft: 6 }}>Ask collectors who know you</span>
-            </div>
-            <Ico d={Icons.chevR} size={15} style={{ color: 'var(--verified-teal)', opacity: 0.7, flexShrink: 0 }}/>
-          </button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button onClick={() => push({ name: 'vouch-request' })} style={{
+              flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 12px', borderRadius: 11,
+              background: 'var(--verified-teal-soft)', border: '1px solid var(--verified-teal)',
+              cursor: 'pointer', textAlign: 'left',
+            }}>
+              <Ico d={Icons.shield} size={16} style={{ color: 'var(--verified-teal)', flexShrink: 0 }}/>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--verified-teal)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Request a vouch</span>
+              <Ico d={Icons.chevR} size={15} style={{ color: 'var(--verified-teal)', opacity: 0.7, flexShrink: 0 }}/>
+            </button>
+            <button onClick={() => push({ name: 'inbox' })} aria-label="Messages" style={{
+              position: 'relative', display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
+              padding: '10px 12px', borderRadius: 11, cursor: 'pointer',
+              border: '1px solid var(--border-strong)', background: 'var(--paper-soft)', color: 'var(--ink)',
+            }}>
+              <Ico d={Icons.message} size={16}/>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>Messages</span>
+              {msgUnread > 0 && (
+                <span style={{ minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--stamp-red)', color: 'var(--paper)', fontFamily: 'var(--font-mono)', fontSize: 10.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{msgUnread}</span>
+              )}
+            </button>
+          </div>
         )}
 
         {/* engagement rewards — rank, XP & leaderboard entry */}

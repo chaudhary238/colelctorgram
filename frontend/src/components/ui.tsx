@@ -277,7 +277,10 @@ export function Segmented<T extends string>({
   onChange,
   style,
 }: {
-  options: { id: T; label: string }[];
+  /** `icon` renders inline before the label (design_v7 shared.jsx Segmented) — used by
+   *  the profile Collection tab, where tapping the already-active "Owned" segment opens
+   *  its filter popover and the sliders glyph is what advertises that. */
+  options: { id: T; label: string; icon?: React.ReactNode }[];
   value: T;
   onChange: (id: T) => void;
   style?: React.CSSProperties;
@@ -295,6 +298,10 @@ export function Segmented<T extends string>({
               padding: "8px 6px",
               borderRadius: 9,
               border: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 5,
               background: active ? "var(--paper)" : "transparent",
               color: active ? "var(--ink)" : "var(--ink-faint)",
               fontFamily: "var(--font-body)",
@@ -307,6 +314,7 @@ export function Segmented<T extends string>({
               transition: "all 120ms",
             }}
           >
+            {o.icon}
             {o.label}
           </button>
         );

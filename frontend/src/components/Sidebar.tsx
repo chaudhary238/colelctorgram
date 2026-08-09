@@ -16,9 +16,12 @@ import { useUnread } from "@/components/useUnread";
 // two Messages entry points and a half-merged inbox (caught in QA 2026-08-01).
 // NOTE design_v7 web/Web.jsx was NOT re-synced in this batch — it still lists "Database"
 // and a separate bell, so it is STALE here, not a contrary decision. Follow the handoff.
-//   • Messages row REMOVED — merged into "Activity" (badge = msgs + notifs), which opens
-//     /notifications where the Messages segment lives. /inbox stays routed for deep links
-//     (chat back button, listing/post "message seller" fallbacks).
+//   • Messages row REMOVED — merged into "Activity", which opens /notifications where the
+//     Messages segment lives. /inbox stays routed for deep links (chat back button,
+//     listing/post "message seller" fallbacks). The badge counts NOTIFICATIONS ONLY as of
+//     design_v7 2026-08-09 (Chrome.jsx: `badge={unread}`, was `unread + msgUnread`) — that
+//     batch put a Messages button carrying the DM count on My Space, so double-badging the
+//     same unread in two places would make the sidebar number unclearable from here.
 //   • Create is a PLAIN row here, styled exactly like Search (founder call 2026-08-01 — a
 //     filled red row read as an ad against a quiet vertical list). The "only coloured
 //     control" rule stays where the handoff put it: the mobile header, where Create has to
@@ -92,9 +95,9 @@ export function Sidebar() {
   // Live unread counts (DF-38) — replaces the old hardcoded badge:3.
   const unread = useUnread();
   const items = NAV;
-  // DV7-05 — the merged inbox counts both, same as the mobile bell.
+  // Activity badges notifications only — DMs are badged on My Space (v7, 2026-08-09).
   const badgeFor = (key: NavDef["badgeKey"]) =>
-    (key === "activity" ? unread.msgs + unread.notifs : key ? unread[key] : 0) || undefined;
+    (key === "activity" ? unread.notifs : key ? unread[key] : 0) || undefined;
 
   return (
     <nav

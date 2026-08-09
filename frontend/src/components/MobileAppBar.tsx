@@ -24,9 +24,12 @@ import { hideAppBar } from "@/lib/mobileChrome";
  *    roots name themselves. (v7 said "Screen title → Explore"; the founder reverted both the
  *    tab name AND its global search on 2026-08-01. Search across posts/people/communities/
  *    events lives behind THIS bar's search icon at `/search`; `/db` searches items only.)
- *  - **Messages merged into Activity.** One bell, one badge = DMs + notifications; the
- *    Activity screen splits them into segments. `/inbox` stays routable for deep links
- *    (chat back button, listing/post "message seller" fallbacks).
+ *  - **Messages merged into Activity.** One bell opening one screen, which splits into
+ *    Activity / Messages segments. Its BADGE counts notifications only — design_v7's
+ *    2026-08-09 batch changed `Chrome.jsx` from `badge={unread + msgUnread}` to
+ *    `badge={unread}` in the same pass that gave My Space its own Messages button with
+ *    the DM count on it. Unread DMs are surfaced there now, not here. `/inbox` stays
+ *    routable for deep links (chat back button, "message seller" fallbacks).
  *
  * Shown only below `lg`; desktop keeps the 245px Sidebar (DELIBERATE WEB DEVIATION,
  * WEB_UI_GUIDELINES §2 — the AppBar is mobile-only chrome). Sticky, --paper, with a
@@ -74,8 +77,8 @@ export function MobileAppBar() {
   if (hideAppBar(pathname)) return null;
   const title = TAB_TITLES[pathname];
   const isHome = !title;
-  // One badge for the merged inbox — DMs + activity, hidden at zero (DV7-05).
-  const activityBadge = unread.msgs + unread.notifs;
+  // Notifications only — DMs are badged on My Space (v7, 2026-08-09). Hidden at zero.
+  const activityBadge = unread.notifs;
 
   return (
     <header

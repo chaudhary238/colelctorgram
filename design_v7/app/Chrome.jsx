@@ -52,9 +52,9 @@ function AppBar({ title, wordmark = false, trailing, leading }) {
       flexShrink: 0, paddingTop: 52, background: 'var(--paper)', borderBottom: '1px solid var(--slate-200)',
       boxShadow: 'var(--shadow-sm)',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px 14px', minHeight: 44 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px 14px', minHeight: 44 }}>
         {/* primary action + search — top left */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           {leading}
           <IconButton icon={<Ico d={Icons.search} size={20}/>} onClick={() => setOverlay({ name: 'search' })}/>
         </div>
@@ -68,9 +68,9 @@ function AppBar({ title, wordmark = false, trailing, leading }) {
         </div>
 
         {/* events + activity inbox — top right */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <IconButton icon={<Ico d={Icons.calendar} size={20}/>} onClick={() => push({ name: 'events' })}/>
-          <IconButton icon={<Ico d={Icons.bell} size={20}/>} badge={(unread + msgUnread) || null}
+          <IconButton icon={<Ico d={Icons.bell} size={20}/>} badge={unread || null}
             onClick={() => setOverlay({ name: 'notifications' })}/>
           {trailing && <div style={{ marginLeft: 2 }}>{trailing}</div>}
         </div>
