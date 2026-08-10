@@ -8,7 +8,7 @@ interface PendingEvent {
   id: string;
   title: string;
   description: string | null;
-  category: string | null;
+  categories: string[];
   mode: string;
   city: string | null;
   venue: string | null;
@@ -24,12 +24,13 @@ export default function EventsAdminPage() {
   const [pending, setPending] = useState<PendingEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [actioned, setActioned] = useState<{ title: string; action: "approved" | "rejected" }[]>([]);
 
   useEffect(() => {
     api.get<PendingEvent[]>("/admin/events/pending")
       .then((data) => setPending(data ?? []))
-      .catch(console.error)
+      .catch((err) => { console.error(err); setLoadError(true); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -54,7 +55,8 @@ export default function EventsAdminPage() {
 
       <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, margin: "0 0 12px" }}>Pending approval ({pending.length})</h2>
       {loading && <div style={{ fontSize: 14, color: "var(--ink-faint)", padding: "20px 0" }}>Loading…</div>}
-      {!loading && pending.length === 0 && <div style={{ fontSize: 14, color: "var(--ink-faint)", padding: "20px 0" }}>All caught up — no events waiting for review.</div>}
+      {!loading && loadError && <div style={{ fontSize: 14, color: "var(--stamp-red)", padding: "20px 0" }}>Couldn&rsquo;t load the review queue. Retry in a moment.</div>}
+      {!loading && !loadError && pending.length === 0 && <div style={{ fontSize: 14, color: "var(--ink-faint)", padding: "20px 0" }}>All caught up — no events waiting for review.</div>}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
         {pending.map((e) => {
@@ -69,7 +71,7 @@ export default function EventsAdminPage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{e.title}</div>
                   <div style={{ fontSize: 12, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", marginBottom: 6 }}>
-                    {e.mode === "online" ? "Online" : `${e.city ?? "TBA"} · In person`} · @{e.host_handle}{e.category ? ` · ${e.category}` : ""}
+                    {e.mode === "online" ? "Online" : `${e.city ?? "TBA"} · In person`} · @{e.host_handle}{e.categories.length ? ` · ${e.categories.join(" · ")}` : ""}
                   </div>
                   <div style={{ fontSize: 13.5, color: "var(--ink-mute)", lineHeight: 1.4 }}>
                     {e.description ? e.description.slice(0, 160) + (e.description.length > 160 ? "…" : "") : "No description."}

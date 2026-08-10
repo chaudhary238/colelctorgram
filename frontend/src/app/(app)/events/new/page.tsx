@@ -160,7 +160,9 @@ export default function CreateEventPage() {
         ends_at: endsAt,
       });
       sessionStorage.removeItem(DRAFT_KEY);
-      router.push(`/events/${ev.id}/manage`);
+      // replace, not push — the composer must not sit behind Manage in history
+      // (Manage’s back would bounce into the submitted form / ping-pong with detail).
+      router.replace(`/events/${ev.id}/manage`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not submit event");
       setSubmitting(false);

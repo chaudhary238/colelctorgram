@@ -36,7 +36,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${jetbrains.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      {/* suppressHydrationWarning: extensions (Grammarly et al.) inject attributes
+          onto <body> before hydration — suppresses the attribute-mismatch noise on
+          this element only, one level deep. It does NOT hide real mismatches in the tree. */}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <ServiceWorker />
         <PHProvider>
           <AuthProvider>{children}</AuthProvider>

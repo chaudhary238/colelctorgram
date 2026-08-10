@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Clock, Calendar, MapPin, Globe, Tag, ChevronRight, X, Pencil } from "lucide-react";
+import { Clock, Calendar, MapPin, Globe, Tag, ChevronRight, X, Pencil } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiEvent } from "@/components/cards";
 import { shortDate } from "@/lib/utils";
 import { resolvePincode } from "@/lib/pincode";
 import { Avatar, SectionLabel, EmptyNote } from "@/components/ui";
+import { BackButton } from "@/components/BackButton";
 
 interface Guest { handle: string; name: string; avatar_url: string | null; city: string | null; status: "going" | "interested" }
 
@@ -182,9 +183,7 @@ export default function EventManagePage() {
     <div className="w-full max-w-[680px] flex flex-col pb-10">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link href={`/events/${id}`} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)" }}>
-            <ArrowLeft size={18} />
-          </Link>
+          <BackButton fallback={`/events/${id}`} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{pending ? "Pending approval" : "Manage event"}</div>
             <div style={{ fontSize: 11.5, color: "var(--ink-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{event.title}</div>

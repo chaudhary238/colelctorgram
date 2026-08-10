@@ -623,7 +623,7 @@ async def pending_events(
             "id": str(e.id),
             "title": e.title,
             "description": e.description,
-            "category": e.category,
+            "categories": list(e.categories or []),
             "mode": e.mode,
             "city": e.city,
             "venue": e.venue,
