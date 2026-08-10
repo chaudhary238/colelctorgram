@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Clock, Calendar, MapPin, Globe, Tag, ChevronRight, X, Pencil } from "lucide-react";
+import { Clock, Calendar, MapPin, Globe, Tag, ChevronRight, X, Pencil, Share2, MessageCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiEvent } from "@/components/cards";
 import { shortDate } from "@/lib/utils";
@@ -80,6 +80,7 @@ export default function EventManagePage() {
 
   // edit form
   const [editing, setEditing] = useState(false);
+  const [shared, setShared] = useState(false);
   const [eTitle, setETitle] = useState("");
   const [eVenue, setEVenue] = useState("");
   const [ePincode, setEPincode] = useState("");
@@ -153,6 +154,14 @@ export default function EventManagePage() {
     }
   };
 
+  async function share() {
+    const url = `${window.location.origin}/events/${id}`;
+    try {
+      if (navigator.share) await navigator.share({ title: event?.title ?? "Scorred", url });
+      else { await navigator.clipboard.writeText(url); setShared(true); setTimeout(() => setShared(false), 1600); }
+    } catch { /* cancelled */ }
+  }
+
   if (denied) {
     return (
       <div className="w-full max-w-[680px]" style={{ padding: 20 }}>
@@ -188,6 +197,11 @@ export default function EventManagePage() {
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{pending ? "Pending approval" : "Manage event"}</div>
             <div style={{ fontSize: 11.5, color: "var(--ink-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{event.title}</div>
           </div>
+          {!pending && (
+            <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: shared ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer", flexShrink: 0 }}>
+              <Share2 size={17} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -235,6 +249,7 @@ export default function EventManagePage() {
                 display: "flex", alignItems: "center", gap: 12, width: "100%", textDecoration: "none", marginBottom: 18, padding: 13,
                 background: "var(--ink)", color: "var(--paper)", borderRadius: 13,
               }}>
+                <MessageCircle size={19} style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>Post an update</div>
                   <div style={{ fontSize: 12.5, color: "rgba(244,239,230,0.7)" }}>Reach attendees in {event.community.name}</div>

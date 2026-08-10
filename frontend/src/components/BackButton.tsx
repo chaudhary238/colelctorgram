@@ -12,7 +12,7 @@ import { ArrowLeft } from "lucide-react";
  * to the actual previous page when there is in-app history, and only falls back to the
  * section home on a cold/deep-link entry (history depth ≤ 1).
  */
-export function BackButton({ fallback }: { fallback: string }) {
+export function BackButton({ fallback, transparent }: { fallback: string; transparent?: boolean }) {
   const router = useRouter();
 
   function onBack() {
@@ -28,7 +28,14 @@ export function BackButton({ fallback }: { fallback: string }) {
       type="button"
       onClick={onBack}
       aria-label="Back"
-      style={{
+      style={transparent ? {
+        // v7 DetailHeader `transparent` — floats over a hero image, so it carries its
+        // own scrim instead of a border (Chrome.jsx DetailHeader).
+        display: "flex", alignItems: "center", justifyContent: "center",
+        width: 38, height: 38, borderRadius: 12, border: "none",
+        background: "rgba(20,17,15,0.5)", backdropFilter: "blur(6px)",
+        color: "var(--paper)", cursor: "pointer",
+      } : {
         display: "flex", alignItems: "center", justifyContent: "center",
         width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)",
         background: "transparent", color: "var(--ink)", cursor: "pointer",

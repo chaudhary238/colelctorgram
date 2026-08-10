@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Calendar, Plus, MapPin, Search, X } from "lucide-react";
+import { Calendar, Plus, MapPin, Search, X, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiEvent, EventCard } from "@/components/cards";
 import { BackButton } from "@/components/BackButton";
@@ -196,6 +196,13 @@ export default function EventsPage() {
       ) : (
         // My Events (hosting)
         <div style={{ padding: "16px 20px 28px" }}>
+          <Link href="/events/new" style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 46,
+            borderRadius: 14, background: "var(--ink)", color: "var(--paper)", textDecoration: "none",
+            fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14.5, marginBottom: 16,
+          }}>
+            <Plus size={18} />List an event
+          </Link>
           {mineLoading && mine === null ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
               {Array.from({ length: 2 }).map((_, i) => <div key={i} style={{ height: 74, borderRadius: 14, background: "var(--bone)" }} />)}
@@ -238,10 +245,11 @@ function HostingRow({ event }: { event: ApiEvent }) {
           ) : cancelled ? (
             <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>{event.status === "rejected" ? "Not approved" : "Cancelled"}</span>
           ) : (
-            <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>{event.interested_count} going · tap to manage</span>
+            <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>{event.going_count ?? 0} going · tap to manage</span>
           )}
         </div>
       </div>
+      <ChevronRight size={18} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
     </Link>
   );
 }

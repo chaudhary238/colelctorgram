@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { shortDate } from "@/lib/utils";
 import { ApiEvent } from "@/components/cards";
 import { Avatar, ProductPhoto, SectionLabel, Tag } from "@/components/ui";
+import { useUser } from "@/lib/auth-context";
 
 interface Guest { handle: string; name: string; avatar_url: string | null; city: string | null; status: "going" | "interested" }
 
@@ -50,6 +51,13 @@ const TONE_BG: Record<string, string> = {
   red: "var(--stamp-red)", ink: "var(--ink)", gold: "var(--grail-gold)",
 };
 
+const heroBtn: React.CSSProperties = {
+  display: "flex", alignItems: "center", justifyContent: "center",
+  width: 38, height: 38, borderRadius: 12, border: "none",
+  background: "rgba(20,17,15,0.5)", backdropFilter: "blur(6px)",
+  cursor: "pointer",
+};
+
 function DetailRow({ icon: Icon, title, sub, last }: { icon: React.ComponentType<{ size?: number }>; title: string; sub?: string; last?: boolean }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", borderBottom: last ? "none" : "1px solid var(--border)" }}>
@@ -66,6 +74,7 @@ function DetailRow({ icon: Icon, title, sub, last }: { icon: React.ComponentType
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useUser();
   const [event, setEvent] = useState<ApiEvent | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -162,33 +171,26 @@ export default function EventDetailPage() {
 
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-28">
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <BackButton fallback="/events" />
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Event</span>
-          {event.is_host && (
-            <Link href={`/events/${id}/manage`} style={{ display: "flex", alignItems: "center", gap: 6, height: 36, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", textDecoration: "none", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13 }}>
-              <Settings2 size={15} />Manage
-            </Link>
-          )}
-          {!past && !event.is_host && (
-            <button onClick={toggleReminder} title={reminder ? "Reminder on" : "Remind me before it starts"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: `1px solid ${reminder ? "var(--stamp-red)" : "var(--border)"}`, color: reminder ? "var(--stamp-red)" : "var(--ink)", background: reminder ? "var(--stamp-red-soft)" : "none", cursor: "pointer" }}>
-              <Bell size={17} fill={reminder ? "var(--stamp-red)" : "none"} />
-            </button>
-          )}
-          <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: shared ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer" }}>
-            <Share2 size={17} />
-          </button>
-        </div>
-      </div>
-
-      {/* Hero banner */}
+      {/* Hero banner — v7 overlays the header on the image rather than stacking a bar above it */}
       <div style={{ position: "relative" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 3, display: "flex", alignItems: "center", gap: 8, padding: "10px 16px" }}>
+          <BackButton fallback="/events" transparent />
+          <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+            {!past && !event.is_host && (
+              <button onClick={toggleReminder} title={reminder ? "Reminder on" : "Remind me before it starts"} style={{ ...heroBtn, color: reminder ? "var(--grail-gold)" : "var(--paper)" }}>
+                <Bell size={17} fill={reminder ? "var(--grail-gold)" : "none"} />
+              </button>
+            )}
+            <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ ...heroBtn, color: shared ? "var(--grail-gold)" : "var(--paper)" }}>
+              <Share2 size={17} />
+            </button>
+          </div>
+        </div>
         {event.cover_image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={event.cover_image_url} alt="" style={{ display: "block", width: "100%", aspectRatio: "3/2", objectFit: "cover" }} />
         ) : (
-          <ProductPhoto tone="plum" ratio="3/2" rounded={0} />
+          <ProductPhoto tone={event.community?.tone ?? "plum"} ratio="3/2" rounded={0} />
         )}
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 40%, rgba(20,17,15,0.8) 100%)" }} />
         <div style={{ position: "absolute", bottom: 14, left: 20, right: 20, display: "flex", gap: 12, alignItems: "flex-end" }}>
@@ -230,12 +232,27 @@ export default function EventDetailPage() {
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-faint)" }}>{goingCount}</span>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "12px 0 14px" }}>
-          {going.slice(0, 10).map((g) => (
-            <Link key={g.handle} href={`/profile/${g.handle}`} style={{ display: "flex", alignItems: "center", gap: 7, padding: "5px 11px 5px 5px", borderRadius: 999, textDecoration: "none", background: "var(--paper-soft)", border: "1px solid var(--border)" }}>
-              <Avatar name={g.name} size={22} />
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>{g.name.split(" ")[0]}</span>
-            </Link>
-          ))}
+          {going.slice(0, 10).map((g) => {
+            const isMe = !!user && g.handle === user.handle;
+            const chip: React.CSSProperties = {
+              display: "flex", alignItems: "center", gap: 7, padding: "5px 11px 5px 5px", borderRadius: 999,
+              textDecoration: "none",
+              background: isMe ? "var(--forest-soft)" : "var(--paper-soft)",
+              border: `1px solid ${isMe ? "var(--forest)" : "var(--border)"}`,
+            };
+            // v7 renders your own chip as a non-interactive label ("You"), not a profile link.
+            return isMe ? (
+              <span key={g.handle} style={chip}>
+                <Avatar name={g.name} photo={g.avatar_url ?? undefined} size={22} />
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>You</span>
+              </span>
+            ) : (
+              <Link key={g.handle} href={`/profile/${g.handle}`} style={chip}>
+                <Avatar name={g.name} photo={g.avatar_url ?? undefined} size={22} />
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>{g.name.split(" ")[0]}</span>
+              </Link>
+            );
+          })}
           {going.length === 0 && <span style={{ fontSize: 13, color: "var(--ink-faint)" }}>Be the first to RSVP.</span>}
           {/* QA2 — "+N more" opens the full going roster, same as interested. */}
           {going.length > going.slice(0, 10).length && (

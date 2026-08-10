@@ -9,6 +9,7 @@ import { ApiCommunity, ApiEvent } from "@/components/cards";
 import { Segmented, SectionLabel } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
 import { resolvePincode } from "@/lib/pincode";
+import { fireToast } from "@/components/gamification";
 import { ADD_CATEGORIES } from "@/lib/catalog";
 
 // v4 EventCreate maps the global 5-category CATEGORIES (incl. TCG) as plain chipLabel
@@ -21,9 +22,9 @@ type ComMode = "none" | "create" | "existing";
 interface ModCommunity extends ApiCommunity { member_role?: string }
 
 interface Draft {
-  cover: string | null; title: string; cats: string[]; mode: "in_person" | "online";
+  cover: string | null; title: string; cats: string[];
   date: string; endDate: string; time: string; endTime: string;
-  venue: string; onlineUrl: string; pincode: string; about: string; bring: string;
+  venue: string; pincode: string; about: string; bring: string;
   comMode: ComMode; existingCom: string;
 }
 
@@ -65,13 +66,11 @@ export default function CreateEventPage() {
   const [cover, setCover] = useState<string | null>(d?.cover ?? null);
   const [title, setTitle] = useState(d?.title ?? "");
   const [cats, setCats] = useState<string[]>(d?.cats ?? []);
-  const [mode, setMode] = useState<"in_person" | "online">(d?.mode ?? "in_person");
   const [date, setDate] = useState(d?.date ?? "");
   const [endDate, setEndDate] = useState(d?.endDate ?? "");
   const [time, setTime] = useState(d?.time ?? "");
   const [endTime, setEndTime] = useState(d?.endTime ?? "");
   const [venue, setVenue] = useState(d?.venue ?? "");
-  const [onlineUrl, setOnlineUrl] = useState(d?.onlineUrl ?? "");
   const [pincode, setPincode] = useState(d?.pincode ?? "");
   const [about, setAbout] = useState(d?.about ?? "");
   const [bring, setBring] = useState(d?.bring ?? "");
@@ -79,16 +78,16 @@ export default function CreateEventPage() {
   const [existingCom, setExistingCom] = useState(d?.existingCom ?? "");
   const [createdCom, setCreatedCom] = useState<ApiCommunity | null>(null);
   const [ownedComs, setOwnedComs] = useState<ModCommunity[]>([]);
+  const [existing, setExisting] = useState<ApiEvent[]>([]);
   const [tried, setTried] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const online = mode === "online";
   // Canonical city is derived from the PIN — never typed (DV4-07b city dedup).
-  const resolved = online ? null : resolvePincode(pincode);
+  const resolved = resolvePincode(pincode);
 
   const snapshot = (): Draft => ({
-    cover, title, cats, mode, date, endDate, time, endTime, venue, onlineUrl, pincode, about, bring, comMode, existingCom,
+    cover, title, cats, date, endDate, time, endTime, venue, pincode, about, bring, comMode, existingCom,
   });
 
   // Bind the freshly-made community (async fetch + URL cleanup are effect-safe — the
@@ -99,20 +98,28 @@ export default function CreateEventPage() {
     router.replace("/events/new");
   }, [boot.newCommunityId, router]);
 
+  // Existing titles, for the v7 duplicate-name guard (matched case/whitespace-insensitively).
+  useEffect(() => {
+    api.get<ApiEvent[]>("/events?limit=50").then((e) => setExisting(e ?? [])).catch(() => {});
+  }, []);
+
   // "Use mine" — communities the caller founds/mods.
   useEffect(() => {
     if (comMode !== "existing" || ownedComs.length) return;
     api.get<ModCommunity[]>("/communities?scope=moderating").then((c) => setOwnedComs(c ?? [])).catch(() => {});
   }, [comMode, ownedComs.length]);
 
+  const norm = (v: string) => v.trim().toLowerCase().replace(/\s+/g, " ");
+  const dupEvent = title.trim() ? existing.find((e) => norm(e.title) === norm(title)) : undefined;
+
   const toggleCat = (id: string) =>
     setCats((cs) => (cs.includes(id) ? cs.filter((x) => x !== id) : [...cs, id]));
 
   const miss = {
     title: !title.trim(), cats: cats.length === 0, date: !date, time: !time.trim(),
-    venue: !venue.trim(), pincode: !online && !resolved, about: !about.trim(),
-    // Online events need a joinable meeting link (QA 12.1).
-    onlineUrl: online && !onlineUrl.trim(),
+    venue: !venue.trim(), pincode: !resolved, about: !about.trim(),
+    // v7 blocks a submit whose title collides with an event that already exists.
+    dup: !!dupEvent,
     endDate: !!(endDate && date && endDate < date),
     community: comMode === "existing" ? !existingCom : comMode === "create" ? !createdCom : false,
   };
@@ -143,16 +150,16 @@ export default function CreateEventPage() {
       comMode === "existing" ? existingCom : comMode === "create" && createdCom ? createdCom.id : null;
 
     try {
-      const ev = await api.post<ApiEvent>("/events", {
+      await api.post<ApiEvent>("/events", {
         title: title.trim(),
         description: about.trim(),
         categories: cats,
-        mode,
-        city: online ? null : resolved?.city ?? null,
-        pincode: online ? null : pincode,
+        // v7 EventCreate is physical-only — no online mode on the create surface.
+        mode: "in_person",
+        city: resolved?.city ?? null,
+        pincode,
         venue: venue.trim(),
-        // Normalise to a real URL so attendees get a clickable join link.
-        online_url: online ? (/^https?:\/\//i.test(onlineUrl.trim()) ? onlineUrl.trim() : `https://${onlineUrl.trim()}`) : null,
+        online_url: null,
         cover_image_url: cover,
         bring: bring.trim() || null,
         community_id: communityId,
@@ -160,9 +167,10 @@ export default function CreateEventPage() {
         ends_at: endsAt,
       });
       sessionStorage.removeItem(DRAFT_KEY);
-      // replace, not push — the composer must not sit behind Manage in history
-      // (Manage’s back would bounce into the submitted form / ping-pong with detail).
-      router.replace(`/events/${ev.id}/manage`);
+      // v7 returns to the list and points the host at "My Events"; replace (not push)
+      // keeps the submitted composer out of the back stack.
+      router.replace("/events");
+      fireToast("Submitted for approval — find it under “My Events”");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not submit event");
       setSubmitting(false);
@@ -177,7 +185,7 @@ export default function CreateEventPage() {
             <X size={18} />
           </Link>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Host an event</div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>List an event</div>
             <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Reviewed before it goes live</div>
           </div>
           <button onClick={submit} disabled={submitting} style={{ height: 36, padding: "0 16px", borderRadius: 9, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, cursor: submitting ? "wait" : "pointer", opacity: invalid ? 0.5 : 1 }}>
@@ -191,7 +199,13 @@ export default function CreateEventPage() {
         <ImageUploader onUpload={(url) => setCover(url)} previewUrl={cover ?? undefined} label="Add a cover photo" />
 
         <Label required missing={tried && miss.title}>Event title</Label>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Mumbai Collector Meet · Vol 5" style={{ ...fieldStyle, borderColor: tried && miss.title ? "var(--stamp-red)" : "var(--border-strong)" }} />
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Mumbai Collector Meet · Vol 5" style={{ ...fieldStyle, borderColor: (tried && miss.title) || dupEvent ? "var(--stamp-red)" : "var(--border-strong)" }} />
+        {dupEvent && (
+          <div style={{ display: "flex", gap: 7, alignItems: "flex-start", margin: "8px 2px 0", fontSize: 12, color: "var(--stamp-red)", lineHeight: 1.45 }}>
+            <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>&ldquo;{dupEvent.title}&rdquo; already exists. Use a more specific name (add a volume, date or city).</span>
+          </div>
+        )}
 
         <Label required missing={tried && miss.cats} hint="pick one or more">Categories</Label>
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
@@ -209,9 +223,6 @@ export default function CreateEventPage() {
             );
           })}
         </div>
-
-        <Label required>Format</Label>
-        <Segmented value={mode} onChange={(v) => setMode(v as "in_person" | "online")} options={[{ id: "in_person", label: "In person" }, { id: "online", label: "Online" }]} />
 
         <div style={{ display: "flex", gap: 10 }}>
           <div style={{ flex: 1 }}>
@@ -234,52 +245,41 @@ export default function CreateEventPage() {
           </div>
         </div>
 
-        <Label required missing={tried && miss.venue}>{online ? "Stream / link name" : "Venue"}</Label>
-        <input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder={online ? "e.g. Scorred Live" : "e.g. Phoenix Marketcity, Kurla"} style={{ ...fieldStyle, borderColor: tried && miss.venue ? "var(--stamp-red)" : "var(--border-strong)" }} />
+        <Label required missing={tried && miss.venue}>Venue</Label>
+        <input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="e.g. Phoenix Marketcity, Kurla" style={{ ...fieldStyle, borderColor: tried && miss.venue ? "var(--stamp-red)" : "var(--border-strong)" }} />
 
-        {online && (
-          <>
-            <Label required missing={tried && miss.onlineUrl} hint="where people join">Meeting link</Label>
-            <input value={onlineUrl} onChange={(e) => setOnlineUrl(e.target.value)} inputMode="url" placeholder="e.g. meet.google.com/abc-defg-hij" style={{ ...fieldStyle, borderColor: tried && miss.onlineUrl ? "var(--stamp-red)" : "var(--border-strong)" }} />
-          </>
-        )}
-
-        {!online && (
-          <>
-            <Label required missing={tried && miss.pincode} hint="6-digit PIN">Location pincode</Label>
-            <input value={pincode} onChange={(e) => setPincode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))} inputMode="numeric" placeholder="e.g. 560038"
-              style={{ ...fieldStyle, fontFamily: "var(--font-mono)", letterSpacing: "0.12em", borderColor: tried && miss.pincode ? "var(--stamp-red)" : "var(--border-strong)" }} />
-            {resolved ? (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 13px", background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", borderRadius: 12 }}>
-                  <MapPin size={17} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)" }}>{resolved.city}{resolved.area ? <span style={{ fontWeight: 500, color: "var(--ink-faint)" }}> · {resolved.area}</span> : null}</div>
-                    <div style={{ fontSize: 11, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em", marginTop: 1 }}>CITY SET FROM PIN {pincode}</div>
-                  </div>
-                </div>
-                {/* exact-spot map preview (v4 parity; the draggable pin is an app-only affordance) */}
-                <div style={{ position: "relative", marginTop: 10, aspectRatio: "5 / 2", borderRadius: 12, overflow: "hidden", border: "1px solid var(--border-strong)",
-                  background: "repeating-linear-gradient(45deg, var(--paper-soft), var(--paper-soft) 9px, var(--bone) 9px, var(--bone) 18px)" }}>
-                  <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 7 }}>
-                    <span style={{ width: 18, height: 18, borderRadius: "50% 50% 50% 0", background: "var(--stamp-red)", transform: "rotate(-45deg)", boxShadow: "var(--shadow-2)" }} />
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.08em", color: "var(--ink-mute)", textTransform: "uppercase" }}>Map pin set in the app</span>
-                  </div>
-                </div>
-                <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0", lineHeight: 1.5 }}>Spelling never splits a city — the PIN sets it.</div>
+        <Label required missing={tried && miss.pincode} hint="6-digit PIN">Location pincode</Label>
+        <input value={pincode} onChange={(e) => setPincode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))} inputMode="numeric" placeholder="e.g. 560038"
+          style={{ ...fieldStyle, fontFamily: "var(--font-mono)", letterSpacing: "0.12em", borderColor: tried && miss.pincode ? "var(--stamp-red)" : "var(--border-strong)" }} />
+        {resolved ? (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 13px", background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", borderRadius: 12 }}>
+              <MapPin size={17} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)" }}>{resolved.city}{resolved.area ? <span style={{ fontWeight: 500, color: "var(--ink-faint)" }}> · {resolved.area}</span> : null}</div>
+                <div style={{ fontSize: 11, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em", marginTop: 1 }}>CITY SET FROM PIN {pincode}</div>
               </div>
-            ) : pincode.length === 6 ? (
-              <div style={{ display: "flex", gap: 9, alignItems: "flex-start", marginTop: 10, padding: "10px 13px", background: "var(--stamp-red-soft)", border: "1px solid var(--stamp-red)", borderRadius: 12, fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.45 }}>
-                <Info size={15} style={{ color: "var(--stamp-red)", flexShrink: 0, marginTop: 1 }} />
-                We couldn&rsquo;t match that PIN. Check the 6 digits and try again.
+            </div>
+            {/* exact-spot map preview (v4 parity; the draggable pin is an app-only affordance) */}
+            <div style={{ position: "relative", marginTop: 10, aspectRatio: "5 / 2", borderRadius: 12, overflow: "hidden", border: "1px solid var(--border-strong)",
+              background: "repeating-linear-gradient(45deg, var(--paper-soft), var(--paper-soft) 9px, var(--bone) 9px, var(--bone) 18px)" }}>
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                <span style={{ width: 18, height: 18, borderRadius: "50% 50% 50% 0", background: "var(--stamp-red)", transform: "rotate(-45deg)", boxShadow: "var(--shadow-2)" }} />
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.08em", color: "var(--ink-mute)", textTransform: "uppercase" }}>Map pin set in the app</span>
               </div>
-            ) : null}
-          </>
-        )}
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0", lineHeight: 1.5 }}>Spelling never splits a city — the PIN sets it.</div>
+          </div>
+        ) : pincode.length === 6 ? (
+          <div style={{ display: "flex", gap: 9, alignItems: "flex-start", marginTop: 10, padding: "10px 13px", background: "var(--stamp-red-soft)", border: "1px solid var(--stamp-red)", borderRadius: 12, fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.45 }}>
+            <Info size={15} style={{ color: "var(--stamp-red)", flexShrink: 0, marginTop: 1 }} />
+            We couldn&rsquo;t match that PIN. Check the 6 digits and try again.
+          </div>
+    ) : null}
 
         <Label required missing={tried && miss.about}>Description</Label>
-        <textarea value={about} onChange={(e) => setAbout(e.target.value)} rows={3} placeholder="What's happening, who it's for, what to expect…"
-          style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none", borderColor: tried && miss.about ? "var(--stamp-red)" : "var(--border-strong)" }} />
+    <textarea value={about} onChange={(e) => setAbout(e.target.value)} rows={3} placeholder="What's happening, who it's for, what to expect…"
+      style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none", borderColor: tried && miss.about ? "var(--stamp-red)" : "var(--border-strong)" }} />
 
         <Label hint="optional">What to bring</Label>
         <input value={bring} onChange={(e) => setBring(e.target.value)} placeholder="e.g. Up to 3 pieces to display or trade" style={fieldStyle} />
