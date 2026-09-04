@@ -3,18 +3,21 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Flag, ShieldCheck, Users, Plus, Check, Star, ChevronRight } from "lucide-react";
+import { Flag, Plus, Check, Star } from "lucide-react";
 import { api } from "@/lib/api";
+import { useUser } from "@/lib/auth-context";
 import { BackButton } from "@/components/BackButton";
-import { ProductPhoto, SectionLabel } from "@/components/ui";
 import { ReportCatalogueSheet } from "@/components/ReportCatalogueSheet";
 import { DbPeopleModal, type DbPeopleMode } from "@/components/DbPeopleModal";
+import {
+  ItemPageBody, OwnershipCard, type RatingAggregate, type SpecEntry,
+} from "@/components/ItemPageBody";
 import { formatMoney, CAT_META } from "@/lib/catalog";
 
 // Scorred DB entry page — the shared library record for one SKU (NOT a user's item).
-// Web-first surface, not in design_v6 (see DECISIONS.md 2026-07-11): search results
-// navigate here like every other result type, and this page carries the actions —
-// add to collection / view your copy / report the entry.
+// DV8-05: renders the SAME body as /item/[id] via ItemPageBody — only the ownership
+// card variant and the footer CTA are page-specific. SKU is no longer shown in the
+// UI (internal key only, DV8 §6).
 
 interface DbEntry {
   sku: string;
@@ -33,6 +36,27 @@ interface DbEntry {
   wishlists_count: number;
   viewer_item: { id: string; status: string } | null;
   submitted_by_handle: string | null;
+  // DV8 §2 — catalogue-entry rating aggregate + the caller's own score.
+  rating_avg: number | null;
+  rating_count: number;
+  my_rating: number | null;
+}
+
+// The viewer's own copy, when they hold one — fills the ownership card (DV8 §1).
+interface OwnCopy {
+  id: string;
+  status: string;
+  condition: string | null;
+  value: number | null;
+  value_currency?: string;
+  is_listed: boolean;
+  photo_count: number;
+  preorder_ordered_at: string | null;
+  preorder_eta: string | null;
+  preorder_window_precision?: string | null;
+  preorder_seller?: string | null;
+  preorder_total?: number | null;
+  preorder_deposit?: number | null;
 }
 
 const VIEWER_STATUS_LABEL: Record<string, string> = {
@@ -42,23 +66,27 @@ const VIEWER_STATUS_LABEL: Record<string, string> = {
   intel: "Your DB contribution",
 };
 
-function SpecRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
-      <span style={{ fontSize: 13, color: "var(--ink-faint)" }}>{label}</span>
-      <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 13.5, color: "var(--ink)" }}>{value}</span>
-    </div>
-  );
-}
-
 export default function DbEntryPage() {
   const { sku } = useParams<{ sku: string }>();
+  const { user } = useUser();
   const [entry, setEntry] = useState<DbEntry | null>(null);
+  const [ownCopy, setOwnCopy] = useState<OwnCopy | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [wishBusy, setWishBusy] = useState(false);
   const [people, setPeople] = useState<DbPeopleMode | null>(null);
+
+  function load(e: DbEntry) {
+    setEntry(e);
+    // Held copy → fetch its private facts so the ownership card can render the
+    // collapsed "Owned · Sealed · ₹4,800" line. Wishlist/intel rows get no card.
+    if (e.viewer_item && (e.viewer_item.status === "owned" || e.viewer_item.status === "preorder")) {
+      api.get<OwnCopy>(`/items/${e.viewer_item.id}`).then(setOwnCopy).catch(() => setOwnCopy(null));
+    } else {
+      setOwnCopy(null);
+    }
+  }
 
   // Star = wishlist (casual "might want someday"; taxonomy 2026-07-11). Active when
   // the viewer's copy of this SKU is a wishlist item; hidden once they own it.
@@ -69,7 +97,7 @@ export default function DbEntryPage() {
     try {
       await api.post(`/catalogue/${encodeURIComponent(entry.sku)}/wishlist`);
       const fresh = await api.get<DbEntry>(`/catalogue/${encodeURIComponent(entry.sku)}`);
-      setEntry(fresh);
+      load(fresh);
     } catch (e) {
       console.error(e);
     } finally {
@@ -79,7 +107,7 @@ export default function DbEntryPage() {
 
   useEffect(() => {
     api.get<DbEntry>(`/catalogue/${encodeURIComponent(sku)}`)
-      .then(setEntry)
+      .then(load)
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
   }, [sku]);
@@ -110,6 +138,18 @@ export default function DbEntryPage() {
   }
 
   const catLabel = CAT_META[entry.category]?.label ?? entry.category;
+  const specs: SpecEntry[] = [
+    { label: "Brand", value: entry.brand },
+    { label: "Category", value: catLabel },
+    entry.scale ? { label: "Scale", value: entry.scale } : null,
+    entry.year ? { label: "Year", value: entry.year } : null,
+    entry.est_retail_price > 0 ? { label: "Est. retail", value: formatMoney(entry.est_retail_price) } : null,
+  ].filter((s): s is SpecEntry => s != null);
+  const rating: RatingAggregate = {
+    rating_avg: entry.rating_avg,
+    rating_count: entry.rating_count,
+    my_rating: entry.my_rating,
+  };
 
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-24">
@@ -117,95 +157,50 @@ export default function DbEntryPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <BackButton fallback="/db" />
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Scorred DB</span>
-        </div>
-      </div>
-
-      <ProductPhoto tone={entry.tone || "ink"} src={entry.thumbnail_url} ratio="1/1" rounded={0} label="catalogue reference" />
-
-      <div style={{ padding: "14px 20px 0" }}>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8, alignItems: "center" }}>
-          {entry.is_verified ? (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: "var(--verified-teal)", background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", borderRadius: 5, padding: "2px 7px" }}>
-              <ShieldCheck size={11} /> Scorred Verified
-            </span>
-          ) : (
-            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-mute)", background: "var(--bone)", borderRadius: 5, padding: "2px 7px" }}>Pending verification</span>
-          )}
-          {entry.pending && (
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: 5, background: "var(--grail-gold)", color: "var(--paper)" }}>
-              Pending verification
-            </span>
-          )}
-          {entry.viewer_item && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: 5, background: "var(--verified-teal)", color: "var(--paper)" }}>
-              <Check size={11} /> {VIEWER_STATUS_LABEL[entry.viewer_item.status] ?? "In your collection"}
-            </span>
-          )}
-        </div>
-
-        <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 23, letterSpacing: "-0.025em", lineHeight: 1.15, margin: "0 0 4px" }}>
-          {entry.title}
-        </h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--ink-faint)" }}>SKU {entry.sku}</span>
-          <button type="button" onClick={() => setReporting(true)} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--ink-faint)" }}>
-            <Flag size={12} /> Report
+          <button type="button" onClick={() => setReporting(true)} title="Report this entry" aria-label="Report this entry"
+            style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--ink-faint)", padding: 6 }}>
+            <Flag size={14} />
           </button>
         </div>
-
-        {/* DV7-02 — the shelf-count row is tappable and opens the people list
-            (design_v7 DbPeopleList). Stays a plain row when nobody holds it yet. */}
-        {entry.collectors_count === 0 && entry.wishlists_count === 0 ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: "12px 14px", marginBottom: 16 }}>
-            <Users size={16} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
-            <span style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>
-              No collectors have this on their shelf yet — be the first.
-            </span>
-          </div>
-        ) : (
-          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-            <CountTile
-              n={entry.collectors_count}
-              label="own this"
-              icon={<Users size={13} style={{ color: "var(--ink-mute)" }} />}
-              onClick={() => setPeople("owners")}
-            />
-            <CountTile
-              n={entry.wishlists_count}
-              label="wishlisted"
-              icon={<Star size={13} style={{ color: "var(--ink-mute)" }} />}
-              onClick={() => setPeople("wishlist")}
-            />
-          </div>
-        )}
-
-        <SectionLabel>Details</SectionLabel>
-        <div style={{ marginTop: 4, marginBottom: 18 }}>
-          <SpecRow label="Brand" value={entry.brand} />
-          <SpecRow label="Category" value={catLabel} />
-          {entry.scale && <SpecRow label="Scale" value={entry.scale} />}
-          {entry.year && <SpecRow label="Year" value={entry.year} />}
-          {entry.est_retail_price > 0 && <SpecRow label="Est. retail" value={formatMoney(entry.est_retail_price)} />}
-        </div>
-
-        {entry.description && (
-          <>
-            <SectionLabel>About this entry</SectionLabel>
-            <div style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--ink-soft)", marginTop: 10, marginBottom: 18 }}>
-              {entry.description}
-            </div>
-          </>
-        )}
-
-        {!entry.is_verified && entry.submitted_by_handle && (
-          <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 18 }}>
-            Added to the Scorred DB by{" "}
-            <Link href={`/profile/${entry.submitted_by_handle}`} style={{ color: "var(--verified-teal)", fontWeight: 600, textDecoration: "none" }}>
-              @{entry.submitted_by_handle}
-            </Link>
-          </div>
-        )}
       </div>
+
+      <ItemPageBody
+        images={entry.thumbnail_url ? [entry.thumbnail_url] : []}
+        tone={entry.tone || "ink"}
+        photoLabel="catalogue reference"
+        title={entry.title}
+        metaLine={[entry.brand, entry.scale, entry.year].filter(Boolean).join(" · ")}
+        provenance={{
+          isVerified: entry.is_verified,
+          addedBy: entry.submitted_by_handle,
+          isYou: !!user?.handle && user.handle === entry.submitted_by_handle,
+        }}
+        ownershipCard={
+          ownCopy && (ownCopy.status === "owned" || ownCopy.status === "preorder") ? (
+            <OwnershipCard
+              status={ownCopy.status === "preorder" ? "preorder" : "owned"}
+              viewerIsOwner
+              condition={ownCopy.condition}
+              value={ownCopy.value}
+              currency={ownCopy.value_currency}
+              photoCount={ownCopy.photo_count}
+              isListed={ownCopy.is_listed}
+              preorder={ownCopy.status === "preorder" ? {
+                orderedAt: ownCopy.preorder_ordered_at,
+                eta: ownCopy.preorder_eta,
+                precision: ownCopy.preorder_window_precision ?? null,
+                seller: ownCopy.preorder_seller ?? null,
+                total: ownCopy.preorder_total ?? null,
+                deposit: ownCopy.preorder_deposit ?? null,
+              } : null}
+            />
+          ) : null
+        }
+        stats={{ owners: entry.collectors_count, wishlisted: entry.wishlists_count, onOpen: (m) => setPeople(m) }}
+        about={{ description: entry.description, specs }}
+        rating={{ sku: entry.sku, initial: rating }}
+        sku={entry.sku}
+      />
 
       <div className="ch-cta-bar">
         {entry.viewer_item && entry.viewer_item.status !== "wishlist" ? (
@@ -245,31 +240,5 @@ export default function DbEntryPage() {
         <DbPeopleModal sku={entry.sku} title={entry.title} mode={people} onClose={() => setPeople(null)} />
       )}
     </div>
-  );
-}
-
-/* ── Tappable shelf-count tile (v7 ExploreItemDetail stat row) ── */
-function CountTile({ n, label, icon, onClick }: { n: number; label: string; icon: React.ReactNode; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        flex: 1, textAlign: "left", cursor: "pointer", border: "1px solid var(--border)",
-        background: "var(--paper-soft)", borderRadius: 13, padding: "12px 14px",
-        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
-      }}
-    >
-      <span>
-        <span style={{ display: "block", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 22, color: "var(--ink)", lineHeight: 1.1, fontFeatureSettings: '"tnum" 1' }}>
-          {n.toLocaleString("en-IN")}
-        </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}>
-          {icon}
-          <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink-mute)" }}>{label}</span>
-        </span>
-      </span>
-      <ChevronRight size={16} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
-    </button>
   );
 }

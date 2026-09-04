@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>CollectorHub — Rewards & Ranking System</title>
+<style>
+  :root {
+    --red:    #C8332A;
+    --ink:    #1A1714;
+    --muted:  #6B6460;
+    --faint:  #9E9894;
+    --border: #E4E0DB;
+    --bone:   #F5F1EB;
+    --teal:   #1A8080;
+    --gold:   #B8860B;
+    --plum:   #5C3A6E;
+    --forest: #2D6041;
+    --paper:  #FDFAF6;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Georgia', serif;
+    font-size: 14.5px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .doc {
+    max-width: 8.5in;
+    margin: 0 auto;
+    background: var(--paper);
+    padding: 56px clamp(24px, 6vw, 0.85in) 96px;
+  }
+
+  .doc-frame { width: 100%; border-collapse: collapse; }
+  .doc-frame td { padding: 0; }
+  .hdr-space, .ftr-space { display: none; }
+
+  /* ── Typography ── */
+  h1 {
+    font-family: 'Georgia', serif;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--ink);
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+  .doc-meta {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--faint);
+    text-transform: uppercase;
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--ink);
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .doc-meta span { display: flex; align-items: center; gap: 5px; }
+
+  h2 {
+    font-family: 'Georgia', serif;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin: 48px 0 6px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    text-wrap: balance;
+    break-after: avoid;
+  }
+  h2 .section-num {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--red);
+    letter-spacing: 0.05em;
+    margin-right: 8px;
+  }
+  h3 {
+    font-family: 'Georgia', serif;
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 28px 0 8px;
+    break-after: avoid;
+    text-wrap: balance;
+  }
+  p { margin: 0 0 14px; text-wrap: pretty; }
+  ul, ol { margin: 0 0 14px; padding-left: 1.5em; }
+  li { margin-bottom: 5px; text-wrap: pretty; }
+  strong { font-weight: 700; }
+  em { font-style: italic; }
+
+  /* ── Tables ── */
+  table.data {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    margin: 16px 0 24px;
+    break-inside: avoid;
+  }
+  table.data th {
+    background: var(--ink);
+    color: white;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 9px 12px;
+    text-align: left;
+    font-weight: 400;
+  }
+  table.data td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--ink);
+  }
+  table.data tr:nth-child(even) td { background: var(--bone); }
+  table.data td.mono {
+    font-family: 'Courier New', monospace;
+    font-size: 12.5px;
+  }
+  table.data td.tag {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── Callout blocks ── */
+  .callout {
+    margin: 20px 0;
+    padding: 14px 16px;
+    border-radius: 6px;
+    border-left: 3px solid;
+    break-inside: avoid;
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .callout.red   { background: #FEF2F1; border-color: var(--red);    color: #7A1E1A; }
+  .callout.teal  { background: #EBF6F6; border-color: var(--teal);   color: #154F4F; }
+  .callout.gold  { background: #FDF8E8; border-color: var(--gold);   color: #6B4E05; }
+  .callout.plum  { background: #F5EFF9; border-color: var(--plum);   color: #3B2047; }
+  .callout.ink   { background: var(--bone); border-color: var(--ink); color: var(--ink); }
+  .callout strong { display: block; margin-bottom: 4px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-family: 'Courier New', monospace; }
+
+  /* ── Tier cards ── */
+  .tier-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 16px 0 24px;
+    break-inside: avoid;
+  }
+  .tier-card {
+    padding: 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: white;
+    break-inside: avoid;
+  }
+  .tier-card .tier-name {
+    font-family: 'Georgia', serif;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .tier-card .tier-xp {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: var(--faint);
+    letter-spacing: 0.05em;
+    margin-bottom: 7px;
+  }
+  .tier-card .tier-perk {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .tier-card .tier-dot {
+    width: 10px; height: 10px; border-radius: 3px;
+    display: inline-block; margin-right: 6px; vertical-align: middle;
+  }
+
+  /* ── Badge pills ── */
+  .badge-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 14px 0 24px;
+    break-inside: avoid;
+  }
+  .badge-pill {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: white;
+    break-inside: avoid;
+  }
+  .badge-icon {
+    font-size: 20px;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .badge-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .badge-desc {
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .badge-type {
+    display: inline-block;
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-top: 5px;
+  }
+  .badge-type.permanent { background: #E8F5E9; color: var(--forest); }
+  .badge-type.seasonal  { background: #FDF8E8; color: var(--gold);   }
+  .badge-type.monthly   { background: #F5EFF9; color: var(--plum);   }
+
+  /* ── Archetype cards ── */
+  .arche-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 14px 0 24px;
+    break-inside: avoid;
+  }
+  .arche-card {
+    padding: 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: white;
+  }
+  .arche-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 3px;
+  }
+  .arche-blurb {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+  .arche-examples {
+    font-size: 11.5px;
+    color: var(--faint);
+    font-style: italic;
+  }
+
+  /* ── Leaderboard diagram ── */
+  .podium {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 8px;
+    margin: 16px 0 8px;
+    break-inside: avoid;
+  }
+  .podium-slot {
+    flex: 1;
+    max-width: 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+  .podium-circle {
+    width: 48px; height: 48px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 20px;
+    font-family: 'Courier New', monospace;
+    color: white;
+  }
+  .podium-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.05em;
+  }
+  .podium-block {
+    width: 100%;
+    border-radius: 4px 4px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Code blocks ── */
+  .code-block {
+    background: #1A1714;
+    color: #E8E0D4;
+    border-radius: 6px;
+    padding: 16px 18px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    margin: 12px 0 24px;
+    overflow-x: auto;
+    break-inside: avoid;
+  }
+  .code-block .c { color: #6B8C6B; } /* comment */
+  .code-block .k { color: #C8332A; } /* keyword */
+  .code-block .s { color: #B8860B; } /* string */
+  .code-block .n { color: #6AB0C8; } /* number */
+
+  /* ── Divider ── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+
+  /* ── Flow diagram ── */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 16px 0 24px;
+    flex-wrap: wrap;
+    break-inside: avoid;
+  }
+  .flow-step {
+    flex: 1;
+    min-width: 100px;
+    padding: 12px 14px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    text-align: center;
+  }
+  .flow-step .step-num {
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    color: var(--faint);
+    letter-spacing: 0.08em;
+    margin-bottom: 3px;
+  }
+  .flow-step .step-label {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .flow-arrow {
+    font-size: 16px;
+    color: var(--faint);
+    padding: 0 6px;
+    flex-shrink: 0;
+  }
+
+  /* ── Screen-only toolbar ── */
+  .screen-only {
+    position: fixed;
+    top: 16px; right: 16px;
+    display: flex;
+    gap: 8px;
+    z-index: 100;
+  }
+  .screen-only button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: white;
+    color: var(--ink);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .screen-only button:hover { background: var(--bone); }
+  .screen-only button.primary { background: var(--red); color: white; border-color: var(--red); }
+
+  /* ── Print ── */
+  @page { size: letter; margin: 0; }
+  @media print {
+    html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html, body { margin: 0; padding: 0; }
+    .doc { max-width: none !important; margin: 0 !important; padding: 0 0.75in !important; box-shadow: none !important; }
+    .hdr-space, .ftr-space { display: table-cell; height: 0.75in; }
+    h1, h2, h3, h4 { break-after: avoid; }
+    figure, table, blockquote, .callout, .tier-grid, .badge-grid, .arche-grid, .podium, .flow, .code-block { break-inside: avoid; }
+    p, li { orphans: 3; widows: 3; }
+    .screen-only { display: none !important; }
+    .tier-card, .badge-pill, .arche-card { background: var(--bone) !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="screen-only">
+  <button onclick="window.print()" class="primary">↓ Save as PDF</button>
+</div>
+
+<main class="doc">
+<table class="doc-frame" role="presentation">
+<thead><tr><td class="hdr-space"></td></tr></thead>
+<tbody><tr><td>
+
+  <h1>CollectorHub<br>Rewards &amp; Ranking System</h1>
+  <div class="doc-meta">
+    <span>Version 2.0</span>
+    <span>June 2026</span>
+    <span>Internal — Team &amp; Partner Brief</span>
+  </div>
+
+  <p>This document describes how CollectorHub motivates, rewards, and recognises its collector community. The system runs on three interlocking layers: a <strong>lifetime XP rank</strong> that reflects a user's total contribution, a <strong>contributor archetype</strong> that reflects <em>how</em> they contribute, and a <strong>badge system</strong> that captures both permanent achievements and competitive seasonal honours. A rolling leaderboard keeps the community engaged week to week and month to month.</p>
+
+  <div class="callout ink">
+    <strong>Design principle</strong>
+    Every mechanic should feel earned, not gameable. XP is weighted toward quality actions (verified items, reviews, vouches) over shallow engagement (likes). Badges are specific enough to be meaningful and sparse enough to matter.
+  </div>
+
+  <!-- ─────────────────────────────── -->
+  <h2><span class="section-num">01 /</span> How Points Work</h2>
+
+  <p>Users earn <strong>Collector XP</strong> by taking actions in the app. XP accumulates over a user's lifetime and directly powers their rank. Some actions are one-time; others are repeatable daily or per-action.</p>
+
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Action</th>
+        <th>XP</th>
+        <th>Type</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Complete your profile</td><td class="mono">+50</td><td class="tag">ONCE</td><td>5 steps — photo, bio, city, interests, first item</td></tr>
+      <tr><td>Refer a friend</td><td class="mono">+40</td><td class="tag">REPEAT</td><td>Credited when the referred user verifies their first item</td></tr>
+      <tr><td>Add a verified item</td><td class="mono">+20</td><td class="tag">REPEAT</td><td>Item must reach at least "Claimed" verification status</td></tr>
+      <tr><td>Post a showcase</td><td class="mono">+15</td><td class="tag">REPEAT</td><td>Photo post, not a text-only post</td></tr>
+      <tr><td>Write a review</td><td class="mono">+15</td><td class="tag">REPEAT</td><td>Must include a star rating</td></tr>
+      <tr><td>Vouch for a collector</td><td class="mono">+10</td><td class="tag">REPEAT</td><td>After a completed deal; max 3 vouches per user per month</td></tr>
+      <tr><td>RSVP to an event</td><td class="mono">+10</td><td class="tag">REPEAT</td><td>Going or Interested both count</td></tr>
+      <tr><td>Daily check-in</td><td class="mono">+5</td><td class="tag">DAILY</td><td>Once per calendar day; no streak multiplier in v1</td></tr>
+      <tr><td>Comment on a post</td><td class="mono">+5</td><td class="tag">REPEAT</td><td>Capped at 10 comments/day for XP purposes</td></tr>
+      <tr><td>Like a post</td><td class="mono">+1</td><td class="tag">REPEAT</td><td>Capped at 20 likes/day for XP purposes</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout gold">
+    <strong>Tweaking values</strong>
+    All XP values live in <code>EARN_ACTIONS</code> in <code>data.jsx</code>. Change the <code>xp</code> field on any entry to rebalance. Add a new row to introduce a new earning action — it will appear automatically in the Rewards screen and this table should be updated to match.
+  </div>
+
+  <!-- ─────────────────────────────── -->
+  <h2><span class="section-num">02 /</span> Rank Ladder</h2>
+
+  <p>Ranks are derived from a user's <strong>total lifetime XP</strong>. They never reset. Once you reach Collector, you stay Collector — even if you go quiet for a month. This makes rank a stable signal of someone's depth in the hobby, not their recent activity.</p>
+
+  <div class="tier-grid">
+    <div class="tier-card">
+      <div class="tier-name"><span class="tier-dot" style="background:#6B6460"></span>Rookie</div>
+      <div class="tier-xp">0 XP · Rank 1/6</div>
+      <div class="tier-perk">Welcome to the shelf. Account created.</div>
+    </div>
+    <div class="tier-card">
+      <div class="tier-name"><span class="tier-dot" style="background:#2D6041"></span>Fan</div>
+      <div class="tier-xp">250 XP · Rank 2/6</div>
+      <div class="tier-perk">Profile flair unlocked. Shows engagement intent.</div>
+    </div>
+    <div class="tier-card">
+      <div class="tier-name"><span class="tier-dot" style="background:#1A8080"></span>Collector</div>
+      <div class="tier-xp">750 XP · Rank 3/6</div>
+      <div class="tier-perk">Early drop alerts. Core community member.</div>
+    </div>
+    <div class="tier-card">
+      <div class="tier-name"><span class="tier-dot" style="background:#5C3A6E"></span>Pro</div>
+      <div class="tier-xp">1,800 XP · Rank 4/6</div>
+      <div class="tier-perk">Showcases get featured. Recognised contributor.</div>
+    </div>
+    <div class="tier-card">
+      <div class="tier-name"><span class="tier-dot" style="background:#B8860B"></span>Expert</div>
+      <div class="tier-xp">4,000 XP · Rank 5/6</div>
+      <div class="tier-perk">Priority verification. Community authority.</div>
+    </div>
+    <div class="tier-card">
+      <div class="tier-name"><span class="tier-dot" style="background:#C8332A"></span>Legend</div>
+      <div class="tier-xp">8,000 XP · Rank 6/6</div>
+      <div class="tier-perk">Legend badge + spotlight. Top of the shelf.</div>
+    </div>
+  </div>
+
+  <div class="callout teal">
+    <strong>Mapping to simple Bronze / Silver / Gold language</strong>
+    If partners or marketing need a simpler tier vocabulary: Rookie + Fan = <strong>Bronze</strong>, Collector + Pro = <strong>Silver</strong>, Expert = <strong>Gold</strong>, Legend = <strong>Legend</strong>. The underlying six-tier system stays; this is a display alias only.
+  </div>
+
+  <!-- ─────────────────────────────── -->
+  <h2><span class="section-num">03 /</span> Contributor Archetypes</h2>
+
+  <p>Alongside a user's rank, they carry an <strong>archetype</strong> — a label that describes <em>how</em> they contribute rather than how much. It is derived automatically from the breakdown of where their XP comes from (posts, social, collection, market). The archetype shown on a profile is always the user's strongest area.</p>
+
+  <div class="arche-grid">
+    <div class="arche-card">
+      <div class="arche-name" style="color:#5C3A6E">📸 Showcaser</div>
+      <div class="arche-blurb">Post-heavy contributor. Shares builds, unboxings, shelf photos. Drives visual content.</div>
+      <div class="arche-examples">Earns most XP through showcases, reviews, and photo posts.</div>
+    </div>
+    <div class="arche-card">
+      <div class="arche-name" style="color:#C8332A">🤝 Connector</div>
+      <div class="arche-blurb">Social glue. Likes, comments, encourages. Makes the community feel warm.</div>
+      <div class="arche-examples">Earns most XP through comments, likes, and community activity.</div>
+    </div>
+    <div class="arche-card">
+      <div class="arche-name" style="color:#1A8080">🗂️ Archivist</div>
+      <div class="arche-blurb">Catalogue-first collector. Verifies items, documents the shelf, adds to the record.</div>
+      <div class="arche-examples">Earns most XP through item additions, verification, and collection logging.</div>
+    </div>
+    <div class="arche-card">
+      <div class="arche-name" style="color:#B8860B">💱 Trader</div>
+      <div class="arche-blurb">Market-active. Buys, sells, vouches. Builds trust through deal history.</div>
+      <div class="arche-examples">Earns most XP through listings, completed deals, and vouches given.</div>
+    </div>
+  </div>
+
+  <p>Archetypes shift automatically as a user's contribution pattern changes. A new seller who previously just posted will flip from Showcaser to Trader as market XP grows. This is intentional — it reflects current behaviour, not historical identity.</p>
+
+  <!-- ─────────────────────────────── -->
+  <h2><span class="section-num">04 /</span> Badge System</h2>
+
+  <p>Badges sit in three distinct buckets. Understanding which bucket a badge lives in determines how it behaves — and what it signals to others.</p>
+
+  <h3>4a — Permanent Badges</h3>
+  <p>Earned once, kept forever. These never reset regardless of activity levels or leaderboard cycles. They are the most meaningful signals on a profile because they cannot be lost or replicated.</p>
+
+  <div class="badge-grid">
+    <div class="badge-pill">
+      <div class="badge-icon">⭐</div>
+      <div>
+        <div class="badge-name">Early Contributor</div>
+        <div class="badge-desc">Manually assigned to founding users during beta and early access. Given by the team — never earned through the app.</div>
+        <span class="badge-type permanent">Permanent · Manual</span>
+      </div>
+    </div>
+    <div class="badge-pill">
+      <div class="badge-icon">🏛️</div>
+      <div>
+        <div class="badge-name">Founding Member</div>
+        <div class="badge-desc">Joined CollectorHub in its first 90 days. Assigned automatically at account creation during the founding window.</div>
+        <span class="badge-type permanent">Permanent · Auto</span>
+      </div>
+    </div>
+    <div class="badge-pill">
+      <div class="badge-icon">📦</div>
+      <div>
+        <div class="badge-name">First Showcase</div>
+        <div class="badge-desc">Posted their first photo showcase to the feed. A milestone badge for onboarding completion.</div>
+        <span class="badge-type permanent">Permanent · Auto</span>
+      </div>
+    </div>
+    <div class="badge-pill">
+      <div class="badge-icon">🤝</div>
+      <div>
+        <div class="badge-name">First Trade</div>
+        <div class="badge-desc">Completed their first deal on-platform and received a vouch. Shows marketplace participation.</div>
+        <span class="badge-type permanent">Permanent · Auto</span>
+      </div>
+    </div>
+    <div class="badge-pill">
+      <div class="badge-icon">✅</div>
+      <div>
+        <div class="badge-name">Verified Collector</div>
+        <div class="badge-desc">Got their first item to Verified status (in-hand photo confirmed by the platform). Trust signal.</div>
+        <span class="badge-type permanent">Permanent · Auto</span>
+      </div>
+    </div>
+    <div class="badge-pill">
+      <div class="badge-icon">🌟</div>
+      <div>
+        <div class="badge-name">Legend Status</div>
+        <div class="badge-desc">Reached the top rank tier — 8,000+ lifetime XP. The rarest permanent badge.</div>
+        <span class="badge-type permanent">Permanent · Auto</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout red">
+    <strong>Early Contributor — assignment protocol</strong>
+    During beta and initial testing, the team manually assigns this badge to selected users via the admin panel. Maintain a small private list — it should feel rare (target: first 50–100 users max). Once the founding window closes, this badge is retired and can never be earned again.
+  </div>
+
+  <h3>4b — Seasonal League Badges</h3>
+  <p>Awarded automatically when a weekly or monthly leaderboard cycle ends. The badge is <strong>permanent once earned</strong> — it reflects what you achieved during that specific cycle. Standings reset; the badge does not. This creates an archive of a user's competitive history on their profile.</p>
+
+  <div class="badge-grid">
+    <div class="badge-pill">
+      <div class="badge-icon">🥇</div>
+      <div>
+        <div class="badge-name">Gold — 1st Place</div>
+        <div class="badge-desc">Finished #1 in a weekly or monthly league. +300 bonus XP added to lifetime rank.</div>
+        <span class="badge-type seasonal">Seasonal · Permanent once earned</span>
+      </div>
+    </div>
+    <div class="badge-pill">
+      <div class="badge-icon">🥈</div>
+      <div>
+        <div class="badge-name">Silver — 2nd Place</div>
+        <div class="badge-desc">Finished #2 in a league cycle. +200 bonus XP toward lifetime rank.</div>
+        <span class="badge-type seasonal">Seasonal · Permanent once earned</span>
+      </div>
+    </div>
+    <div class="badge-pill">
+      <div class="badge-icon">🥉</div>
+      <div>
+        <div class="badge-name">Bronze — 3rd Place</div>
+        <div class="badge-desc">Finished #3 in a league cycle. +120 bonus XP toward lifetime rank.</div>
+        <span class="badge-type seasonal">Seasonal · Permanent once earned</span>
+      </div>
+    </div>
+    <div class="badge-pill">
+      <div class="badge-icon">🏅</div>
+      <div>
+        <div class="badge-name">Finalist — Top 10</div>
+        <div class="badge-desc">Finished in the top 10 for a cycle. +50 bonus XP. Entry-level competitive badge.</div>
+        <span class="badge-type seasonal">Seasonal · Permanent once earned</span>
+      </div>
+    </div>
+  </div>
+
+  <p>Seasonal badges stack — a Legend-ranked user might have 12 badges showing their history of top-3 finishes across weeks and months. The profile badge shelf shows the 4 most prestigious (sorted by tier rank), with a count for the rest.</p>
+
+  <h3>4c — Monthly Activity Badges</h3>
+  <p>These are held for the month they're won and then competed for again the following month. Unlike seasonal badges, <strong>they do not accumulate permanently</strong> — a user either holds the badge right now or they don't. They appear on a profile with a current-month indicator.</p>
+
+  <div class="badge-grid">
+    <div class="badge-pill">
+      <div class="badge-icon">🏆</div>
+      <div>
+        <div class="badge-name">Top Contributor</div>
+        <div class="badge-desc">#1 overall XP earner in the current month. Resets and re-competed every cycle.</div>
+        <span class="badge-type monthly">Monthly · Resets</span>
+      </div>
+    </div>
+    <div class="badge-pill">
+      <div class="badge-icon">💬</div>
+      <div>
+        <div class="badge-name">Comment King</div>
+        <div class="badge-desc">Most comments posted in the current month. Recognises the most active voice in the community.</div>
+        <span class="badge-type monthly">Monthly · Resets</span>
+      </div>
+    </div>
+    <div class="badge-pill">
+      <div class="badge-icon">📤</div>
+      <div>
+        <div class="badge-name">Share Master</div>
+        <div class="badge-desc">Most posts shared externally (WhatsApp, Instagram, etc.) in the current month.</div>
+        <span class="badge-type monthly">Monthly · Resets</span>
+      </div>
+    </div>
+    <div class="badge-pill">
+      <div class="badge-icon">📸</div>
+      <div>
+        <div class="badge-name">Top Showcaser</div>
+        <div class="badge-desc">#1 in the Showcaser contribution category this month.</div>
+        <span class="badge-type monthly">Monthly · Resets</span>
+      </div>
+    </div>
+    <div class="badge-pill">
+      <div class="badge-icon">🤝</div>
+      <div>
+        <div class="badge-name">Top Connector</div>
+        <div class="badge-desc">#1 in the Connector contribution category this month.</div>
+        <span class="badge-type monthly">Monthly · Resets</span>
+      </div>
+    </div>
+    <div class="badge-pill">
+      <div class="badge-icon">💱</div>
+      <div>
+        <div class="badge-name">Top Trader</div>
+        <div class="badge-desc">#1 in the Trader contribution category this month.</div>
+        <span class="badge-type monthly">Monthly · Resets</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────── -->
+  <h2><span class="section-num">05 /</span> Leaderboards</h2>
+
+  <p>The leaderboard displays the <strong>top 23 users</strong> for the selected time window, ranked by XP earned in that period. It resets on schedule — standings go to zero, but badges earned from the previous cycle are kept permanently.</p>
+
+  <h3>Leaderboard windows</h3>
+  <table class="data">
+    <thead>
+      <tr><th>Board</th><th>Resets</th><th>Ranks shown</th><th>Prize</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Weekly</strong></td>
+        <td class="mono">Every Monday 00:00 IST</td>
+        <td class="mono">Top 23</td>
+        <td>Seasonal badge (Gold / Silver / Bronze / Finalist) + bonus XP</td>
+      </tr>
+      <tr>
+        <td><strong>Monthly</strong></td>
+        <td class="mono">1st of each month 00:00 IST</td>
+        <td class="mono">Top 23</td>
+        <td>Seasonal badge + bonus XP + Monthly Activity badge for #1</td>
+      </tr>
+      <tr>
+        <td><strong>All-time</strong></td>
+        <td class="mono">Never</td>
+        <td class="mono">Top 23</td>
+        <td>Bragging rights — reflects lifetime contribution</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Leaderboard structure (visual)</h3>
+
+  <div class="podium">
+    <div class="podium-slot">
+      <div class="podium-circle" style="background:#A6A8AC; width:44px; height:44px; font-size:18px">2</div>
+      <div class="podium-block" style="background:#A6A8AC; height:56px">SILVER</div>
+    </div>
+    <div class="podium-slot">
+      <div class="podium-circle" style="background:#B8860B; width:52px; height:52px; font-size:22px">1</div>
+      <div class="podium-block" style="background:#B8860B; height:80px">GOLD</div>
+    </div>
+    <div class="podium-slot">
+      <div class="podium-circle" style="background:#C08552; width:44px; height:44px; font-size:18px">3</div>
+      <div class="podium-block" style="background:#C08552; height:40px">BRONZE</div>
+    </div>
+  </div>
+  <p style="font-size:12px; color:var(--faint); text-align:center; margin-top:4px; margin-bottom:24px">Podium view for ranks 1–3 · Ranked list for 4–23 · Your own rank always pinned</p>
+
+  <p>The leaderboard also has a <strong>"By Contribution"</strong> mode that ranks users within each archetype category separately — so a Trader doesn't have to compete against a Showcaser on the same board. The four contribution boards are: Showcases, Community, Collection, Market.</p>
+
+  <h3>End-of-cycle flow</h3>
+  <div class="flow">
+    <div class="flow-step"><div class="step-num">STEP 1</div><div class="step-label">Cycle ends (Monday / 1st)</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="step-num">STEP 2</div><div class="step-label">Final standings locked</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="step-num">STEP 3</div><div class="step-label">Badges + bonus XP assigned</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="step-num">STEP 4</div><div class="step-label">Cycle XP resets to 0</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="step-num">STEP 5</div><div class="step-label">New cycle begins</div></div>
+  </div>
+
+  <div class="callout plum">
+    <strong>Why top 23?</strong>
+    Showing 23 ranks (not the conventional 10 or 25) keeps the leaderboard competitive enough to feel exclusive but wide enough that active users outside the top 5 still see themselves on the board. Adjust the <code>LEADERBOARD_SIZE</code> constant to change this.
+  </div>
+
+  <!-- ─────────────────────────────── -->
+  <h2><span class="section-num">06 /</span> How Everything Connects</h2>
+
+  <p>These three systems are designed to work together. A user's rank tells you their depth; their archetype tells you their style; their badges tell you their history.</p>
+
+  <table class="data">
+    <thead>
+      <tr><th>Signal</th><th>Driven by</th><th>Resets?</th><th>Visible where</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Rank</strong> (Rookie → Legend)</td><td class="tag">Lifetime XP total</td><td>No</td><td>Profile header, listing cards, leaderboard</td></tr>
+      <tr><td><strong>Archetype</strong> (Showcaser etc.)</td><td class="tag">XP contribution mix</td><td>Shifts with behaviour</td><td>Profile header, leaderboard chip</td></tr>
+      <tr><td><strong>Permanent badges</strong></td><td class="tag">Milestones / manual</td><td>No</td><td>Profile badge shelf, trophy case</td></tr>
+      <tr><td><strong>Seasonal badges</strong></td><td class="tag">League finish position</td><td>Badge permanent; standings reset</td><td>Profile badge shelf, trophy case</td></tr>
+      <tr><td><strong>Monthly activity badges</strong></td><td class="tag">Top rank in category this month</td><td>Monthly</td><td>Profile (with month indicator)</td></tr>
+      <tr><td><strong>Leaderboard rank</strong></td><td class="tag">XP earned this week / month</td><td>Weekly / Monthly</td><td>Leaderboard screen, "your standing" card</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ─────────────────────────────── -->
+  <h2><span class="section-num">07 /</span> Tweaking the System</h2>
+
+  <p>The system is designed to be configurable without rewriting logic. Here is where each knob lives in the codebase:</p>
+
+  <h3>Adjust XP values for any action</h3>
+  <div class="code-block">
+<span class="c">// data.jsx → EARN_ACTIONS array</span>
+{ id: <span class="s">'showcase'</span>, label: <span class="s">'Post a showcase'</span>, xp: <span class="n">15</span>, type: <span class="s">'repeat'</span> },
+<span class="c">// Change xp: 15 → 20 to increase weight on visual content</span></div>
+
+  <h3>Add a new rank tier</h3>
+  <div class="code-block">
+<span class="c">// data.jsx → REWARD_TIERS array — insert at the correct XP threshold</span>
+{ id: <span class="s">'master'</span>, name: <span class="s">'Master'</span>, at: <span class="n">6000</span>, c: <span class="s">'var(--forest)'</span>,
+  icon: Icons.gem, perk: <span class="s">'Curator features unlocked'</span> },</div>
+
+  <h3>Add a new badge</h3>
+  <div class="code-block">
+<span class="c">// data.jsx → user.seasonBadges[] for a specific user (manual),
+// or extend BADGE_KIND for a new auto-assigned category</span>
+BADGE_KIND[<span class="s">'share'</span>] = { icon: Icons.share, label: <span class="s">'Share Master season'</span> };</div>
+
+  <h3>Assign Early Contributor badge</h3>
+  <div class="code-block">
+<span class="c">// data.jsx → find the user object and add to seasonBadges[]</span>
+seasonBadges: [
+  { id: <span class="s">'ec-rohit'</span>, period: <span class="s">'Beta'</span>, kind: <span class="s">'early'</span>,
+    place: <span class="n">1</span>, tier: <span class="s">'gold'</span>, title: <span class="s">'Early Contributor'</span> },
+],
+<span class="c">// Add BADGE_KIND['early'] = { icon: Icons.sparkle, label: 'Early Contributor' }</span></div>
+
+  <h3>Change the leaderboard size</h3>
+  <div class="code-block">
+<span class="c">// data.jsx → leaderboard() function
+// The current prototype slices at rows.slice(0, 3) for podium + rest for list.
+// To change to top 23 visible: pass a size cap when rendering LeaderboardView.</span>
+<span class="k">const</span> LEADERBOARD_SIZE = <span class="n">23</span>; <span class="c">// show this many ranked rows</span></div>
+
+  <h3>Rename a badge</h3>
+  <div class="code-block">
+<span class="c">// data.jsx → BADGE_KIND — change the label field</span>
+<span class="k">const</span> BADGE_KIND = {
+  posts: { icon: Icons.camera, label: <span class="s">'Top Showcaser'</span> }, <span class="c">// rename here</span>
+  ...
+};</div>
+
+  <!-- ─────────────────────────────── -->
+  <h2><span class="section-num">08 /</span> Frequently Asked Questions</h2>
+
+  <h3>Does a user lose their rank if they go inactive?</h3>
+  <p>No. Rank is based on lifetime XP, which never decreases. A user who earned Expert status will always be Expert, even if they log in once a year. This is intentional — rank is a trust signal, not an activity signal. Activity is reflected separately in the leaderboard.</p>
+
+  <h3>Can someone buy their way up the leaderboard?</h3>
+  <p>Not directly. XP is earned through platform actions, not purchases. The highest-value actions (verified items, vouches, reviews) require real effort and community trust. Shallow engagement (likes) is capped per day to prevent farming.</p>
+
+  <h3>What happens to a monthly activity badge when the month ends?</h3>
+  <p>It is removed from their profile's active badge display. It does not become a permanent badge — that's only for seasonal league finishes. The user needs to re-earn it next month. This creates month-to-month competition without inflating permanent badge counts.</p>
+
+  <h3>How do seasonal badges differ from monthly activity badges?</h3>
+  <p>Seasonal badges (Gold / Silver / Bronze / Finalist) are earned by finishing in the top positions of a <em>competitive league</em> — they stack up permanently in a user's trophy case and tell the story of their competitive history. Monthly activity badges (Comment King, Share Master, etc.) are <em>held positions</em> — you either have the current title or you don't. Think: seasonal badge = medal you keep; monthly badge = title you defend.</p>
+
+  <h3>Can the Early Contributor badge be revoked?</h3>
+  <p>By design, no. It is a permanent badge. If a user is banned or removed from the platform, their account is deactivated but badge history is preserved in records. Do not assign it speculatively — treat it like a founding-team credit.</p>
+
+  <hr>
+
+  <p style="font-size:12px; color:var(--faint); text-align:center; margin-top:0">
+    CollectorHub · Rewards &amp; Ranking System v2.0 · June 2026 · Internal document — do not distribute externally
+  </p>
+
+</td></tr></tbody>
+<tfoot><tr><td class="ftr-space"></td></tr></tfoot>
+</table>
+</main>
+
+</body>
+</html>

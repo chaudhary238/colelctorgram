@@ -197,7 +197,7 @@ async def get_listing(
     if listing.status == "removed" and listing.seller_id != viewer.id:
         raise HTTPException(status_code=404, detail="Listing not found")
     enriched = await _enrich_listings([listing], db, viewer)
-    enriched[0]["price_votes"] = await _price_vote_summary(listing_id, db, viewer)
+    enriched[0]["price_votes"] = await _price_vote_summary(listing_id, db, viewer, seller_id=listing.seller_id)
     return enriched[0]
 
 
@@ -249,7 +249,9 @@ async def update_listing(
     # B-75 — keep the seller's active-listings counter honest on status transitions
     # (was never decremented on sold/closed at all). "available" is the only status
     # that counts; sellers can't set "removed" (admin takedown owns that value).
-    if listing.status == "removed" and old_status != "removed":
+    # DV8-13 — "reserved" retired (a step nobody used): a seller-set status is now
+    # available | sold | closed only.
+    if body.status is not None and body.status not in ("available", "sold", "closed"):
         raise HTTPException(status_code=422, detail="Invalid status")
     if old_status == "available" and listing.status != "available":
         await db.execute(
@@ -458,7 +460,27 @@ class PriceVoteBody(BaseModel):
     vote: str  # low | fair | high
 
 
-async def _price_vote_summary(listing_id: uuid.UUID, db: AsyncSession, viewer: Optional[User]) -> dict:
+async def _price_vote_summary(
+    listing_id: uuid.UUID, db: AsyncSession, viewer: Optional[User],
+    seller_id: Optional[uuid.UUID] = None,
+) -> dict:
+    """DV8 §5 — the split is SELLER-ONLY intel. Published percentages would anchor
+    every subsequent buyer's price expectation, so a non-seller viewer gets only
+    their own vote back (counts/total nulled) — the aggregate must not even ride
+    the payload for the network tab to read."""
+    my_vote = None
+    if viewer:
+        mine = await db.execute(
+            select(ListingPriceVote.vote).where(
+                ListingPriceVote.listing_id == listing_id, ListingPriceVote.user_id == viewer.id
+            )
+        )
+        my_vote = mine.scalar_one_or_none()
+
+    is_seller = bool(viewer and seller_id and viewer.id == seller_id)
+    if not is_seller:
+        return {"low": None, "fair": None, "high": None, "total": None, "my_vote": my_vote}
+
     rows = await db.execute(
         select(ListingPriceVote.vote, func.count())
         .where(ListingPriceVote.listing_id == listing_id)
@@ -468,14 +490,6 @@ async def _price_vote_summary(listing_id: uuid.UUID, db: AsyncSession, viewer: O
     for vote, n in rows.all():
         if vote in counts:
             counts[vote] = n
-    my_vote = None
-    if viewer:
-        mine = await db.execute(
-            select(ListingPriceVote.vote).where(
-                ListingPriceVote.listing_id == listing_id, ListingPriceVote.user_id == viewer.id
-            )
-        )
-        my_vote = mine.scalar_one_or_none()
     return {**counts, "total": sum(counts.values()), "my_vote": my_vote}
 
 
@@ -501,12 +515,25 @@ async def price_vote(
         )
     )
     vote = existing.scalar_one_or_none()
+    changed = vote is None or vote.vote != body.vote
     if vote:
         vote.vote = body.vote
     else:
         db.add(ListingPriceVote(user_id=current_user.id, listing_id=listing_id, vote=body.vote))
     await db.flush()
-    return await _price_vote_summary(listing_id, db, current_user)
+    # DV8 §5 — the seller hears about every vote that lands. actor_id stays None:
+    # they see the split, never who voted.
+    if changed:
+        await notify(
+            db,
+            user_id=listing.seller_id,
+            kind="price_vote",
+            title="Price feedback on your listing",
+            body=f'A collector weighed in on "{listing.title}" — open the listing to see the split.',
+            ref_type="listing",
+            ref_id=str(listing.id),
+        )
+    return await _price_vote_summary(listing_id, db, current_user, seller_id=listing.seller_id)
 
 
 async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Optional[User] = None) -> list[dict]:
@@ -633,6 +660,8 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
             "avatar_url": seller.avatar_url if seller else None,
             "rating": float(seller.rating) if seller else 0,
             "vouches_count": vouches_by_seller.get(l.seller_id, 0),
+            # DV8 — trust row shows Vouches · Joined (deals retired, ratings dead).
+            "seller_joined": seller.created_at.year if seller and seller.created_at else None,
             # listing
             "price": l.price,
             "currency": l.currency,

@@ -30,8 +30,13 @@ export function ProfileMoreMenu({
 }) {
   const [stage, setStage] = useState<Stage>("menu");
   const [reason, setReason] = useState<string | null>(null);
+  // design_v8 (Chat.jsx report sheet) — a report needs a description too; submit stays
+  // disabled until BOTH a reason is picked AND the note is non-empty (canSubmitReport).
+  const [note, setNote] = useState("");
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const canSubmitReport = Boolean(reason) && note.trim().length > 0;
 
   function copyLink() {
     const url = `${window.location.origin}/profile/${targetHandle}`;
@@ -52,7 +57,7 @@ export function ProfileMoreMenu({
   }
 
   async function doReport() {
-    if (!reason || busy) return;
+    if (!canSubmitReport || busy) return;
     setBusy(true);
     const picked = REPORT_REASONS.find((r) => r.label === reason)!;
     try {
@@ -60,7 +65,8 @@ export function ProfileMoreMenu({
         target_type: "user",
         target_id: targetId,
         reason: picked.reason,
-        detail: picked.label,
+        // The description rides along after the display label so moderators see both.
+        detail: `${picked.label} — ${note.trim()}`,
       });
       setSent(true);
       setTimeout(onClose, 1100);
@@ -88,7 +94,7 @@ export function ProfileMoreMenu({
             {[
               { icon: <Link2 size={18} />, label: "Copy profile link", danger: false, onClick: copyLink },
               { icon: <Ban size={18} />, label: `Block @${targetHandle}`, danger: false, onClick: () => setStage("block") },
-              { icon: <Flag size={18} />, label: `Report @${targetHandle}`, danger: true, onClick: () => { setReason(null); setStage("report"); } },
+              { icon: <Flag size={18} />, label: `Report @${targetHandle}`, danger: true, onClick: () => { setReason(null); setNote(""); setStage("report"); } },
             ].map((item) => (
               <button
                 key={item.label}
@@ -133,8 +139,20 @@ export function ProfileMoreMenu({
                     {reason === r.label && <Check size={16} style={{ color: "var(--stamp-red)" }} />}
                   </button>
                 ))}
-                <div style={{ padding: "14px 20px 0" }}>
-                  <Button variant="primary" style={{ width: "100%", justifyContent: "center" }} disabled={!reason || busy} onClick={doReport}>
+                {/* v8 — the what-happened note (300 chars, mono counter). Required. */}
+                <div style={{ padding: "12px 20px 0" }}>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 6 }}>Tell us what happened</div>
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value.slice(0, 300))}
+                    rows={3}
+                    placeholder="Describe the issue — what was said or done, and when."
+                    style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14, lineHeight: 1.5, color: "var(--ink)", outline: "none", resize: "none" }}
+                  />
+                  <div style={{ display: "flex", justifyContent: "flex-end", fontFamily: "var(--font-mono)", fontSize: 11, color: note.length > 260 ? "var(--stamp-red)" : "var(--ink-ghost)", marginTop: 4 }}>{note.length}/300</div>
+                </div>
+                <div style={{ padding: "10px 20px 0" }}>
+                  <Button variant="primary" style={{ width: "100%", justifyContent: "center" }} disabled={!canSubmitReport || busy} onClick={doReport}>
                     Submit report
                   </Button>
                 </div>

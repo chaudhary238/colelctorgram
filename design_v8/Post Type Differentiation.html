@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+body{margin:0;font-family:var(--font-body)}
+.card{background:var(--card-surface);border-radius:20px;box-shadow:var(--card-shadow);padding:16px 18px;position:relative;overflow:hidden;border:1.5px solid var(--border)}
+.author{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.av{width:34px;height:34px;border-radius:50%;flex-shrink:0}
+.name{font-weight:600;font-size:14px;color:var(--ink)}
+.meta{font-size:11.5px;color:var(--ink-faint);margin-top:1px}
+.body{font-size:14px;color:var(--ink-soft);line-height:1.5;margin-bottom:10px}
+.photo{width:100%;aspect-ratio:1.8/1;border-radius:12px;margin-bottom:10px}
+.ribbon{position:absolute;top:14px;right:16px;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:999px;letter-spacing:0.02em}
+.col-label{font-family:var(--font-display);font-weight:800;font-size:19px;letter-spacing:-0.02em;color:var(--ink);margin-bottom:4px}
+.col-sub{font-size:12.5px;color:var(--ink-faint);margin-bottom:18px;max-width:300px;line-height:1.5}
+.type-label{font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-ghost);margin-bottom:6px}
+</style></head>
+<body>
+
+<div style="position:absolute;left:60px;top:60px;width:340px">
+  <div class="col-label">Colored outline + ribbon</div>
+  <div class="col-sub">Card surface stays white — a thin full border in the type's accent color replaces the neutral border, plus the small corner tag naming the type.</div>
+  <div style="display:flex;flex-direction:column;gap:16px">
+
+    <div><div class="type-label">Post — Showcase / Discussion</div>
+    <div class="card" style="border-color:var(--border)">
+      <span class="ribbon" style="background:var(--bone);color:var(--ink-mute)">Post</span>
+      <div class="author"><div class="av" style="background:var(--slate-300)"></div><div><div class="name">Rohit Sharma</div><div class="meta">@rohit_scale · 5h</div></div></div>
+      <div class="photo" style="background:var(--bone)"></div>
+      <div class="body">Got my hands on the Bandai Goku UI today — the tampo print is unreal.</div>
+    </div></div>
+
+    <div><div class="type-label">Review</div>
+    <div class="card" style="border-color:var(--grail-gold)">
+      <span class="ribbon" style="background:var(--grail-gold);color:#fff">★ Review</span>
+      <div class="author"><div class="av" style="background:var(--grail-gold)"></div><div><div class="name">Saanvi Rao</div><div class="meta">@saanvi · 2d</div></div></div>
+      <div class="body">Finished the 10307 Eiffel Tower — build quality 4/5, worth the 10,001 pieces.</div>
+    </div></div>
+
+    <div><div class="type-label">ISO — Wanted</div>
+    <div class="card" style="border-color:var(--plum)">
+      <span class="ribbon" style="background:var(--plum);color:#fff">Wanted</span>
+      <div class="author"><div class="av" style="background:var(--plum)"></div><div><div class="name">Meera Iyer</div><div class="meta">@meera · 8h</div></div></div>
+      <div class="body">Looking for: Sideshow Batman PF — MISB, ready to pay.</div>
+    </div></div>
+
+    <div><div class="type-label">For sale — shared listing</div>
+    <div class="card" style="border-color:var(--verified-teal)">
+      <span class="ribbon" style="background:var(--verified-teal);color:#fff">For sale</span>
+      <div class="author"><div class="av" style="background:var(--verified-teal)"></div><div><div class="name">Aman Iyer</div><div class="meta">@aman_toys · 2h</div></div></div>
+      <div class="body">Finally letting this one go — mint, sealed.</div>
+    </div></div>
+
+  </div>
+</div>
+
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#1A1A1A"/><text x="50" y="58" font-size="34" fill="#fff" text-anchor="middle" font-family="sans-serif">Aa</text></svg></template>
+</body></html>

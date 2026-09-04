@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="design_doc_mode" content="canvas">
+<title>Scorred — Icon Alternatives</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@900&family=DM+Sans:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0C0C0C;font-family:'DM Sans',sans-serif}
+.canvas{width:1480px;margin:0 auto;padding:72px 48px 120px}
+.ey{font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#333}
+.label{font-size:14px;font-weight:700;color:#fff;margin-bottom:4px}
+.desc{font-size:12px;color:#555;line-height:1.55;max-width:320px}
+</style>
+</head>
+<body>
+<div class="canvas">
+
+<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:60px">
+  <div>
+    <div class="ey" style="margin-bottom:10px">Icon exploration · five directions</div>
+    <div style="font-size:40px;font-weight:700;letter-spacing:-0.04em;color:#fff;font-family:'Geist',system-ui">Make the icon ownable</div>
+  </div>
+  <div style="background:#D42038;color:#fff;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;padding:7px 16px;border-radius:999px">Icon alts</div>
+</div>
+
+<!-- CURRENT — for reference -->
+<div style="background:#141414;border-radius:24px;padding:44px 52px;margin-bottom:14px">
+  <div class="ey" style="margin-bottom:20px;color:#2A2A2A">Current — for reference</div>
+  <div style="display:flex;gap:32px;align-items:flex-start">
+    <div style="display:flex;gap:14px;align-items:flex-end">
+      <svg width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#111"/><circle cx="50" cy="50" r="32" stroke="#D42038" stroke-width="5.5" fill="none"/><polyline points="36,50 46,62 66,38" fill="none" stroke="#D42038" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg width="64" height="64" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#111"/><circle cx="50" cy="50" r="32" stroke="#D42038" stroke-width="5.5" fill="none"/><polyline points="36,50 46,62 66,38" fill="none" stroke="#D42038" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg width="44" height="44" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#111"/><circle cx="50" cy="50" r="32" stroke="#D42038" stroke-width="6.5" fill="none"/><polyline points="34,50 45,63 68,36" fill="none" stroke="#D42038" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div>
+      <div class="label">Circle + tick</div>
+      <div class="desc" style="color:#D42038">Too close to todo/task app category. Works semantically but not distinct enough as a standalone mark.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 5-UP GRID ══ -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+
+  <!-- ALT 1: Tick breaking out of circle -->
+  <div style="background:#141414;border-radius:24px;padding:44px 48px">
+    <div class="ey" style="margin-bottom:20px;color:#2A2A2A">Alt 1 · Tick breaks out of ring</div>
+    <div style="display:flex;gap:14px;align-items:flex-end;margin-bottom:20px">
+      <!-- The long stroke of the tick exits through the circle edge -->
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="22" fill="#111"/>
+        <circle cx="50" cy="50" r="30" stroke="#D42038" stroke-width="5" fill="none"/>
+        <!-- Short arm stays inside, long arm punches through -->
+        <polyline points="34,52 46,65 76,28" fill="none" stroke="#D42038" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <svg width="64" height="64" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="22" fill="#111"/>
+        <circle cx="50" cy="50" r="30" stroke="#D42038" stroke-width="5.5" fill="none"/>
+        <polyline points="34,52 46,65 76,28" fill="none" stroke="#D42038" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <svg width="44" height="44" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="22" fill="#111"/>
+        <circle cx="50" cy="50" r="30" stroke="#D42038" stroke-width="6" fill="none"/>
+        <polyline points="34,52 46,65 76,28" fill="none" stroke="#D42038" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <svg width="32" height="32" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="16" fill="#111"/>
+        <circle cx="50" cy="50" r="30" stroke="#D42038" stroke-width="7" fill="none"/>
+        <polyline points="33,52 46,66 78,26" fill="none" stroke="#D42038" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="label">Escaping tick</div>
+    <div class="desc">Tick's long arm exits the ring — scored beyond the target. The overshoot gives it energy no todo app has. Unique silhouette.</div>
+  </div>
+
+  <!-- ALT 2: Tilted whole mark -->
+  <div style="background:#141414;border-radius:24px;padding:44px 48px">
+    <div class="ey" style="margin-bottom:20px;color:#2A2A2A">Alt 2 · Whole mark tilted 12°</div>
+    <div style="display:flex;gap:14px;align-items:flex-end;margin-bottom:20px">
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="22" fill="#111"/>
+        <g transform="translate(50,50) rotate(12) translate(-50,-50)">
+          <circle cx="50" cy="50" r="30" stroke="#D42038" stroke-width="5" fill="none"/>
+          <polyline points="34,50 46,62 66,38" fill="none" stroke="#D42038" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </svg>
+      <svg width="64" height="64" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="22" fill="#111"/>
+        <g transform="translate(50,50) rotate(12) translate(-50,-50)">
+          <circle cx="50" cy="50" r="30" stroke="#D42038" stroke-width="5.5" fill="none"/>
+          <polyline points="34,50 46,62 66,38" fill="none" stroke="#D42038" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </svg>
+      <svg width="44" height="44" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="22" fill="#111"/>
+        <g transform="translate(50,50) rotate(12) translate(-50,-50)">
+          <circle cx="50" cy="50" r="30" stroke="#D42038" stroke-width="6" fill="none"/>
+          <polyline points="34,50 46,62 66,38" fill="none" stroke="#D42038" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </svg>
+      <svg width="32" height="32" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="16" fill="#111"/>
+        <g transform="translate(50,50) rotate(12) translate(-50,-50)">
+          <circle cx="50" cy="50" r="30" stroke="#D42038" stroke-width="7" fill="none"/>
+          <polyline points="34,50 46,62 66,38" fill="none" stroke="#D42038" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </svg>
+    </div>
+    <div class="label">Tilted ring+tick</div>
+    <div class="desc">12° rotation gives the mark forward lean and energy. No productivity app tilts their icon. Feels dynamic — like a score being posted in real time.</div>
+  </div>
+
+  <!-- ALT 3: Two-weight tick, no circle -->
+  <div style="background:#141414;border-radius:24px;padding:44px 48px">
+    <div class="ey" style="margin-bottom:20px;color:#2A2A2A">Alt 3 · Bold tick only · no circle</div>
+    <div style="display:flex;gap:14px;align-items:flex-end;margin-bottom:20px">
+      <!-- No circle — just the tick mark, very bold, almost fills the icon -->
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="22" fill="#111"/>
+        <!-- Short arm thin, long arm very thick — grade-mark feel -->
+        <line x1="22" y1="54" x2="42" y2="74" stroke="#D42038" stroke-width="9" stroke-linecap="round"/>
+        <line x1="40" y1="74" x2="80" y2="24" stroke="#D42038" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <svg width="64" height="64" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="22" fill="#111"/>
+        <line x1="22" y1="54" x2="42" y2="74" stroke="#D42038" stroke-width="9" stroke-linecap="round"/>
+        <line x1="40" y1="74" x2="80" y2="24" stroke="#D42038" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <svg width="44" height="44" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="22" fill="#111"/>
+        <line x1="22" y1="54" x2="42" y2="74" stroke="#D42038" stroke-width="9" stroke-linecap="round"/>
+        <line x1="40" y1="74" x2="80" y2="24" stroke="#D42038" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <svg width="32" height="32" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="16" fill="#111"/>
+        <line x1="18" y1="54" x2="42" y2="76" stroke="#D42038" stroke-width="10" stroke-linecap="round"/>
+        <line x1="40" y1="76" x2="82" y2="22" stroke="#D42038" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="label">Grade-mark tick</div>
+    <div class="desc">No circle at all — just the tick, two weights (short arm thin, long arm very thick). Reads like a teacher's grade mark or a price-slash. Aggressive, collector-coded. Very distinct silhouette at small sizes.</div>
+  </div>
+
+  <!-- ALT 4: Diagonal slash tick (like a price tag score) -->
+  <div style="background:#141414;border-radius:24px;padding:44px 48px">
+    <div class="ey" style="margin-bottom:20px;color:#2A2A2A">Alt 4 · Score slash</div>
+    <div style="display:flex;gap:14px;align-items:flex-end;margin-bottom:20px">
+      <!-- Bold diagonal slash — like crossing off a list item or a price tag score -->
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="22" fill="#111"/>
+        <!-- S letterform ghost -->
+        <text x="50" y="72" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="68" fill="rgba(212,32,56,0.15)">S</text>
+        <!-- Score slash over the top -->
+        <line x1="18" y1="72" x2="82" y2="24" stroke="#D42038" stroke-width="10" stroke-linecap="round"/>
+      </svg>
+      <svg width="64" height="64" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="22" fill="#111"/>
+        <text x="50" y="72" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="68" fill="rgba(212,32,56,0.15)">S</text>
+        <line x1="18" y1="72" x2="82" y2="24" stroke="#D42038" stroke-width="10" stroke-linecap="round"/>
+      </svg>
+      <svg width="44" height="44" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="22" fill="#111"/>
+        <line x1="18" y1="72" x2="82" y2="24" stroke="#D42038" stroke-width="12" stroke-linecap="round"/>
+      </svg>
+      <svg width="32" height="32" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="16" fill="#111"/>
+        <line x1="16" y1="74" x2="84" y2="22" stroke="#D42038" stroke-width="14" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="label">S + score slash</div>
+    <div class="desc">A ghost S with a bold red diagonal score line over it — literally "scored". Minimalist, fast, completely ownable. Reads instantly at small sizes. The S is implied, not shown.</div>
+  </div>
+
+</div>
+
+<!-- ALT 5: Combo — tilted escaping tick (merges Alt 1 + Alt 2) -->
+<div style="background:#141414;border-radius:24px;padding:44px 52px;margin-bottom:14px">
+  <div class="ey" style="margin-bottom:20px;color:#2A2A2A">Alt 5 · Tilted escaping tick — combination of 1 + 2</div>
+  <div style="display:flex;gap:32px;align-items:flex-start">
+    <div style="display:flex;gap:14px;align-items:flex-end">
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="22" fill="#111"/>
+        <g transform="translate(50,50) rotate(10) translate(-50,-50)">
+          <circle cx="50" cy="50" r="29" stroke="#D42038" stroke-width="5" fill="none"/>
+          <!-- Long arm escapes the circle -->
+          <polyline points="34,52 46,65 78,26" fill="none" stroke="#D42038" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </svg>
+      <svg width="72" height="72" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="20" fill="#111"/>
+        <g transform="translate(50,50) rotate(10) translate(-50,-50)">
+          <circle cx="50" cy="50" r="29" stroke="#D42038" stroke-width="5.5" fill="none"/>
+          <polyline points="34,52 46,65 78,26" fill="none" stroke="#D42038" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </svg>
+      <svg width="52" height="52" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="18" fill="#111"/>
+        <g transform="translate(50,50) rotate(10) translate(-50,-50)">
+          <circle cx="50" cy="50" r="29" stroke="#D42038" stroke-width="6" fill="none"/>
+          <polyline points="34,52 46,65 78,26" fill="none" stroke="#D42038" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </svg>
+      <svg width="36" height="36" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="14" fill="#111"/>
+        <g transform="translate(50,50) rotate(10) translate(-50,-50)">
+          <circle cx="50" cy="50" r="30" stroke="#D42038" stroke-width="7" fill="none"/>
+          <polyline points="33,52 46,66 80,24" fill="none" stroke="#D42038" stroke-width="10.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </svg>
+      <svg width="24" height="24" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="10" fill="#111"/>
+        <g transform="translate(50,50) rotate(10) translate(-50,-50)">
+          <circle cx="50" cy="50" r="30" stroke="#D42038" stroke-width="9" fill="none"/>
+          <polyline points="32,52 46,67 82,22" fill="none" stroke="#D42038" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </svg>
+    </div>
+    <div>
+      <div class="label" style="margin-bottom:6px">Tilted escaping tick ★ recommended</div>
+      <div class="desc" style="max-width:480px">Tilted 10° + long arm breaks out of the ring. Most distinctive silhouette — impossible to confuse with a todo app at a glance. The tilt gives it momentum (like a score posting). The escape gives it attitude. Reads perfectly from 24px to 512px.</div>
+
+      <!-- Lockup with wordmark -->
+      <div style="margin-top:24px;display:flex;flex-direction:column;gap:10px">
+        <div style="padding:18px 24px;background:#0A0A0A;border-radius:13px;display:inline-flex;align-items:center;gap:16px">
+          <svg width="48" height="48" viewBox="0 0 100 100" style="flex-shrink:0;border-radius:12px">
+            <rect width="100" height="100" fill="#111"/>
+            <g transform="translate(50,50) rotate(10) translate(-50,-50)">
+              <circle cx="50" cy="50" r="29" stroke="#D42038" stroke-width="5.5" fill="none"/>
+              <polyline points="34,52 46,65 78,26" fill="none" stroke="#D42038" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+          </svg>
+          <svg width="220" height="32" viewBox="0 0 330 38" fill="none">
+            <text x="0" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="white" textLength="42" lengthAdjust="spacingAndGlyphs">SC</text>
+            <circle cx="53" cy="19" r="11" stroke="#D42038" stroke-width="2.5" fill="none"/>
+            <polyline points="46,19 52,25 61,12" fill="none" stroke="#D42038" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="65" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="white" textLength="21" lengthAdjust="spacingAndGlyphs">R</text>
+            <text x="87" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="#D42038" textLength="66" lengthAdjust="spacingAndGlyphs">RED</text>
+          </svg>
+        </div>
+        <div style="padding:18px 24px;background:#F2EFE9;border-radius:13px;display:inline-flex;align-items:center;gap:16px">
+          <svg width="48" height="48" viewBox="0 0 100 100" style="flex-shrink:0;border-radius:12px">
+            <rect width="100" height="100" fill="#F2EFE9" stroke="#E0DDD7" stroke-width="1"/>
+            <g transform="translate(50,50) rotate(10) translate(-50,-50)">
+              <circle cx="50" cy="50" r="29" stroke="#D42038" stroke-width="5.5" fill="none"/>
+              <polyline points="34,52 46,65 78,26" fill="none" stroke="#D42038" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+          </svg>
+          <svg width="220" height="32" viewBox="0 0 330 38" fill="none">
+            <text x="0" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="#111" textLength="42" lengthAdjust="spacingAndGlyphs">SC</text>
+            <circle cx="53" cy="19" r="11" stroke="#D42038" stroke-width="2.5" fill="none"/>
+            <polyline points="46,19 52,25 61,12" fill="none" stroke="#D42038" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="65" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="#111" textLength="21" lengthAdjust="spacingAndGlyphs">R</text>
+            <text x="87" y="32" font-family="'Geist',system-ui" font-weight="900" font-size="32" fill="#D42038" textLength="66" lengthAdjust="spacingAndGlyphs">RED</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- QUICK SCAN -->
+<div style="background:#0A0A0A;border-radius:24px;padding:44px 52px">
+  <div class="ey" style="margin-bottom:28px">Quick scan · all five at 52px</div>
+  <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+      <div class="ey" style="color:#333">Current</div>
+      <svg width="52" height="52" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#111"/><circle cx="50" cy="50" r="32" stroke="#D42038" stroke-width="6.5" fill="none"/><polyline points="34,50 45,63 68,36" fill="none" stroke="#D42038" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+      <div class="ey" style="color:#D42038">1 · Escape</div>
+      <svg width="52" height="52" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#111"/><circle cx="50" cy="50" r="30" stroke="#D42038" stroke-width="6" fill="none"/><polyline points="34,52 46,65 76,28" fill="none" stroke="#D42038" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+      <div class="ey" style="color:#D42038">2 · Tilt</div>
+      <svg width="52" height="52" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#111"/><g transform="translate(50,50) rotate(12) translate(-50,-50)"><circle cx="50" cy="50" r="30" stroke="#D42038" stroke-width="6" fill="none"/><polyline points="34,50 46,62 66,38" fill="none" stroke="#D42038" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></g></svg>
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+      <div class="ey" style="color:#D42038">3 · Grade</div>
+      <svg width="52" height="52" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#111"/><line x1="22" y1="54" x2="42" y2="74" stroke="#D42038" stroke-width="9" stroke-linecap="round"/><line x1="40" y1="74" x2="80" y2="24" stroke="#D42038" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+      <div class="ey" style="color:#D42038">4 · Slash</div>
+      <svg width="52" height="52" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#111"/><line x1="18" y1="72" x2="82" y2="24" stroke="#D42038" stroke-width="12" stroke-linecap="round"/></svg>
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+      <div class="ey" style="color:#D42038">5 · Tilt+Escape ★</div>
+      <svg width="52" height="52" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#111"/><g transform="translate(50,50) rotate(10) translate(-50,-50)"><circle cx="50" cy="50" r="29" stroke="#D42038" stroke-width="6" fill="none"/><polyline points="34,52 46,65 78,26" fill="none" stroke="#D42038" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></g></svg>
+    </div>
+
+  </div>
+</div>
+
+</div>
+</body>
+</html>

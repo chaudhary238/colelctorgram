@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Search, Filter, Heart, X, Plus, Send, ShoppingBag, Edit3 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiListing, ApiPost, MarketCard, PostCard } from "@/components/cards";
 import { Segmented } from "@/components/ui";
-import { ADD_CATEGORIES } from "@/lib/catalog";
+import { ADD_CATEGORIES, conditionsFor } from "@/lib/catalog";
 
 // Category multi-select (design: [] = All). ids match the substring stored on listings.
 // v4 MarketView renders these from the global CATEGORIES using chipLabel, in this
@@ -15,23 +15,18 @@ import { ADD_CATEGORIES } from "@/lib/catalog";
 // naming the same category on two screens (Change Spec §4.2).
 const CATEGORIES = ADD_CATEGORIES;
 
-// QA 2026-08-04 §6 — Market has no "save": a listing is a temporary object, so the
-// keep-for-later action is a LIKE that lives exactly as long as the listing (the
-// browse query is pinned to status == "available"). Saving-for-later across time is
-// what the catalogue wishlist is for. Matches design_v7 MarketView, which draws a
-// heart — not a bookmark — beside the search field.
+// QA 2026-08-04 §6 — the keep-for-later action is a LIKE that lives exactly as long
+// as the listing (the browse query is pinned to status == "available"). Saving-for-later
+// across time is what the catalogue wishlist is for. DV8 §6 settled the surface WORD:
+// the heart reads "Saved" everywhere (filter, sort, header, empty state) while the
+// mechanism stays the like endpoint. "Most Watched" is gone — watching_count is dead.
 const SORTS = [
   { id: "new", label: "Newest" },
   { id: "low", label: "Price ↑" },
   { id: "high", label: "Price ↓" },
-  { id: "liked", label: "Most Liked" },
-  { id: "watched", label: "Most Watched" },
+  { id: "liked", label: "Most saved" },
 ] as const;
 type SortId = (typeof SORTS)[number]["id"];
-
-// Condition chips → canonical listing.condition keys (mirrors AddListing's mapping).
-const COND_OPTIONS = ["Sealed", "MIB", "BIB", "Loose"];
-const COND_MAP: Record<string, string> = { Sealed: "sealed_misb", MIB: "mint", BIB: "like_new", Loose: "good" };
 
 function FilterLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -153,7 +148,9 @@ export default function MarketPage() {
     p.set("sort", sort);
     if (debouncedQuery.trim()) p.set("q", debouncedQuery.trim());
     cats.forEach((c) => p.append("category", c));
-    conds.forEach((c) => p.append("condition", COND_MAP[c]));
+    // DV8-10 — chips carry the stored condition ids directly (per-category vocabulary);
+    // the backend stores the same ids for new listings, conditionLabel handles legacy.
+    conds.forEach((c) => p.append("condition", c));
     if (minPrice) p.set("min_price", String(Number(minPrice) * 100));
     if (maxPrice) p.set("max_price", String(Number(maxPrice) * 100));
     if (shipOnly) p.set("ship", "true");
@@ -189,6 +186,27 @@ export default function MarketPage() {
 
   const toggleArr = (set: React.Dispatch<React.SetStateAction<string[]>>, val: string) =>
     set((a) => (a.includes(val) ? a.filter((x) => x !== val) : [...a, val]));
+
+  // DV8-10 — condition chips exist only within a category's vocabulary: union of the
+  // selected categories' options, deduped by stored id (labels can repeat across cats).
+  const condOptions = useMemo(() => {
+    const out: { id: string; label: string }[] = [];
+    cats.forEach((cid) => conditionsFor(cid).forEach((c) => {
+      if (!out.some((x) => x.id === c.id)) out.push({ id: c.id, label: c.label });
+    }));
+    return out;
+  }, [cats]);
+
+  // Deselecting a category drops its now-orphaned condition picks (v8 MarketView) —
+  // done in the toggle handler, not an effect, so state settles in one render.
+  const toggleCat = (val: string) => {
+    const next = cats.includes(val) ? cats.filter((x) => x !== val) : [...cats, val];
+    setCats(next);
+    if (next.length > 0) {
+      const allowed = next.flatMap((cid) => conditionsFor(cid).map((c) => c.id));
+      setConds((cs) => cs.filter((c) => allowed.includes(c)));
+    }
+  };
 
   const activeCount = [
     sort !== "new", cats.length > 0, minPrice !== "", maxPrice !== "",
@@ -241,7 +259,7 @@ export default function MarketPage() {
                 </button>
               )}
             </div>
-            <button type="button" onClick={() => { setShowLiked((v) => !v); setShowFilter(false); }} style={iconBtn(showLiked, "var(--stamp-red)")} aria-label="Listings you liked">
+            <button type="button" onClick={() => { setShowLiked((v) => !v); setShowFilter(false); }} style={iconBtn(showLiked, "var(--stamp-red)")} aria-label="Saved listings" title="Saved listings">
               <Heart size={18} fill={showLiked ? "currentColor" : "none"} />
               {likedCount > 0 && !showLiked && badge(likedCount)}
             </button>
@@ -259,7 +277,7 @@ export default function MarketPage() {
             <div>
               <FilterLabel>Category</FilterLabel>
               <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-                {CATEGORIES.map((c) => <FilterChip key={c.id} active={cats.includes(c.id)} onClick={() => toggleArr(setCats, c.id)}>{c.label}</FilterChip>)}
+                {CATEGORIES.map((c) => <FilterChip key={c.id} active={cats.includes(c.id)} onClick={() => toggleCat(c.id)}>{c.label}</FilterChip>)}
               </div>
               {cats.length > 0 && (
                 <button type="button" onClick={() => setCats([])} style={{ marginTop: 7, background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--ink-faint)", fontFamily: "var(--font-body)", fontSize: 12 }}>Clear category selection</button>
@@ -281,9 +299,16 @@ export default function MarketPage() {
             </div>
             <div>
               <FilterLabel>Condition</FilterLabel>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {COND_OPTIONS.map((c) => <FilterChip key={c} active={conds.includes(c)} onClick={() => toggleArr(setConds, c)}>{c}</FilterChip>)}
-              </div>
+              {cats.length === 0 ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 12px", borderRadius: 10, background: "var(--slate-50)", border: "1px dashed var(--slate-200)" }}>
+                  <Filter size={13} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
+                  <span style={{ fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.4 }}>Pick a category above — conditions differ by category.</span>
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {condOptions.map((c) => <FilterChip key={c.id} active={conds.includes(c.id)} onClick={() => toggleArr(setConds, c.id)}>{c.label}</FilterChip>)}
+                </div>
+              )}
             </div>
             <div>
               <FilterLabel>Quick filters</FilterLabel>
@@ -321,7 +346,7 @@ export default function MarketPage() {
         <>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px 10px" }}>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-faint)", letterSpacing: "0.04em" }}>
-              {showLiked ? `${total} LIKED` : `${total} ${total === 1 ? "LISTING" : "LISTINGS"}`}
+              {showLiked ? `${total} SAVED` : `${total} ${total === 1 ? "LISTING" : "LISTINGS"}`}
             </span>
             {filtersActive && !showLiked && (
               <button type="button" onClick={resetAll} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5 }}>Clear filters</button>
@@ -332,7 +357,7 @@ export default function MarketPage() {
             {list.length === 0 && (
               <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", alignItems: "center", padding: "44px 0", color: "var(--ink-faint)", textAlign: "center" }}>
                 {showLiked ? <Heart size={26} style={{ opacity: 0.35 }} /> : <Filter size={26} style={{ opacity: 0.35 }} />}
-                <div style={{ fontSize: 13.5, marginTop: 10 }}>{showLiked ? "You haven't liked any listings yet." : "No listings match these filters."}</div>
+                <div style={{ fontSize: 13.5, marginTop: 10 }}>{showLiked ? "Nothing saved yet." : "No listings match these filters."}</div>
                 {showLiked ? (
                   <div style={{ fontSize: 12.5, marginTop: 4, color: "var(--ink-ghost)" }}>Tap the heart on any listing to keep it here while it&rsquo;s live.</div>
                 ) : (

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Scorred · Change Review · 16–24 Aug 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+doc-page:not(:defined){visibility:hidden}
+:root{--ink:#16181d;--ink-soft:#3b4048;--ink-faint:#7a828e;--rule:#dcdfe4;--rule-soft:#eceef1;--red:#d92d3c;--red-soft:#fdf2f3;--teal:#0f7f74;--gold:#8a6a12;--gold-soft:#fdf8ec;--bone:#f6f7f8}
+body{margin:0}
+doc-page{--font-body:'Inter',sans-serif;--font-display:'Newsreader',serif;--font-mono:'JetBrains Mono',monospace}
+.doc{font-family:var(--font-body);color:var(--ink);font-size:10.5pt;line-height:1.55}
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:700;letter-spacing:-0.01em;color:var(--ink)}
+h1{font-size:27pt;line-height:1.1;margin:0 0 6pt}
+h2{font-size:15pt;margin:22pt 0 2pt;padding-bottom:4pt;border-bottom:1.5px solid var(--ink)}
+h3{font-size:11.5pt;margin:14pt 0 3pt}
+p{margin:0 0 7pt;text-wrap:pretty}
+ul{margin:0 0 8pt;padding-left:14pt}
+li{margin-bottom:3.5pt}
+.lede{font-family:var(--font-display);font-size:12pt;line-height:1.5;color:var(--ink-soft);margin:0 0 4pt}
+.meta{font-family:var(--font-mono);font-size:8pt;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-faint)}
+.rule-top{border-top:3px solid var(--red);padding-top:9pt;margin-bottom:14pt}
+.kicker{font-family:var(--font-mono);font-size:8pt;letter-spacing:0.1em;text-transform:uppercase;color:var(--red);margin-bottom:5pt}
+table{width:100%;border-collapse:collapse;margin:6pt 0 10pt;font-size:9.5pt}
+th{text-align:left;font-family:var(--font-mono);font-size:7.5pt;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;padding:0 8pt 4pt 0;border-bottom:1px solid var(--rule)}
+td{padding:6pt 8pt 6pt 0;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.45}
+th:last-child,td:last-child{padding-right:0}
+/* Before column stays visibly secondary, but the "before" text is substantive prose that gets
+   printed and read aloud — so it uses ink-soft, not the faint grey, to stay legible on paper. */
+.c-was{width:38%;color:var(--ink-soft)}
+.c-now{width:44%}
+.c-what{width:18%;font-weight:600}
+/* Tables whose columns are NOT before/after get their own widths, so the greying never implies
+   "deprecated" on current behaviour. */
+.c-a{width:18%;font-weight:600}
+.c-b{width:44%}
+.c-c{width:38%;color:var(--ink-soft)}
+tr,figure,.box,.stat{break-inside:avoid}
+.box{border:1px solid var(--rule);border-left:3px solid var(--ink);padding:8pt 11pt;margin:8pt 0 11pt;background:var(--bone)}
+.box.bug{border-left-color:var(--red);background:var(--red-soft)}
+.box.open{border-left-color:var(--gold);background:var(--gold-soft)}
+.box h4{font-family:var(--font-body);font-size:9pt;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 5pt;color:var(--ink-faint)}
+.box p:last-child,.box ul:last-child{margin-bottom:0}
+.statrow{display:flex;gap:0;border:1px solid var(--rule);margin:10pt 0 14pt}
+.stat{flex:1;padding:9pt 11pt;border-right:1px solid var(--rule)}
+.stat:last-child{border-right:none}
+.stat b{display:block;font-family:var(--font-mono);font-size:18pt;line-height:1;color:var(--ink)}
+.stat span{display:block;font-size:8.5pt;color:var(--ink-faint);margin-top:3pt;line-height:1.3}
+code{font-family:var(--font-mono);font-size:8.5pt;background:var(--bone);padding:1px 3px;border-radius:2px;color:var(--ink-soft)}
+.arrow{color:var(--red);font-weight:700}
+.tag{display:inline-block;font-family:var(--font-mono);font-size:7pt;letter-spacing:0.05em;text-transform:uppercase;padding:1.5pt 4pt;border-radius:2px;background:var(--ink);color:#fff;vertical-align:1px}
+.tag.fix{background:var(--red)}
+.tag.new{background:var(--teal)}
+footer.pf{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:7.5pt;color:var(--ink-faint);letter-spacing:0.05em;text-transform:uppercase;border-top:1px solid var(--rule);padding-top:5pt}
+a{color:var(--red)}a:hover{color:var(--ink)}
+</style></head>
+<body>
+<doc-page margin="0.7in">
+<div slot="footer"><footer class="pf"><span>Scorred · Change Review</span><span>16–24 August 2026</span></footer></div>
+
+<div class="doc">
+<div class="rule-top">
+<div class="meta">Internal review document · Prepared 24 August 2026 · Updated 25 August 2026</div>
+<h1>Scorred: what changed since 16 August</h1>
+<p class="lede">Five areas were rebuilt: the item page, how items get into a collection, the listing page, community moderation, and events. This document sets the previous behaviour beside the current build so each change can be checked on the call.</p>
+</div>
+
+<div class="statrow">
+<div class="stat"><b>5</b><span>Flows rebuilt</span></div>
+<div class="stat"><b>11</b><span>Bugs found &amp; fixed</span></div>
+<div class="stat"><b>2</b><span>Crashes resolved</span></div>
+<div class="stat"><b>4</b><span>Decisions still open</span></div>
+</div>
+
+<h2>1. The item page</h2>
+<p>The database entry and a collection item were two separate screens that had drifted apart over time — different stat rows, different section order, different actions. They are now the same page. Differences between viewers amount to one card and one button, not two designs.</p>
+
+<table>
+<thead><tr><th class="c-what">Element</th><th class="c-was">Before</th><th class="c-now">Now</th></tr></thead>
+<tbody>
+<tr><td class="c-what">Page identity</td><td class="c-was">Two components — database vs collection — which had diverged.</td><td class="c-now">One component serves both. Shared content is identical by construction, not by copy-paste.</td></tr>
+<tr><td class="c-what">Your copy</td><td class="c-was">Ownership details mixed into the page body.</td><td class="c-now">One collapsible card under the title: <em>About your copy</em> · Owned · Sealed · ₹4,800. Price visible only to you.</td></tr>
+<tr><td class="c-what">Pre-order</td><td class="c-was">A separate gold timeline card <em>plus</em> the ownership card — two cards, overlapping content.</td><td class="c-now">Folded into the same card with a gold tint. Collapsed line shows ETA and balance due; inside are order date, total, deposit, balance.</td></tr>
+<tr><td class="c-what">Listed item</td><td class="c-was">Competing price blocks on one screen.</td><td class="c-now">A row <em>inside</em> the ownership card: <em>Sale · ₹5,400 · View listing →</em>. Never a second price block.</td></tr>
+<tr><td class="c-what">Visitor view</td><td class="c-was">Noticeably different from the owner's view.</td><td class="c-now">Same page, same card. Header reads <em>In @meera's collection</em>, the price row is dropped, and <em>Ask @meera about it</em> is added.</td></tr>
+<tr><td class="c-what">Provenance</td><td class="c-was">Two stacked pills.</td><td class="c-now">One line: <em>Scorred Reviewed · Added by @you</em>.</td></tr>
+<tr><td class="c-what">Community stats</td><td class="c-was">Two large numeric tiles, ~80px for two numbers. Labelled "own" / "want".</td><td class="c-now">One compact row: <em>301 own this | 178 wishlisted</em>, star icon to match the rest of the app.</td></tr>
+<tr><td class="c-what">About</td><td class="c-was">Always fully expanded; long entries pushed the page down.</td><td class="c-now">Collapsible with <em>Read more</em>, and absorbed the specs grid.</td></tr>
+<tr><td class="c-what">Rating</td><td class="c-was">"4.5 avg · 34 ratings" in small grey text — the score was stated but never shown.</td><td class="c-now">A score block: large <em>4.7 /5</em>, gold stars filled to the true fraction, rating count, then your own stars beside it.</td></tr>
+</tbody>
+</table>
+
+<div class="box">
+<h4>Net effect</h4>
+<p>Roughly 200px of vertical space recovered above the fold, and the page ends just below the fold regardless of how much catalogue copy or discussion an item has.</p>
+</div>
+
+<h2>2. Getting items into a collection <span class="tag new">New flow</span></h2>
+<p>Previously, adding one item opened a full form asking for price, condition and photos — information a collector rarely has to hand at the moment of adding. The result was either abandoned adds or invented data. The new flow separates <em>adding</em> from <em>describing</em>.</p>
+
+<table>
+<thead><tr><th class="c-what">Step</th><th class="c-was">Before</th><th class="c-now">Now</th></tr></thead>
+<tbody>
+<tr><td class="c-what">Adding</td><td class="c-was">Tap <code>+</code> → a form with photos, condition, price, notes. One item at a time.</td><td class="c-now">Tap <code>+</code> → the item is in, no screen. Several items can be added in a row.</td></tr>
+<tr><td class="c-what">Teaching the reward</td><td class="c-was">No indication that XP existed or how to earn more.</td><td class="c-now">The toast teaches it when it's earned: <em>+5 XP · Added to collection</em> / <em>+20 XP when you add condition &amp; price</em>.</td></tr>
+<tr><td class="c-what">What "complete" means</td><td class="c-was">Everything the old form asked for.</td><td class="c-now">Two fields only — condition and price paid (pre-order: ETA and total). Photos, notes and order dates stay optional permanently.</td></tr>
+<tr><td class="c-what">Portfolio value</td><td class="c-was">Always public, and wrong whenever items lacked prices.</td><td class="c-now">Private until complete. Visitors see <em>Value not shared · —</em>; you see the real number with a lock and a count of what's missing.</td></tr>
+<tr><td class="c-what">Incomplete items</td><td class="c-was">No indication anything was missing.</td><td class="c-now">The tile's value line becomes <em>Add price →</em> / <em>Add condition →</em> / <em>Add details →</em> in gold — the gap shown where the data belongs.</td></tr>
+<tr><td class="c-what">Finishing</td><td class="c-was">Re-open the full item page per item.</td><td class="c-now"><em>Finish your items</em>: one item at a time, two fields, <em>Save &amp; next</em>, skip allowed, progress bar. Six items in under a minute.</td></tr>
+</tbody>
+</table>
+
+<h3>Design decisions worth noting</h3>
+<ul>
+<li><b>Quick-add still earns XP.</b> If adding earned nothing, quick-add would feel like a trap that generates homework. The action is rewarded; finishing is rewarded more.</li>
+<li><b>The portfolio is not hidden</b> — only the value is withheld, and only because we genuinely can't compute it. Hiding the whole portfolio punishes one missing field and encourages abandonment.</li>
+<li><b>No "Incomplete" badges.</b> Fourteen loud badges reads like a broken app. Naming the missing thing in its own slot is both quieter and more actionable.</li>
+<li><b>Status is correctable.</b> The item menu gained <em>Change to pre-order</em> / <em>It arrived — mark as owned</em> — the one thing a silent add can get wrong.</li>
+</ul>
+
+<h2>3. The listing page</h2>
+<p>Two separate listing components existed — one for catalogue-seeded listings, one for user-created ones. The same listing therefore looked different depending on where it was tapped, and the user-created component referenced state it never declared, so a seller opening their own listing hit a blank screen.</p>
+
+<table>
+<thead><tr><th class="c-what">Element</th><th class="c-was">Before</th><th class="c-now">Now</th></tr></thead>
+<tbody>
+<tr><td class="c-what">Page identity</td><td class="c-was">Two components; your own listing crashed.</td><td class="c-now">Every source normalises into one shape and renders one page — market, collection item, My Space all land identically.</td></tr>
+<tr><td class="c-what">Your order card</td><td class="c-was">Quantity stepper, shipping/local-pickup toggle, estimated total — none of it functional.</td><td class="c-now">Removed entirely.</td></tr>
+<tr><td class="c-what">Condition ladder</td><td class="c-was">A <em>Sealed / Mint / Like new / Good / Fair / For parts</em> row nobody had entered.</td><td class="c-now">Removed — it was leftover seed data contradicting the real category-specific conditions.</td></tr>
+<tr><td class="c-what">Tabs</td><td class="c-was">"Details" (mixing catalogue facts with sale terms) and "Seller terms". Shipping appeared in both.</td><td class="c-now"><em>Selling terms</em> leads — condition, quantity, ships from, shipping, returns, trades. <em>About the item</em> holds catalogue facts read from the same database entry.</td></tr>
+<tr><td class="c-what">Q&amp;A</td><td class="c-was">Always expanded.</td><td class="c-now">Collapsible, with the question count in the header.</td></tr>
+<tr><td class="c-what">Trust row</td><td class="c-was">Deals · Vouches · Replies · Joined — deals aren't tracked anywhere in the product.</td><td class="c-now">Vouches · Replies · Joined.</td></tr>
+</tbody>
+</table>
+
+<h3>"Is this price fair?" — now functional</h3>
+<p>Previously three buttons that did nothing. The purpose is narrow: give the seller a signal on whether to adjust the price.</p>
+<table>
+<thead><tr><th class="c-a">Viewer</th><th class="c-b">Sees</th><th class="c-c">Why</th></tr></thead>
+<tbody>
+<tr><td class="c-a">Visitor</td><td class="c-b">Three options, then a confirmation of their choice with a <em>Change</em> link. No percentages, ever.</td><td class="c-c">Published votes would anchor every subsequent buyer's expectation of the price.</td></tr>
+<tr><td class="c-a">Seller</td><td class="c-b">A stacked bar and legend (11% / 67% / 22%), a plain-language recommendation, and an <em>Adjust price</em> button.</td><td class="c-c">A bar chart alone is not a decision — the card states what to do about it.</td></tr>
+</tbody>
+</table>
+<p>A notification fires each time a vote lands on your listing. Votes remain anonymous to the seller — they see the split, never who voted.</p>
+
+<h2>4. Copy, naming and removals</h2>
+<ul>
+<li><b>Market "Saved" filter</b> — was "Saved only" with a trailing count that read like a stepper. Now simply <em>Saved</em>; sort reads "Most saved", results header "3 SAVED".</li>
+<li><b>Market condition filter</b> — previously stacked every category's vocabulary at once, making it the longest block in the sheet. Conditions are category-specific, so the chips now appear only after a category is picked. Roughly a third shorter by default.</li>
+<li><b>SKU</b> — removed from every user-facing surface (item page, listing page, chat threads). It remains an internal key only.</li>
+</ul>
+
+<h2>5. Community access &amp; moderation <span class="tag new">New</span></h2>
+<p>Communities previously had no real gate and no real enforcement — anyone could act inside one, and moderators had no distinct tools from admins. This pass adds an approval gate, a moderation queue, and a permission split.</p>
+
+<table>
+<thead><tr><th class="c-what">Area</th><th class="c-was">Before</th><th class="c-now">Now</th></tr></thead>
+<tbody>
+<tr><td class="c-what">Joining</td><td class="c-was">Joining a community granted full activity immediately.</td><td class="c-now">New members are gated until platform-approved — no posting, commenting, or acting until approved.</td></tr>
+<tr><td class="c-what">Creating</td><td class="c-was">Name and description only.</td><td class="c-now">Create flow adds banner and photo upload, alongside name/description/rules.</td></tr>
+<tr><td class="c-what">Rules</td><td class="c-was">Unbounded free text, always fully shown.</td><td class="c-now">Character cap, collapsible display.</td></tr>
+<tr><td class="c-what">Managing a community</td><td class="c-was">No dedicated settings surface.</td><td class="c-now">Full "Manage community" sheet: rename, photos, description, rules, delete.</td></tr>
+<tr><td class="c-what">Removing a member</td><td class="c-was">Silent removal, no record of why.</td><td class="c-now">Removal requires a reason, entered in a reason box.</td></tr>
+<tr><td class="c-what">Join requests</td><td class="c-was">Requester shown as inert text.</td><td class="c-now">Requester name opens their profile.</td></tr>
+<tr><td class="c-what">Info tab</td><td class="c-was">"About" tab.</td><td class="c-now">Renamed "Rules" — matches what's actually in it.</td></tr>
+<tr><td class="c-what">Membership CTA</td><td class="c-was">Button read "Joined" once a member.</td><td class="c-now">Reads "Open" — a clearer next action than a status label.</td></tr>
+<tr><td class="c-what">Unapproved posts</td><td class="c-was">No queue — posts were either visible or didn't exist.</td><td class="c-now">Per-community <em>Pending</em> tab lists posts awaiting approval; pending posts are clickable to review in full.</td></tr>
+<tr><td class="c-what">Role visibility</td><td class="c-was">No indication of who moderates.</td><td class="c-now">Admin/Mod badges shown on posts and comments.</td></tr>
+<tr><td class="c-what">Permissions</td><td class="c-was">Single undifferentiated moderator role.</td><td class="c-now">Split: Mods can approve only; Admins can also edit settings and remove members/posts.</td></tr>
+<tr><td class="c-what">Post removal</td><td class="c-was">Not available to admins.</td><td class="c-now">Admins can remove posts directly.</td></tr>
+<tr><td class="c-what">Founder label</td><td class="c-was">"Founder" used inconsistently alongside "Admin".</td><td class="c-now">Standardised to "Admin" everywhere.</td></tr>
+</tbody>
+</table>
+
+<div class="box">
+<h4>Design consistency fixes</h4>
+<ul>
+<li>Community card badges now reserve fixed height always, so cards no longer jump size depending on whether a badge is present.</li>
+<li>Role picker and "Remove member" row now render as matching pills, aligned to the far right.</li>
+</ul>
+</div>
+
+<h2>6. Events <span class="tag new">New</span></h2>
+<p>The event form previously asked for a pincode and a map pin — precision the organiser rarely has and the attendee rarely reads. It's replaced with the same city-based location pattern already used in profile onboarding, plus real pricing and contact fields.</p>
+
+<table>
+<thead><tr><th class="c-what">Area</th><th class="c-was">Before</th><th class="c-now">Now</th></tr></thead>
+<tbody>
+<tr><td class="c-what">Location</td><td class="c-was">Pincode + map pin.</td><td class="c-now">City picker (same component as profile onboarding) + a full-address Venue textarea.</td></tr>
+<tr><td class="c-what">Pricing</td><td class="c-was">Not modelled.</td><td class="c-now">Free/Paid toggle; Paid exposes a price field with multi-currency support.</td></tr>
+<tr><td class="c-what">Ticketing &amp; contact</td><td class="c-was">Not available.</td><td class="c-now">Optional Ticket link and Contact fields.</td></tr>
+<tr><td class="c-what">Community link</td><td class="c-was">Event-community links were generic, not tied to a specific community.</td><td class="c-now">Links point to the specific community the event is bound to.</td></tr>
+<tr><td class="c-what">Create-flow state</td><td class="c-was">Starting "create community" mid-way through creating an event dropped the event form.</td><td class="c-now">The in-progress event form persists across a "create community" detour.</td></tr>
+<tr><td class="c-what">Editing after creation</td><td class="c-was">No structured edit surface.</td><td class="c-now">Full "Edit event details" sheet in Manage Event — cover, title, categories, time, city, venue, description, pricing, ticket/contact.</td></tr>
+<tr><td class="c-what">Cover photo</td><td class="c-was">Large photo block.</td><td class="c-now">Shrunk to a 96px banner.</td></tr>
+<tr><td class="c-what">Time input</td><td class="c-was">Free-text time entry.</td><td class="c-now">Native time pickers, displayed as "4:00 pm".</td></tr>
+</tbody>
+</table>
+
+<p><code>app/Nav.jsx</code>, <code>app/EventCreate.jsx</code>, <code>app/EventDetail.jsx</code>, <code>app/EventManage.jsx</code>, <code>app/Cards.jsx</code>, <code>app/CommunityDetail.jsx</code>, <code>app/CommunityManage.jsx</code>.</p>
+
+<h2>7. Bugs found while testing this flow</h2>
+<p>Each of these was found by walking the flow end to end rather than by inspection, and each was a real defect in the build rather than a design question.</p>
+
+<div class="box bug">
+<h4>Two crashes <span class="tag fix">Blocker</span></h4>
+<ul>
+<li><b>Condition chips</b> — options are <code>{id, label, hint}</code> objects and were rendered directly as labels, blanking the screen on any owned item in the finish flow. Condition hints now display as well.</li>
+<li><b>Month picker</b> — the month-name arrays were declared inside the calendar component and invisible to other files, so choosing "Month" on a pre-order threw and blanked the app. They now live in shared data.</li>
+</ul>
+</div>
+
+<table>
+<thead><tr><th class="c-a">Symptom</th><th class="c-c">Cause</th><th class="c-b">Fix</th></tr></thead>
+<tbody>
+<tr><td class="c-a">"Listed" tag on items with no listing</td><td class="c-c">The tag read a seed flag stored on the shared catalogue row, so it appeared on every collector's copy.</td><td class="c-b">One source of truth now drives the tag, the tap target, the filter count and the item page.</td></tr>
+<tr><td class="c-a">Pre-orders showing as for sale</td><td class="c-c">The listing lookup matched on item code alone, and a collection can legitimately hold the same item as both an owned copy and a pre-order — so pre-orders inherited the owned copy's listing.</td><td class="c-b">A pre-order is not in hand and can no longer show a listing anywhere.</td></tr>
+<tr><td class="c-a">Wrong copy opening; edits overwriting each other</td><td class="c-c">Everything was keyed by item code, so tapping the pre-order tile opened the owned copy and filling one copy's price patched both.</td><td class="c-b">Keyed by individual copy end to end.</td></tr>
+<tr><td class="c-a">Search returning nothing for real items</td><td class="c-c">The category filter was pre-seeded from your interests and also applied to search — typing "Pokémon" returned no results.</td><td class="c-b">Search spans the whole catalogue unless you set filters yourself.</td></tr>
+<tr><td class="c-a">Quick-add silently refusing items</td><td class="c-c">The duplicate guard counted wishlist rows as already owned.</td><td class="c-b">Only a real copy blocks a quick-add.</td></tr>
+<tr><td class="c-a">Every pre-order showing "TBD" and counting as incomplete</td><td class="c-c">Dates are stored structurally but were being read as a plain string.</td><td class="c-b">One shared formatter; an explicit "not announced" now counts as an answer rather than a gap.</td></tr>
+<tr><td class="c-a">Your own listing had no listing behind it</td><td class="c-c">A seed flag marked the item as listed with no listing record, so the tag, the in-card row and Unlist all resolved to nothing.</td><td class="c-b">Real listing records added, including one owned by another collector so the visitor path is exercised.</td></tr>
+</tbody>
+</table>
+
+<h2>8. Post-review polish (25 Aug)</h2>
+<p>A follow-up design pass after the 24 Aug review — smaller fixes surfaced by walking the live build screen by screen.</p>
+<table>
+<thead><tr><th class="c-a">Area</th><th class="c-c">Before</th><th class="c-b">Now</th></tr></thead>
+<tbody>
+<tr><td class="c-a">Community list card</td><td class="c-c">A reserved badge row left an empty gap under the name on public communities with no badges.</td><td class="c-b">Badge row only renders when a badge (Private / Pending / Admin) exists — no dead space.</td></tr>
+<tr><td class="c-a">Community directory</td><td class="c-c">Your communities and Discover were stacked sections; a long joined list pushed Discover far down.</td><td class="c-b">Split into a <em>Your communities / Discover</em> tab control; search still shows merged results.</td></tr>
+<tr><td class="c-a">Community detail</td><td class="c-c">No way to leave a community once joined.</td><td class="c-b">A "Leave" button now sits in the community header for joined members, with a confirmation prompt before removing membership.</td></tr>
+<tr><td class="c-a">Community card</td><td class="c-c">Join / Request / Requested buttons were different widths, so rows looked uneven.</td><td class="c-b">Fixed minimum width keeps the action button aligned across cards.</td></tr>
+<tr><td class="c-a">Event detail</td><td class="c-c">Long event titles wrapped beside the fixed-width date badge, sometimes leaving one word stranded on its own line.</td><td class="c-b">Date moved to a compact pill above the title; the title now gets the full card width.</td></tr>
+<tr><td class="c-a">My Space header</td><td class="c-c">Badge shelf and the settings menu crowded the same row as the name.</td><td class="c-b">Menu button sits beside the name; the badge shelf moved to its own row below.</td></tr>
+<tr><td class="c-a">Feed cards</td><td class="c-c">Status tags and author badges each carried a different accent hue (green, teal, orange, purple) — read as "rainbow badges."</td><td class="c-b">For sale / Wanted ribbons unified to one status hue; author badges restyled to neutral ink chips; red stays reserved for the primary CTA.</td></tr>
+<tr><td class="c-a">Review card</td><td class="c-c">On admin reviews, the role badge, Collector chip and Follow button could overlap the review ribbon.</td><td class="c-b">Review cards reserve space beside the ribbon; the name row truncates first instead of colliding.</td></tr>
+<tr><td class="c-a">Following tab</td><td class="c-c">A listing card pointing at a missing listing or catalogue entry blanked the screen.</td><td class="c-b">Listing feed and shared-listing cards now render nothing instead of crashing when their data is missing.</td></tr>
+<tr><td class="c-a">Onboarding splash</td><td class="c-c">"Track, trade &amp; network — Score every grail on India's #1 collectibles platform."</td><td class="c-b">"For the collectors, by the collectors — Track, trade &amp; network on the #1 collectibles platform." (country reference removed.)</td></tr>
+</tbody>
+</table>
+
+<h2>9. Open for discussion</h2>
+<div class="box open">
+<h4>Four decisions</h4>
+<ul>
+<li><b>Vocabulary.</b> The heart on listing pages still says "Saved to watchlist" while the filter now says "Saved". Settle on one word.</li>
+<li><b>Database link on old listings.</b> Older seeded listings carry no item code, so they don't get the <em>View database entry</em> link. Resolved once every listing is created through the add flow.</li>
+<li><b>Seed data realism.</b> The demo collection holds the same Gundam kit as three separate pre-orders. Plausible for a collector, or should the demo data be cleaned?</li>
+<li><b>Order date.</b> Currently optional and never asked for. Should the finish flow collect it, or does it stay something only power users fill in?</li>
+</ul>
+</div>
+
+<h3>Suggested next steps</h3>
+<ul>
+<li>Review the pre-order card's expanded state on a narrow screen — six rows plus the listing row is the densest state in the app.</li>
+<li>Decide whether the pre-order ETA needs day-level precision in the finish flow, or whether month/quarter is sufficient for most collectors.</li>
+<li>Confirm the two-field completeness bar is the right threshold before the XP and value-privacy rules go live.</li>
+</ul>
+
+</div>
+</doc-page>
+<script src="./doc-page.js"></script>
+</body></html>

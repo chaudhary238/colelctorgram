@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="design_doc_mode" content="canvas">
+<title>Scorred — Final Logo</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0C0C0C;font-family:'Barlow Condensed',system-ui,sans-serif}
+.canvas{width:1480px;margin:0 auto;padding:72px 48px 120px}
+.ey{font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#333;font-family:system-ui}
+.logo-svg text{font-family:'Barlow Condensed',system-ui;font-weight:900}
+</style>
+</head>
+<body>
+<div class="canvas">
+
+<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:60px">
+  <div>
+    <div class="ey" style="margin-bottom:10px">Final Logo · Spiderweb O</div>
+    <div style="font-size:36px;font-weight:700;letter-spacing:-0.03em;color:#fff;font-family:system-ui">SC🕸RRED — final direction</div>
+  </div>
+  <div style="background:#C41230;color:#fff;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;padding:7px 16px;border-radius:999px">Final ✓</div>
+</div>
+
+<!-- BLACK BG -->
+<div style="background:#000;border-radius:28px;padding:72px 80px;margin-bottom:16px">
+  <div class="ey" style="margin-bottom:40px;color:#222">Black · primary</div>
+  <svg id="logo-black" class="logo-svg" height="100" fill="none" style="display:block;margin-bottom:52px;overflow:visible"></svg>
+  <svg id="logo-black-md" class="logo-svg" height="64" fill="none" style="display:block;margin-bottom:24px;overflow:visible"></svg>
+  <svg id="logo-black-sm" class="logo-svg" height="42" fill="none" style="display:block;overflow:visible"></svg>
+</div>
+
+<!-- DARK BG -->
+<div style="background:#111;border-radius:28px;padding:64px 80px;margin-bottom:16px">
+  <div class="ey" style="margin-bottom:36px;color:#2A2A2A">Dark · #111</div>
+  <svg id="logo-dark" class="logo-svg" height="100" fill="none" style="display:block;overflow:visible"></svg>
+</div>
+
+<!-- WHITE BG -->
+<div style="background:#F2EFE9;border-radius:28px;padding:64px 80px;margin-bottom:16px">
+  <div class="ey" style="margin-bottom:36px;color:#BBB5AD">White · #F2EFE9</div>
+  <svg id="logo-white" class="logo-svg" height="100" fill="none" style="display:block;overflow:visible"></svg>
+</div>
+
+<!-- ICON -->
+<div style="background:#141414;border-radius:28px;padding:56px 72px;margin-bottom:16px">
+  <div class="ey" style="margin-bottom:32px;color:#2A2A2A">Icon mark · all sizes · all backgrounds</div>
+  <div style="display:flex;gap:20px;align-items:flex-end" id="icon-strip"></div>
+</div>
+
+<!-- LOCKUPS -->
+<div style="background:#0A0A0A;border-radius:28px;padding:56px 72px">
+  <div class="ey" style="margin-bottom:32px;color:#2A2A2A">Lockups · icon + wordmark</div>
+  <div style="display:flex;flex-direction:column;gap:14px" id="lockups"></div>
+</div>
+
+</div>
+
+<script>
+// Wait for Barlow Condensed to load, then draw all logos
+document.fonts.load("900 88px 'Barlow Condensed'").then(buildAll);
+
+function webPath(cx, cy, r) {
+  // Returns SVG elements for the spiderweb circle
+  const rings = [r*0.32, r*0.64];
+  const angles = [0, 45, 90, 135]; // 4 diagonals + h/v = 8 spokes
+  let html = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#C41230"/>`;
+  
+  const uid = 'wc' + Math.round(cx) + Math.round(cy) + Math.round(r);
+  html += `<clipPath id="${uid}"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>`;
+  html += `<g clip-path="url(#${uid})" stroke="#1A0000" stroke-width="${Math.max(1.2, r*0.038)}" fill="none">`;
+  
+  // Concentric rings
+  rings.forEach(rr => {
+    html += `<circle cx="${cx}" cy="${cy}" r="${rr}"/>`;
+  });
+  
+  // 8 spokes
+  const spokeAngles = [0, 45, 90, 135, 180, 225, 270, 315];
+  spokeAngles.forEach(a => {
+    const rad = a * Math.PI / 180;
+    const x1 = cx + Math.cos(rad) * r;
+    const y1 = cy + Math.sin(rad) * r;
+    // Draw from center to edge
+    html += `<line x1="${cx}" y1="${cy}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"/>`;
+  });
+  
+  html += `</g>`;
+  // Subtle dark rim
+  html += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#7A001A" stroke-width="${Math.max(0.7, r*0.02)}"/>`;
+  return html;
+}
+
+function buildLogo(svgEl, fontSize, textColor, letterColor) {
+  const fs = fontSize;
+  const baseline = fs * 0.94;
+  const svgH = fs * 1.14;
+  const capH = fs * 0.72;
+  const cy = svgH / 2;
+  const r = capH / 2 * 0.98; // circle radius ≈ cap-height/2
+
+  // Measure text widths
+  const measure = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  measure.style.position = 'absolute';
+  measure.style.visibility = 'hidden';
+  document.body.appendChild(measure);
+
+  function measureText(str, fs) {
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('font-family', "'Barlow Condensed', system-ui");
+    t.setAttribute('font-weight', '900');
+    t.setAttribute('font-size', fs);
+    t.setAttribute('letter-spacing', '-1');
+    t.textContent = str;
+    measure.appendChild(t);
+    const w = t.getComputedTextLength();
+    measure.removeChild(t);
+    return w;
+  }
+
+  const wSC = measureText('SC', fs);
+  const wR  = measureText('R', fs);
+  const wRED = measureText('RED', fs);
+  const gap = fs * 0.01; // tiny optical gap matching letter spacing
+
+  // Positions
+  const xSC  = 0;
+  const xCircle = wSC + gap;
+  const circleDiam = r * 2;
+  const xR   = xCircle + circleDiam + gap;
+  const xRED = xR + wR - fs * 0.01;
+  const totalW = xRED + wRED;
+
+  document.body.removeChild(measure);
+
+  svgEl.setAttribute('width', Math.ceil(totalW));
+  svgEl.setAttribute('height', Math.ceil(svgH));
+  svgEl.setAttribute('viewBox', `0 0 ${Math.ceil(totalW)} ${Math.ceil(svgH)}`);
+
+  const cx = xCircle + r;
+
+  svgEl.innerHTML = `
+    <defs></defs>
+    <text x="${xSC}" y="${baseline}" font-family="'Barlow Condensed',system-ui" font-weight="900" font-size="${fs}" fill="${textColor}" letter-spacing="-1">SC</text>
+    ${webPath(cx, cy, r)}
+    <text x="${xR}" y="${baseline}" font-family="'Barlow Condensed',system-ui" font-weight="900" font-size="${fs}" fill="${textColor}" letter-spacing="-1">R</text>
+    <text x="${xRED}" y="${baseline}" font-family="'Barlow Condensed',system-ui" font-weight="900" font-size="${fs}" fill="${letterColor}" letter-spacing="-1">RED</text>
+  `;
+}
+
+function buildIcon(container) {
+  const configs = [
+    { size: 120, bg: '#111',    label: '120 dark',  radius: 13 },
+    { size: 120, bg: '#000',    label: '120 black', radius: 13 },
+    { size: 120, bg: '#F2EFE9', label: '120 white', radius: 13, border: '#E0DDD7' },
+    null, // divider
+    { size: 80,  bg: '#111',    label: '80',  radius: 20 },
+    { size: 60,  bg: '#111',    label: '60',  radius: 18 },
+    { size: 44,  bg: '#111',    label: '44',  radius: 16 },
+    { size: 32,  bg: '#111',    label: '32',  radius: 14 },
+    { size: 20,  bg: '#111',    label: '20',  radius: 10 },
+  ];
+
+  configs.forEach(cfg => {
+    if (!cfg) {
+      const div = document.createElement('div');
+      div.style.cssText = 'width:1px;background:#222;align-self:stretch;margin:0 8px';
+      container.appendChild(div);
+      return;
+    }
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:8px';
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', cfg.size);
+    svg.setAttribute('height', cfg.size);
+    svg.setAttribute('viewBox', '0 0 100 100');
+
+    const r = 36;
+    let borderAttr = cfg.border ? `stroke="${cfg.border}" stroke-width="1"` : '';
+    svg.innerHTML = `
+      <rect width="100" height="100" rx="${cfg.radius}" fill="${cfg.bg}" ${borderAttr}/>
+      ${webPath(50, 50, r)}
+    `;
+    wrap.appendChild(svg);
+
+    const lbl = document.createElement('div');
+    lbl.className = 'ey';
+    lbl.textContent = cfg.label;
+    wrap.appendChild(lbl);
+    container.appendChild(wrap);
+  });
+}
+
+function buildLockups(container) {
+  const bgs = [
+    { bg: '#111',    border: '1px solid #1E1E1E', textColor: 'white', letterColor: '#C41230', iconBg: '#111' },
+    { bg: '#F2EFE9', border: 'none',               textColor: '#111',  letterColor: '#C41230', iconBg: '#F2EFE9', iconBorder: '#E0DDD7' },
+    { bg: '#000',    border: 'none',               textColor: 'white', letterColor: '#C41230', iconBg: '#000' },
+  ];
+
+  bgs.forEach(cfg => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = `padding:20px 28px;background:${cfg.bg};border-radius:18px;display:inline-flex;align-items:center;gap:18px;border:${cfg.border}`;
+
+    // Icon
+    const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    iconSvg.setAttribute('width', '52');
+    iconSvg.setAttribute('height', '52');
+    iconSvg.setAttribute('viewBox', '0 0 100 100');
+    iconSvg.style.flexShrink = '0';
+    iconSvg.style.borderRadius = '13px';
+    let borderAttr = cfg.iconBorder ? `stroke="${cfg.iconBorder}" stroke-width="1"` : '';
+    iconSvg.innerHTML = `
+      <rect width="100" height="100" rx="0" fill="${cfg.iconBg}" ${borderAttr}/>
+      ${webPath(50, 50, 36)}
+    `;
+    wrap.appendChild(iconSvg);
+
+    // Wordmark SVG
+    const wordSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    wordSvg.style.overflow = 'visible';
+    wrap.appendChild(wordSvg);
+    container.appendChild(wrap);
+
+    buildLogo(wordSvg, 44, cfg.textColor, cfg.letterColor);
+  });
+}
+
+function buildAll() {
+  buildLogo(document.getElementById('logo-black'),    88, 'white', '#C41230');
+  buildLogo(document.getElementById('logo-black-md'), 56, 'white', '#C41230');
+  buildLogo(document.getElementById('logo-black-sm'), 36, 'white', '#C41230');
+  buildLogo(document.getElementById('logo-dark'),     88, 'white', '#C41230');
+  buildLogo(document.getElementById('logo-white'),    88, '#111',  '#C41230');
+  buildIcon(document.getElementById('icon-strip'));
+  buildLockups(document.getElementById('lockups'));
+}
+</script>
+</body>
+</html>

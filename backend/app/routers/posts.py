@@ -11,6 +11,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.post import Post, PostLike, PostSave, Comment, CommentLike, PostCommunity, PollVote
 from app.models.user import User
+from app.models.catalogue import Catalogue
 from app.models.item import Item
 from app.models.listing import Listing
 from app.models.community import Community, CommunityMember
@@ -52,6 +53,8 @@ class CreatePostBody(BaseModel):
     poll_options: Optional[dict] = None
     ref_item_id: Optional[uuid.UUID] = None
     ref_listing_id: Optional[uuid.UUID] = None
+    # DV8 — composer "Tag item": a catalogue entry sku. REQUIRED for reviews.
+    ref_sku: Optional[str] = None
     review_rating: Optional[int] = None
     # DF-30c — ISO ("In Search Of") fields (only when type == 'iso')
     iso_item: Optional[str] = None
@@ -79,25 +82,49 @@ async def create_post(
 
     # Per-community mod-approval gate: a post awaits review in any approval-mode
     # community where the author isn't a founder/mod.
+    # DV8 approval gate — posting into a community now REQUIRES membership (the
+    # handler previously never checked it: any authenticated user could post into
+    # any community id). A pending joiner isn't a member yet, so they're gated
+    # until approved. Site admins pass.
     community_status: dict[str, str] = {}
     for cid in target_ids:
         community = (
             await db.execute(select(Community).where(Community.id == cid))
         ).scalar_one_or_none()
-        cstatus = "published"
-        if community and community.post_mode == "approval":
-            is_mod = (
-                await db.execute(
-                    select(CommunityMember).where(
-                        CommunityMember.community_id == cid,
-                        CommunityMember.user_id == current_user.id,
-                        CommunityMember.role.in_(["founder", "mod"]),
-                    )
+        if not community:
+            raise HTTPException(status_code=404, detail="Community not found")
+        membership = (
+            await db.execute(
+                select(CommunityMember).where(
+                    CommunityMember.community_id == cid,
+                    CommunityMember.user_id == current_user.id,
                 )
-            ).scalar_one_or_none() is not None
-            if not is_mod:
+            )
+        ).scalar_one_or_none()
+        if membership is None and not current_user.is_admin:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Join {community.name} and wait for approval before posting there.",
+            )
+        cstatus = "published"
+        if community.post_mode == "approval":
+            is_mod = bool(membership and membership.role in ("founder", "mod"))
+            if not (is_mod or current_user.is_admin):
                 cstatus = "pending"
         community_status[cid] = cstatus
+
+    # DV8 — a tagged catalogue entry must exist; reviews REQUIRE one ("Reviews
+    # must be tagged to a database item" — the score has to hang off a shared
+    # entry, not free text).
+    ref_sku = (body.ref_sku or "").strip() or None
+    if ref_sku:
+        tagged = (await db.execute(
+            select(Catalogue.sku).where(Catalogue.sku == ref_sku, Catalogue.status != "removed")
+        )).scalar_one_or_none()
+        if not tagged:
+            raise HTTPException(status_code=404, detail="Tagged item not found")
+    if body.type == "review" and not ref_sku:
+        raise HTTPException(status_code=422, detail="Reviews must be tagged to a database item")
 
     # DF-30c — ISO posts carry the wanted item + budget/condition; body holds the
     # optional extra details (may be empty, which the NOT NULL body tolerates).
@@ -127,6 +154,7 @@ async def create_post(
         to_feed=body.to_feed,
         poll_options=body.poll_options,
         ref_item_id=body.ref_item_id,
+        ref_sku=ref_sku,
         ref_listing_id=body.ref_listing_id,
         review_rating=body.review_rating,
         iso_item=(body.iso_item or None) if is_iso else None,
@@ -221,8 +249,13 @@ async def get_post(
         )).scalar_one_or_none()
 
     # Referenced item / listing (the "showcasing" chip)
+    # DV8 — a tagged CATALOGUE entry wins (composer "Tag item"; reviews require it).
     ref = None
-    if post.ref_item_id:
+    if post.ref_sku:
+        rc = (await db.execute(select(Catalogue).where(Catalogue.sku == post.ref_sku))).scalar_one_or_none()
+        if rc:
+            ref = {"kind": "catalogue", "id": rc.sku, "sku": rc.sku, "title": rc.title, "brand": rc.brand}
+    elif post.ref_item_id:
         ri = (await db.execute(select(Item).where(Item.id == post.ref_item_id))).scalar_one_or_none()
         if ri:
             ref = {"kind": "item", "id": str(ri.id), "sku": ri.sku,
@@ -484,6 +517,23 @@ async def add_comment(
     post = post_result.scalar_one_or_none()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
+
+    # DV8 approval gate — commenting on a COMMUNITY-ONLY post requires membership
+    # of one of its communities (pending joiners aren't members yet). Posts that
+    # also ran on the main feed stay open to everyone.
+    if not post.to_feed and post.user_id != current_user.id and not current_user.is_admin:
+        target_cids = (await db.execute(
+            select(PostCommunity.community_id).where(PostCommunity.post_id == post.id)
+        )).scalars().all()
+        if target_cids:
+            is_member = (await db.execute(
+                select(CommunityMember).where(
+                    CommunityMember.community_id.in_(target_cids),
+                    CommunityMember.user_id == current_user.id,
+                ).limit(1)
+            )).scalar_one_or_none()
+            if not is_member:
+                raise HTTPException(status_code=403, detail="Join this community (and get approved) to comment.")
 
     comment = Comment(
         post_id=post_id,

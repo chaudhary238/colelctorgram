@@ -62,6 +62,63 @@ export const CAT_META: Record<string, { label: string; titleEg: string; brandEg:
   tcg: { label: "Trading card / set", titleEg: "e.g. Pokémon SV 151 Booster Box (EN)", brandEg: "Pokémon, One Piece TCG, MTG…" },
 };
 
+// ── Per-category condition vocabulary (DV8-10, ported from design_v8 app/data.jsx). ──
+// Condition scales differ per category — collectors use category-specific vocabulary.
+// The `id` is what gets STORED (items.condition, listings.condition); `label` is what
+// renders on chips; `hint` is the one-line explainer under a selected chip.
+export interface ConditionOpt { id: string; label: string; hint: string }
+export const CAT_CONDITIONS: Record<string, ConditionOpt[]> = {
+  figures: [
+    { id: "MISB",  label: "MISB",  hint: "Mint in sealed box" },
+    { id: "MIB",   label: "MIB",   hint: "Mint in box · opened" },
+    { id: "BIB",   label: "BIB",   hint: "Box in bad shape" },
+    { id: "Loose", label: "Loose", hint: "No packaging" },
+  ],
+  diecast: [
+    { id: "Sealed / Carded",         label: "Sealed / Carded",   hint: "Untouched blister or card" },
+    { id: "Opened — with packaging", label: "Opened · with box", hint: "Packaging kept" },
+    { id: "Loose",                   label: "Loose",             hint: "No packaging" },
+  ],
+  kits: [
+    { id: "Sealed — unbuilt",   label: "Sealed · unbuilt",   hint: "Factory sealed, runners untouched" },
+    { id: "Open box — unbuilt", label: "Open box · unbuilt", hint: "Opened but not built" },
+    { id: "Built",              label: "Built",              hint: "Assembled" },
+  ],
+  tcg: [
+    { id: "Mint",    label: "Mint",    hint: "Pack-fresh, no wear" },
+    { id: "Played",  label: "Played",  hint: "Visible edge or surface wear" },
+    { id: "Damaged", label: "Damaged", hint: "Creases, water, tears" },
+    { id: "Graded",  label: "Graded",  hint: "Slabbed by a grading company" },
+  ],
+  designer: [
+    { id: "Sealed",           label: "Sealed",           hint: "Blind box unopened" },
+    { id: "Displayed w/ box", label: "Displayed w/ box", hint: "Out of box, packaging kept" },
+    { id: "Loose",            label: "Loose",            hint: "No packaging" },
+  ],
+};
+export function conditionsFor(cat: string | null | undefined): ConditionOpt[] {
+  return CAT_CONDITIONS[cat ?? ""] ?? CAT_CONDITIONS.figures;
+}
+// Pre-DV8 stored ids (the old app-wide 4-value ladder) — keep them rendering as their
+// labels wherever old data still carries them. Never offered as new choices.
+export const LEGACY_CONDITION_LABELS: Record<string, string> = {
+  sealed_misb: "Sealed",
+  mint: "MIB",
+  like_new: "BIB",
+  good: "Loose",
+};
+/** Display label for a stored condition id — category vocab → any vocab → legacy → raw id. */
+export function conditionLabel(id: string | null | undefined, cat?: string | null): string | null {
+  if (!id) return null;
+  const inCat = conditionsFor(cat).find((c) => c.id === id);
+  if (inCat) return inCat.label;
+  for (const opts of Object.values(CAT_CONDITIONS)) {
+    const hit = opts.find((c) => c.id === id);
+    if (hit) return hit.label;
+  }
+  return LEGACY_CONDITION_LABELS[id] ?? id;
+}
+
 // ── TCG-specific option lists (DV4-01b; reconciled to design_v6 AddListing in DV6-11c —
 // broader language set + design's product types unioned with existing ones to avoid orphaning
 // already-seeded values like "Case" / "Collection Box"). ──

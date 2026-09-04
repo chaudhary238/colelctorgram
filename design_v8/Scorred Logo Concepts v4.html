@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="design_doc_mode" content="canvas">
+<title>Scorred — Logo F Development</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@700;800;900&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#1A1A1A;min-height:100vh;font-family:'DM Sans',system-ui,sans-serif}
+.canvas{width:1520px;margin:0 auto;padding:72px 40px 100px}
+
+/* Page header */
+.ph{margin-bottom:60px;display:flex;align-items:flex-end;justify-content:space-between}
+.ph-left{}
+.ph-eyebrow{font-size:10.5px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#555;margin-bottom:8px}
+.ph-h{font-size:42px;font-weight:700;letter-spacing:-0.04em;color:#fff;line-height:1;font-family:'Geist',system-ui}
+.ph-sub{font-size:13px;color:#666;margin-top:7px}
+.ph-badge{background:#D42038;color:#fff;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:6px 14px;border-radius:999px}
+
+/* Cards */
+.card{background:#242424;border-radius:22px;overflow:hidden}
+.card.light{background:#fff}
+.card.warm{background:#F9F6F2}
+
+/* Labels */
+.lbl{font-size:9.5px;font-weight:700;letter-spacing:0.13em;text-transform:uppercase;color:#555;font-family:'DM Sans'}
+.lbl.light{color:#bbb}
+.lbl.red{color:#D42038}
+.name{font-size:17px;font-weight:700;letter-spacing:-0.02em;font-family:'DM Sans'}
+.name.light{color:#fff}
+.name.dark{color:#1A1A1A}
+.desc{font-size:12px;color:#666;line-height:1.4;font-family:'DM Sans'}
+.desc.dk{color:#555}
+
+.row{display:flex;align-items:center;gap:14px}
+.ai{border-radius:22%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="canvas">
+
+  <!-- Page header -->
+  <div class="ph">
+    <div class="ph-left">
+      <div class="ph-eyebrow">Brand Identity · F Development</div>
+      <div class="ph-h">The Checkmark</div>
+      <div class="ph-sub">A red tick above "rr" — scored = verified. Four variations + app icon options.</div>
+    </div>
+    <div class="ph-badge">Concept F · Selected direction</div>
+  </div>
+
+  <!-- ═══════════════ HERO ═══════════════ -->
+  <div class="card" style="padding:64px 80px 56px;margin-bottom:20px;background:#111">
+    <div class="lbl" style="color:#444;margin-bottom:32px">Primary lockup · light on dark · full scale</div>
+    <svg width="520" height="96" viewBox="0 0 520 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <text x="0" y="76" font-family="'Geist',system-ui" font-weight="900" font-size="80" fill="white" letter-spacing="-3">scorred</text>
+      <!-- Tick above "rr" — positioned over r+r (chars 4+5 in "scorred") -->
+      <polyline points="222,14 238,32 264,4" fill="none" stroke="#D42038" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+
+    <div style="height:40px"></div>
+
+    <div style="display:flex;gap:72px;align-items:flex-end">
+      <!-- Wordmark only, smaller -->
+      <div>
+        <div class="lbl" style="color:#444;margin-bottom:12px">Wordmark · 48px</div>
+        <svg width="318" height="60" viewBox="0 0 318 60" fill="none">
+          <text x="0" y="48" font-family="'Geist',system-ui" font-weight="900" font-size="50" fill="white" letter-spacing="-2">scorred</text>
+          <polyline points="136,9 148,21 165,3" fill="none" stroke="#D42038" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <!-- Wordmark + tagline -->
+      <div>
+        <div class="lbl" style="color:#444;margin-bottom:12px">With tagline</div>
+        <svg width="318" height="72" viewBox="0 0 318 72" fill="none">
+          <text x="0" y="48" font-family="'Geist',system-ui" font-weight="900" font-size="50" fill="white" letter-spacing="-2">scorred</text>
+          <polyline points="136,9 148,21 165,3" fill="none" stroke="#D42038" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          <text x="2" y="66" font-family="'DM Sans',system-ui" font-weight="700" font-size="11" fill="#D42038" letter-spacing="3.5">FOR COLLECTORS</text>
+        </svg>
+      </div>
+      <!-- Small usage -->
+      <div>
+        <div class="lbl" style="color:#444;margin-bottom:12px">Small · 24px</div>
+        <svg width="164" height="36" viewBox="0 0 164 36" fill="none">
+          <text x="0" y="28" font-family="'Geist',system-ui" font-weight="900" font-size="28" fill="white" letter-spacing="-1">scorred</text>
+          <polyline points="76,5 83,12 93,2" fill="none" stroke="#D42038" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 4 VARIATIONS ═══════════════ -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px">
+
+    <!-- F1 — Classic (light bg) -->
+    <div class="card light" style="padding:36px 40px 28px">
+      <div class="lbl dark" style="margin-bottom:4px">F1 · Classic</div>
+      <div class="name dark" style="margin-bottom:3px">Light background · lowercase</div>
+      <div class="desc" style="margin-bottom:28px">The purest form. Works on any light surface — app header, website, print.</div>
+
+      <svg width="360" height="68" viewBox="0 0 360 68" fill="none">
+        <text x="0" y="54" font-family="'Geist',system-ui" font-weight="900" font-size="56" fill="#1A1A1A" letter-spacing="-2">scorred</text>
+        <polyline points="151,11 164,25 185,4" fill="none" stroke="#D42038" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+
+      <div style="height:24px"></div>
+
+      <!-- On red -->
+      <div style="background:#D42038;border-radius:12px;padding:20px 24px;display:inline-block">
+        <svg width="240" height="44" viewBox="0 0 240 44" fill="none">
+          <text x="0" y="35" font-family="'Geist',system-ui" font-weight="900" font-size="36" fill="white" letter-spacing="-1.5">scorred</text>
+          <polyline points="96,7 105,16 119,3" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- F2 — Bold (dark bg) -->
+    <div class="card" style="padding:36px 40px 28px">
+      <div class="lbl" style="color:#555;margin-bottom:4px">F2 · Bold Tick</div>
+      <div class="name light" style="margin-bottom:3px">Larger tick · more presence</div>
+      <div class="desc dk" style="margin-bottom:28px">The tick is bigger and more assertive — dominates the wordmark. Higher energy.</div>
+
+      <svg width="360" height="76" viewBox="0 0 360 76" fill="none">
+        <text x="0" y="62" font-family="'Geist',system-ui" font-weight="900" font-size="56" fill="white" letter-spacing="-2">scorred</text>
+        <!-- Bigger, more dramatic tick above RR -->
+        <polyline points="138,4 157,26 192,2" fill="none" stroke="#D42038" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+
+      <div style="height:24px"></div>
+
+      <!-- Title case variant -->
+      <div style="background:#D42038;border-radius:12px;padding:20px 24px;display:inline-block">
+        <svg width="240" height="46" viewBox="0 0 240 46" fill="none">
+          <text x="0" y="37" font-family="'Geist',system-ui" font-weight="900" font-size="38" fill="white" letter-spacing="-1.5">Scorred</text>
+          <polyline points="109,3 122,18 143,1" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- F3 — Title Case / Premium -->
+    <div class="card warm" style="padding:36px 40px 28px">
+      <div class="lbl dark" style="color:#aaa;margin-bottom:4px">F3 · Title Case</div>
+      <div class="name dark" style="margin-bottom:3px">Scorred · capitalised</div>
+      <div class="desc" style="margin-bottom:28px">More formal. Works better with the tick above the RR. Feels like a brand name, not a handle.</div>
+
+      <svg width="360" height="68" viewBox="0 0 360 68" fill="none">
+        <text x="0" y="54" font-family="'Geist',system-ui" font-weight="900" font-size="56" fill="#1A1A1A" letter-spacing="-2">Scorred</text>
+        <!-- RR tick — slightly right because capital S is wider -->
+        <polyline points="164,11 177,25 198,4" fill="none" stroke="#D42038" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+
+      <div style="height:24px"></div>
+
+      <!-- With tagline -->
+      <svg width="310" height="36" viewBox="0 0 310 36" fill="none">
+        <text x="0" y="26" font-family="'Geist',system-ui" font-weight="900" font-size="28" fill="#1A1A1A" letter-spacing="-1.2">Scorred</text>
+        <polyline points="82,5 89,12 100,2" fill="none" stroke="#D42038" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="178" y="24" font-family="'DM Sans',system-ui" font-weight="700" font-size="9" fill="#D42038" letter-spacing="2.5">FOR COLLECTORS</text>
+      </svg>
+    </div>
+
+    <!-- F4 — UPPERCASE -->
+    <div class="card" style="padding:36px 40px 28px;background:#D42038">
+      <div style="font-size:9.5px;font-weight:700;letter-spacing:0.13em;text-transform:uppercase;color:rgba(255,255,255,0.5);font-family:'DM Sans';margin-bottom:4px">F4 · All Caps · Red hero</div>
+      <div style="font-size:17px;font-weight:700;letter-spacing:-0.02em;font-family:'DM Sans';color:#fff;margin-bottom:3px">SCORRED · uppercase energy</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.6);line-height:1.4;font-family:'DM Sans';margin-bottom:28px">White on red. The most energetic treatment. Perfect for merch, banners, hero moments.</div>
+
+      <svg width="380" height="72" viewBox="0 0 380 72" fill="none">
+        <text x="0" y="58" font-family="'Geist',system-ui" font-weight="900" font-size="58" fill="white" letter-spacing="1">SCORRED</text>
+        <!-- Tick above RR in SCORRED — positioned differently for caps -->
+        <polyline points="218,10 233,26 258,4" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+
+      <div style="height:20px"></div>
+
+      <svg width="380" height="36" viewBox="0 0 380 36" fill="none">
+        <text x="0" y="28" font-family="'Geist',system-ui" font-weight="900" font-size="28" fill="white" letter-spacing="0.5">SCORRED</text>
+        <polyline points="106,5 115,14 129,2" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="208" y="26" font-family="'DM Sans',system-ui" font-weight="700" font-size="9" fill="rgba(255,255,255,0.7)" letter-spacing="2.5">FOR COLLECTORS</text>
+      </svg>
+    </div>
+
+  </div><!-- /4 variations -->
+
+  <!-- ═══════════════ APP ICON OPTIONS ═══════════════ -->
+  <div class="card" style="padding:36px 40px;background:#1E1E1E;margin-bottom:20px">
+    <div class="lbl" style="color:#444;margin-bottom:20px">App icon · the wordmark can't go small — these are the best extractions</div>
+
+    <div style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap">
+
+      <!-- Option i: S + tick -->
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="lbl" style="color:#444">i · S + tick (recommended)</div>
+        <div style="display:flex;gap:10px;align-items:flex-end">
+          <div>
+            <div class="ai" style="width:76px;height:76px;background:#D42038;position:relative;overflow:visible">
+              <svg width="52" height="62" viewBox="0 0 52 62" fill="none">
+                <text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text>
+                <polyline points="26,4 34,14 46,2" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div style="font-size:9px;color:#555;text-align:center;margin-top:5px">76px</div>
+          </div>
+          <div>
+            <div class="ai" style="width:60px;height:60px;background:#D42038">
+              <svg width="42" height="50" viewBox="0 0 52 62" fill="none">
+                <text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text>
+                <polyline points="26,4 34,14 46,2" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div style="font-size:9px;color:#555;text-align:center;margin-top:5px">60px</div>
+          </div>
+          <div>
+            <div class="ai" style="width:44px;height:44px;background:#D42038">
+              <svg width="30" height="36" viewBox="0 0 52 62" fill="none">
+                <text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text>
+                <polyline points="26,4 34,14 46,2" fill="none" stroke="white" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div style="font-size:9px;color:#555;text-align:center;margin-top:5px">44px</div>
+          </div>
+          <div>
+            <div class="ai" style="width:30px;height:30px;background:#D42038">
+              <svg width="20" height="24" viewBox="0 0 52 62" fill="none">
+                <text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text>
+                <polyline points="26,4 34,14 46,2" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div style="font-size:9px;color:#555;text-align:center;margin-top:5px">30px</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:1px;background:#2E2E2E;height:100px;margin-top:28px"></div>
+
+      <!-- Option ii: Tick only -->
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="lbl" style="color:#444">ii · Tick mark only (bold)</div>
+        <div style="display:flex;gap:10px;align-items:flex-end">
+          <div>
+            <div class="ai" style="width:76px;height:76px;background:#D42038;display:flex;align-items:center;justify-content:center">
+              <svg width="44" height="36" viewBox="0 0 44 36" fill="none">
+                <polyline points="2,18 14,30 42,2" fill="none" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div style="font-size:9px;color:#555;text-align:center;margin-top:5px">76px</div>
+          </div>
+          <div>
+            <div class="ai" style="width:60px;height:60px;background:#D42038;display:flex;align-items:center;justify-content:center">
+              <svg width="34" height="28" viewBox="0 0 44 36" fill="none">
+                <polyline points="2,18 14,30 42,2" fill="none" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div style="font-size:9px;color:#555;text-align:center;margin-top:5px">60px</div>
+          </div>
+          <div>
+            <div class="ai" style="width:44px;height:44px;background:#D42038;display:flex;align-items:center;justify-content:center">
+              <svg width="26" height="20" viewBox="0 0 44 36" fill="none">
+                <polyline points="2,18 14,30 42,2" fill="none" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div style="font-size:9px;color:#555;text-align:center;margin-top:5px">44px</div>
+          </div>
+          <div>
+            <div class="ai" style="width:30px;height:30px;background:#D42038;display:flex;align-items:center;justify-content:center">
+              <svg width="18" height="14" viewBox="0 0 44 36" fill="none">
+                <polyline points="2,18 14,30 42,2" fill="none" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div style="font-size:9px;color:#555;text-align:center;margin-top:5px">30px</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:1px;background:#2E2E2E;height:100px;margin-top:28px"></div>
+
+      <!-- Option iii: S + tick on dark -->
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="lbl" style="color:#444">iii · S + tick · dark bg</div>
+        <div style="display:flex;gap:10px;align-items:flex-end">
+          <div>
+            <div class="ai" style="width:76px;height:76px;background:#111;border:1px solid #2A2A2A">
+              <svg width="52" height="62" viewBox="0 0 52 62" fill="none">
+                <text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text>
+                <polyline points="26,4 34,14 46,2" fill="none" stroke="#D42038" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div style="font-size:9px;color:#555;text-align:center;margin-top:5px">76px</div>
+          </div>
+          <div>
+            <div class="ai" style="width:60px;height:60px;background:#111;border:1px solid #2A2A2A">
+              <svg width="42" height="50" viewBox="0 0 52 62" fill="none">
+                <text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text>
+                <polyline points="26,4 34,14 46,2" fill="none" stroke="#D42038" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div style="font-size:9px;color:#555;text-align:center;margin-top:5px">60px</div>
+          </div>
+          <div>
+            <div class="ai" style="width:44px;height:44px;background:#111;border:1px solid #2A2A2A">
+              <svg width="30" height="36" viewBox="0 0 52 62" fill="none">
+                <text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text>
+                <polyline points="26,4 34,14 46,2" fill="none" stroke="#D42038" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div style="font-size:9px;color:#555;text-align:center;margin-top:5px">44px</div>
+          </div>
+          <div>
+            <div class="ai" style="width:30px;height:30px;background:#111;border:1px solid #2A2A2A">
+              <svg width="20" height="24" viewBox="0 0 52 62" fill="none">
+                <text x="26" y="52" text-anchor="middle" font-family="'Geist',system-ui" font-weight="900" font-size="48" fill="white">S</text>
+                <polyline points="26,4 34,14 46,2" fill="none" stroke="#D42038" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div style="font-size:9px;color:#555;text-align:center;margin-top:5px">30px</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /app icons -->
+
+  <!-- ═══════════════ SIZE SCALE ═══════════════ -->
+  <div class="card" style="padding:36px 40px;background:#111">
+    <div class="lbl" style="color:#444;margin-bottom:24px">Wordmark at every size — does it hold?</div>
+    <div style="display:flex;flex-direction:column;gap:20px">
+
+      <svg width="820" height="82" viewBox="0 0 820 82" fill="none">
+        <text x="0" y="66" font-family="'Geist',system-ui" font-weight="900" font-size="68" fill="white" letter-spacing="-3">scorred</text>
+        <polyline points="183,12 197,28 220,4" fill="none" stroke="#D42038" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+
+      <svg width="560" height="56" viewBox="0 0 560 56" fill="none">
+        <text x="0" y="44" font-family="'Geist',system-ui" font-weight="900" font-size="46" fill="white" letter-spacing="-2">scorred</text>
+        <polyline points="124,8 134,18 152,3" fill="none" stroke="#D42038" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+
+      <svg width="360" height="42" viewBox="0 0 360 42" fill="none">
+        <text x="0" y="33" font-family="'Geist',system-ui" font-weight="900" font-size="34" fill="white" letter-spacing="-1.5">scorred</text>
+        <polyline points="91,6 99,14 112,2" fill="none" stroke="#D42038" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+
+      <svg width="240" height="30" viewBox="0 0 240 30" fill="none">
+        <text x="0" y="24" font-family="'Geist',system-ui" font-weight="900" font-size="24" fill="white" letter-spacing="-1">scorred</text>
+        <polyline points="64,4 70,10 80,2" fill="none" stroke="#D42038" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+
+      <svg width="180" height="22" viewBox="0 0 180 22" fill="none">
+        <text x="0" y="17" font-family="'Geist',system-ui" font-weight="900" font-size="17" fill="white" letter-spacing="-0.5">scorred</text>
+        <polyline points="46,3 50,7 57,1" fill="none" stroke="#D42038" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+
+      <svg width="130" height="18" viewBox="0 0 130 18" fill="none">
+        <text x="0" y="13" font-family="'Geist',system-ui" font-weight="900" font-size="13" fill="rgba(255,255,255,0.6)" letter-spacing="-0.5">scorred</text>
+        <polyline points="35,2 39,6 45,1" fill="none" stroke="#D42038" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="135" y="13" font-family="'DM Sans',system-ui" font-size="11" fill="#555">← tick disappears below 16px, use icon only</text>
+      </svg>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

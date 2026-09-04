@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   LayoutGrid, BarChart3, CalendarDays, Eye, EyeOff, Clock,
-  MessageCircle, Plus, ShieldCheck, Star, Pencil,
+  MessageCircle, Plus, ShieldCheck, Star, Pencil, Lock,
   MoreHorizontal, Check, ChevronRight, Menu, SlidersHorizontal,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -59,12 +59,27 @@ interface CollectionItem {
   title?: string | null;
   brand?: string | null;
   status: string;
-  value: number; // paise
+  /** paise — null for non-owner viewers (DV8-03: purchase price is private). */
+  value: number | null;
   is_listed: boolean;
   photo_count: number;
   image_url?: string | null;
   preorder_eta?: string | null;
   is_wishlisted?: boolean;
+  // DV8-03 completeness + DV8-11 filter fields
+  condition?: string | null;
+  is_complete?: boolean;
+  listing_status?: "available" | "sold" | null;
+}
+
+/** DV8-03 — server-computed portfolio summary on GET /users/{h}/collection. */
+interface Portfolio {
+  item_count: number;
+  complete_count: number;
+  incomplete_count: number;
+  /** paise — null for visitors until the collection is complete (value_shared). */
+  value: number | null;
+  value_shared: boolean;
 }
 
 interface RawPost {
@@ -140,6 +155,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   const [tab, setTab] = useState<Tab>("collection");
   const [posts, setPosts] = useState<RawPost[] | null>(null);
   const [collection, setCollection] = useState<CollectionItem[] | null>(null);
+  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -205,8 +221,10 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
       const data = await api.get<{ items: RawPost[] }>(`/users/${handle}/posts`).catch(() => ({ items: [] }));
       setPosts(data.items);
     } else if (t === "collection" && collection === null) {
-      const data = await api.get<{ items: CollectionItem[] }>(`/users/${handle}/collection`).catch(() => ({ items: [] }));
+      const data = await api.get<{ items: CollectionItem[]; portfolio?: Portfolio }>(`/users/${handle}/collection`)
+        .catch(() => ({ items: [] as CollectionItem[], portfolio: undefined }));
       setCollection(data.items);
+      setPortfolio(data.portfolio ?? null);
     }
   }, [handle, posts, collection]);
 
@@ -358,15 +376,13 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
           </div>
         </div>
 
-        {/* name + badge shelf + menu, then handle · city · presence, then bio */}
+        {/* name + menu, then the badge shelf on its OWN row (v8 25-Aug — the shelf
+            no longer squeezes the name), then handle · city · presence, then bio */}
         <div style={{ marginTop: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ flex: 1, minWidth: 0, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, letterSpacing: "-0.025em", color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {profile.name}
             </div>
-            {/* Season-badge shelf (GM-14) — v7 moves it up beside the name; renders null
-                when the user has no badges. */}
-            <BadgeShelf handle={profile.handle} style={{ marginTop: 0 }} />
             {isOwn ? (
               // ≡ → the account drawer. NOT mobile-only any more: v7's latest batch deleted
               // the Refer/Settings squares beside the rank card and moved that whole set in
@@ -377,6 +393,9 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
               <IconButton icon={<MoreHorizontal size={18} />} onClick={() => setShowMore(true)} />
             )}
           </div>
+          {/* Season-badge shelf (GM-14) — renders null when the user has no badges,
+              so no reserved row appears for badge-less profiles. */}
+          <BadgeShelf handle={profile.handle} style={{ marginTop: 7 }} />
           <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 3, flexWrap: "wrap" }}>
             <span style={{ fontSize: 13, color: "var(--slate-400)" }}>
               @{profile.handle}{profile.city ? ` · ${profile.city}` : ""}
@@ -472,7 +491,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
       {/* Tab content */}
       <div style={{ padding: "14px 16px 28px" }}>
         {tab === "collection" && (
-          <CollectionTab items={collection} isOwn={isOwn} viewPrivacy={profile.collection_view_privacy} />
+          <CollectionTab items={collection} portfolio={portfolio} isOwn={isOwn} viewPrivacy={profile.collection_view_privacy} />
         )}
 
         {tab === "posts" && (
@@ -524,16 +543,19 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
 }
 
 /* ── Collection tab (grid / chart / calendar / collage) ─────────── */
-function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] | null; isOwn: boolean; viewPrivacy?: Record<string, "public" | "private"> }) {
+type OwnedView = "all" | "preorder" | "listed" | "sold" | "plain";
+
+function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: CollectionItem[] | null; portfolio: Portfolio | null; isOwn: boolean; viewPrivacy?: Record<string, "public" | "private"> }) {
   // DV7-01 — segments are Owned / Wishlist / DB Contributions. Pre-orders no longer get
   // their own tab: they sit inside Owned carrying a PO tag (the PO Calendar view is still
   // the place to read them by date), and Wishlist is back as a segment now that the
   // Stash's listing-save tab is gone.
   const [seg, setSeg] = useState<"owned" | "wishlist" | "intel">("owned");
   // v7 (2026-08-09) hangs a filter off the Owned segment itself: tapping Owned while it is
-  // already active opens this popover. Both off = everything you own, which is why the
-  // default state is two `false`s rather than an "All" option.
-  const [ownedFilter, setOwnedFilter] = useState({ preorder: false, listed: false });
+  // already active opens this popover. DV8-11 replaced the two OR-ed checkboxes with a
+  // SINGLE-SELECT view — an item is exactly one of these at a time, so none of them
+  // compose. One tap picks a view and closes the popover.
+  const [ownedFilter, setOwnedFilter] = useState<OwnedView>("all");
   const [ownedFilterOpen, setOwnedFilterOpen] = useState(false);
   const [view, setView] = useState<CollView>("grid");
   // Seed per-view visibility from the server (eye toggle is persisted in
@@ -554,16 +576,27 @@ function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] 
     );
   }
 
-  // "owned" set powers Portfolio Value/count + the chart — exclude wishlist AND intel (DV6-11f),
+  // "owned" set powers the item count + the chart — exclude wishlist AND intel (DV6-11f),
   // otherwise unowned DB-contribution items would inflate the portfolio.
   const owned = items.filter((i) => i.status !== "wishlist" && i.status !== "intel");
-  const ownedValue = paiseToRupees(items.filter((i) => i.status === "owned").reduce((s, i) => s + i.value, 0));
+  // DV8-03 — the SERVER's portfolio object is the source of truth (it knows completeness
+  // and privacy); the client-side sum stays only as a fallback for older payloads.
+  const clientSum = items.filter((i) => i.status === "owned").reduce((s, i) => s + (i.value ?? 0), 0);
+  const portfolioValue = portfolio ? portfolio.value : clientSum;
+  const incompleteCount = portfolio?.incomplete_count ?? 0;
+  const completeCount = portfolio?.complete_count ?? owned.length;
+  const itemCount = portfolio?.item_count ?? owned.length;
+  // Visitors only get a number when the owner's collection shares it (complete).
+  const valueShared = portfolio ? portfolio.value_shared : true;
   // Owned folds in pre-orders (DV7-01); the other two segments match their status exactly.
-  // The two Owned filters are OR-ed, matching v7 — ticking both shows pre-orders AND
-  // listed items, not only items that are both.
-  const anyOwnedFilter = ownedFilter.preorder || ownedFilter.listed;
-  const filteredOwned = anyOwnedFilter
-    ? owned.filter((i) => (ownedFilter.preorder && i.status === "preorder") || (ownedFilter.listed && i.is_listed))
+  // DV8-11 — single-select views over the owned set. Listed/Sold read the listing_status
+  // the server now sends; "Just owned" = in hand, not listed, not sold.
+  const anyOwnedFilter = ownedFilter !== "all";
+  const filteredOwned =
+    ownedFilter === "preorder" ? owned.filter((i) => i.status === "preorder")
+    : ownedFilter === "listed" ? owned.filter((i) => i.listing_status === "available")
+    : ownedFilter === "sold" ? owned.filter((i) => i.listing_status === "sold")
+    : ownedFilter === "plain" ? owned.filter((i) => i.status === "owned" && !i.listing_status)
     : owned;
   const filtered = seg === "owned" ? filteredOwned : items.filter((i) => i.status === seg);
 
@@ -577,19 +610,59 @@ function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] 
 
   return (
     <div>
-      {/* portfolio value + item count — v7 slims these to two pills */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+      {/* portfolio value + item count — v7 slims these to two pills. DV8-03: the value is
+          private until every item is complete — the owner still sees the number (with a
+          lock while incomplete), a visitor sees the slot with nothing in it. */}
+      <div style={{ display: "flex", gap: 8, marginBottom: isOwn && incompleteCount > 0 ? 8 : 14 }}>
         <div style={{ flex: 1.3, minWidth: 0, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 999, padding: "9px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <span style={{ fontSize: 12, color: "var(--ink-faint)", whiteSpace: "nowrap" }}>Portfolio Value</span>
-          <span style={{ whiteSpace: "nowrap", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--stamp-red)", fontFeatureSettings: '"tnum" 1' }}>
-            <Money value={ownedValue} />
+          <span style={{ fontSize: 12, color: "var(--ink-faint)", whiteSpace: "nowrap" }}>
+            {!isOwn && !valueShared ? "Value not shared" : "Portfolio Value"}
+          </span>
+          <span style={{ whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>
+            {isOwn && incompleteCount > 0 && <Lock size={12} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />}
+            {!isOwn && !valueShared ? (
+              <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--ink-faint)" }}>—</span>
+            ) : (
+              <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--stamp-red)", fontFeatureSettings: '"tnum" 1' }}>
+                <Money value={paiseToRupees(portfolioValue ?? 0)} />
+              </span>
+            )}
           </span>
         </div>
         <div style={{ flex: 1, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 999, padding: "9px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Items</span>
-          <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--ink)", fontFeatureSettings: '"tnum" 1' }}>{owned.length}</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--ink)", fontFeatureSettings: '"tnum" 1' }}>{itemCount}</span>
         </div>
       </div>
+
+      {/* DV8-03 — collection health: ONE meter, not a badge per tile. Owner only, and only
+          while something is incomplete. Links to the batch finish flow. */}
+      {isOwn && incompleteCount > 0 && (
+        <Link
+          href="/collection/finish"
+          style={{
+            display: "flex", flexDirection: "column", gap: 8, marginBottom: 14, padding: "11px 14px",
+            borderRadius: 14, border: "1px solid var(--grail-gold)", background: "var(--grail-gold-soft)",
+            textDecoration: "none", color: "inherit",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Lock size={14} style={{ color: "var(--grail-gold-deep)", flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>Only you can see your portfolio value</div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-mute)", marginTop: 2 }}>
+                {completeCount} of {itemCount} items complete · +{incompleteCount * 20} XP to finish
+              </div>
+            </div>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--grail-gold-deep)", whiteSpace: "nowrap" }}>
+              Finish {incompleteCount} →
+            </span>
+          </div>
+          <div style={{ height: 5, borderRadius: 3, background: "rgba(0,0,0,0.08)", overflow: "hidden" }}>
+            <div style={{ width: `${(completeCount / Math.max(itemCount, 1)) * 100}%`, height: "100%", background: "var(--grail-gold-deep)", borderRadius: 3 }} />
+          </div>
+        </Link>
+      )}
 
       {/* view switcher (icon-only in v7, freeing room for Add item) + per-view visibility */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 14 }}>
@@ -687,54 +760,44 @@ function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] 
                         a sheet pinned to the viewport floor reads as unrelated to the
                         control that opened it (QA 2026-08-01). */}
                     <div onClick={() => setOwnedFilterOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 30 }} />
+                    {/* DV8-11 — single-select chip row: All / Pre-order / Listed / Sold /
+                        Just owned. An item is exactly one of these at a time, so nothing
+                        composes; one tap picks a view and closes. "Sold" is ALWAYS shown
+                        (it used to hide until something had sold, making the view
+                        undiscoverable). */}
                     <div
                       style={{
-                        position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 31, width: "min(300px, 100%)",
-                        background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 20,
-                        boxShadow: "0 12px 34px rgba(0,0,0,0.14)", padding: "18px 18px 14px",
+                        position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 31, width: "min(360px, 100%)",
+                        background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 16,
+                        boxShadow: "0 12px 34px rgba(0,0,0,0.14)", padding: 10,
                       }}
                     >
-                      <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16.5, letterSpacing: "-0.01em", color: "var(--ink)" }}>Filter items</div>
-                      <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2, marginBottom: 12 }}>Leave both off to see everything you own.</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {([
-                          { id: "preorder" as const, label: "Pre-order", n: owned.filter((i) => i.status === "preorder").length },
-                          { id: "listed" as const, label: "Listed", n: owned.filter((i) => i.is_listed).length },
+                          { id: "all" as OwnedView, label: "All" },
+                          { id: "preorder" as OwnedView, label: `Pre-order · ${owned.filter((i) => i.status === "preorder").length}` },
+                          { id: "listed" as OwnedView, label: `Listed · ${owned.filter((i) => i.listing_status === "available").length}` },
+                          { id: "sold" as OwnedView, label: `Sold · ${owned.filter((i) => i.listing_status === "sold").length}` },
+                          { id: "plain" as OwnedView, label: `Just owned · ${owned.filter((i) => i.status === "owned" && !i.listing_status).length}` },
                         ]).map((f) => {
-                          const on = ownedFilter[f.id];
+                          const on = ownedFilter === f.id;
                           return (
                             <button
                               key={f.id}
-                              onClick={() => setOwnedFilter((st) => ({ ...st, [f.id]: !st[f.id] }))}
+                              onClick={() => { setOwnedFilter(f.id); setOwnedFilterOpen(false); }}
                               aria-pressed={on}
-                              style={{ display: "flex", alignItems: "center", gap: 13, width: "100%", textAlign: "left", border: "none", background: "none", cursor: "pointer", padding: "9px 4px", borderRadius: 9 }}
+                              style={{
+                                padding: "8px 13px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap",
+                                border: `1px solid ${on ? "var(--stamp-red)" : "var(--border-strong)"}`,
+                                background: on ? "var(--stamp-red)" : "var(--paper)", color: on ? "var(--paper)" : "var(--ink)",
+                                fontFamily: "var(--font-body)", fontSize: 13, fontWeight: on ? 700 : 500,
+                              }}
                             >
-                              <span
-                                style={{
-                                  width: 24, height: 24, borderRadius: 7, flexShrink: 0,
-                                  border: `1.5px solid ${on ? "var(--stamp-red)" : "var(--border-strong)"}`,
-                                  background: on ? "var(--stamp-red)" : "transparent", color: "var(--paper)",
-                                  display: "flex", alignItems: "center", justifyContent: "center", transition: "all 120ms",
-                                }}
-                              >
-                                {on && <Check size={15} strokeWidth={3} />}
-                              </span>
-                              <span style={{ flex: 1, fontSize: 15, fontWeight: 500, color: "var(--ink)" }}>{f.label}</span>
-                              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--ink-faint)" }}>{f.n}</span>
+                              {f.label}
                             </button>
                           );
                         })}
                       </div>
-                      {/* Only rendered when there IS something to clear — a reset that
-                          resets to the values already on screen reads as broken. */}
-                      {anyOwnedFilter && (
-                        <button
-                          onClick={() => setOwnedFilter({ preorder: false, listed: false })}
-                          style={{ marginTop: 10, width: "100%", padding: "9px 0", borderRadius: 10, cursor: "pointer", border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, color: "var(--ink-soft)" }}
-                        >
-                          Clear filters
-                        </button>
-                      )}
                     </div>
                   </>
                 )}
@@ -764,11 +827,30 @@ function CollectionTab({ items, isOwn, viewPrivacy }: { items: CollectionItem[] 
   );
 }
 
+/* DV8-03 — what a tile is missing, named in the slot where the data would have been.
+   Markers, not badges: the value line becomes a gold "Add price →" / "Add condition →" /
+   "Add ETA →" / "Add details →" link into the finish flow. Owner only — visitors never
+   see markers (their `value` is null anyway). */
+function gapLabelFor(item: CollectionItem): string | null {
+  if (item.is_complete !== false) return null;
+  const gaps: string[] = [];
+  if (item.status === "preorder") {
+    if (!item.preorder_eta) gaps.push("Add ETA");
+    if (!item.value) gaps.push("Add price");
+  } else {
+    if (!item.condition) gaps.push("Add condition");
+    if (!item.value) gaps.push("Add price");
+  }
+  if (gaps.length === 0) return "Add details"; // server says incomplete; trust it
+  return gaps.length > 1 ? "Add details" : gaps[0];
+}
+
 function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
   const router = useRouter();
   const c = catForItem(item);
   const [wishlisted, setWishlisted] = useState(!!item.is_wishlisted);
   const [busy, setBusy] = useState(false);
+  const gapText = isOwn ? gapLabelFor(item) : null;
 
   async function toggleWishlist(e: React.MouseEvent) {
     e.stopPropagation();
@@ -835,11 +917,26 @@ function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
           {titleForItem(item)}
         </div>
         {/* No price on wishlist / DB-contribution tiles — you don't own them, so the
-            number would read as portfolio value it isn't (DV7-01). */}
+            number would read as portfolio value it isn't (DV7-01). DV8-03: an incomplete
+            owned tile's value line becomes the gold "Add … →" marker into the finish
+            flow; visitors (null value) get no number and no marker. */}
         {item.status !== "wishlist" && item.status !== "intel" && (
-          <div style={{ fontSize: 12.5, marginTop: 5, color: "var(--ink-mute)" }}>
-            <Money value={paiseToRupees(item.value)} />
-          </div>
+          gapText ? (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); router.push(`/collection/finish?item=${encodeURIComponent(item.id)}`); }}
+              style={{
+                marginTop: 5, padding: 0, border: "none", background: "none", cursor: "pointer", textAlign: "left",
+                fontFamily: "var(--font-body)", fontSize: 12.5, fontWeight: 700, color: "var(--grail-gold-deep)",
+              }}
+            >
+              {gapText} →
+            </button>
+          ) : item.value != null ? (
+            <div style={{ fontSize: 12.5, marginTop: 5, color: "var(--ink-mute)" }}>
+              <Money value={paiseToRupees(item.value)} />
+            </div>
+          ) : null
         )}
       </div>
     </div>
@@ -855,7 +952,7 @@ function PortfolioChart({ items, inHand, preorder }: { items: CollectionItem[]; 
     const c = catForItem(i);
     byCat[c.key] = byCat[c.key] || { count: 0, value: 0, label: c.label, tone: c.tone };
     byCat[c.key].count++;
-    byCat[c.key].value += i.value;
+    byCat[c.key].value += i.value ?? 0;
   });
   const tokenTone: Record<string, string> = {
     red: "var(--stamp-red)", forest: "var(--forest)", plum: "var(--plum)", teal: "var(--verified-teal)", gold: "var(--grail-gold)", bone: "var(--ink-mute)",

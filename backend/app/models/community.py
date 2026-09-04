@@ -24,6 +24,9 @@ class Community(Base):
     tag: Mapped[str | None] = mapped_column(String(4), nullable=True)
     category: Mapped[str] = mapped_column(String(32), nullable=False)
     tone: Mapped[str] = mapped_column(String(16), default="plum")
+    # DV8 — create/manage flow gains real imagery (banner + square photo).
+    banner_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     founder_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     member_count: Mapped[int] = mapped_column(Integer, default=0)
     post_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -41,7 +44,10 @@ class CommunityMember(Base):
 
     community_id: Mapped[str] = mapped_column(String(32), ForeignKey("communities.id"), primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True)
-    role: Mapped[str] = mapped_column(String(16), default="member")  # member | mod | founder
+    role: Mapped[str] = mapped_column(String(16), default="member")  # member | mod | founder ("founder" DISPLAYS as "Admin" everywhere — DV8)
+    # DV8 approval gate — new members join as 'pending' and cannot post/comment/act
+    # until a mod/admin approves them. Pre-DV8 rows were backfilled 'approved'.
+    status: Mapped[str] = mapped_column(String(16), default="approved", nullable=False)  # pending | approved
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
@@ -54,3 +60,20 @@ class CommunityJoinRequest(Base):
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | approved | rejected
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class CommunityMemberRemoval(Base):
+    """DV8 — removing a member requires a reason, and the reason is kept.
+    Audit-only table: read by admins, never shown to the removed member."""
+    __tablename__ = "community_member_removals"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    community_id: Mapped[str] = mapped_column(String(32), ForeignKey("communities.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    removed_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    __table_args__ = (
+        Index("idx_member_removals_community", "community_id"),
+    )

@@ -13,11 +13,11 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X, Check, Camera, Plus, Smile, Star, ChevronDown } from "lucide-react";
+import { X, Check, Camera, Plus, Smile, Star, ChevronDown, Tag, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiCommunity } from "@/components/cards";
 import { Avatar, Segmented, SectionLabel } from "@/components/ui";
-import { fireXpToast } from "@/components/gamification";
+import { fireToast, fireXpToast } from "@/components/gamification";
 import { ADD_CATEGORIES } from "@/lib/catalog";
 import { invalidateFeedSnapshot } from "@/lib/feedSnapshot";
 
@@ -36,6 +36,13 @@ const EMOJIS = ["😍", "🔥", "🤩", "😎", "🥹", "👀", "🙌", "👏", 
 const CONDITIONS = ["Any", "Sealed", "MIB", "BIB", "Loose"];
 
 interface UploadUrlResponse { upload_url: string; key: string; public_url: string; }
+
+// design_v8 — "Tag item": link a post to a catalogue entry. Same /catalogue/search
+// endpoint (and hit shape) the add-item SearchStep uses.
+interface CatalogueHit {
+  sku: string; title: string; brand: string; category?: string;
+  pending?: boolean; is_verified?: boolean;
+}
 
 function StarPicker({ value, onChange }: { value: number; onChange: (n: number) => void }) {
   return (
@@ -100,6 +107,52 @@ function ComposePage() {
   const [publishing, setPublishing] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
+  // design_v8 (ComposeOverlay) — tag a database item. Required for reviews (the
+  // backend 422s a review without ref_sku), optional everywhere else.
+  const [refItem, setRefItem] = useState<CatalogueHit | null>(null);
+  const [showItem, setShowItem] = useState(false);
+  const [itemQ, setItemQ] = useState("");
+  const [itemHits, setItemHits] = useState<CatalogueHit[]>([]);
+  const [itemLoading, setItemLoading] = useState(false);
+  const itemDeb = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced catalogue search — same call/params as /add/catalogue's SearchStep
+  // (280ms, min 3 chars), trimmed to the top 6 per design_v8.
+  useEffect(() => {
+    if (itemDeb.current) clearTimeout(itemDeb.current);
+    const query = itemQ.trim();
+    itemDeb.current = setTimeout(async () => {
+      if (query.length < 3) { setItemHits([]); setItemLoading(false); return; }
+      setItemLoading(true);
+      try {
+        const data = await api.get<{ hits: CatalogueHit[] }>(`/catalogue/search?q=${encodeURIComponent(query)}`);
+        setItemHits(data.hits.slice(0, 6));
+      } catch { setItemHits([]); } finally { setItemLoading(false); }
+    }, 280);
+    return () => { if (itemDeb.current) clearTimeout(itemDeb.current); };
+  }, [itemQ]);
+
+  function pickItem(h: CatalogueHit) {
+    setRefItem(h);
+    setShowItem(false);
+    setItemQ("");
+    setItemHits([]);
+    // v8: an ISO adopts the tagged item's title, and the entry's category joins the
+    // post's categories (only if it maps onto the app's category set).
+    if (type === "iso") setIsoItem(h.title);
+    if (h.category && ADD_CATEGORIES.some((c) => c.id === h.category)) {
+      setCategories((cs) => (cs.includes(h.category!) ? cs : [...cs, h.category!]));
+    }
+  }
+  const untagItem = () => { setRefItem(null); setShowItem(false); };
+
+  // Switching to ISO after tagging still prefills the (required) item field —
+  // publish sends the tagged title either way, so the form must not look empty.
+  function switchType(t: ComposeType) {
+    setType(t);
+    if (t === "iso" && refItem) setIsoItem((v) => (v.trim() ? v : refItem.title));
+  }
+
   useEffect(() => {
     api.get<ApiCommunity[]>("/communities?limit=50")
       .then((data) => setCommunities((data ?? []).filter((c) => c.is_member)))
@@ -152,9 +205,10 @@ function ComposePage() {
   // QA2 — every post/ISO/poll/review needs at least one category so the feed filter works.
   const categoryOk = categories.length > 0;
   const canPost = categoryOk && (
+    // design_v8 — a review must be tagged to a database item (server 422s without it).
     type === "poll" ? Boolean(body.trim()) && pollValid :
-    type === "review" ? rating > 0 && Boolean(title.trim() || body.trim()) && images.length > 0 :
-    type === "iso" ? isoItem.trim().length > 0 && images.length > 0 :
+    type === "review" ? rating > 0 && refItem !== null && Boolean(title.trim() || body.trim()) && images.length > 0 :
+    type === "iso" ? (refItem !== null || isoItem.trim().length > 0) && images.length > 0 :
     Boolean(title.trim() || body.trim() || images.length > 0)
   );
 
@@ -165,6 +219,8 @@ function ComposePage() {
 
   const publish = async () => {
     if (!canPost || publishing) return;
+    // Client-side gate mirrors the server's 422 for untagged reviews (design_v8).
+    if (type === "review" && !refItem) { fireToast("Reviews must be tagged to a database item"); return; }
     setPublishing(true);
     try {
       const targetCommunities = postTo.filter((p) => p !== "feed");
@@ -182,7 +238,10 @@ function ComposePage() {
         tags,
         poll_options: pollOptions,
         review_rating: type === "review" ? rating : null,
-        iso_item: type === "iso" ? isoItem.trim() : null,
+        // v8 — every type carries the tagged SKU; an ISO uses the tagged item's title
+        // when one is set (the field is prefilled on pick, but the tag stays canonical).
+        ref_sku: refItem?.sku ?? null,
+        iso_item: type === "iso" ? (refItem?.title ?? isoItem.trim()) : null,
         iso_budget: type === "iso" && isoBudget ? Math.round(Number(isoBudget) * 100) : null,
         iso_condition: type === "iso" ? isoCond : null,
         communities: targetCommunities,
@@ -203,6 +262,9 @@ function ComposePage() {
       }
     } catch (e) {
       console.error(e);
+      // Surface the server's message (422 untagged review / 404 unknown sku) instead
+      // of failing silently — the api client rethrows the backend `detail` string.
+      fireToast(e instanceof Error && e.message ? e.message : "Couldn't publish — try again");
     } finally {
       setPublishing(false);
     }
@@ -243,7 +305,7 @@ function ComposePage() {
 
       <div style={{ padding: "14px 20px 24px" }}>
         {/* type switch */}
-        <Segmented value={type} onChange={setType} options={TYPES} />
+        <Segmented value={type} onChange={switchType} options={TYPES} />
 
         {/* author + audience — the destination is a TAPPABLE PILL here (design_v7), not a
             read-only line with a separate "Post to" section further down the form. That
@@ -315,6 +377,16 @@ function ComposePage() {
               >
                 <Smile size={15} />Emoji
               </button>
+              {/* design_v8 — Tag item: links the post to a catalogue entry. Required
+                  for reviews (hence the "*"), optional for posts/polls/ISOs. */}
+              <button
+                onClick={() => setShowItem((v) => !v)}
+                aria-label="Tag an item from the database"
+                aria-expanded={showItem}
+                style={{ display: "flex", alignItems: "center", gap: 5, height: 28, padding: "0 11px", borderRadius: 999, border: `1px solid ${showItem || refItem ? "var(--ink)" : "var(--border-strong)"}`, background: showItem || refItem ? "var(--bone)" : "var(--paper-soft)", color: "var(--ink)", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 12.5, whiteSpace: "nowrap" }}
+              >
+                <Tag size={14} />{refItem ? "Item ✓" : type === "review" ? "Tag item *" : "Tag item"}
+              </button>
               <div style={{ flex: 1 }} />
               <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: body.length > BODY_MAX - 60 ? "var(--stamp-red)" : "var(--ink-ghost)" }}>
                 {body.length}/{BODY_MAX}
@@ -327,6 +399,64 @@ function ComposePage() {
                     {e}
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* tagged item — picked state (photo-less: title + brand + untag X) */}
+            {refItem && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, padding: "9px 12px", borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--ink-faint)" }}>Tagged from DB</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{refItem.title}</div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-faint)" }}>{refItem.brand}</div>
+                </div>
+                <button onClick={untagItem} aria-label="Remove tagged item" style={{ width: 28, height: 28, borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--ink-faint)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            {/* tagged item — inline catalogue search */}
+            {showItem && !refItem && (
+              <div style={{ marginTop: 8, border: "1px solid var(--border-strong)", borderRadius: 12, background: "var(--paper-soft)", overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, height: 40, padding: "0 12px", borderBottom: "1px solid var(--border)" }}>
+                  <Search size={15} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
+                  <input
+                    autoFocus
+                    value={itemQ}
+                    onChange={(e) => setItemQ(e.target.value)}
+                    placeholder="Search the Scorred database…"
+                    style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--ink)" }}
+                  />
+                </div>
+                {itemHits.map((h, i) => (
+                  <button
+                    key={h.sku}
+                    onClick={() => pickItem(h)}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: "8px 12px", border: "none", borderTop: i > 0 ? "1px solid var(--border)" : "none", background: "transparent", cursor: "pointer", fontFamily: "var(--font-body)" }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.title}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 1 }}>
+                        <span style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{h.brand}</span>
+                        {h.pending && <span style={{ fontSize: 10, fontWeight: 700, color: "var(--grail-gold-deep)" }}>Pending verification</span>}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+                {itemQ.trim().length >= 3 && !itemLoading && itemHits.length === 0 && (
+                  <div style={{ padding: 12, display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>Not in the database yet.</span>
+                    <button onClick={() => router.push("/add/catalogue")} style={{ flexShrink: 0, height: 30, padding: "0 12px", borderRadius: 9, border: "1px solid var(--border-strong)", background: "var(--paper)", color: "var(--ink)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>
+                      Add a new item
+                    </button>
+                  </div>
+                )}
+                {(itemLoading || itemQ.trim().length < 3) && itemHits.length === 0 && (
+                  <div style={{ padding: 12, fontSize: 12.5, color: "var(--ink-faint)" }}>
+                    {itemLoading ? "Searching…" : "Type at least 3 characters to search."}
+                  </div>
+                )}
               </div>
             )}
         </>

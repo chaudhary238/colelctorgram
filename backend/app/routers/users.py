@@ -11,7 +11,7 @@ from typing import Optional
 from app.database import get_db
 from app.dependencies import get_current_user, get_current_user_unverified
 from app.models.user import User, Follow
-from app.models.item import Item, ItemPhoto
+from app.models.item import Item, ItemPhoto, item_is_complete
 from app.models.catalogue import Catalogue
 from app.services.catalogue import resolved_item_facts
 from app.models.listing import Listing
@@ -865,8 +865,44 @@ async def get_collection(
         rows = await db.execute(select(Catalogue).where(Catalogue.sku.in_(skus)))
         cat_by_sku = {c.sku: c for c in rows.scalars().all()}
 
+    # DV8-11 — one source of truth for the Listed/Sold tags and the owned-tab
+    # filter: the item's actual listing record (newest available/sold wins), not
+    # the is_listed flag alone (v8 bug list: seed flags minted "Listed" tags with
+    # no listing behind them).
+    listing_by_item: dict = {}
+    if item_ids:
+        lrows = await db.execute(
+            select(Listing.item_id, Listing.status)
+            .where(Listing.item_id.in_(item_ids), Listing.status.in_(["available", "sold"]))
+            .order_by(Listing.created_at.desc())
+        )
+        for iid, lstatus in lrows.all():
+            listing_by_item.setdefault(iid, lstatus)
+
+    # DV8 §2 — server-owned portfolio summary. The value is PRIVATE until every
+    # owned/pre-order item is complete ("we genuinely can't compute it" — v8);
+    # the owner always sees it, with the incomplete count driving the finish card.
+    # (The old client-side sum read per-item `value`, which is now owner-only.)
+    port_rows = (await db.execute(
+        select(
+            Item.status, Item.condition, Item.value,
+            Item.preorder_eta, Item.preorder_window_precision, Item.preorder_total,
+        ).where(Item.user_id == target_user.id, Item.status.in_(["owned", "preorder"]))
+    )).all()
+    incomplete_count = sum(1 for r in port_rows if not item_is_complete(r))
+    owned_value = sum((r.value or 0) for r in port_rows if r.status == "owned")
+    value_shared = len(port_rows) > 0 and incomplete_count == 0
+    portfolio = {
+        "item_count": len(port_rows),
+        "complete_count": len(port_rows) - incomplete_count,
+        "incomplete_count": incomplete_count,
+        "value": owned_value if (is_owner_view or value_shared) else None,
+        "value_shared": value_shared,
+    }
+
     return {
         "page": page,
+        "portfolio": portfolio,
         "items": [
             {
                 "id": str(i.id),
@@ -877,11 +913,19 @@ async def get_collection(
                 # returned unchanged so existing consumers keep working.
                 **resolved_item_facts(i, cat_by_sku.get(i.sku or "")),
                 "status": i.status,
-                "value": i.value,
+                # DV8 §1 — what you paid is owner-only, everywhere it appears.
+                "value": i.value if is_owner_view else None,
+                "condition": i.condition,
+                "is_complete": item_is_complete(i),
                 "is_listed": i.is_listed,
+                # available | sold | None — drives Listed/Sold tags + owned filter.
+                "listing_status": listing_by_item.get(i.id),
                 "photo_count": i.photo_count,
                 "image_url": covers.get(i.id),
                 "preorder_eta": i.preorder_eta,
+                # DV8 — the finish flow seeds its window picker from these (owner only).
+                "preorder_window_precision": i.preorder_window_precision if is_owner_view else None,
+                "preorder_total": i.preorder_total if is_owner_view else None,
                 "is_wishlisted": _wishlisted(i),
                 "created_at": i.created_at.isoformat(),
             }

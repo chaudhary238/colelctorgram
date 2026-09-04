@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scorred — Brand Media Kit</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --red:#FF2442; --red-deep:#E01F3A; --red-soft:#FFE4E8;
+  --ink:#1A1A1A; --ink-soft:#333; --ink-mute:#666; --ink-faint:#999; --ink-ghost:#C4C4C4;
+  --gold:#E8A33D; --teal:#2D8F87; --forest:#2D5F3F; --plum:#6B3656;
+  --bone:#F5F5F5; --bone-deep:#EBEBEB; --line:rgba(0,0,0,0.08);
+}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Geist',system-ui,sans-serif;color:var(--ink);background:#525659}
+.mono{font-family:'JetBrains Mono',monospace}
+.page{width:1100px;min-height:1556px;background:#fff;margin:24px auto;padding:80px 88px;position:relative;box-shadow:0 4px 24px rgba(0,0,0,0.25)}
+.ey{font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:var(--ink-ghost)}
+h1{font-size:52px;font-weight:800;letter-spacing:-0.04em;line-height:1.02}
+h2{font-size:13px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:24px}
+.foot{position:absolute;bottom:44px;left:88px;right:88px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--ink-ghost);border-top:1px solid var(--line);padding-top:16px}
+.foot .mono{letter-spacing:0.04em}
+@media print{
+  body{background:#fff}
+  .page{margin:0;box-shadow:none;width:100%;min-height:100vh;page-break-after:always;padding:64px 72px}
+  @page{size:A4;margin:0}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ COVER ═══════════ -->
+<div class="page" style="display:flex;flex-direction:column;justify-content:space-between">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div class="ey">Brand Guidelines</div>
+    <div class="ey">v1.0 · 2026</div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;align-items:flex-start;gap:44px">
+    <img src="uploads/wordmark-crop.png" style="height:132px;object-fit:contain;display:block"/>
+    <div>
+      <h1 style="font-size:76px">Media Kit</h1>
+      <p style="font-size:20px;color:var(--ink-mute);margin-top:18px;max-width:540px;line-height:1.5">The complete brand system for Scorred — India's #1 collectibles platform.</p>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:44px;align-items:center;border-top:1px solid var(--line);padding-top:28px">
+    <div><div class="ey" style="margin-bottom:6px">Primary</div><div class="mono" style="font-size:15px">#FF2442</div></div>
+    <div><div class="ey" style="margin-bottom:6px">Typeface</div><div class="mono" style="font-size:15px">Geist</div></div>
+    <div><div class="ey" style="margin-bottom:6px">Contact</div><div class="mono" style="font-size:15px">brand@scorred.app</div></div>
+  </div>
+</div>
+
+<!-- ═══════════ 1. LOGO ═══════════ -->
+<div class="page">
+  <div class="ey" style="margin-bottom:8px">01 — Identity</div>
+  <h1 style="margin-bottom:8px">The Logo</h1>
+  <p style="font-size:16px;color:var(--ink-mute);max-width:600px;line-height:1.6;margin-bottom:56px">Scorred's wordmark carries a hidden verification mark — the "O" is a circle-tick. It literally means <em>scored, verified, confirmed</em>. The last three letters, RED, are always in the brand red.</p>
+
+  <div style="border:1px solid var(--line);border-radius:16px;padding:72px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;background:var(--bone)">
+    <img src="uploads/wordmark-crop.png" style="height:104px;object-fit:contain;display:block"/>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:44px">
+    <div style="border:1px solid var(--line);border-radius:16px;padding:48px;display:flex;align-items:center;justify-content:center">
+      <img src="uploads/wordmark-crop.png" style="height:56px;object-fit:contain;display:block"/>
+    </div>
+    <div style="border-radius:16px;padding:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:var(--bone)">
+      <img src="uploads/wordmark-crop.png" style="height:56px;object-fit:contain;display:block"/>
+      <div class="ey">Works on light &amp; tinted surfaces</div>
+    </div>
+  </div>
+
+  <h2>The Icon Mark</h2>
+  <div style="display:flex;gap:16px">
+    <div style="flex:1;border:1px solid var(--line);border-radius:16px;padding:44px;display:flex;flex-direction:column;align-items:center;gap:18px">
+      <img src="uploads/icon-crop.png" style="width:96px;height:96px;object-fit:contain;display:block"/>
+      <div class="ey">On light</div>
+    </div>
+    <div style="flex:1;border-radius:16px;padding:44px;display:flex;flex-direction:column;align-items:center;gap:18px;background:var(--bone)">
+      <img src="uploads/icon-crop.png" style="width:96px;height:96px;object-fit:contain;display:block"/>
+      <div class="ey">On tint</div>
+    </div>
+    <div style="flex:1;border-radius:16px;padding:44px;display:flex;flex-direction:column;align-items:center;gap:18px;background:var(--red)">
+      <img src="uploads/icon-crop-white.png" style="width:96px;height:96px;object-fit:contain;display:block"/>
+      <div class="ey" style="color:rgba(255,255,255,0.7)">Reversed</div>
+    </div>
+  </div>
+
+  <div class="foot"><span>Scorred Brand Guidelines</span><span class="mono">01 / 06</span></div>
+</div>
+
+<!-- ═══════════ 2. CLEARSPACE & MISUSE ═══════════ -->
+<div class="page">
+  <div class="ey" style="margin-bottom:8px">02 — Identity</div>
+  <h1 style="margin-bottom:8px">Clear Space & Sizing</h1>
+  <p style="font-size:16px;color:var(--ink-mute);max-width:600px;line-height:1.6;margin-bottom:48px">Always give the logo room to breathe. Minimum clear space equals the height of the icon mark on all sides.</p>
+
+  <div style="border:1px solid var(--line);border-radius:16px;padding:56px;display:flex;align-items:center;justify-content:center;margin-bottom:48px;background:var(--bone)">
+    <div style="position:relative;padding:64px;outline:2px dashed var(--ink-ghost);outline-offset:0">
+      <img src="uploads/wordmark-crop.png" style="height:72px;object-fit:contain;display:block"/>
+    </div>
+  </div>
+
+  <h2>Minimum Sizes</h2>
+  <div style="display:flex;gap:56px;align-items:flex-end;margin-bottom:48px">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
+      <img src="uploads/wordmark-crop.png" style="height:30px;object-fit:contain;display:block"/>
+      <div class="ey">Wordmark · 120px min</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
+      <img src="uploads/icon-crop.png" style="width:24px;height:24px;object-fit:contain;display:block"/>
+      <div class="ey">Icon · 24px min</div>
+    </div>
+  </div>
+
+  <h2>Misuse — Never</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+    <div style="border:1px solid var(--line);border-radius:14px;padding:28px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:20px">
+      <img src="uploads/wordmark-crop.png" style="height:34px;object-fit:contain;display:block;transform:skewX(-12deg)"/>
+      <div style="font-size:12px;color:var(--red);font-weight:600">✕ Don't distort or skew</div>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:14px;padding:28px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:20px">
+      <img src="uploads/wordmark-crop.png" style="height:34px;object-fit:contain;display:block;filter:grayscale(1) brightness(0.4)"/>
+      <div style="font-size:12px;color:var(--red);font-weight:600">✕ Don't recolor the mark</div>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:14px;padding:28px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:20px;background:linear-gradient(135deg,#f0a,#0af)">
+      <img src="uploads/wordmark-crop.png" style="height:34px;object-fit:contain;display:block"/>
+      <div style="font-size:12px;color:#fff;font-weight:700">✕ Don't place on busy color</div>
+    </div>
+  </div>
+
+  <div class="foot"><span>Scorred Brand Guidelines</span><span class="mono">02 / 06</span></div>
+</div>
+
+<!-- ═══════════ 3. COLOR ═══════════ -->
+<div class="page">
+  <div class="ey" style="margin-bottom:8px">03 — System</div>
+  <h1 style="margin-bottom:8px">Color</h1>
+  <p style="font-size:16px;color:var(--ink-mute);max-width:600px;line-height:1.6;margin-bottom:48px">Scorred Red is the heart of the brand — used for the mark, primary actions, and verification. Neutrals carry everything else; accent colors are functional signals, used sparingly.</p>
+
+  <div style="display:flex;gap:16px;margin-bottom:16px">
+    <div style="flex:2;background:var(--red);border-radius:16px;padding:32px;color:#fff;min-height:200px;display:flex;flex-direction:column;justify-content:space-between">
+      <div style="font-size:22px;font-weight:800;letter-spacing:-0.02em">Scorred Red</div>
+      <div>
+        <div class="mono" style="font-size:16px;font-weight:500">#FF2442</div>
+        <div class="mono" style="font-size:12px;opacity:0.7;margin-top:4px">RGB 255 · 36 · 66 &nbsp;·&nbsp; HSL 351 · 100 · 57</div>
+      </div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:16px">
+      <div style="flex:1;background:var(--red-deep);border-radius:14px;padding:20px;color:#fff;display:flex;flex-direction:column;justify-content:space-between">
+        <div style="font-weight:700;font-size:14px">Red Deep</div><div class="mono" style="font-size:13px">#E01F3A</div>
+      </div>
+      <div style="flex:1;background:var(--red-soft);border-radius:14px;padding:20px;color:var(--red-deep);display:flex;flex-direction:column;justify-content:space-between">
+        <div style="font-weight:700;font-size:14px">Red Soft</div><div class="mono" style="font-size:13px">#FFE4E8</div>
+      </div>
+    </div>
+  </div>
+
+  <h2 style="margin-top:40px">Ink & Neutrals</h2>
+  <div style="display:flex;gap:10px;margin-bottom:40px">
+    <div style="flex:1"><div style="height:76px;background:#1A1A1A;border-radius:10px"></div><div style="font-size:11px;font-weight:600;margin-top:8px">Ink</div><div class="mono" style="font-size:11px;color:var(--ink-faint)">#1A1A1A</div></div>
+    <div style="flex:1"><div style="height:76px;background:#333;border-radius:10px"></div><div style="font-size:11px;font-weight:600;margin-top:8px">Ink Soft</div><div class="mono" style="font-size:11px;color:var(--ink-faint)">#333333</div></div>
+    <div style="flex:1"><div style="height:76px;background:#666;border-radius:10px"></div><div style="font-size:11px;font-weight:600;margin-top:8px">Ink Mute</div><div class="mono" style="font-size:11px;color:var(--ink-faint)">#666666</div></div>
+    <div style="flex:1"><div style="height:76px;background:#999;border-radius:10px"></div><div style="font-size:11px;font-weight:600;margin-top:8px">Ink Faint</div><div class="mono" style="font-size:11px;color:var(--ink-faint)">#999999</div></div>
+    <div style="flex:1"><div style="height:76px;background:#EBEBEB;border-radius:10px"></div><div style="font-size:11px;font-weight:600;margin-top:8px">Bone Deep</div><div class="mono" style="font-size:11px;color:var(--ink-faint)">#EBEBEB</div></div>
+    <div style="flex:1"><div style="height:76px;background:#F5F5F5;border-radius:10px;border:1px solid var(--line)"></div><div style="font-size:11px;font-weight:600;margin-top:8px">Bone</div><div class="mono" style="font-size:11px;color:var(--ink-faint)">#F5F5F5</div></div>
+  </div>
+
+  <h2>Functional Accents</h2>
+  <div style="display:flex;gap:12px">
+    <div style="flex:1;border:1px solid var(--line);border-radius:14px;overflow:hidden">
+      <div style="height:60px;background:var(--teal)"></div>
+      <div style="padding:14px"><div style="font-weight:700;font-size:13px">Verified Teal</div><div class="mono" style="font-size:11px;color:var(--ink-faint);margin-top:3px">#2D8F87</div><div style="font-size:11px;color:var(--ink-mute);margin-top:6px">Vouches · trust signals</div></div>
+    </div>
+    <div style="flex:1;border:1px solid var(--line);border-radius:14px;overflow:hidden">
+      <div style="height:60px;background:var(--gold)"></div>
+      <div style="padding:14px"><div style="font-weight:700;font-size:13px">Grail Gold</div><div class="mono" style="font-size:11px;color:var(--ink-faint);margin-top:3px">#E8A33D</div><div style="font-size:11px;color:var(--ink-mute);margin-top:6px">Rare · pre-order · featured</div></div>
+    </div>
+    <div style="flex:1;border:1px solid var(--line);border-radius:14px;overflow:hidden">
+      <div style="height:60px;background:var(--forest)"></div>
+      <div style="padding:14px"><div style="font-weight:700;font-size:13px">Forest</div><div class="mono" style="font-size:11px;color:var(--ink-faint);margin-top:3px">#2D5F3F</div><div style="font-size:11px;color:var(--ink-mute);margin-top:6px">Success states</div></div>
+    </div>
+    <div style="flex:1;border:1px solid var(--line);border-radius:14px;overflow:hidden">
+      <div style="height:60px;background:var(--plum)"></div>
+      <div style="padding:14px"><div style="font-weight:700;font-size:13px">Plum</div><div class="mono" style="font-size:11px;color:var(--ink-faint);margin-top:3px">#6B3656</div><div style="font-size:11px;color:var(--ink-mute);margin-top:6px">Community · events</div></div>
+    </div>
+  </div>
+
+  <div class="foot"><span>Scorred Brand Guidelines</span><span class="mono">03 / 06</span></div>
+</div>
+
+<!-- ═══════════ 4. TYPOGRAPHY ═══════════ -->
+<div class="page">
+  <div class="ey" style="margin-bottom:8px">04 — System</div>
+  <h1 style="margin-bottom:8px">Typography</h1>
+  <p style="font-size:16px;color:var(--ink-mute);max-width:600px;line-height:1.6;margin-bottom:48px">Geist is our single typeface across the product — clean, geometric, and highly legible at any size. JetBrains Mono handles numbers, prices, and codes.</p>
+
+  <div style="border:1px solid var(--line);border-radius:16px;padding:40px;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:24px">
+      <div style="font-size:28px;font-weight:800;letter-spacing:-0.02em">Geist</div>
+      <div class="ey">Display · Body · UI</div>
+    </div>
+    <div style="font-size:64px;font-weight:900;letter-spacing:-0.04em;line-height:1">AaBbCcDdEe</div>
+    <div style="font-size:32px;font-weight:400;letter-spacing:-0.01em;margin-top:12px;color:var(--ink-soft)">The quick brown fox jumps over 12 lazy dogs.</div>
+    <div style="display:flex;gap:24px;margin-top:28px;flex-wrap:wrap">
+      <span style="font-weight:400;color:var(--ink-mute)">Regular 400</span>
+      <span style="font-weight:500;color:var(--ink-mute)">Medium 500</span>
+      <span style="font-weight:600;color:var(--ink-mute)">Semibold 600</span>
+      <span style="font-weight:700;color:var(--ink-mute)">Bold 700</span>
+      <span style="font-weight:800;color:var(--ink-mute)">Extrabold 800</span>
+      <span style="font-weight:900;color:var(--ink-mute)">Black 900</span>
+    </div>
+  </div>
+
+  <div style="border:1px solid var(--line);border-radius:16px;padding:40px;margin-bottom:40px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px">
+      <div class="mono" style="font-size:24px;font-weight:700">JetBrains Mono</div>
+      <div class="ey">Prices · Numbers · Codes</div>
+    </div>
+    <div class="mono" style="font-size:40px;font-weight:500;letter-spacing:-0.01em">₹1,42,000 · +50 XP · MMS601</div>
+  </div>
+
+  <h2>Type Scale</h2>
+  <div style="display:flex;flex-direction:column;gap:2px">
+    <div style="display:flex;align-items:baseline;gap:24px;padding:12px 0;border-bottom:1px solid var(--line)"><span class="mono" style="width:80px;font-size:12px;color:var(--ink-faint)">56 / 800</span><span style="font-size:36px;font-weight:800;letter-spacing:-0.03em">Display XL</span></div>
+    <div style="display:flex;align-items:baseline;gap:24px;padding:12px 0;border-bottom:1px solid var(--line)"><span class="mono" style="width:80px;font-size:12px;color:var(--ink-faint)">32 / 700</span><span style="font-size:28px;font-weight:700;letter-spacing:-0.02em">Heading</span></div>
+    <div style="display:flex;align-items:baseline;gap:24px;padding:12px 0;border-bottom:1px solid var(--line)"><span class="mono" style="width:80px;font-size:12px;color:var(--ink-faint)">16 / 400</span><span style="font-size:16px;font-weight:400">Body — the workhorse size for reading.</span></div>
+    <div style="display:flex;align-items:baseline;gap:24px;padding:12px 0"><span class="mono" style="width:80px;font-size:12px;color:var(--ink-faint)">11 / 700</span><span style="font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--ink-faint)">Eyebrow / Label</span></div>
+  </div>
+
+  <div class="foot"><span>Scorred Brand Guidelines</span><span class="mono">04 / 06</span></div>
+</div>
+
+<!-- ═══════════ 5. THE MARK IN USE ═══════════ -->
+<div class="page">
+  <div class="ey" style="margin-bottom:8px">05 — Application</div>
+  <h1 style="margin-bottom:8px">The Mark in Use</h1>
+  <p style="font-size:16px;color:var(--ink-mute);max-width:600px;line-height:1.6;margin-bottom:48px">The circle-tick isn't just a logo — it's a system. It appears as the app icon, the "Scorred Verified" badge, empty-state watermarks, and success confirmations. One shape, everywhere.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:44px">
+    <div style="border:1px solid var(--line);border-radius:16px;padding:44px;display:flex;flex-direction:column;align-items:center;gap:20px">
+      <div style="width:120px;height:120px;border-radius:27px;background:var(--red);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(255,36,66,0.3)">
+        <img src="uploads/icon-crop-white.png" style="width:72px;height:72px;object-fit:contain;display:block"/>
+      </div>
+      <div class="ey">App Icon</div>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:16px;padding:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+      <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:999px;background:var(--red-soft);border:1px solid var(--red)">
+        <img src="uploads/icon-crop.png" style="width:18px;height:18px;object-fit:contain;display:block"/>
+        <span style="font-size:14px;font-weight:700;color:var(--red-deep)">Scorred Verified</span>
+      </div>
+      <div class="ey">Verification Badge</div>
+    </div>
+  </div>
+
+  <h2>Voice & Tone</h2>
+  <div style="display:flex;gap:16px">
+    <div style="flex:1;border:1px solid var(--line);border-radius:14px;padding:24px">
+      <div style="font-size:15px;font-weight:700;margin-bottom:8px">Confident, not loud</div>
+      <div style="font-size:13px;color:var(--ink-mute);line-height:1.6">We're the trusted authority for collectors. We state facts plainly. "Scorred Verified" — not "100% Guaranteed Authentic!!!"</div>
+    </div>
+    <div style="flex:1;border:1px solid var(--line);border-radius:14px;padding:24px">
+      <div style="font-size:15px;font-weight:700;margin-bottom:8px">For collectors, by collectors</div>
+      <div style="font-size:13px;color:var(--ink-mute);line-height:1.6">We speak the language — grails, in-hand, sealed, PO. Insider, warm, never corporate.</div>
+    </div>
+    <div style="flex:1;border:1px solid var(--line);border-radius:14px;padding:24px">
+      <div style="font-size:15px;font-weight:700;margin-bottom:8px">Playful with restraint</div>
+      <div style="font-size:13px;color:var(--ink-mute);line-height:1.6">"Score every grail." A little wordplay is on-brand. Emoji and hype are not.</div>
+    </div>
+  </div>
+
+  <div class="foot"><span>Scorred Brand Guidelines</span><span class="mono">05 / 06</span></div>
+</div>
+
+<!-- ═══════════ 6. TAGLINE & CONTACT ═══════════ -->
+<div class="page" style="display:flex;flex-direction:column;justify-content:space-between">
+  <div class="ey">06 — Close</div>
+
+  <div style="display:flex;flex-direction:column;gap:36px">
+    <img src="uploads/wordmark-crop.png" style="height:96px;object-fit:contain;display:block;align-self:flex-start"/>
+    <h1 style="font-size:60px;max-width:800px">Track, trade &amp; network — score every grail.</h1>
+    <p style="font-size:18px;color:var(--ink-mute);max-width:560px;line-height:1.6">India's #1 collectibles platform. Built for the people who hunt, verify, and never stop collecting.</p>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid var(--line);padding-top:32px">
+    <div>
+      <div class="ey" style="margin-bottom:8px">Brand enquiries</div>
+      <div class="mono" style="font-size:16px">brand@scorred.app</div>
+    </div>
+    <div style="text-align:right">
+      <div class="ey" style="margin-bottom:8px">Assets</div>
+      <div class="mono" style="font-size:16px">scorred.app/brand</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

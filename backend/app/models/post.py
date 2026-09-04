@@ -26,6 +26,9 @@ class Post(Base):
     images: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
 
     ref_item_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("items.id"), nullable=True)
+    # DV8 — composer "Tag item": a tagged CATALOGUE entry (reviews require one;
+    # ref_item_id stays for provenance chips pointing at a specific copy).
+    ref_sku: Mapped[str | None] = mapped_column(String(64), ForeignKey("catalogue.sku"), nullable=True)
     ref_listing_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("listings.id"), nullable=True)
     community_id: Mapped[str | None] = mapped_column(Text, ForeignKey("communities.id"), nullable=True)
     category: Mapped[str | None] = mapped_column(Text, nullable=True)

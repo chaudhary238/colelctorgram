@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Scorred · BRD Addendum · Collection, Database &amp; Marketplace</title>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600;6..72,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+doc-page:not(:defined){visibility:hidden}
+:root{--ink:#16181d;--soft:#3b4048;--faint:#767e8b;--rule:#dcdfe4;--rule-soft:#ebedf0;--red:#d92d3c;--red-soft:#fdf2f3;--teal:#0f7f74;--gold:#8a6a12;--gold-soft:#fdf8ec;--bone:#f6f7f8}
+body{margin:0}
+doc-page{--f-body:'Inter',sans-serif;--f-disp:'Newsreader',serif;--f-mono:'JetBrains Mono',monospace}
+.doc{font-family:var(--f-body);color:var(--ink);font-size:10.5pt;line-height:1.55}
+h1,h2,h3,h4{font-family:var(--f-disp);font-weight:700;letter-spacing:-.01em}
+h1{font-size:26pt;line-height:1.08;margin:0 0 6pt}
+h2{font-size:15pt;margin:20pt 0 3pt;padding-bottom:4pt;border-bottom:1.5px solid var(--ink)}
+h3{font-size:11.5pt;margin:13pt 0 3pt}
+h4{font-size:10pt;margin:10pt 0 3pt}
+p{margin:0 0 7pt;text-wrap:pretty}
+ul,ol{margin:0 0 8pt;padding-left:15pt}
+li{margin-bottom:3.5pt}
+.lede{font-family:var(--f-disp);font-size:12pt;line-height:1.5;color:var(--soft);margin:0 0 4pt}
+.meta{font-family:var(--f-mono);font-size:8pt;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.cover{border-top:3px solid var(--red);padding-top:9pt;margin-bottom:16pt}
+table{width:100%;border-collapse:collapse;margin:6pt 0 11pt;font-size:9.5pt}
+th{text-align:left;font-family:var(--f-mono);font-size:7.5pt;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:600;padding:0 8pt 4pt 0;border-bottom:1px solid var(--rule)}
+td{padding:6pt 8pt 6pt 0;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.45}
+th:last-child,td:last-child{padding-right:0}
+tr,.box,.stat,figure{break-inside:avoid}
+.k{width:20%;font-weight:600}
+.m{width:42%}
+.s{width:38%;color:var(--soft)}
+.id{width:12%;font-family:var(--f-mono);font-size:8.5pt;color:var(--faint);white-space:nowrap}
+.box{border:1px solid var(--rule);border-left:3px solid var(--ink);padding:8pt 11pt;margin:8pt 0 11pt;background:var(--bone)}
+.box.q{border-left-color:var(--gold);background:var(--gold-soft)}
+.box.r{border-left-color:var(--red);background:var(--red-soft)}
+.box h4{font-family:var(--f-body);font-size:8.5pt;text-transform:uppercase;letter-spacing:.06em;margin:0 0 5pt;color:var(--faint)}
+.box p:last-child,.box ul:last-child{margin-bottom:0}
+.statrow{display:flex;border:1px solid var(--rule);margin:9pt 0 13pt}
+.stat{flex:1;padding:8pt 10pt;border-right:1px solid var(--rule)}
+.stat:last-child{border-right:none}
+.stat b{display:block;font-family:var(--f-mono);font-size:16pt;line-height:1}
+.stat span{display:block;font-size:8pt;color:var(--faint);margin-top:3pt;line-height:1.3}
+code{font-family:var(--f-mono);font-size:8.5pt;background:var(--bone);padding:1px 3px;border-radius:2px;color:var(--soft)}
+.toc{background:var(--bone);border:1px solid var(--rule);padding:11pt 14pt;margin:0 0 14pt}
+.toc ol{columns:2;column-gap:24pt;margin:0;font-size:9.5pt;padding-left:14pt}
+.toc li{margin:2pt 0;break-inside:avoid}
+footer.pf{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:7.5pt;color:var(--faint);letter-spacing:.05em;text-transform:uppercase;border-top:1px solid var(--rule);padding-top:5pt}
+a{color:var(--red)}a:hover{color:var(--ink)}
+.pagebreak{break-before:page}
+</style>
+</head><body>
+<doc-page margin="0.72in">
+<div slot="footer"><footer class="pf"><span>Scorred · BRD Addendum v1.3</span><span>18 August 2026 · Confidential</span></footer></div>
+
+<div class="doc">
+
+<div class="cover">
+<div class="meta">Business Requirements Document · Addendum v1.3</div>
+<h1>Collection, Database &amp;<br>Marketplace</h1>
+<p class="lede">Supersedes §8.1, §8.5, §9.4, §9.5 and §9.9 of BRD v1.2. Documents the requirements implemented 16–18 August 2026, the rationale behind each, and the decisions still open.</p>
+<div class="meta" style="margin-top:10pt">Prepared 18 August 2026 · Owner: Product · Status: Implemented, pending sign-off</div>
+</div>
+
+<div class="statrow">
+<div class="stat"><b>3</b><span>Flows re-specified</span></div>
+<div class="stat"><b>18</b><span>Requirements</span></div>
+<div class="stat"><b>13</b><span>Defects closed</span></div>
+<div class="stat"><b>4</b><span>Open decisions</span></div>
+</div>
+
+<div class="toc"><div class="meta" style="margin-bottom:6pt">Contents</div><ol>
+<li>Purpose &amp; scope</li>
+<li>Guiding principles</li>
+<li>Item page (§9.4/§9.5 revised)</li>
+<li>Adding to a collection (§8.1 revised)</li>
+<li>Completeness &amp; incentives</li>
+<li>Listing page (§9.9 revised)</li>
+<li>Price fairness signal</li>
+<li>Feed &amp; post types (§8.5 revised)</li>
+<li>Data model changes</li>
+<li>Defects closed</li>
+<li>Open decisions</li>
+<li>Acceptance criteria</li>
+</ol></div>
+
+<h2>1. Purpose &amp; scope</h2>
+<p>Three flows had accumulated structural problems: the item page existed twice, adding an item demanded information users rarely have to hand, and the listing page also existed twice — one of the duplicates crashing on load. This addendum specifies the corrected behaviour.</p>
+<p><b>In scope:</b> database item page, collection item page, add-to-collection, collection completeness, listing detail, price fairness, feed post types.<br>
+<b>Out of scope:</b> chat, communities, events, XP economy beyond the two rules stated in §5.</p>
+
+<h2>2. Guiding principles</h2>
+<p>Three principles were applied throughout and should govern future work in these areas.</p>
+<table>
+<thead><tr><th class="k">Principle</th><th class="m">Requirement</th><th class="s">Reason</th></tr></thead>
+<tbody>
+<tr><td class="k">One page per concept</td><td class="m">A concept has exactly one implementation. Viewer differences are expressed as variations within it, never as separate screens.</td><td class="s">Both duplicated pages had silently drifted apart, and one had crashed unnoticed.</td></tr>
+<tr><td class="k">Vertical space is a budget</td><td class="m">Long sections collapse by default. A page's resting height must not scale with its content volume.</td><td class="s">Item pages grew unboundedly with catalogue copy and discussion.</td></tr>
+<tr><td class="k">No unbacked data</td><td class="m">No figure, badge or label may appear unless the product measurably tracks it.</td><td class="s">Deal counts, a condition ladder and verification tiers were all displayed but never recorded.</td></tr>
+</tbody>
+</table>
+
+<h2>3. Item page — revises §9.4, §9.5</h2>
+<p>The database entry and the collection item are one page. Viewing a catalogue entry, your own copy, or another collector's copy differs by one card and one button.</p>
+
+<h3>3.1 Page structure (normative order)</h3>
+<ol>
+<li>Photo — the owner's if present, otherwise the catalogue reference</li>
+<li>Provenance line — review state and contributor, one line</li>
+<li>Title, brand, scale, year</li>
+<li>Estimated value — suppressed when the ownership card carries a private price</li>
+<li><b>Ownership slot</b> — the only variable region</li>
+<li>Community stats — owners and wishlist counts, one row</li>
+<li>About (collapsible, contains specifications)</li>
+<li>Rating — always expanded, last section</li>
+<li>Comments</li>
+<li>Action bar</li>
+</ol>
+
+<h3>3.2 Ownership slot requirements</h3>
+<table>
+<thead><tr><th class="id">Ref</th><th class="k">Case</th><th class="m">Behaviour</th></tr></thead>
+<tbody>
+<tr><td class="id">ITM-01</td><td class="k">Catalogue only</td><td class="m">No ownership card. Estimated value visible. Action: <em>Add to collection</em>.</td></tr>
+<tr><td class="id">ITM-02</td><td class="k">Owned, by owner</td><td class="m">Collapsible card, collapsed by default. Header <em>About your copy</em>; summary line shows status, condition, price paid. Expanded: status, condition, price paid, photo count, listed state.</td></tr>
+<tr><td class="id">ITM-03</td><td class="k">Owned, by visitor</td><td class="m">Same card and geometry. Header <em>In @handle's collection</em>. Price row omitted. Adds <em>Ask @handle about it</em>.</td></tr>
+<tr><td class="id">ITM-04</td><td class="k">Pre-order</td><td class="m">Same card, gold tint, collapsed by default. Summary line carries expected date and balance due. Expanded: order date (if present), expected, seller, total, deposit, balance.</td></tr>
+<tr><td class="id">ITM-05</td><td class="k">Listed</td><td class="m">A row <em>inside</em> the ownership card linking to the live listing. A second price block must never appear.</td></tr>
+<tr><td class="id">ITM-06</td><td class="k">Incomplete</td><td class="m">Card opens expanded. Summary line names what is missing. Empty rows are tappable, leading to the two-field editor.</td></tr>
+<tr><td class="id">ITM-07</td><td class="k">Contributed entry</td><td class="m">No ownership card; the provenance line carries attribution. Estimated value remains visible.</td></tr>
+</tbody>
+</table>
+
+<div class="box">
+<h4>Rationale — one card, not two</h4>
+<p>Pre-orders previously rendered a separate timeline card <em>and</em> an ownership card, duplicating content. Folding the timeline into the ownership card as its expanded body keeps one mental model — "this is my copy" — with the gold tint carrying the distinction instead of a second container.</p>
+</div>
+
+<h3>3.3 Rating</h3>
+<p>The rating section must display the community average as a rendered value, not only as text. Requirement: numeric score, a star meter filled to the true fraction (4.5 renders as four and a half stars), the rating count, and the user's own tappable stars — all within one section, roughly two lines tall.</p>
+
+<h2 class="pagebreak">4. Adding to a collection — revises §8.1</h2>
+<p>Previously a single <code>+</code> opened a form requesting photos, condition, price and notes. Collectors adding a shelf of items rarely hold that information at that moment, producing abandoned adds or invented values.</p>
+
+<table>
+<thead><tr><th class="id">Ref</th><th class="k">Requirement</th><th class="m">Behaviour</th></tr></thead>
+<tbody>
+<tr><td class="id">ADD-01</td><td class="k">Quick add</td><td class="m">A single tap adds the item with no intervening screen. The user remains in context and may add several items consecutively.</td></tr>
+<tr><td class="id">ADD-02</td><td class="k">Default status</td><td class="m">Owned. Pre-order is correctable in one tap from the item menu.</td></tr>
+<tr><td class="id">ADD-03</td><td class="k">Wishlist interaction</td><td class="m">A wishlisted item must remain quick-addable as owned. Only an existing owned or pre-ordered copy blocks the add.</td></tr>
+<tr><td class="id">ADD-04</td><td class="k">Reward disclosure</td><td class="m">The confirmation states the reward earned and the reward available: <em>+5 XP · Added to collection</em> / <em>+20 XP when you add condition &amp; price</em>.</td></tr>
+<tr><td class="id">ADD-05</td><td class="k">Duplicate copies</td><td class="m">The same catalogue item may exist multiple times in one collection (e.g. one owned, one on pre-order). Each copy is independently addressable and editable.</td></tr>
+</tbody>
+</table>
+
+<h2>5. Completeness &amp; incentives</h2>
+<p>Missing data matters for one reason: the portfolio value is wrong. The pressure to complete therefore targets that number specifically, and the required set is kept minimal so the request carries authority.</p>
+
+<h3>5.1 Definition of complete</h3>
+<table>
+<thead><tr><th class="k">Status</th><th class="m">Required</th><th class="s">Optional (permanently)</th></tr></thead>
+<tbody>
+<tr><td class="k">Owned</td><td class="m">Condition, price paid</td><td class="s">Photos, notes, acquisition date</td></tr>
+<tr><td class="k">Pre-order</td><td class="m">Expected date, total price</td><td class="s">Deposit, order date, seller</td></tr>
+</tbody>
+</table>
+<p>"Not announced" is a valid answer for an expected date and must not count as a gap.</p>
+
+<h3>5.2 Incentive requirements</h3>
+<table>
+<thead><tr><th class="id">Ref</th><th class="k">Requirement</th><th class="m">Behaviour</th></tr></thead>
+<tbody>
+<tr><td class="id">CMP-01</td><td class="k">Value privacy</td><td class="m">Portfolio value is private until every owned item is complete. Visitors see the slot present but empty, labelled <em>Value not shared</em>. The rest of the profile stays public.</td></tr>
+<tr><td class="id">CMP-02</td><td class="k">Owner disclosure</td><td class="m">The owner sees the true value with a lock indicator and a persistent card stating the completion count, the XP available, and a single action to resolve it.</td></tr>
+<tr><td class="id">CMP-03</td><td class="k">Per-item marker</td><td class="m">An incomplete item's value line is replaced by the missing field named as an action — <em>Add price</em>, <em>Add condition</em>, <em>Add details</em>. No badge layer is added.</td></tr>
+<tr><td class="id">CMP-04</td><td class="k">Batch completion</td><td class="m">One screen, one item at a time, two fields only, with skip and a progress indicator. Six items must be completable in under a minute.</td></tr>
+<tr><td class="id">CMP-05</td><td class="k">Reward</td><td class="m">5 XP on add, 20 XP on completion. Status corrections earn nothing.</td></tr>
+</tbody>
+</table>
+
+<div class="box">
+<h4>Rationale — three rejected alternatives</h4>
+<ul>
+<li><b>Hiding the whole portfolio.</b> An all-or-nothing penalty for one missing field, applied to the user's primary social asset. Encourages abandonment, and penalises a 200-item collection with three gaps more than a 4-item collection with four.</li>
+<li><b>"Incomplete" badges per tile.</b> Fourteen simultaneous warnings reads as a malfunctioning app and trains users to ignore the signal. Naming the specific missing field is quieter and actionable.</li>
+<li><b>Excluding incomplete items from rank.</b> Considered as loss framing, rejected as disproportionate while rank feeds real perks.</li>
+</ul>
+</div>
+
+<h2>6. Listing page — revises §9.9</h2>
+<p>Two implementations existed: one for catalogue-seeded listings, one for user-created listings. The same listing rendered differently by entry point, and the user-created path referenced undeclared state, so a seller opening their own listing saw a blank screen.</p>
+
+<table>
+<thead><tr><th class="id">Ref</th><th class="k">Requirement</th><th class="m">Behaviour</th></tr></thead>
+<tbody>
+<tr><td class="id">LST-01</td><td class="k">Single implementation</td><td class="m">All sources normalise to one shape and render one page. Market, collection item and profile entry points are visually identical.</td></tr>
+<tr><td class="id">LST-02</td><td class="k">Tab structure</td><td class="m">Tab 1 <em>Selling terms</em> (default): condition, quantity where greater than one, origin, shipping, returns, trades. Tab 2 <em>About the item</em>: catalogue facts read from the database entry, with a link to it.</td></tr>
+<tr><td class="id">LST-03</td><td class="k">No duplication</td><td class="m">Shipping appears once. Catalogue attributes appear only in tab 2.</td></tr>
+<tr><td class="id">LST-04</td><td class="k">Q&amp;A</td><td class="m">Collapsible, with question count in the header.</td></tr>
+<tr><td class="id">LST-05</td><td class="k">Removed elements</td><td class="m">Order card (quantity stepper, delivery toggle, estimated total), condition ladder, watcher count, deal counts. None were functional or tracked.</td></tr>
+<tr><td class="id">LST-06</td><td class="k">Pre-order exclusion</td><td class="m">A pre-ordered copy is not in hand and must never present as listed — no tag, no listing row, no inclusion in listed counts.</td></tr>
+</tbody>
+</table>
+
+<h2>7. Price fairness signal</h2>
+<p>Purpose: give a seller evidence on whether to adjust their price. It is a seller-facing analytic collected from buyers, not a public rating.</p>
+
+<table>
+<thead><tr><th class="k">Audience</th><th class="m">Sees</th><th class="s">Reason</th></tr></thead>
+<tbody>
+<tr><td class="k">Visitor</td><td class="m">Three options; after voting, confirmation of their own choice with the ability to change it. No aggregate figures at any point.</td><td class="s">Published votes would anchor every subsequent buyer's expectation and function as a public verdict on the seller.</td></tr>
+<tr><td class="k">Seller</td><td class="m">Distribution bar with percentages, a plain-language recommendation derived from the leading response, and a direct action to adjust the price.</td><td class="s">A chart is not a decision. The card must state what to do about it.</td></tr>
+</tbody>
+</table>
+<p><b>PRC-01</b> Votes are anonymous; the seller sees distribution only, never identity.<br>
+<b>PRC-02</b> The seller receives a notification when a vote is cast.<br>
+<b>PRC-03</b> One vote per user per listing, changeable and revocable.</p>
+
+<h2>8. Feed &amp; post types — revises §8.5</h2>
+<table>
+<thead><tr><th class="id">Ref</th><th class="k">Requirement</th><th class="m">Behaviour</th></tr></thead>
+<tbody>
+<tr><td class="id">FED-01</td><td class="k">No type pills</td><td class="m">Post-type labels (Showcase, Discussion, Review, Poll, ISO) are internal taxonomy and must not render. A post's type is evident from its content.</td></tr>
+<tr><td class="id">FED-02</td><td class="k">Wanted post parity</td><td class="m">A wanted post uses the same card shell, author line and action row as any other post. No distinct border, tint or watermark.</td></tr>
+<tr><td class="id">FED-03</td><td class="k">Vocabulary</td><td class="m">"ISO" is internal. User-facing surfaces read "Wanted".</td></tr>
+</tbody>
+</table>
+
+<h2>9. Data model changes</h2>
+<table>
+<thead><tr><th class="k">Change</th><th class="m">Detail</th></tr></thead>
+<tbody>
+<tr><td class="k">Copy identity</td><td class="m">Collection copies are keyed by copy identifier, not catalogue code, since a collection may hold the same item several times with different statuses.</td></tr>
+<tr><td class="k">Listing resolution</td><td class="m">A single resolver answers "is this person's copy listed?", scoped to owner and status. The per-item <code>listed</code> flag is no longer authoritative.</td></tr>
+<tr><td class="k">Expected dates</td><td class="m">Stored structurally as precision plus parts (month/quarter/year/not-announced), never as display text, so the pre-order calendar can bucket them. One shared formatter renders them.</td></tr>
+<tr><td class="k">Deferred details</td><td class="m">Later-supplied information is stored as a patch against the copy identifier and layered over the base record on read.</td></tr>
+<tr><td class="k">Retired fields</td><td class="m">Deal counts, condition ladder, ownership verification tiers, user-facing catalogue codes.</td></tr>
+</tbody>
+</table>
+
+<h2 class="pagebreak">10. Defects closed</h2>
+<p>All were found by walking the flows end to end rather than by inspection.</p>
+
+<div class="box r">
+<h4>Blocking — two crashes</h4>
+<ul>
+<li><b>Condition selection.</b> Condition options are structured records and were rendered directly as labels, blanking the screen for any owned item in the completion flow.</li>
+<li><b>Month selection.</b> Month names were scoped to the calendar component and unreachable elsewhere, so choosing month precision on a pre-order blanked the application.</li>
+</ul>
+</div>
+
+<table>
+<thead><tr><th class="k">Defect</th><th class="s">Cause</th><th class="m">Resolution</th></tr></thead>
+<tbody>
+<tr><td class="k">Listed tag on unlisted items</td><td class="s">The tag read a flag on the shared catalogue record, so it appeared on every collector's copy.</td><td class="m">One resolver drives the tag, tap target, filter count and item page.</td></tr>
+<tr><td class="k">Pre-orders presenting as for sale</td><td class="s">Listing lookup matched catalogue code only; a pre-ordered copy inherited the owned copy's listing.</td><td class="m">Resolution is scoped by status; pre-orders cannot present as listed.</td></tr>
+<tr><td class="k">Wrong copy opening; edits colliding</td><td class="s">All lookups keyed by catalogue code.</td><td class="m">Keyed by copy identifier throughout.</td></tr>
+<tr><td class="k">Search returning no results</td><td class="s">Interest-derived category filter also applied to search.</td><td class="m">Search spans the catalogue unless filters are set explicitly.</td></tr>
+<tr><td class="k">Quick add silently refusing</td><td class="s">Duplicate guard counted wishlist rows as owned.</td><td class="m">Only an owned or pre-ordered copy blocks the add.</td></tr>
+<tr><td class="k">All pre-orders showing "TBD"</td><td class="s">Structured dates read as plain strings.</td><td class="m">Shared formatter; explicit "not announced" recognised as an answer.</td></tr>
+<tr><td class="k">Seller's own listing empty</td><td class="s">An item flagged as listed with no corresponding listing record.</td><td class="m">Listing records added, including one owned by another collector to exercise the visitor path.</td></tr>
+<tr><td class="k">Share sheet clipped</td><td class="s">Full-width sheet with horizontal padding and no border-box sizing, rendering wider than the viewport.</td><td class="m">Border-box sizing; icon strip given room for its labels.</td></tr>
+<tr><td class="k">Deal counts persisting</td><td class="s">Displayed in four separate surfaces beyond the trust row.</td><td class="m">Removed from all; replaced with city or vouch counts.</td></tr>
+</tbody>
+</table>
+
+<h2>11. Open decisions</h2>
+<div class="box q">
+<h4>Requires product sign-off</h4>
+<ol>
+<li><b>Saved vocabulary.</b> Listing pages say "watchlist" while filters say "Saved". One term should govern.</li>
+<li><b>Legacy listings.</b> Listings without a catalogue code cannot link to a database entry. Resolves naturally as listings are recreated through the current flow; confirm no migration is required.</li>
+<li><b>Date precision.</b> Whether pre-orders need day-level precision in the completion flow, or whether month and quarter suffice.</li>
+<li><b>Acquisition date.</b> Currently optional and never requested. Confirm it stays a power-user field rather than entering the required set.</li>
+</ol>
+</div>
+
+<h2>12. Acceptance criteria</h2>
+<ol>
+<li>A catalogue entry and an owned copy of the same item present identical shared content; only the ownership card and action button differ.</li>
+<li>A visitor to a collection sees the same page as the owner, less the price row, plus a contact action.</li>
+<li>Three consecutive quick-adds require three taps and no intervening screens.</li>
+<li>A pre-ordered item shows no listing indication on any surface.</li>
+<li>Portfolio value is inaccessible to visitors while any owned item is incomplete, and the owner is told exactly how many items and how much XP remain.</li>
+<li>One listing opened from three entry points renders identically.</li>
+<li>A visitor never sees price-vote aggregates; the seller always sees a recommendation alongside them.</li>
+<li>No post-type label renders anywhere in the feed.</li>
+<li>No figure appears on any surface that the product does not track.</li>
+</ol>
+
+</div>
+</doc-page>
+<script src="doc-page.js"></script>
+</body></html>

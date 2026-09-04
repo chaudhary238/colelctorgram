@@ -29,28 +29,21 @@ import { api } from "@/lib/api";
 import { BackButton } from "@/components/BackButton";
 import { ProductPhoto, SectionLabel, Segmented } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
-import { fireToast } from "@/components/gamification";
+import { fireToast, fireXpToast } from "@/components/gamification";
 import { ReleaseWindowPicker } from "@/components/forms";
-import { buildPoEta, type PoPrecision } from "@/lib/catalog";
+import { buildPoEta, conditionsFor, type PoPrecision } from "@/lib/catalog";
 
 interface Entry {
   sku: string;
   title: string;
   brand: string;
+  category?: string | null;
   scale: string | null;
   year: string | null;
   thumbnail_url: string | null;
   est_retail_price: number;
   is_verified?: boolean;
 }
-
-// Same four grades as the market filters and the sell form (QA 11.3).
-const CONDITIONS = [
-  { id: "sealed_misb", label: "Sealed" },
-  { id: "mint", label: "MIB" },
-  { id: "like_new", label: "BIB" },
-  { id: "good", label: "Loose" },
-];
 
 const PHOTO_MAX = 6;
 
@@ -66,7 +59,9 @@ function AddToCollectionInner() {
 
   const [photos, setPhotos] = useState<string[]>([]);
   const [status, setStatus] = useState<"owned" | "preorder">("owned");
-  const [cond, setCond] = useState("sealed_misb");
+  // DV8-10 — condition ids come from the entry's CATEGORY vocabulary (CAT_CONDITIONS),
+  // seeded to the category's first grade once the entry loads.
+  const [cond, setCond] = useState("");
   const [paid, setPaid] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -86,7 +81,7 @@ function AddToCollectionInner() {
     if (!sku) return;
     let alive = true;
     api.get<Entry>(`/catalogue/${encodeURIComponent(sku)}`)
-      .then((d) => { if (alive) setEntry(d); })
+      .then((d) => { if (alive) { setEntry(d); setCond(conditionsFor(d.category)[0]?.id ?? ""); } })
       .catch(() => { if (alive) setError("That catalogue entry could not be found."); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
@@ -99,9 +94,11 @@ function AddToCollectionInner() {
     try {
       // `sku` carries the identity — no title/brand/category is sent, so this can never
       // create a catalogue entry or a duplicate of one.
-      const item = await api.post<{ id: string }>("/items", {
+      const item = await api.post<{ id: string; add_xp?: number; complete_xp?: number }>("/items", {
         sku: entry.sku,
         status,
+        // DV8-10 — the stored id from the category's CAT_CONDITIONS vocabulary.
+        condition: status === "owned" ? (cond || null) : null,
         value: status === "owned" && paid ? Number(paid) * 100 : 0,
         value_currency: "INR",
         ...(status === "preorder" ? {
@@ -116,7 +113,15 @@ function AddToCollectionInner() {
       for (const url of photos) {
         await api.post(`/items/${item.id}/photos?url=${encodeURIComponent(url)}`);
       }
-      fireToast(status === "owned" ? "Added to your collection" : "Pre-order saved");
+      // DV8-02/03 — surface the XP the server actually granted (0 when capped/deduped).
+      // fireXpToast/fireToast append to <body>, so they survive the route change below;
+      // the second toast is staggered so the two never overlap in the shared slot.
+      if (item.add_xp && item.add_xp > 0) fireXpToast(item.add_xp, "Added to collection");
+      else fireToast(status === "owned" ? "Added to your collection" : "Pre-order saved");
+      if (item.complete_xp && item.complete_xp > 0) {
+        const xp = item.complete_xp;
+        setTimeout(() => fireXpToast(xp, "Item details complete"), 2400);
+      }
       router.replace(`/item/${item.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not add this item");
@@ -216,8 +221,10 @@ function AddToCollectionInner() {
           {status === "owned" ? (
             <>
               <div style={{ marginTop: 18 }}><SectionLabel>Condition</SectionLabel></div>
+              {/* DV8-10 — per-category vocabulary. Options are {id,label,hint} objects:
+                  render the LABEL (the v8 crash fix), store the id. */}
               <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 9 }}>
-                {CONDITIONS.map((c) => {
+                {conditionsFor(entry.category).map((c) => {
                   const on = cond === c.id;
                   return (
                     <button key={c.id} type="button" onClick={() => setCond(c.id)} style={{
@@ -230,6 +237,12 @@ function AddToCollectionInner() {
                   );
                 })}
               </div>
+              {(() => {
+                const sel = conditionsFor(entry.category).find((c) => c.id === cond);
+                return sel?.hint
+                  ? <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>{sel.hint}</div>
+                  : null;
+              })()}
 
               <div style={{ marginTop: 18 }}><SectionLabel>What you paid (₹)</SectionLabel></div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, height: 46, padding: "0 13px", marginTop: 9, borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>

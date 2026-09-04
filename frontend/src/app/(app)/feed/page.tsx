@@ -408,12 +408,17 @@ export default function FeedPage() {
                       if (isForYou && on) setCustomOpen((o) => !o);
                       else { setTab(t.id); setCustomOpen(false); }
                     }}
-                    aria-label={isForYou ? "For You — tap again to customise feed" : t.label}
+                    aria-label={isForYou && on ? "Customise feed" : t.label}
                     className={cn(
                       // gap-2.5 (10px), not the old 6px — the icon was crowding the label.
                       "flex-1 flex items-center justify-center gap-2.5 rounded-[10px] py-2 px-1.5 text-[13.5px] whitespace-nowrap cursor-pointer border-none transition-all duration-150",
                       on
-                        ? "bg-[var(--paper)] text-[var(--ink)] font-bold shadow-[var(--shadow-2)]"
+                        ? cn(
+                            "bg-[var(--paper)] font-bold shadow-[var(--shadow-2)]",
+                            // v8 — the active For You tab reads red while the customise
+                            // panel it toggles is open.
+                            isForYou && customOpen ? "text-[var(--stamp-red)]" : "text-[var(--ink)]"
+                          )
                         : "bg-transparent text-[var(--slate-500)] font-medium"
                     )}
                   >

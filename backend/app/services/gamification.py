@@ -89,6 +89,11 @@ EARN_RULES = {
     # v6 (DV6-02) — first collector to add a new item to the shared catalogue DB.
     # Deduped per item via ref_id; the /day cap stops bulk-add farming.
     "db_new":   {"points": 50,  "freq": "repeat", "cap": 5,    "label": "Add new item to Scorred DB", "icon": "database"},
+    # DV8 quick-add split — adding is rewarded, finishing is rewarded more, so
+    # quick-add never feels like a trap that generates homework (change review §2).
+    # Both dedup per item via ref_id; caps stop bulk-add farming.
+    "add_item":      {"points": 5,  "freq": "repeat", "cap": 20, "label": "Add to your collection",       "icon": "plus"},
+    "complete_item": {"points": 20, "freq": "repeat", "cap": 20, "label": "Add condition & price",        "icon": "check"},
     "showcase": {"points": 25,  "freq": "repeat", "cap": 5,    "label": "Post a showcase",       "icon": "camera"},
     "review":   {"points": 15,  "freq": "repeat", "cap": 3,    "label": "Write a review",        "icon": "star"},
     "vouch":    {"points": 15,  "freq": "repeat", "cap": 3,    "label": "Vouch for a collector", "icon": "shield"},

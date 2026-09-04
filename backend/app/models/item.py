@@ -31,6 +31,9 @@ class Item(Base):
 
     status: Mapped[str] = mapped_column(String(16), default="owned", nullable=False)  # owned | wishlist | preorder | intel (v6 DB Contribution — unowned catalogue seed)
     # (ownership verification removed 2026-07-18 — no verify_tier; anyone can list, plain uploads)
+    # DV8 — condition of YOUR copy (category-specific vocabulary; the listing keeps its own
+    # condition for sale terms). Completeness = condition + value (preorder: eta + total).
+    condition: Mapped[str | None] = mapped_column(String(24), nullable=True)
     value: Mapped[int] = mapped_column(Integer, default=0)  # estimated value, in minor units of value_currency
     value_currency: Mapped[str] = mapped_column(String(3), default="INR", nullable=False)  # DV4-05
     is_listed: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -83,3 +86,16 @@ class ItemPhoto(Base):
     __table_args__ = (
         Index("idx_photos_item", "item_id"),
     )
+
+
+def item_is_complete(item) -> bool:
+    """DV8 completeness — deliberately tiny: condition + price paid (pre-order:
+    ETA + total). An explicit "not announced" window counts as an answer, not a
+    gap (v8 bug list). Wishlist/intel rows are never 'incomplete'. Duck-typed so
+    both full Item entities and column-row results work."""
+    if item.status == "preorder":
+        has_eta = bool(item.preorder_eta) or item.preorder_window_precision == "tbd"
+        return has_eta and bool(item.preorder_total)
+    if item.status == "owned":
+        return bool(item.condition) and (item.value or 0) > 0
+    return True

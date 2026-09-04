@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CollectorHub — Business Requirements Document v1.3</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --ink: #1A1A1A;
+    --ink-soft: #333;
+    --ink-mute: #555;
+    --ink-faint: #888;
+    --paper: #ffffff;
+    --canvas: #F8FAFC;
+    --bone: #F1F5F9;
+    --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.14);
+    --red: #FF2442;
+    --red-soft: #FFE4E8;
+    --gold: #E8A33D;
+    --gold-soft: #FEF3C7;
+    --teal: #2D8F87;
+    --teal-soft: #CCEBE8;
+    --forest: #2D5F3F;
+    --forest-soft: #DCEDE0;
+    --plum: #6B3656;
+    --plum-soft: #EDE0E9;
+    --new-bg: #FFF9E6;
+    --new-border: #F59E0B;
+    --new-text: #92400E;
+    --change-bg: #EFF6FF;
+    --change-border: #3B82F6;
+    --change-text: #1E40AF;
+    --fix-bg: #FFF1F2;
+    --fix-border: #FB7185;
+    --fix-text: #9F1239;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { font-size: 15px; scroll-behavior: smooth; }
+  body {
+    margin: 0; padding: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--ink); background: var(--canvas);
+    line-height: 1.65; -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Layout ── */
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 260px; flex-shrink: 0;
+    background: var(--paper); border-right: 1px solid var(--border);
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    padding: 32px 0 40px;
+  }
+  .main { flex: 1; min-width: 0; padding: 48px 56px 80px; max-width: 900px; }
+
+  /* ── Sidebar ── */
+  .sidebar-logo { padding: 0 24px 24px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .sidebar-logo .seal {
+    width: 28px; height: 28px; background: var(--red); border-radius: 7px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 800; font-size: 15px; transform: rotate(-4deg);
+    box-shadow: 2px 2px 0 var(--ink); margin-right: 8px; vertical-align: middle;
+  }
+  .sidebar-logo .brand { font-weight: 700; font-size: 15px; letter-spacing: -0.03em; vertical-align: middle; }
+  .sidebar-logo .ver { display: block; font-size: 11px; color: var(--ink-faint); margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+  .nav-group { margin-bottom: 4px; }
+  .nav-group-label { padding: 8px 24px 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+  .nav-item { display: block; padding: 7px 24px; font-size: 13px; color: var(--ink-mute); text-decoration: none; transition: color 120ms, background 120ms; border-left: 2px solid transparent; }
+  .nav-item:hover { color: var(--ink); background: var(--canvas); }
+  .nav-item.active { color: var(--red); font-weight: 600; border-left-color: var(--red); background: var(--red-soft); }
+
+  /* ── Doc header ── */
+  .doc-header {
+    background: var(--paper); border: 1px solid var(--border);
+    border-radius: 16px; padding: 36px 40px; margin-bottom: 36px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .doc-header h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.04em; margin: 0 0 6px; }
+  .doc-header .tagline { font-size: 15px; color: var(--ink-mute); margin: 0 0 24px; }
+  .meta-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .meta-item { background: var(--canvas); border-radius: 10px; padding: 12px 14px; }
+  .meta-item .k { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 3px; }
+  .meta-item .v { font-size: 13px; font-weight: 600; color: var(--ink); }
+
+  /* ── Sections ── */
+  .section { margin-bottom: 48px; }
+  .section-anchor { display: block; height: 0; overflow: hidden; }
+  h2.sec-title {
+    font-size: 20px; font-weight: 800; letter-spacing: -0.03em;
+    color: var(--ink); margin: 0 0 20px; padding-bottom: 12px;
+    border-bottom: 2px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2.sec-title .sec-num {
+    width: 28px; height: 28px; background: var(--ink); color: #fff;
+    border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; flex-shrink: 0;
+  }
+  h3.sub-title { font-size: 15px; font-weight: 700; margin: 28px 0 12px; color: var(--ink); letter-spacing: -0.01em; }
+  h4.sub-sub { font-size: 13px; font-weight: 700; margin: 20px 0 8px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; }
+
+  p { margin: 0 0 12px; color: var(--ink-soft); }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; color: var(--ink-soft); }
+  li { margin-bottom: 4px; }
+  strong { color: var(--ink); font-weight: 600; }
+  code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: var(--bone); padding: 2px 6px; border-radius: 4px; color: var(--red); }
+
+  /* ── Change callouts ── */
+  .callout {
+    border-radius: 10px; padding: 14px 16px; margin: 14px 0;
+    font-size: 13.5px; line-height: 1.55; border-left: 3px solid;
+  }
+  .callout.new { background: var(--new-bg); border-color: var(--new-border); color: var(--new-text); }
+  .callout.changed { background: var(--change-bg); border-color: var(--change-border); color: var(--change-text); }
+  .callout.fix { background: var(--fix-bg); border-color: var(--fix-border); color: var(--fix-text); }
+  .callout .cl-label { font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.7; margin-bottom: 4px; }
+  .callout p { margin: 0; color: inherit; }
+  .delta { display: inline-flex; align-items: baseline; gap: 8px; font-size: 13px; }
+  .delta .old { text-decoration: line-through; opacity: 0.5; }
+  .delta .arr { opacity: 0.4; font-size: 11px; }
+
+  /* ── Tables ── */
+  .tbl-wrap { overflow-x: auto; margin: 14px 0 20px; border-radius: 10px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: var(--canvas); padding: 10px 14px; text-align: left; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--canvas); }
+  .td-new { background: var(--new-bg) !important; }
+  .td-changed { background: var(--change-bg) !important; }
+
+  /* ── Token swatches ── */
+  .token-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin: 14px 0 20px; }
+  .token-row { display: flex; align-items: center; gap: 10px; background: var(--paper); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .swatch { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.07); }
+  .token-info .name { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; color: var(--ink); }
+  .token-info .val { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-faint); }
+  .token-row.v13 { border-color: var(--new-border); background: var(--new-bg); }
+
+  /* ── Req table ── */
+  .req-table thead th:first-child { width: 80px; }
+  .pri { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; }
+  .pri-m { background: #FEE2E2; color: #991B1B; }
+  .pri-s { background: #FEF3C7; color: #92400E; }
+  .pri-c { background: #DBEAFE; color: #1E40AF; }
+  .pri-w { background: var(--bone); color: var(--ink-faint); }
+
+  /* ── Print ── */
+  @media print {
+    .sidebar { display: none; }
+    .main { padding: 24px; max-width: 100%; }
+    .callout { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 860px) {
+    .sidebar { display: none; }
+    .main { padding: 28px 20px 60px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ══ SIDEBAR ══════════════════════════════════════════════════════ -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <span class="seal">C</span><span class="brand">CollectorHub</span>
+    <span class="ver">BRD v1.3 · 22 Jun 2026</span>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Document</div>
+    <a href="#s1" class="nav-item">1 · Document Control</a>
+    <a href="#s2" class="nav-item">2 · Executive Summary</a>
+    <a href="#s3" class="nav-item">3 · Vision & Objectives</a>
+    <a href="#s4" class="nav-item">4 · Market Context</a>
+    <a href="#s5" class="nav-item">5 · Competitive Landscape</a>
+    <a href="#s6" class="nav-item">6 · Scope & Categories</a>
+    <a href="#s7" class="nav-item">7 · Phasing Overview</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Requirements</div>
+    <a href="#s8" class="nav-item">8 · Functional Req.</a>
+    <a href="#s9" class="nav-item">9 · Screen Specs</a>
+    <a href="#s10" class="nav-item">10 · Return Loop</a>
+    <a href="#s11" class="nav-item">11 · Content Seeding</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Design System</div>
+    <a href="#s-visual" class="nav-item active">Visual Foundations</a>
+    <a href="#s-type" class="nav-item">Typography</a>
+    <a href="#s-tokens" class="nav-item">Token Reference</a>
+    <a href="#s-components" class="nav-item">Component Corrections</a>
+    <a href="#s-appbar" class="nav-item">AppBar Layout</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Non-functional</div>
+    <a href="#s12" class="nav-item">12 · NFRs</a>
+    <a href="#s13" class="nav-item">13 · Trust & Safety</a>
+    <a href="#s14" class="nav-item">14 · KPIs</a>
+    <a href="#s15" class="nav-item">15 · Risks</a>
+    <a href="#s16" class="nav-item">16 · Roadmap</a>
+    <a href="#s17" class="nav-item">17 · Glossary</a>
+    <a href="#s18" class="nav-item">18 · Change Log</a>
+  </div>
+</nav>
+
+<!-- ══ MAIN ══════════════════════════════════════════════════════════ -->
+<main class="main">
+
+  <!-- Doc header -->
+  <div class="doc-header">
+    <h1>CollectorHub — Business Requirements Document</h1>
+    <p class="tagline">A community-first social platform for collectors — showcase, discover, connect, and trade.</p>
+    <div class="meta-grid">
+      <div class="meta-item"><div class="k">Document type</div><div class="v">BRD — Phase 1 &amp; Phase 2</div></div>
+      <div class="meta-item"><div class="k">Version</div><div class="v">Draft v1.3</div></div>
+      <div class="meta-item"><div class="k">Date</div><div class="v">22 June 2026</div></div>
+      <div class="meta-item"><div class="k">Owners</div><div class="v">Product (RC) · Content &amp; Marketing (SA, AV)</div></div>
+      <div class="meta-item"><div class="k">Status</div><div class="v">Updated — design implementation aligned</div></div>
+    </div>
+  </div>
+
+  <!-- §1 -->
+  <span class="section-anchor" id="s1"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">1</span>Document Control &amp; Purpose</h2>
+    <p>This BRD defines the product vision, scope, functional requirements, and phased delivery plan for CollectorHub — a community-oriented social platform for hobby collectors. It aligns product, engineering, content, and marketing on what we are building, for whom, in what order, and how success is measured.</p>
+
+    <h3 class="sub-title">1.1 Intended Audience</h3>
+    <ul>
+      <li><strong>Engineering / build team (RC)</strong> — scope and sequence the application build.</li>
+      <li><strong>Content &amp; Marketing (SA, AV)</strong> — plan seeding, content calendars, and go-to-market.</li>
+      <li><strong>Founders / stakeholders</strong> — confirm scope, priorities, and phasing decisions.</li>
+    </ul>
+
+    <h3 class="sub-title">1.2 Revision History</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Version</th><th>Date</th><th>Author</th><th>Summary</th></tr></thead>
+        <tbody>
+          <tr><td><code>v1.0</code></td><td>31 May 2026</td><td>Product</td><td>Initial BRD: vision, market, competitive analysis, features, screen specs, phasing, KPIs.</td></tr>
+          <tr><td><code>v1.1</code></td><td>31 May 2026</td><td>Product</td><td>Design review: Item / Listing / Post / Deal data model; collection-first selling; Deal completion + transaction-linked trust; tiered ownership verification; wishlist matching; follow as first-class action; simplified post types; updated screens; §18 Reasoning.</td></tr>
+          <tr><td><code>v1.2</code></td><td>4 Jun 2026</td><td>Product (AV &amp; SA)</td><td>Stakeholder screen review: profile-first onboarding, Scale/Universe sub-interests, in-feed follow &amp; inline comments, mandatory add-to-collection fields, chart/calendar/collage portfolio views, post-type-first composer + poll, condition list + seller terms + anon price feedback, opt-in public DM threads, follow counts + online status + ownership stats, guidelines-accept gate, QR-code event tickets.</td></tr>
+          <tr class="td-new"><td><code>v1.3</code></td><td>22 Jun 2026</td><td>Design (implementation review)</td><td><strong>Design implementation alignment:</strong> clean white palette confirmed as canonical; Geist promoted to primary display &amp; body font (Bricolage deprecated); AppBar layout corrected (search moved to right cluster); canvas/card-surface depth model documented; missing <code>-deep</code> tokens listed; corner radii updated; component corrections: LocationTag, GlassPill, PostTypeTag, ActionBtn, StackedAvatars.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- §2 -->
+  <span class="section-anchor" id="s2"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">2</span>Executive Summary</h2>
+    <p>Collecting is a large, fast-growing, and deeply social hobby — yet collectors today are scattered across general-purpose tools never built for them: Instagram for showcasing, WhatsApp and Facebook Groups for community and buy/sell/trade, eBay for transactions, and Discord/Reddit for discussion. No single product combines identity, community, discovery, and trusted peer-to-peer trading tuned to a collector's specific interests.</p>
+    <p>CollectorHub closes that gap. A collector creates a profile, selects interests, and builds a collection portfolio — adding items from a built-in catalogue (search or barcode scan) and confirming ownership with an in-app photo. Any owned item can be listed for sale or trade in a tap; pre-orders carry a value and timeline. A personalised master feed surfaces new releases, community discussions, marketplace listings, and events. They join communities, message other collectors to transact, confirm completed deals, and build reputation through transaction-linked trust signals — not just a popularity count.</p>
+    <p><strong>Phase 1</strong> launches with four categories — Action Figures, Designer Toys &amp; Blind Boxes, Model Kits &amp; Lego, and Diecast — targeting 10,000 engaged users. The core bet: collectors return daily if the platform delivers (1) a feed tuned precisely to what they collect, and (2) a trusted place to trade with verifiable peers.</p>
+  </div>
+
+  <!-- §3 -->
+  <span class="section-anchor" id="s3"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">3</span>Product Vision &amp; Objectives</h2>
+    <p><strong>Vision:</strong> To be the home for collectors — the single place where any collector can showcase what they own, discover what's new in their niche, find their community, and trade with people they trust.</p>
+    <p><strong>Mission (Phase 1):</strong> Build a focused, high-trust community across four collectible categories that proves collectors will return daily and transact peer-to-peer, before broadening categories and monetisation.</p>
+
+    <h3 class="sub-title">3.1 Strategic Objectives</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>#</th><th>Objective</th><th>Phase 1 success looks like</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Reach critical community mass</td><td>10,000 registered users; a self-sustaining base of daily-active collectors.</td></tr>
+        <tr><td>2</td><td>Establish the daily return loop</td><td>Multiple weekly sessions per active user driven by feed, marketplace, and notifications.</td></tr>
+        <tr><td>3</td><td>Prove trusted peer trading</td><td>A working vouch/reputation system and steady marketplace listing and DM volume.</td></tr>
+        <tr><td>4</td><td>Shift to user-generated content</td><td>Declining reliance on admin/dummy seeding as organic post share rises.</td></tr>
+        <tr><td>5</td><td>Validate category-fit</td><td>Evidence of which categories drive the most engagement and trade.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">3.2 Design Principles</h3>
+    <ul>
+      <li><strong>Interest-first.</strong> Organised around what you collect — a new user with zero followers gets a rich feed on day one.</li>
+      <li><strong>Trust is a feature.</strong> Reputation, vouches, and visible seller history are first-class.</li>
+      <li><strong>Seed, then step back.</strong> Admin and dummy accounts prime the pump; the product hands the microphone to real users as fast as quality allows.</li>
+      <li><strong>Realistic to build.</strong> Phase 1 is intentionally scoped to a shippable MVP; ambitious capabilities deferred to Phase 2.</li>
+    </ul>
+  </div>
+
+  <!-- §4 -->
+  <span class="section-anchor" id="s4"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">4</span>Market Context &amp; Opportunity</h2>
+    <p>The collectibles category has moved from niche hobby to mainstream cultural and economic phenomenon. The designer-toy/blind-box secondary market alone was valued at over US$1.8 billion in 2025, propelled by phenomena such as Pop Mart's Labubu. The India toys market was valued at roughly US$2.77 billion in 2025 and the broader collectibles market is forecast to grow at ~10% CAGR through 2033.</p>
+    <p>Across these markets, collector behaviour is consistent: people want to show off what they own, learn about new releases, find others who share their niche, and buy/sell/trade — increasingly peer-to-peer. Today they stitch this together across Instagram, WhatsApp, Facebook Groups, Discord, Reddit, eBay, and category marketplaces. That fragmentation is the opportunity.</p>
+
+    <h3 class="sub-title">4.1 Why Now</h3>
+    <ul>
+      <li><strong>Mainstreaming of collecting</strong> — blind boxes, Lego adult sets (e.g. Lego × Pokémon from 2026), diecast, and designer toys pulling in new adult collectors.</li>
+      <li><strong>Secondary-market momentum</strong> — strong resale demand makes a trusted peer marketplace genuinely valuable.</li>
+      <li><strong>Community fragmentation</strong> — no dominant collector-native social network exists in the target geographies.</li>
+      <li><strong>Trust deficit</strong> — peer trading on Facebook/WhatsApp is rife with scam risk; a reputation/vouch layer is a clear differentiator.</li>
+    </ul>
+  </div>
+
+  <!-- §5 -->
+  <span class="section-anchor" id="s5"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">5</span>Competitive Landscape</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Player</th><th>What it is</th><th>Strengths</th><th>Gaps CollectorHub exploits</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Connectible</strong></td><td>Social app for collectors with chronological feed + commission-free marketplace.</td><td>Collector-native; free P2P marketplace.</td><td>Chronological feed; limited trust layer; broad rather than niche-tuned.</td></tr>
+        <tr><td><strong>Mantel</strong></td><td>Collector social network (sports cards, TCG) with digital display case + gamification.</td><td>Strong showcase + gamified engagement.</td><td>Card-skewed; marketplace/trade not core.</td></tr>
+        <tr><td><strong>hobbyDB / PPG</strong></td><td>Collection-management + price guide + marketplace with barcode recognition.</td><td>Deep catalogue &amp; price data.</td><td>Database-first; discovery &amp; discussion secondary.</td></tr>
+        <tr><td><strong>Whatnot</strong></td><td>Livestream-led buy/sell of collectibles.</td><td>High-energy live commerce.</td><td>Livestream-centric; not a daily social home.</td></tr>
+        <tr><td><strong>FB Groups / WA</strong></td><td>Where most P2P community &amp; trade happens today.</td><td>Ubiquitous; zero onboarding.</td><td>No collector identity; no reputation; high scam risk.</td></tr>
+      </tbody>
+    </table></div>
+    <p><strong>Positioning:</strong> For collectors tired of juggling Instagram, WhatsApp groups, and marketplace apps, CollectorHub is the interest-first collector network where you showcase your collection, follow exactly the niches you care about, join your community, and trade with people whose reputation you can see — in one place.</p>
+  </div>
+
+  <!-- §6 -->
+  <span class="section-anchor" id="s6"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">6</span>Scope &amp; Category Strategy</h2>
+    <h3 class="sub-title">6.1 Phase 1 Categories</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Category</th><th>Why it fits Phase 1</th><th>Return-loop strength</th></tr></thead>
+      <tbody>
+        <tr><td>Action Figures</td><td>Large established collector base; constant new releases; high showcase + trade activity.</td><td>High — releases + trade</td></tr>
+        <tr><td>Designer Toys &amp; Blind Boxes</td><td>Explosive growth (Labubu/Pop Mart); blind-box mechanic drives discovery, trading of duplicates, and chase-figure hunting.</td><td>Very high — releases + trade</td></tr>
+        <tr><td>Model Kits &amp; Lego</td><td>Build-in-progress content is highly visual and discussion-rich; strong AFOL/Gunpla communities.</td><td>High — showcase + discussion</td></tr>
+        <tr><td>Diecast</td><td>Dedicated adult collectors; limited editions; strong in India (scale model cars).</td><td>Medium-high — showcase + trade</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">6.2 Trading Cards &amp; Sneakers — Phase 1 or Phase 2?</h3>
+    <p>See v1.2 §6.2 for the full trade-off analysis. Suggested path: launch Phase 1 with the four toy-led categories, run a lightweight interest waitlist for Cards and Sneakers, and promote whichever shows strongest pull into early Phase 2 once the trust infrastructure they require is more mature.</p>
+
+    <h3 class="sub-title">6.3 In Scope vs Out of Scope (Phase 1)</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>In scope (Phase 1)</th><th>Out of scope → Phase 2+</th></tr></thead>
+      <tbody>
+        <tr><td>Profiles, interests, follow, trust signals &amp; tiers</td><td>In-app payments / escrow / checkout</td></tr>
+        <tr><td>Collection portfolio + catalogue (search/barcode) + tiered ownership verification</td><td>Automated genuineness authentication / grading</td></tr>
+        <tr><td>Personalised master feed (interest + behaviour)</td><td>Live streaming / live commerce</td></tr>
+        <tr><td>Text &amp; image posts (Showcase / Discussion / Review)</td><td>Image-recognition matching, NFC verification, batch shelf-scan</td></tr>
+        <tr><td>Marketplace listings + Deal completion + DM to transact</td><td>Shipping &amp; logistics integration</td></tr>
+        <tr><td>Wishlist-to-marketplace match notifications</td><td>Price-guide / valuation engine (auto)</td></tr>
+        <tr><td>1:1 direct messaging (with item-offer attachments)</td><td>Public web profiles / SEO pages</td></tr>
+        <tr><td>Communities (admin-created + invite, then form-approval)</td><td>Ads / monetisation, subscriptions</td></tr>
+        <tr><td>Events (admin-listed + user-created, approval-based)</td><td>Trading Cards &amp; Sneakers categories (pending §6.2)</td></tr>
+        <tr><td>System-driven notifications; admin &amp; dummy-account seeding</td><td>Structured trade-proposal object; group DM</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §7 -->
+  <span class="section-anchor" id="s7"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">7</span>Phasing Overview</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Area</th><th>Phase 1 (Target: 10K users)</th><th>Phase 2 (Scale &amp; monetise)</th></tr></thead>
+      <tbody>
+        <tr><td>Categories</td><td>Action Figures; Designer Toys &amp; Blind Boxes; Model Kits &amp; Lego; Diecast</td><td>+ Trading Cards, Sneakers; sub-categories &amp; brand pages</td></tr>
+        <tr><td>Profile &amp; Trust</td><td>Profile, interests, follow, transaction-linked trust signals + trust tiers</td><td>Reputation scoring algorithm, badge tiers, public web profile</td></tr>
+        <tr><td>Collection &amp; Catalogue</td><td>Catalogue add (search + barcode scan), portfolio (owned/wishlist/pre-order + value/timeline), tiered ownership verification</td><td>Image-recognition, NFC, batch shelf-scan, auto-valuation</td></tr>
+        <tr><td>Feed</td><td>Interest + follow + behaviour-optimised ranking; sort &amp; filter</td><td>Advanced ML ranking, topic clustering, trending, digests</td></tr>
+        <tr><td>Posting</td><td>Text/image posts (Showcase / Discussion / Review); posts can reference items/listings</td><td>Carousels, video, polls, drafts/scheduling, rich ratings</td></tr>
+        <tr><td>Marketplace</td><td>Listings from collection items; Deal completion (mark sold + mutual rating); DM to transact</td><td>In-app payments/escrow, offers/bidding, shipping &amp; order tracking</td></tr>
+        <tr><td>Community</td><td>Admin-created + invite-based, then form/approval-based</td><td>Community roles &amp; tools, sub-forums, community-run events &amp; shops</td></tr>
+        <tr><td>Events</td><td>Admin-listed + user-created (approval-based; waivable for super-users/admins)</td><td>RSVP/ticketing, calendar sync, maps, organiser tools</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §8 -->
+  <span class="section-anchor" id="s8"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">8</span>Functional Requirements</h2>
+    <p>Each requirement carries a priority: <span class="pri pri-m">M</span> Must (Phase 1 launch) · <span class="pri pri-s">S</span> Should (strongly desired P1) · <span class="pri pri-c">C</span> Could (P1 if capacity) · <span class="pri pri-w">W</span> Won't-now (Phase 2).</p>
+
+    <h3 class="sub-title">8.1 Core Data Model</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Object</th><th>What it is</th><th>Key relationships &amp; lifecycle</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Item</strong></td><td>A single collectible in a user's collection — the source of truth for what a user owns or wants.</td><td>Belongs to one user. Status: owned / wishlist / pre-order. An owned Item can be offered as a Listing.</td></tr>
+        <tr><td><strong>Listing</strong></td><td>An Item offered for sale or trade.</td><td>Derived from one owned Item. Status: available / reserved / sold / closed.</td></tr>
+        <tr><td><strong>Post</strong></td><td>Social content (Showcase / Discussion / Review).</td><td>May reference an Item or Listing. Deleting a Post does not delete the underlying Item/Listing.</td></tr>
+        <tr><td><strong>Deal</strong></td><td>A record that a transaction occurred between two users.</td><td>Links buyer, seller, and Listing/Item. Closes the Listing and unlocks mutual rating/vouch.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">8.2 Profile, Identity &amp; Trust</h3>
+    <div class="tbl-wrap"><table class="req-table">
+      <thead><tr><th>ID</th><th>Requirement</th><th>Pri.</th></tr></thead>
+      <tbody>
+        <tr><td>PR-01</td><td>User can sign up / log in (email + social login) and create a basic profile: display name, handle, avatar, bio, location (optional).</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>PR-02</td><td>During onboarding the user selects interests — categories and sub-interests (brands, lines, characters, Scale, Universe) — used to seed the feed and communities.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>PR-03</td><td>User can edit interests at any time; changes immediately re-tune the feed.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>PR-04</td><td>Follow is a first-class action: follow other users, brands/lines, and communities.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>PR-05</td><td>Profile surfaces transaction-linked trust signals: completed deals, buyer/seller rating, response time, account age, active-listing count.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>PR-06</td><td>Trade vouch requires a confirmed Deal; social endorsement is allowed but weighted lower and capped.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>PR-07</td><td>Trust tier shown on profiles and listings (Top Seller / Trusted), derived from verified ownership, completed deals, and ratings.</td><td><span class="pri pri-s">S</span></td></tr>
+        <tr><td>PR-08</td><td>Profile shows Collection Portfolio with owned / wishlist / pre-order tabs, aggregate value, and trade history.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>PR-09</td><td>Privacy controls: portfolio items and value can be set public / followers-only / private.</td><td><span class="pri pri-s">S</span></td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">8.3 Collection, Catalogue &amp; Ownership Verification</h3>
+    <div class="tbl-wrap"><table class="req-table">
+      <thead><tr><th>ID</th><th>Requirement</th><th>Pri.</th></tr></thead>
+      <tbody>
+        <tr><td>CO-01</td><td>Add to collection via built-in catalogue: search by name or scan a barcode/SKU. Free-text fallback when not in catalogue.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CO-02</td><td>Catalogue seeded for top SKUs across Phase 1 categories; unknown items can be submitted (admin-reviewed).</td><td><span class="pri pri-s">S</span></td></tr>
+        <tr><td>CO-03</td><td>Ownership verification tiers: <strong>Claimed</strong> (catalogue only, no photo) · <strong>Shown</strong> (one in-app live photo) · <strong>Verified</strong> (live photo + challenge shot).</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CO-04</td><td>Ownership photo captured via in-app camera only (no gallery upload), so a stock or someone else's image cannot be used. Gallery upload allowed for additional showcase photos only.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CO-05</td><td>Creating a Listing requires the item to be at least Verified; high-value items prompt for the challenge shot.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CO-06</td><td>Duplicate-image detection: perceptual-hash uploaded photos and flag same image reused across accounts/listings.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CO-07</td><td>Verified photos watermarked with handle + timestamp to deter reuse.</td><td><span class="pri pri-s">S</span></td></tr>
+        <tr><td>CO-08</td><td>Portfolio statuses: owned / wishlist / pre-order; pre-orders carry timeline (order date, expected release/ship) with reminders. Aggregate collection value shown.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CO-09</td><td>Wishlist items create an implicit saved search that notifies the user when a matching Listing appears.</td><td><span class="pri pri-m">M</span></td></tr>
+        <tr><td>CO-11</td><td>Possession is not genuineness: the Verified badge denotes proof of possession, not authenticity.</td><td><span class="pri pri-m">M</span></td></tr>
+      </tbody>
+    </table></div>
+
+    <p>Sections 8.4–8.11 (Master Feed, Posting, Marketplace, DM, Communities, Events, Notifications, Admin) are unchanged from v1.2. Refer to v1.2 for full requirement tables.</p>
+  </div>
+
+  <!-- §9 -->
+  <span class="section-anchor" id="s9"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">9</span>Screen-by-Screen Functional Specification</h2>
+    <p>All 16 screens (§9.1–§9.16) are unchanged from v1.2 except §9.3 (Master Feed / AppBar), which is updated below. Refer to v1.2 for the full specification of unchanged screens.</p>
+
+    <h3 class="sub-title">§9.3 Master Feed (Home) — AppBar Layout Correction</h3>
+
+    <div class="callout changed">
+      <div class="cl-label">Changed in v1.3</div>
+      <p>The v1.2 spec stated "Create-post top-left · search + notifications top-right." The implementation placed Create <em>and</em> Search both on the left. This is now corrected. The canonical AppBar layout is: <strong>Create (left) · Wordmark (centre) · Search + Messages + Bell (right)</strong>.</p>
+    </div>
+
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Zone</th><th>v1.2 (incorrect)</th><th>v1.3 Target (correct)</th></tr></thead>
+      <tbody>
+        <tr><td>Left</td><td>Create post + Search</td><td>Create post only</td></tr>
+        <tr><td>Centre</td><td>Wordmark (squeezed)</td><td>Wordmark — full ownership of centre</td></tr>
+        <tr><td>Right</td><td>Messages + Bell</td><td>Search + Messages + Bell</td></tr>
+      </tbody>
+    </table></div>
+
+    <p><strong>Rationale:</strong> Search, Messages, and Bell are all <em>discovery &amp; comms</em> actions — grouping them right matches the universal mental model (Instagram, Xiaohongshu/RED, Pinterest). A single Create action left is lighter and lets the wordmark breathe. The current code in <code>Chrome.jsx</code> needs this correction applied.</p>
+
+    <div id="s-appbar"></div>
+  </div>
+
+  <!-- §10 -->
+  <span class="section-anchor" id="s10"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">10</span>The Return Loop</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Return driver</th><th>Why it brings users back</th><th>Source at launch</th><th>Source as UGC matures</th></tr></thead>
+      <tbody>
+        <tr><td>New release posts</td><td>Collectors must not miss drops, restocks, and announcements.</td><td>Admin (primary)</td><td>Users / communities / outsourced partners</td></tr>
+        <tr><td>Marketplace listings</td><td>Fresh items to buy, sell, or trade — the strongest transactional pull.</td><td>User-driven</td><td>User-driven (growing volume)</td></tr>
+        <tr><td>Event announcements</td><td>Meetups, fairs, conventions, and online drops.</td><td>Admin (primary)</td><td>Users / communities</td></tr>
+        <tr><td>Community discussions</td><td>Belonging and conversation in their specific niche.</td><td>Admin + dummy accounts</td><td>Users / communities</td></tr>
+        <tr><td>Collection showcase posts</td><td>Pride in showing off, plus inspiration from others.</td><td>User-driven</td><td>User-driven</td></tr>
+        <tr><td>Notifications</td><td>Timely nudges that re-open the app.</td><td>System-driven (from day one)</td><td>System-driven (smarter over time)</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §11 -->
+  <span class="section-anchor" id="s11"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">11</span>Content &amp; Community Seeding Strategy</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Stage</th><th>Who creates content</th><th>Goal</th><th>Exit signal</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Seed</strong></td><td>Admin posts (news/releases/events) + managed dummy accounts (posts, discussions, interactions).</td><td>Make the app feel alive and demonstrate norms of quality.</td><td>Real users begin posting &amp; commenting unprompted.</td></tr>
+        <tr><td><strong>Mix</strong></td><td>Admin/dummy taper; real users + early communities contribute a growing share.</td><td>Hand the microphone to users while maintaining a quality bar.</td><td>Majority of feed content is organic; communities self-sustain.</td></tr>
+        <tr><td><strong>UGC-led</strong></td><td>Users, community admins, and outsourced/creator partners.</td><td>Self-sustaining content engine; admin focuses on curation &amp; release calendar.</td><td>Stable organic posting &amp; trade volume across categories.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- DESIGN SYSTEM SECTION -->
+  <span class="section-anchor" id="s-visual"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num" style="background:var(--red)">DS</span>Visual Foundations — v1.3 Canonical</h2>
+
+    <div class="callout changed">
+      <div class="cl-label">Changed in v1.3 — palette</div>
+      <p>The v1.2 BRD described a warm cream/paper palette (<code>#F4EFE6</code> backgrounds, <code>#14110F</code> warm ink, <code>#D93324</code> stamp red). Following a team decision, the implementation uses a <strong>clean white palette</strong> as canonical. The warm cream spec is retired. All colour references below reflect the implementation.</p>
+    </div>
+
+    <h3 class="sub-title">Palette</h3>
+    <h4 class="sub-sub">Backgrounds &amp; Ink</h4>
+    <div class="token-grid">
+      <div class="token-row v13"><div class="swatch" style="background:#FFFFFF;box-shadow:0 0 0 1px #e2e8f0 inset;"></div><div class="token-info"><div class="name">--paper</div><div class="val">#FFFFFF · clean white</div></div></div>
+      <div class="token-row v13"><div class="swatch" style="background:#F8FAFC;"></div><div class="token-info"><div class="name">--canvas</div><div class="val">#F8FAFC · screen bg</div></div></div>
+      <div class="token-row v13"><div class="swatch" style="background:#F5F5F5;"></div><div class="token-info"><div class="name">--bone</div><div class="val">#F5F5F5 · recessed wells</div></div></div>
+      <div class="token-row v13"><div class="swatch" style="background:#1A1A1A;"></div><div class="token-info"><div class="name">--ink</div><div class="val">#1A1A1A · primary text</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#666666;"></div><div class="token-info"><div class="name">--ink-mute</div><div class="val">#666666 · secondary body</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#999999;"></div><div class="token-info"><div class="name">--ink-faint</div><div class="val">#999999 · meta, captions</div></div></div>
+    </div>
+
+    <div class="callout new">
+      <div class="cl-label">New in v1.3 — canvas / card depth model</div>
+      <p>Screens use <code>--canvas</code> (#F8FAFC, cool slate) as the scrollable body background. Cards use <code>--card-surface</code> (#FFFFFF pure white), which pops off the canvas. This two-level depth — canvas + white card — replaces the v1.2 bone-stage + cream-card model and achieves the same visual lift without warm tinting. Do not use <code>--paper</code> as a screen background; use <code>--canvas</code>.</p>
+    </div>
+
+    <h4 class="sub-sub">Brand Accents</h4>
+    <div class="token-grid">
+      <div class="token-row v13"><div class="swatch" style="background:#FF2442;"></div><div class="token-info"><div class="name">--stamp-red</div><div class="val">#FF2442 · primary CTA, brand</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#E01F3A;"></div><div class="token-info"><div class="name">--stamp-red-deep</div><div class="val">#E01F3A · hover / press</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#FFE4E8;"></div><div class="token-info"><div class="name">--stamp-red-soft</div><div class="val">#FFE4E8 · tinted bg</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#E8A33D;"></div><div class="token-info"><div class="name">--grail-gold</div><div class="val">#E8A33D · rare / PO</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#C48420;"></div><div class="token-info"><div class="name">--grail-gold-deep</div><div class="val">#C48420 · hover / press</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#2D8F87;"></div><div class="token-info"><div class="name">--verified-teal</div><div class="val">#2D8F87 · verified, vouch</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#CFE6E2;"></div><div class="token-info"><div class="name">--verified-teal-soft</div><div class="val">#CFE6E2</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#2D5F3F;"></div><div class="token-info"><div class="name">--forest</div><div class="val">#2D5F3F · success, trades</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#D2E0D3;"></div><div class="token-info"><div class="name">--forest-soft</div><div class="val">#D2E0D3</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#6B3656;"></div><div class="token-info"><div class="name">--plum</div><div class="val">#6B3656 · community / events</div></div></div>
+      <div class="token-row"><div class="swatch" style="background:#E4D2DE;"></div><div class="token-info"><div class="name">--plum-soft</div><div class="val">#E4D2DE</div></div></div>
+    </div>
+
+    <div class="callout fix">
+      <div class="cl-label">Gap — missing -deep tokens</div>
+      <p>The following press/hover tokens are referenced in component specs but <strong>not yet defined</strong> in <code>colors_and_type.css</code>. They must be added before any component uses them for hover/active states:</p>
+      <ul style="margin:8px 0 0">
+        <li><code>--verified-teal-deep</code> — suggested value: <code>#236D66</code></li>
+        <li><code>--forest-deep</code> — suggested value: <code>#1F4A2D</code></li>
+        <li><code>--plum-deep</code> — suggested value: <code>#502842</code></li>
+      </ul>
+    </div>
+
+    <h3 class="sub-title">Borders &amp; Shadows</h3>
+    <div class="callout changed">
+      <div class="cl-label">Changed in v1.3</div>
+      <p>v1.2 described warm ink-based borders (<code>rgba(20,17,15,0.10)</code>). The implementation uses neutral alpha borders: <code>--border: rgba(0,0,0,0.08)</code> · <code>--border-strong: rgba(0,0,0,0.14)</code> · <code>--border-faint: rgba(0,0,0,0.04)</code>. Shadows are also neutral (no warm tint). The stamp shadow remains: <code>--shadow-stamp: 2px 2px 0 var(--ink)</code>.</p>
+    </div>
+
+    <h3 class="sub-title">Corner Radii</h3>
+    <div class="callout changed">
+      <div class="cl-label">Changed in v1.3</div>
+      <p>Token values updated to match <code>colors_and_type.css</code>: <code>--r-xs 4px</code> · <code>--r-sm 8px</code> · <span style="background:var(--change-bg);padding:0 4px;border-radius:3px"><code>--r-md 14px</code> (was 12px)</span> · <span style="background:var(--change-bg);padding:0 4px;border-radius:3px"><code>--r-lg 20px</code> (was 18px)</span> · <code>--r-xl 32px</code> · <code>--r-pill 999px</code>.</p>
+    </div>
+  </div>
+
+  <!-- TYPOGRAPHY -->
+  <span class="section-anchor" id="s-type"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num" style="background:var(--red)">DS</span>Typography — v1.3 Canonical</h2>
+
+    <div class="callout changed">
+      <div class="cl-label">Changed in v1.3 — font stack</div>
+      <p>v1.2 listed <strong>Bricolage Grotesque</strong> as the display family with Geist as body. The implementation defines <code>--font-display: "Geist", "Bricolage Grotesque"</code> — Geist loads first from bundled woff2 files and always wins the cascade. <strong>Geist is now the canonical display and body font.</strong> Bricolage Grotesque is deprecated; its woff2 files are dead weight (~200 KB) and should be removed in the next bundle pass.</p>
+    </div>
+
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Role</th><th>v1.2 family</th><th>v1.3 family (canonical)</th><th>Usage</th></tr></thead>
+      <tbody>
+        <tr class="td-changed"><td>Display / headings</td><td>Bricolage Grotesque 700–800</td><td><strong>Geist 700–800</strong></td><td>All headlines, screen titles, wordmark, avatar initials, stamp text. Negative letter-spacing <code>-0.02em → -0.035em</code>.</td></tr>
+        <tr class="td-changed"><td>Body / UI</td><td>Geist 300–700</td><td><strong>Geist 300–700</strong> (unchanged)</td><td>Default body 15px / 1.65 / 400. All labels, captions, buttons, tabs.</td></tr>
+        <tr><td>Monospace</td><td>JetBrains Mono</td><td><strong>JetBrains Mono</strong> (unchanged)</td><td>Prices, SKUs, codes, timestamps, compact stats. Always <code>font-variant-numeric: tabular-nums</code>.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">Type Scale</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Token</th><th>Value</th><th>Use</th></tr></thead>
+      <tbody>
+        <tr><td><code>--t-display-xl</code></td><td>56px</td><td>Hero headlines</td></tr>
+        <tr><td><code>--t-display-lg</code></td><td>44px</td><td>Large screen titles</td></tr>
+        <tr><td><code>--t-display-md</code></td><td>34px</td><td>Section titles</td></tr>
+        <tr><td><code>--t-display-sm</code></td><td>28px</td><td>Sub-section titles</td></tr>
+        <tr><td><code>--t-title</code></td><td>22px</td><td>Screen titles (AppBar)</td></tr>
+        <tr><td><code>--t-headline</code></td><td>18px</td><td>Card titles, section headers</td></tr>
+        <tr><td><code>--t-body</code></td><td>15px</td><td>Default body</td></tr>
+        <tr><td><code>--t-caption</code></td><td>13px</td><td>Meta, captions</td></tr>
+        <tr><td><code>--t-micro</code></td><td>11px</td><td>Badges, all-caps labels</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- COMPONENT CORRECTIONS -->
+  <span class="section-anchor" id="s-components"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num" style="background:var(--red)">DS</span>Component Corrections — v1.3</h2>
+    <p>The following deviations from spec were identified during the v1.3 implementation review. Each must be corrected in <code>app/shared.jsx</code> or <code>app/Cards.jsx</code>.</p>
+
+    <h3 class="sub-title">LocationTag — emoji → Lucide icon</h3>
+    <div class="callout fix">
+      <div class="cl-label">Fix required — shared.jsx</div>
+      <p>Current implementation uses <code>📍 {children}</code>. Content guidelines are explicit: no emoji in product copy or component labels. Replace with the <code>Icons.mapPin</code> Lucide icon already in the icon set.</p>
+    </div>
+
+    <h3 class="sub-title">GlassPill — backdrop-filter → flat pill</h3>
+    <div class="callout fix">
+      <div class="cl-label">Fix required — shared.jsx</div>
+      <p>Current: <code>backdropFilter: 'blur(8px) saturate(180%)'</code>. BRD rule: "No backdrop-filter / glass / blur on the content side." Replace with a flat semi-transparent dark background (<code>rgba(15,23,42,0.65)</code>). Identical visual result; no rule violation. The iOS frame's status bar is an explicit exception and retains its blur.</p>
+    </div>
+
+    <h3 class="sub-title">PostTypeTag — hard-coded hex → token aliases</h3>
+    <div class="callout fix">
+      <div class="cl-label">Fix required — shared.jsx</div>
+      <p>Current implementation hard-codes hex values (<code>'#2D8F87'</code>, <code>'#6B3656'</code>, etc.) in the PostTypeTag colour map. These must be replaced with CSS variable references (<code>var(--verified-teal)</code>, <code>var(--plum)</code>, etc.) so the component follows future token updates automatically.</p>
+    </div>
+
+    <h3 class="sub-title">ActionBtn — inactive colour: <code>--slate-400</code> → <code>--ink-faint</code></h3>
+    <div class="callout fix">
+      <div class="cl-label">Fix required — shared.jsx</div>
+      <p>Current: inactive action buttons (like/comment/share) use <code>var(--slate-400)</code> (#94A3B8 — a cool blue-grey slate). On a white/neutral ink system, inactive UI should use <code>var(--ink-faint)</code> (#999999, warm-neutral grey). The blue-grey reads as slightly tinted against the white background.</p>
+    </div>
+
+    <h3 class="sub-title">StackedAvatars — hard-coded PALETTE → token refs</h3>
+    <div class="callout fix">
+      <div class="cl-label">Fix required — shared.jsx</div>
+      <p>Current: <code>const PALETTE = ['#FF2442','#8B5CF6','#10B981',...]</code>. These bypass the token system. Replace with token variable references: <code>['var(--stamp-red)', 'var(--violet)', 'var(--emerald)', 'var(--grail-gold)', 'var(--sky)', 'var(--plum)']</code>. Note: CSS variables cannot be used in a JS array like this directly inside an inline <code>background</code> style — wrap each in a <code>div</code> style attribute or resolve at paint time. Best approach: pass them through the existing <code>Avatar</code> component's <code>color</code> prop, which already handles variable names correctly.</p>
+    </div>
+
+    <h3 class="sub-title">PostCard — dead hover code</h3>
+    <div class="callout fix">
+      <div class="cl-label">Fix required — Cards.jsx</div>
+      <p><code>onMouseEnter</code> / <code>onMouseLeave</code> handlers on <code>PostCard</code> apply a <code>translateY(-3px)</code> lift. These never fire on a mobile device. Remove these handlers; keep only pointer-down press scale which applies correctly to touch.</p>
+    </div>
+
+    <h3 class="sub-title">Screen body — missing <code>overscroll-behavior</code></h3>
+    <div class="callout fix">
+      <div class="cl-label">Fix required — Chrome.jsx</div>
+      <p>The <code>Screen</code> component's scroll body div is missing <code>overscrollBehavior: 'contain'</code>. On iOS this causes scroll chaining — swiping past top/bottom of the feed bleeds to the outer device frame or bounces unexpectedly. Add it to all scroll containers inside <code>Screen</code>.</p>
+    </div>
+
+    <h3 class="sub-title">Sticky feed header — chrome height</h3>
+    <div class="callout fix">
+      <div class="cl-label">Advisory — FeedView.jsx</div>
+      <p>Home tab stacks: AppBar (~56px) + 3-tab segmented (~48px) + hashtag scroll bar (~42px) = <strong>~146px of sticky chrome</strong> on an 874px frame (17% of screen height). Consider: (a) combining the segmented + hashtag bar into a single row, or (b) collapsing the hashtag bar on scroll. Not blocking but affects perceived content density.</p>
+    </div>
+
+    <h3 class="sub-title">Button — <code>size="block"</code> conflates size and layout</h3>
+    <div class="callout fix">
+      <div class="cl-label">Advisory — shared.jsx</div>
+      <p>Block-width is a layout concern, not a size variant. A <code>fullWidth</code> boolean prop would keep sizes orthogonal and be more intuitive. Not urgent — current usage is consistent — but worth refactoring before the component is used in more contexts.</p>
+    </div>
+  </div>
+
+  <!-- TOKEN REFERENCE -->
+  <span class="section-anchor" id="s-tokens"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num" style="background:var(--red)">DS</span>Full Token Reference</h2>
+    <p>Canonical token values as defined in <code>colors_and_type.css</code> at v1.3. Tokens marked <span style="background:var(--new-bg);border:1px solid var(--new-border);padding:1px 6px;border-radius:4px;font-size:11px;color:var(--new-text);font-weight:700">NEW</span> were absent from the v1.2 spec.</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Token</th><th>Value</th><th>Usage</th></tr></thead>
+      <tbody>
+        <tr><td><code>--paper</code></td><td>#FFFFFF</td><td>Card surface, modal background</td></tr>
+        <tr class="td-new"><td><code>--canvas</code></td><td>#F8FAFC</td><td>Screen / scrollable body background</td></tr>
+        <tr><td><code>--bone</code></td><td>#F5F5F5</td><td>Recessed wells, segmented control bg</td></tr>
+        <tr><td><code>--ink</code></td><td>#1A1A1A</td><td>Primary text, icons</td></tr>
+        <tr><td><code>--ink-soft</code></td><td>#333333</td><td>Secondary headings</td></tr>
+        <tr><td><code>--ink-mute</code></td><td>#666666</td><td>Body secondary</td></tr>
+        <tr><td><code>--ink-faint</code></td><td>#999999</td><td>Meta, captions, inactive actions</td></tr>
+        <tr><td><code>--ink-ghost</code></td><td>#C4C4C4</td><td>Placeholders, disabled</td></tr>
+        <tr><td><code>--stamp-red</code></td><td>#FF2442</td><td>Primary CTA, brand seal, prices, destructive</td></tr>
+        <tr><td><code>--stamp-red-deep</code></td><td>#E01F3A</td><td>Press / hover state</td></tr>
+        <tr><td><code>--stamp-red-soft</code></td><td>#FFE4E8</td><td>Tinted background, active nav pill</td></tr>
+        <tr><td><code>--grail-gold</code></td><td>#E8A33D</td><td>Rare / featured / pre-order / warning</td></tr>
+        <tr><td><code>--grail-gold-deep</code></td><td>#C48420</td><td>Press / hover state</td></tr>
+        <tr><td><code>--grail-gold-soft</code></td><td>#F8E6C4</td><td>Tinted background</td></tr>
+        <tr><td><code>--verified-teal</code></td><td>#2D8F87</td><td>Verified accounts, vouch badge, info</td></tr>
+        <tr class="td-new"><td><code>--verified-teal-deep</code></td><td>#236D66 (proposed)</td><td>Press / hover — NOT YET IN CSS</td></tr>
+        <tr><td><code>--verified-teal-soft</code></td><td>#CFE6E2</td><td>Tinted background</td></tr>
+        <tr><td><code>--forest</code></td><td>#2D5F3F</td><td>Success, completed trades, Going state</td></tr>
+        <tr class="td-new"><td><code>--forest-deep</code></td><td>#1F4A2D (proposed)</td><td>Press / hover — NOT YET IN CSS</td></tr>
+        <tr><td><code>--forest-soft</code></td><td>#D2E0D3</td><td>Tinted background</td></tr>
+        <tr><td><code>--plum</code></td><td>#6B3656</td><td>Community / events accent</td></tr>
+        <tr class="td-new"><td><code>--plum-deep</code></td><td>#502842 (proposed)</td><td>Press / hover — NOT YET IN CSS</td></tr>
+        <tr><td><code>--plum-soft</code></td><td>#E4D2DE</td><td>Tinted background</td></tr>
+        <tr><td><code>--border</code></td><td>rgba(0,0,0,0.08)</td><td>Default hairline borders</td></tr>
+        <tr><td><code>--border-strong</code></td><td>rgba(0,0,0,0.14)</td><td>Stronger borders (inputs, card outlines)</td></tr>
+        <tr><td><code>--shadow-stamp</code></td><td>2px 2px 0 var(--ink)</td><td>Hard stamp shadow on accent moments</td></tr>
+        <tr><td><code>--r-md</code></td><td>14px</td><td>Default cards (was 12px in v1.2)</td></tr>
+        <tr><td><code>--r-lg</code></td><td>20px</td><td>Lifted cards, bottom sheets (was 18px)</td></tr>
+        <tr><td><code>--font-display</code></td><td>"Geist", system-ui</td><td>All headings, wordmark (Bricolage deprecated)</td></tr>
+        <tr><td><code>--font-body</code></td><td>"Geist", system-ui</td><td>Body, labels, UI</td></tr>
+        <tr><td><code>--font-mono</code></td><td>"JetBrains Mono", monospace</td><td>Prices, SKUs, codes, timestamps</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §12 -->
+  <span class="section-anchor" id="s12"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">12</span>Non-Functional Requirements</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Area</th><th>Requirement</th></tr></thead>
+      <tbody>
+        <tr><td>Platforms</td><td>Mobile-first (iOS &amp; Android). Admin console is web. Responsive web app is Phase 2.</td></tr>
+        <tr><td>Performance</td><td>Feed first paint under ~2s on a typical connection; smooth infinite scroll; image lazy-loading &amp; compression.</td></tr>
+        <tr><td>Scalability</td><td>Architecture supports growth from launch to 10K+ users without re-platforming; media on CDN-backed object storage.</td></tr>
+        <tr><td>Reliability</td><td>Target ~99.5% uptime in Phase 1; graceful offline/cached states for feed and messages.</td></tr>
+        <tr><td>Security</td><td>Secure auth, encrypted credentials, TLS in transit; least-privilege admin access; rate limiting on posting/DM/listing.</td></tr>
+        <tr><td>Privacy</td><td>User control over portfolio visibility and value; compliance with applicable data-protection norms.</td></tr>
+        <tr><td>Accessibility</td><td>Legible typography, sufficient contrast, scalable text, accessible tap targets (min 44px). <em>Note: focus rings missing on CategoryChip, FilterChip, Segmented, and several inline button elements — add in next pass.</em></td></tr>
+        <tr><td>Observability</td><td>Event analytics for KPIs (§14), crash reporting, and basic funnel instrumentation from day one.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §13 -->
+  <span class="section-anchor" id="s13"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">13</span>Trust &amp; Safety</h2>
+    <h3 class="sub-title">13.1 Phase 1 Foundations</h3>
+    <ul>
+      <li><strong>Transaction-linked trust.</strong> Trust built from completed Deals — trade vouches require a confirmed transaction; social endorsements are weighted lower and capped.</li>
+      <li><strong>Ownership verification.</strong> Tiered (Claimed / Shown / Verified); in-app-only live camera capture; listing requires Verified. Possession ≠ genuineness.</li>
+      <li><strong>Photo integrity.</strong> Perceptual-hash duplicate-image detection and watermarking of verified photos.</li>
+      <li><strong>Reporting &amp; blocking.</strong> Report content &amp; users from items, listings, posts, profiles, and DMs.</li>
+      <li><strong>Moderation.</strong> Admin moderation queue — review reports, remove content, suspend/ban bad actors.</li>
+      <li><strong>Transaction clarity.</strong> Clear guidance that Phase 1 transactions complete off-platform, with safety tips for meet-ups and payments.</li>
+    </ul>
+    <h3 class="sub-title">13.2 Phase 2 Enhancements</h3>
+    <ul>
+      <li>Reputation scoring algorithm over the Deal/rating graph; verified/tiered badges.</li>
+      <li>Genuineness verification (item tells, NFC, expert/grading partnerships).</li>
+      <li>Dispute resolution flow and (with in-app payments) escrow protection.</li>
+      <li>Fraud/scam detection and seller KYC for higher-value categories.</li>
+    </ul>
+  </div>
+
+  <!-- §14 -->
+  <span class="section-anchor" id="s14"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">14</span>Success Metrics &amp; KPIs</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Metric</th><th>What it tells us</th><th>Phase 1 target</th></tr></thead>
+      <tbody>
+        <tr><td>Registered users</td><td>Top-line reach</td><td>10,000</td></tr>
+        <tr><td>DAU / MAU ratio</td><td>Stickiness of the return loop</td><td>≥ 20–25%</td></tr>
+        <tr><td>Sessions per DAU</td><td>'Multiple times a day' goal</td><td>≥ 3 / day for engaged users</td></tr>
+        <tr><td>D1 / D7 / D30 retention</td><td>Habit formation</td><td>Healthy curve flattening by D30</td></tr>
+        <tr><td>Items added / active user</td><td>Catalogue adoption</td><td>Rising; majority of actives catalogue ≥ 1 item</td></tr>
+        <tr><td>% items at Shown or Verified</td><td>Authenticity of the catalogue</td><td>Majority of listable items photo-backed</td></tr>
+        <tr><td>Organic content share</td><td>Seed → UGC transition</td><td>Majority organic by end of Phase 1</td></tr>
+        <tr><td>Active marketplace listings</td><td>Trade liquidity</td><td>Steady growth; fresh daily inventory</td></tr>
+        <tr><td>Completed Deals / week</td><td>Actual trading volume</td><td>Rising week over week</td></tr>
+        <tr><td>Communities joined / user</td><td>Niche belonging</td><td>≥ 2 on average</td></tr>
+        <tr><td>Notification → open rate</td><td>Loop effectiveness</td><td>Healthy CTR without opt-out spikes</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §15 -->
+  <span class="section-anchor" id="s15"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">15</span>Risks &amp; Mitigations</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Risk / assumption</th><th>Impact</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr><td>Cold-start: empty feed/communities deter early users.</td><td>High</td><td>Interest-based cold-start feed; admin + dummy seeding; concentrate density in a few communities first.</td></tr>
+        <tr><td>Marketplace lacks liquidity early.</td><td>High</td><td>Seed listings; focus on categories with active resale; make listing frictionless; saved-search notifications.</td></tr>
+        <tr><td>Trust failures / scams damage reputation.</td><td>High</td><td>Transaction-linked vouch, tiered ownership verification, trust signals on profiles, reporting/blocking, active moderation; escrow in Phase 2.</td></tr>
+        <tr><td>Verification friction deters cataloguing/listing.</td><td>Med</td><td>Catalogue-from-database to keep the common path fast; reserve in-app camera for the listing step only; verify lazily, not up front.</td></tr>
+        <tr><td>Faked ownership photos / image reuse.</td><td>Med</td><td>In-app live camera only, challenge shots, perceptual-hash duplicate detection, watermarking; NFC / image-recognition in Phase 2.</td></tr>
+        <tr><td>Notification fatigue causes opt-outs.</td><td>Med</td><td>Per-type controls in P1; batching/quiet hours in P2; monitor opt-out rate.</td></tr>
+        <tr><td>Scope creep delays the MVP.</td><td>Med</td><td>Strict Must/Should/Could/Won't prioritisation; defer payments, livestream, grading to P2.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §16 -->
+  <span class="section-anchor" id="s16"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">16</span>Roadmap &amp; Next Steps</h2>
+    <h3 class="sub-title">16.1 Workstream Owners</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Owner</th><th>Workstream</th><th>Immediate next steps</th></tr></thead>
+      <tbody>
+        <tr><td>Product / Design</td><td>User flow &amp; design</td><td>Apply v1.3 component corrections to <code>app/</code>; finalise end-to-end user flows; confirm §6.2 category decision.</td></tr>
+        <tr><td>RC</td><td>Application build</td><td>Build against finalised flows/design; sequence by Must-priority requirements (§8).</td></tr>
+        <tr><td>SA &amp; AV</td><td>Content &amp; marketing</td><td>Develop content seeding plan (§11) and go-to-market plan; align on timelines &amp; budget weekly.</td></tr>
+        <tr><td>Admin / Ops</td><td>Seeding &amp; moderation</td><td>Prepare admin content, communities, and dummy-account governance; stand up moderation process.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 class="sub-title">16.2 Open Questions</h3>
+    <ul>
+      <li>Category decision: confirm Option A (delay Cards &amp; Sneakers) or Option B per §6.2.</li>
+      <li>Geography focus at launch and which communities to seed first.</li>
+      <li>Add missing <code>--verified-teal-deep</code>, <code>--forest-deep</code>, <code>--plum-deep</code> to <code>colors_and_type.css</code>.</li>
+      <li>Decide on Bricolage Grotesque: remove woff2 files entirely, or keep as intentional fallback?</li>
+      <li>Ratify Phase 1 KPI targets (§14).</li>
+    </ul>
+  </div>
+
+  <!-- §17 -->
+  <span class="section-anchor" id="s17"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">17</span>Glossary</h2>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td>Master Feed</td><td>The personalised home stream combining interest- and behaviour-ranked posts, admin content, and joined-community posts.</td></tr>
+        <tr><td>Vouch</td><td>A peer trust endorsement of a user's profile. Trade vouches require a confirmed Deal; social endorsements are capped and weighted lower.</td></tr>
+        <tr><td>Collection Portfolio</td><td>A user's items (owned / wishlist / pre-order) with photos, value, and pre-order timelines.</td></tr>
+        <tr><td>Item</td><td>A catalogue-level collectible record a user owns or wants (the data spine); carries the ownership-verification tier.</td></tr>
+        <tr><td>Listing</td><td>A sale/trade offer attached to a collection Item and surfaced in the marketplace — created as an action on the Item, not a post type.</td></tr>
+        <tr><td>Deal</td><td>A confirmed transaction between two users; the object that unlocks mutual rating and transaction-backed trade-vouch.</td></tr>
+        <tr><td>Ownership tier</td><td>An Item's verification level: <strong>Claimed</strong> (self-asserted), <strong>Shown</strong> (in-app live photo), or <strong>Verified</strong> (passed integrity/challenge checks). Listing requires Verified.</td></tr>
+        <tr><td>Post type</td><td>Classification of a post: Showcase, Discussion, or Review. Selling is an Item action, not a post type.</td></tr>
+        <tr><td>Return loop</td><td>The set of recurring reasons (releases, listings, events, discussions, showcases, notifications) that bring users back daily.</td></tr>
+        <tr><td>Canvas</td><td>The scrollable screen background token (<code>--canvas #F8FAFC</code>) — distinct from <code>--paper</code> (card surfaces). New in v1.3.</td></tr>
+        <tr><td>Super-user</td><td>A trusted/high-reputation user who may receive elevated privileges (e.g. event approval waiver).</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- §18 -->
+  <span class="section-anchor" id="s18"></span>
+  <div class="section">
+    <h2 class="sec-title"><span class="sec-num">18</span>Change Log — v1.3 Summary</h2>
+    <p>This section consolidates all v1.3 changes for quick reference.</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Area</th><th>Change</th><th>File(s) to update</th></tr></thead>
+      <tbody>
+        <tr class="td-changed"><td>Palette</td><td>Clean white confirmed canonical. Warm cream spec (paper #F4EFE6, bone #E8E1D2, ink #14110F, stamp-red #D93324) retired. White palette documented throughout.</td><td>BRD only (CSS already correct)</td></tr>
+        <tr class="td-new"><td>Canvas / card depth</td><td>Screens use <code>--canvas #F8FAFC</code> as background; cards use <code>--card-surface #FFFFFF</code>. Two-level depth model documented.</td><td>BRD only (CSS already correct)</td></tr>
+        <tr class="td-changed"><td>Font stack</td><td>Geist promoted to primary display font. Bricolage Grotesque deprecated (woff2 files to be removed).</td><td><code>colors_and_type.css</code>, BRD</td></tr>
+        <tr class="td-changed"><td>AppBar layout</td><td>Create (left) · Wordmark (centre) · Search + Messages + Bell (right). Current code has Search incorrectly left.</td><td><code>app/Chrome.jsx</code></td></tr>
+        <tr class="td-new"><td>Missing -deep tokens</td><td><code>--verified-teal-deep</code>, <code>--forest-deep</code>, <code>--plum-deep</code> not yet in CSS. Proposed values documented.</td><td><code>colors_and_type.css</code></td></tr>
+        <tr class="td-changed"><td>Corner radii</td><td><code>--r-md</code> 12px→14px · <code>--r-lg</code> 18px→20px.</td><td>BRD only (CSS already correct)</td></tr>
+        <tr class="td-changed"><td>Borders</td><td>Neutral alpha (not warm ink-based) as per implementation.</td><td>BRD only (CSS already correct)</td></tr>
+        <tr class="td-new"><td>LocationTag</td><td>Emoji 📍 → Lucide <code>mapPin</code> icon.</td><td><code>app/shared.jsx</code></td></tr>
+        <tr class="td-new"><td>GlassPill</td><td>Remove <code>backdrop-filter</code> blur; use flat semi-transparent bg.</td><td><code>app/shared.jsx</code></td></tr>
+        <tr class="td-new"><td>PostTypeTag</td><td>Hard-coded hex → CSS variable token aliases.</td><td><code>app/shared.jsx</code></td></tr>
+        <tr class="td-new"><td>ActionBtn inactive</td><td><code>--slate-400</code> → <code>--ink-faint</code> for inactive state.</td><td><code>app/shared.jsx</code></td></tr>
+        <tr class="td-new"><td>StackedAvatars</td><td>Hard-coded PALETTE array → token variable refs.</td><td><code>app/shared.jsx</code></td></tr>
+        <tr class="td-new"><td>PostCard hover</td><td>Remove dead <code>onMouseEnter</code> / <code>onMouseLeave</code> handlers.</td><td><code>app/Cards.jsx</code></td></tr>
+        <tr class="td-new"><td>Screen overscroll</td><td>Add <code>overscrollBehavior: 'contain'</code> to all scroll containers.</td><td><code>app/Chrome.jsx</code></td></tr>
+        <tr><td>Accessibility</td><td>Focus rings missing on CategoryChip, Segmented, and inline buttons. Add in next pass.</td><td><code>app/shared.jsx</code></td></tr>
+      </tbody>
+    </table></div>
+
+    <p style="margin-top:28px;font-size:13px;color:var(--ink-faint)">v1.0–v1.2 change reasoning documented in v1.2 §18 (Reasoning for Changes). That section is unchanged and not reproduced here.</p>
+  </div>
+
+</main>
+</div>
+</body>
+</html>

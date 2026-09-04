@@ -1,8 +1,10 @@
-"""T-01 integration — C-06 saved-listing price/status alerts (MK-09).
+"""T-01 integration — C-06 listing price/status alerts (MK-09).
 
-A user who saved a listing gets a price_drop notification when the seller lowers
-the price, and a listing_sold notification when it's marked sold. The seller never
-self-notifies, and the recipient's `price_drops` toggle gates it.
+A user who LIKED a listing gets a price_drop notification when the seller lowers
+the price, and a listing_sold notification when it's marked sold (QA 2026-08-04:
+the audience moved from savers to likers when listing-save was retired from the
+UI). The seller never self-notifies, and the recipient's `price_drops` toggle
+gates it.
 """
 import pytest
 
@@ -36,7 +38,7 @@ async def test_saver_gets_price_drop_alert(client):
     lid = await _seller_listing(client, seller["headers"], price=100000)
 
     # buyer saves it
-    assert (await client.post(f"/v1/listings/{lid}/save", headers=buyer["headers"])).status_code == 204
+    assert (await client.post(f"/v1/listings/{lid}/like", headers=buyer["headers"])).status_code == 204
 
     # seller drops the price
     r = await client.patch(f"/v1/listings/{lid}", json={"price": 80000}, headers=seller["headers"])
@@ -51,7 +53,7 @@ async def test_price_increase_does_not_alert(client):
     seller = await signup_verified(client, "seller2")
     buyer = await signup_verified(client, "buyer2")
     lid = await _seller_listing(client, seller["headers"], price=50000)
-    await client.post(f"/v1/listings/{lid}/save", headers=buyer["headers"])
+    await client.post(f"/v1/listings/{lid}/like", headers=buyer["headers"])
 
     # raising the price must NOT fire a price_drop
     await client.patch(f"/v1/listings/{lid}", json={"price": 60000}, headers=seller["headers"])
@@ -62,7 +64,7 @@ async def test_saver_gets_sold_alert(client):
     seller = await signup_verified(client, "seller3")
     buyer = await signup_verified(client, "buyer3")
     lid = await _seller_listing(client, seller["headers"], price=50000)
-    await client.post(f"/v1/listings/{lid}/save", headers=buyer["headers"])
+    await client.post(f"/v1/listings/{lid}/like", headers=buyer["headers"])
 
     await client.patch(f"/v1/listings/{lid}", json={"status": "sold"}, headers=seller["headers"])
     assert "listing_sold" in await _notif_kinds(client, buyer["headers"])
@@ -76,7 +78,7 @@ async def test_price_drops_toggle_off_suppresses_alert(client):
     assert off.status_code == 200, off.text
 
     lid = await _seller_listing(client, seller["headers"], price=100000)
-    await client.post(f"/v1/listings/{lid}/save", headers=buyer["headers"])
+    await client.post(f"/v1/listings/{lid}/like", headers=buyer["headers"])
     await client.patch(f"/v1/listings/{lid}", json={"price": 70000}, headers=seller["headers"])
 
     assert "price_drop" not in await _notif_kinds(client, buyer["headers"])

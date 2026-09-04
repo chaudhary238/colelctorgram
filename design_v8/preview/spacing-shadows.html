@@ -1,0 +1,26 @@
+<!-- @dsCard group="Spacing" -->
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 30px 28px 36px; background: var(--bone);
+         font-family: var(--font-body); color: var(--ink); }
+  .label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+           letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 18px; }
+  .label b { color: var(--ink); font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .box { width: 76px; height: 76px; background: var(--paper-soft);
+         border-radius: var(--r-md); border: 1px solid var(--border); }
+  .stamp { background: var(--stamp-red); border: 1px solid var(--stamp-red-deep); }
+  .tok { font-family: var(--font-mono); font-size: 10px; color: var(--ink); }
+</style></head>
+<body>
+  <div class="label"><b>Shadow system</b> · low-spread, warm-ink based, no blue tinting</div>
+  <div class="grid">
+    <div class="item"><div class="box" style="box-shadow:var(--shadow-1)"></div><div class="tok">--shadow-1</div></div>
+    <div class="item"><div class="box" style="box-shadow:var(--shadow-2)"></div><div class="tok">--shadow-2</div></div>
+    <div class="item"><div class="box" style="box-shadow:var(--shadow-3)"></div><div class="tok">--shadow-3</div></div>
+    <div class="item"><div class="box" style="box-shadow:var(--shadow-4)"></div><div class="tok">--shadow-4</div></div>
+    <div class="item"><div class="box stamp" style="box-shadow:var(--shadow-stamp)"></div><div class="tok">--shadow-stamp</div></div>
+  </div>
+</body></html>

@@ -11,7 +11,7 @@ import { ImageUploader } from "@/components/ImageUploader";
 import { MoneyField, ReleaseWindowPicker } from "@/components/forms";
 import { ReportCatalogueSheet } from "@/components/ReportCatalogueSheet";
 import {
-  ADD_CATEGORIES, CAT_SCALES, CAT_BRANDS, CAT_META, symOf, buildPoEta,
+  ADD_CATEGORIES, CAT_SCALES, CAT_BRANDS, CAT_META, symOf, buildPoEta, conditionsFor,
   TCG_LANGUAGES, TCG_PRODUCT_TYPES, TCG_GRADERS, type PoPrecision,
 } from "@/lib/catalog";
 
@@ -175,13 +175,8 @@ function SearchStep({ onPick, onAddNew, onBack }: { onPick: (h: CatalogueHit) =>
   );
 }
 
-// Condition ladder → canonical listing condition keys (CONDITION_LABEL in cards.tsx).
-const CONDITIONS = [
-  { id: "sealed_misb", label: "Sealed", sub: "Factory sealed, never opened" },
-  { id: "mint", label: "MIB", sub: "Mint in box" },
-  { id: "like_new", label: "BIB", sub: "Box in box / outer shipper kept" },
-  { id: "good", label: "Loose", sub: "Out of box / displayed" },
-];
+// DV8-10 — condition options come from the picked category's vocabulary
+// (CAT_CONDITIONS via conditionsFor); the old app-wide 4-value ladder is retired.
 
 const fieldStyle: React.CSSProperties = {
   width: "100%", boxSizing: "border-box", height: 46, padding: "0 13px",
@@ -365,7 +360,8 @@ function AddListingPageInner() {
   // "New to Scorred DB" → +50 XP as first contributor (only when not linked to an existing SKU).
   const isNewToDb = !linkedSku && title.trim().length >= 5 && dupes.length === 0 && !!brand.trim();
 
-  const changeCat = (id: string) => { setCat(id); setScale(""); setScaleOther(""); setSize(""); setBrand(""); setTcgLang(""); setTcgFormat(""); setTcgGraded(false); setTcgGrade(""); };
+  // Condition resets with the category — the vocabularies don't share ids (DV8-10).
+  const changeCat = (id: string) => { setCat(id); setScale(""); setScaleOther(""); setSize(""); setBrand(""); setTcgLang(""); setTcgFormat(""); setTcgGraded(false); setTcgGrade(""); setCond(""); };
   const linkDupe = (h: CatalogueHit) => { setTitle(h.title); setBrand(h.brand); setLinkedSku(h.sku); setDupes([]); };
 
   const miss = {
@@ -378,7 +374,7 @@ function AddListingPageInner() {
     price: canSell && forSale && !price.trim(),
   };
   const invalid = Object.values(miss).some(Boolean);
-  const condLabel = CONDITIONS.find((c) => c.id === cond)?.label ?? (acq === "preorder" ? "Pre-order" : "");
+  const condLabel = conditionsFor(cat).find((c) => c.id === cond)?.label ?? (acq === "preorder" ? "Pre-order" : "");
 
   const rmPhoto = (i: number) => {
     setPhotos((p) => p.filter((_, idx) => idx !== i));
@@ -426,8 +422,10 @@ function AddListingPageInner() {
       // design + DECISIONS 2026-07-03; keeps it out of owned/wishlist/preorder tabs). `status` is a
       // free String(16) — no migration. The backend awards +50 XP `db_new` for any free-text item.
       const status = isIntel ? "intel" : isPreorder ? "preorder" : "owned";
-      const item = await api.post<{ id: string; db_new_xp?: number; catalogue_matched?: boolean }>("/items", {
+      const item = await api.post<{ id: string; db_new_xp?: number; catalogue_matched?: boolean; add_xp?: number; complete_xp?: number }>("/items", {
         sku: linkedSku ?? undefined,
+        // DV8-10 — the stored id from the category's CAT_CONDITIONS vocabulary (in-hand only).
+        condition: acq === "inhand" ? (cond || null) : null,
         custom_title: linkedSku ? undefined : title.trim(),
         // DV6-13 — when this add creates a NEW catalogue entry, the first photo is the
         // mandatory public reference image. Ignored server-side if it links to an existing SKU.
@@ -467,6 +465,19 @@ function AddListingPageInner() {
       // entry, tell the user (no duplicate was created, so no XP).
       if (item.db_new_xp && item.db_new_xp > 0) fireXpToast(item.db_new_xp, "XP · added to Scorred DB");
       else if (item.catalogue_matched) fireToast("Linked to an existing Scorred entry — no duplicate created");
+      // DV8-02/03 — also surface the add/complete XP the server actually granted (0 when
+      // capped or deduped). All toasts share one fixed slot, so later ones are staggered.
+      {
+        const toasts: [number, string][] = [];
+        if (item.add_xp && item.add_xp > 0) toasts.push([item.add_xp, "Added to collection"]);
+        if (item.complete_xp && item.complete_xp > 0) toasts.push([item.complete_xp, "Item details complete"]);
+        const busySlot = (item.db_new_xp && item.db_new_xp > 0) || item.catalogue_matched;
+        toasts.forEach(([xp, label], i) => {
+          const delay = ((busySlot ? 1 : 0) + i) * 2400;
+          if (delay === 0) fireXpToast(xp, label);
+          else setTimeout(() => fireXpToast(xp, label), delay);
+        });
+      }
       // Listing for sale is a publish action → go straight to the new live listing.
       if (canSell && forSale) {
         const listing = await api.post<{ id: string }>("/listings", {
@@ -978,8 +989,10 @@ function AddListingPageInner() {
         {acq === "inhand" && (
           <>
             <Label required missing={tried && miss.cond}>Condition</Label>
+            {/* DV8-10 — the picked category's own vocabulary; options are {id,label,hint}
+                objects: render the LABEL, store the id. */}
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {CONDITIONS.map((c) => {
+              {conditionsFor(cat).map((c) => {
                 const on = cond === c.id;
                 return (
                   <button key={c.id} type="button" onClick={() => setCond(c.id)} style={{
@@ -992,7 +1005,7 @@ function AddListingPageInner() {
                     </span>
                     <span style={{ display: "flex", flexDirection: "column" }}>
                       <span style={{ fontSize: 14, fontWeight: 600, color: on ? "var(--paper)" : "var(--ink)" }}>{c.label}</span>
-                      <span style={{ fontSize: 11.5, color: on ? "rgba(244,239,230,0.7)" : "var(--ink-faint)", marginTop: 1 }}>{c.sub}</span>
+                      <span style={{ fontSize: 11.5, color: on ? "rgba(244,239,230,0.7)" : "var(--ink-faint)", marginTop: 1 }}>{c.hint}</span>
                     </span>
                   </button>
                 );

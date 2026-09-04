@@ -8,7 +8,7 @@ from sqlalchemy import select, or_, func
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.catalogue import Catalogue
+from app.models.catalogue import Catalogue, CatalogueComment, CatalogueRating
 from app.models.item import Item
 from app.models.trust import Report
 from app.models.user import Follow, User
@@ -335,6 +335,19 @@ async def get_catalogue_entry(
             select(User.handle).where(User.id == entry.submitted_by)
         )).scalar_one_or_none()
 
+    # DV8 — catalogue-entry ratings return (v8 item page score block). The avg was
+    # previously only ever stated in grey text in the prototype; the web shows the
+    # aggregate plus the caller's own stars. Scope: catalogue entries ONLY — the
+    # 2026-07-18 removal still stands for user/seller ratings.
+    rating_avg, rating_count = (await db.execute(
+        select(func.avg(CatalogueRating.rating), func.count()).where(CatalogueRating.sku == sku)
+    )).one()
+    my_rating = (await db.execute(
+        select(CatalogueRating.rating).where(
+            CatalogueRating.sku == sku, CatalogueRating.user_id == current_user.id
+        )
+    )).scalar_one_or_none()
+
     return {
         **_hit(entry),
         "tone": entry.tone,
@@ -342,6 +355,9 @@ async def get_catalogue_entry(
         "wishlists_count": wishlists,
         "viewer_item": viewer_item,
         "submitted_by_handle": submitted_by_handle,
+        "rating_avg": round(float(rating_avg), 2) if rating_avg is not None else None,
+        "rating_count": rating_count or 0,
+        "my_rating": my_rating,
         "created_at": entry.created_at.isoformat() if entry.created_at else None,
     }
 
@@ -470,6 +486,129 @@ async def toggle_catalogue_wishlist(
         wishlist_alert_enabled=True,
     ))
     return {"wishlisted": True}
+
+
+class RateCatalogueBody(BaseModel):
+    rating: int
+
+
+@router.post("/{sku}/rate")
+async def rate_catalogue_entry(
+    sku: str,
+    body: RateCatalogueBody,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """DV8 — rate a catalogue entry 1-5 (the item page's tappable stars). One
+    rating per user per entry, changeable in place; tapping your current score
+    again clears it. Returns the fresh aggregate so the score block can update
+    without a refetch."""
+    if body.rating < 1 or body.rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be 1-5")
+    entry = (await db.execute(
+        select(Catalogue).where(Catalogue.sku == sku, Catalogue.status != "removed")
+    )).scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    existing = (await db.execute(
+        select(CatalogueRating).where(
+            CatalogueRating.sku == sku, CatalogueRating.user_id == current_user.id
+        )
+    )).scalar_one_or_none()
+    if existing and existing.rating == body.rating:
+        await db.delete(existing)          # tap your own score again to clear it
+        my_rating = None
+    elif existing:
+        existing.rating = body.rating
+        my_rating = body.rating
+    else:
+        db.add(CatalogueRating(user_id=current_user.id, sku=sku, rating=body.rating))
+        my_rating = body.rating
+    await db.flush()
+
+    avg, count = (await db.execute(
+        select(func.avg(CatalogueRating.rating), func.count()).where(CatalogueRating.sku == sku)
+    )).one()
+    return {
+        "rating_avg": round(float(avg), 2) if avg is not None else None,
+        "rating_count": count or 0,
+        "my_rating": my_rating,
+    }
+
+
+class CatalogueCommentBody(BaseModel):
+    body: str
+    parent_id: Optional[uuid.UUID] = None
+
+
+@router.get("/{sku}/comments")
+async def list_catalogue_comments(
+    sku: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """DV8-18 — the item page's comment thread on a catalogue entry (same
+    pattern as a post's comments: flat list, parent_id for one reply level)."""
+    rows = (await db.execute(
+        select(CatalogueComment, User)
+        .join(User, User.id == CatalogueComment.user_id)
+        .where(CatalogueComment.sku == sku)
+        .order_by(CatalogueComment.created_at.asc())
+    )).all()
+    return {"comments": [
+        {
+            "id": str(c.id),
+            "parent_id": str(c.parent_id) if c.parent_id else None,
+            "body": c.body,
+            "handle": u.handle,
+            "name": u.name,
+            "avatar_url": u.avatar_url,
+            "is_mine": u.id == current_user.id,
+            "created_at": c.created_at.isoformat(),
+        }
+        for c, u in rows
+    ]}
+
+
+@router.post("/{sku}/comments", status_code=201)
+async def add_catalogue_comment(
+    sku: str,
+    body: CatalogueCommentBody,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    text = body.body.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="Comment can't be empty")
+    entry = (await db.execute(
+        select(Catalogue).where(Catalogue.sku == sku, Catalogue.status != "removed")
+    )).scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    if body.parent_id:
+        parent = (await db.execute(
+            select(CatalogueComment.id).where(
+                CatalogueComment.id == body.parent_id, CatalogueComment.sku == sku
+            )
+        )).scalar_one_or_none()
+        if not parent:
+            raise HTTPException(status_code=404, detail="Parent comment not found")
+    comment = CatalogueComment(sku=sku, user_id=current_user.id, parent_id=body.parent_id, body=text)
+    db.add(comment)
+    await db.flush()
+    # Same earn action as post comments (+10, per-day cap; deduped per comment).
+    await award_xp(db, current_user, "comment", ref_id=str(comment.id), ref_type="catalogue_comment")
+    return {
+        "id": str(comment.id),
+        "parent_id": str(comment.parent_id) if comment.parent_id else None,
+        "body": comment.body,
+        "handle": current_user.handle,
+        "name": current_user.name,
+        "avatar_url": current_user.avatar_url,
+        "is_mine": True,
+        "created_at": comment.created_at.isoformat(),
+    }
 
 
 class ReportCatalogueBody(BaseModel):

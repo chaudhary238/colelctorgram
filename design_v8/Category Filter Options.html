@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="design_doc_mode" content="canvas"><title>Category filter — options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@400..700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font-body);color:var(--ink)}
+a{color:var(--stamp-red)}a:hover{color:#a52020}
+.sheet{position:absolute;width:390px;background:var(--paper);border:1px solid var(--border);border-radius:22px 22px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,.10);padding:16px 18px 20px;overflow:hidden}
+.lbl{position:absolute;font-family:var(--font-display);font-weight:700;font-size:15px;letter-spacing:-.02em;color:#111}
+.sub{position:absolute;font-size:12.5px;line-height:1.45;color:#666;width:390px}
+.h{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.h b{font-family:var(--font-display);font-weight:700;font-size:17px}
+.h span{font-size:13px;font-weight:600;color:var(--ink-faint)}
+.sl{font-family:var(--font-mono);font-size:10.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint)}
+.chip{display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 12px;border-radius:9px;border:1px solid var(--border-strong);background:var(--paper-soft);font-size:12.5px;font-weight:600;color:var(--ink-mute);cursor:pointer;white-space:nowrap}
+.chip.on{border-color:var(--stamp-red);background:var(--stamp-red-soft);color:var(--stamp-red)}
+.wrap{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.btn{display:flex;align-items:center;justify-content:center;height:46px;border-radius:12px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;margin-top:20px;cursor:pointer}
+.cb{width:19px;height:19px;flex-shrink:0;border-radius:6px;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center}
+.cb.on{border-color:var(--stamp-red);background:var(--stamp-red)}
+.n{font-family:var(--font-mono);font-size:11px;color:var(--ink-faint)}
+svg{display:block}
+.meta{position:absolute;right:18px;font-family:var(--font-mono);font-size:10.5px;color:#999}
+</style></head>
+<body>
+
+<!-- A -->
+<div class="lbl" style="left:60px;top:40px">A · Tick chips</div>
+<div class="sub" style="left:60px;top:64px">Same pill vocabulary as everywhere else in the app, with a check when selected. Two rows. <b>~86px tall.</b></div>
+<div class="sheet" style="left:60px;top:120px">
+  <div class="h"><b>Filters</b><span>Clear</span></div>
+  <div class="sl">Sort by</div>
+  <div class="wrap"><span class="chip on">Most owned</span><span class="chip">Most wishlisted</span><span class="chip">Newest</span></div>
+  <div class="sl" style="display:block;margin-top:20px">Category</div>
+  <div class="wrap">
+    <span class="chip on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="m5 12 5 5L20 7"/></svg>Action Figure</span>
+    <span class="chip">Diecast</span>
+    <span class="chip on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="m5 12 5 5L20 7"/></svg>Model Kits &amp; Lego</span>
+    <span class="chip">Designer Toys</span>
+    <span class="chip">TCG</span>
+  </div>
+  <div class="sl" style="display:block;margin-top:20px">Scale</div>
+  <div class="wrap"><span class="chip">All</span><span class="chip on">1/6</span><span class="chip">1/12</span><span class="chip">1/64</span></div>
+  <div class="btn">Show 7 items</div>
+</div>
+
+<!-- B -->
+<div class="lbl" style="left:520px;top:40px">B · Two-column checkboxes</div>
+<div class="sub" style="left:520px;top:64px">Keeps the explicit checkbox affordance but halves the height. Long labels shorten. <b>~104px tall.</b></div>
+<div class="sheet" style="left:520px;top:120px">
+  <div class="h"><b>Filters</b><span>Clear</span></div>
+  <div class="sl">Sort by</div>
+  <div class="wrap"><span class="chip on">Most owned</span><span class="chip">Most wishlisted</span><span class="chip">Newest</span></div>
+  <div class="sl" style="display:block;margin-top:20px">Category</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;margin-top:8px">
+    <div style="display:flex;align-items:center;gap:9px;padding:7px 0"><span class="cb on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="m5 12 5 5L20 7"/></svg></span><span style="font-size:13.5px;font-weight:600">Action Figures</span></div>
+    <div style="display:flex;align-items:center;gap:9px;padding:7px 0"><span class="cb"></span><span style="font-size:13.5px;color:var(--ink-mute)">Diecast</span></div>
+    <div style="display:flex;align-items:center;gap:9px;padding:7px 0"><span class="cb on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"><path d="m5 12 5 5L20 7"/></svg></span><span style="font-size:13.5px;font-weight:600">Model Kits</span></div>
+    <div style="display:flex;align-items:center;gap:9px;padding:7px 0"><span class="cb"></span><span style="font-size:13.5px;color:var(--ink-mute)">Designer Toys</span></div>
+    <div style="display:flex;align-items:center;gap:9px;padding:7px 0"><span class="cb"></span><span style="font-size:13.5px;color:var(--ink-mute)">TCG</span></div>
+  </div>
+  <div class="sl" style="display:block;margin-top:20px">Scale</div>
+  <div class="wrap"><span class="chip">All</span><span class="chip on">1/6</span><span class="chip">1/12</span><span class="chip">1/64</span></div>
+  <div class="btn">Show 7 items</div>
+</div>
+
+<!-- C -->
+<div class="lbl" style="left:980px;top:40px">C · Collapsed summary row</div>
+<div class="sub" style="left:980px;top:64px">Category collapses to one line showing what's picked; tap to expand the list. Costs one tap, but the sheet stays tiny no matter how many categories you add later. <b>~44px collapsed.</b></div>
+<div class="sheet" style="left:980px;top:120px">
+  <div class="h"><b>Filters</b><span>Clear</span></div>
+  <div class="sl">Sort by</div>
+  <div class="wrap"><span class="chip on">Most owned</span><span class="chip">Most wishlisted</span><span class="chip">Newest</span></div>
+  <div class="sl" style="display:block;margin-top:20px">Category</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:44px;padding:0 14px;margin-top:8px;border-radius:12px;border:1px solid var(--stamp-red);background:var(--stamp-red-soft);cursor:pointer">
+    <span style="font-size:13.5px;font-weight:600;color:var(--stamp-red);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Action Figures, Model Kits</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--stamp-red)" stroke-width="2.4" stroke-linecap="round" style="flex-shrink:0"><path d="m6 9 6 6 6-6"/></svg>
+  </div>
+  <div class="sl" style="display:block;margin-top:20px">Scale</div>
+  <div class="wrap"><span class="chip">All</span><span class="chip on">1/6</span><span class="chip">1/12</span><span class="chip">1/64</span></div>
+  <div class="btn">Show 7 items</div>
+</div>
+
+<!-- D -->
+<div class="lbl" style="left:60px;top:660px">D · Tick chips + item counts</div>
+<div class="sub" style="left:60px;top:684px">A, plus how many items sit in each category — you can see what's worth filtering to before you tap. <b>~86px tall.</b></div>
+<div class="sheet" style="left:60px;top:740px">
+  <div class="h"><b>Filters</b><span>Clear</span></div>
+  <div class="sl">Sort by</div>
+  <div class="wrap"><span class="chip on">Most owned</span><span class="chip">Most wishlisted</span><span class="chip">Newest</span></div>
+  <div class="sl" style="display:block;margin-top:20px">Category</div>
+  <div class="wrap">
+    <span class="chip on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="m5 12 5 5L20 7"/></svg>Action Figure <span style="opacity:.6;font-family:var(--font-mono);font-size:11px">5</span></span>
+    <span class="chip">Diecast <span class="n">2</span></span>
+    <span class="chip on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="m5 12 5 5L20 7"/></svg>Model Kits <span style="opacity:.6;font-family:var(--font-mono);font-size:11px">2</span></span>
+    <span class="chip">Designer <span class="n">1</span></span>
+    <span class="chip">TCG <span class="n">2</span></span>
+  </div>
+  <div class="sl" style="display:block;margin-top:20px">Scale</div>
+  <div class="wrap"><span class="chip">All</span><span class="chip on">1/6</span><span class="chip">1/12</span><span class="chip">1/64</span></div>
+  <div class="btn">Show 7 items</div>
+</div>
+
+<!-- E -->
+<div class="lbl" style="left:520px;top:660px">E · One scrolling row</div>
+<div class="sub" style="left:520px;top:684px">Single 32px line, swipes horizontally. Smallest possible — but categories past the edge are easy to miss. <b>~32px tall.</b></div>
+<div class="sheet" style="left:520px;top:740px">
+  <div class="h"><b>Filters</b><span>Clear</span></div>
+  <div class="sl">Sort by</div>
+  <div class="wrap"><span class="chip on">Most owned</span><span class="chip">Most wishlisted</span><span class="chip">Newest</span></div>
+  <div class="sl" style="display:block;margin-top:20px">Category</div>
+  <div style="display:flex;gap:6px;margin-top:9px;overflow:hidden;position:relative">
+    <span class="chip on" style="flex-shrink:0"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="m5 12 5 5L20 7"/></svg>Action Figure</span>
+    <span class="chip" style="flex-shrink:0">Diecast</span>
+    <span class="chip on" style="flex-shrink:0"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="m5 12 5 5L20 7"/></svg>Model Kits</span>
+    <span class="chip" style="flex-shrink:0">Designer</span>
+    <div style="position:absolute;right:0;top:0;bottom:0;width:38px;background:linear-gradient(90deg,rgba(253,252,250,0),var(--paper))"></div>
+  </div>
+  <div class="sl" style="display:block;margin-top:20px">Scale</div>
+  <div class="wrap"><span class="chip">All</span><span class="chip on">1/6</span><span class="chip">1/12</span><span class="chip">1/64</span></div>
+  <div class="btn">Show 7 items</div>
+</div>
+
+</body></html>

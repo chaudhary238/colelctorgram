@@ -62,14 +62,18 @@ export function ContextualRail() {
           </div>
         </div>
       </Link>
-      {user?.handle && <RewardCard handle={user.handle} isMe />}
+      {/* Staff sit OUTSIDE rewards (QA 2026-08-04 §4) — no rank card, no XP, no
+          "ways to earn" for admin accounts; the widgets below skip it too. */}
+      {user?.handle && !user.is_admin && <RewardCard handle={user.handle} isMe />}
 
       {/* slots 2–3 — page-aware */}
       <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 18 }}>
-        {widgets.map((id) => {
-          const W = WIDGET_MAP[id];
-          return <W key={id} />;
-        })}
+        {widgets
+          .filter((id) => !(user?.is_admin && id === "ways_to_earn"))
+          .map((id) => {
+            const W = WIDGET_MAP[id];
+            return <W key={id} />;
+          })}
       </div>
 
       <div className="px-1.5 pt-6 text-[11.5px] text-[var(--ink-ghost)]" style={{ lineHeight: 1.7 }}>
@@ -170,7 +174,7 @@ function NextEventWidget() {
 function MyEventsWidget() {
   const [events, setEvents] = useState<ApiEvent[] | null>(null);
   useEffect(() => {
-    api.get<ApiEvent[]>("/events?scope=mine&limit=2").then(setEvents).catch(() => setEvents([]));
+    api.get<ApiEvent[]>("/events?scope=mine&limit=2&upcoming=true").then(setEvents).catch(() => setEvents([]));
   }, []);
   if (!events?.length) return null;
   return (
@@ -185,12 +189,15 @@ function MyEventsWidget() {
 function WatchlistWidget() {
   const [items, setItems] = useState<ApiListing[] | null>(null);
   useEffect(() => {
-    api.get<{ items: ApiListing[] }>("/listings?saved=true&limit=3")
+    // liked=true — listing "save" was retired for likes (QA 2026-08-04); the old
+    // saved=true query always came back empty, so this widget never rendered.
+    // v8 settles the user-facing word as "Saved".
+    api.get<{ items: ApiListing[] }>("/listings?liked=true&limit=3")
       .then((d) => setItems(d.items)).catch(() => setItems([]));
   }, []);
   if (!items?.length) return null;
   return (
-    <Widget title="Your watchlist" href="/saved" linkLabel="Stash">
+    <Widget title="Saved listings" href="/market" linkLabel="See all">
       {items.map((l, i) => (
         <Link key={l.id} href={`/listing/${l.id}`} className="flex items-center gap-3 py-[7px]" style={i > 0 ? rowDivider : undefined}>
           <span style={{ width: 38, flexShrink: 0 }}>
@@ -200,7 +207,6 @@ function WatchlistWidget() {
             <span className="block truncate text-[13px] font-semibold text-[var(--ink)]" style={{ lineHeight: 1.3 }}>{l.title}</span>
             <span className="block text-xs text-[var(--ink)]">
               <Money value={Math.round(l.price / 100)} currency={l.currency ?? "₹"} size={12} />
-              {l.watching_count > 0 && <span style={{ color: "var(--ink-faint)" }}> · {l.watching_count} watching</span>}
             </span>
           </span>
         </Link>

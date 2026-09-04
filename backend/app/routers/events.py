@@ -32,6 +32,12 @@ class CreateEventBody(BaseModel):
     bring: Optional[str] = None
     starts_at: datetime
     ends_at: Optional[datetime] = None
+    # DV8 events rebuild — real pricing + ticketing/contact.
+    is_free: bool = True
+    price: int = 0                      # minor units of currency
+    currency: str = "INR"
+    ticket_url: Optional[str] = None
+    contact: Optional[str] = None
 
 
 class UpdateEventBody(BaseModel):
@@ -48,6 +54,11 @@ class UpdateEventBody(BaseModel):
     bring: Optional[str] = None
     starts_at: Optional[datetime] = None
     ends_at: Optional[datetime] = None
+    is_free: Optional[bool] = None
+    price: Optional[int] = None
+    currency: Optional[str] = None
+    ticket_url: Optional[str] = None
+    contact: Optional[str] = None
 
 
 async def _require_host(db: AsyncSession, event_id: uuid.UUID, user: User) -> Event:
@@ -68,6 +79,7 @@ async def list_events(
     city: Optional[str] = None,
     mode: Optional[str] = None,
     scope: Optional[str] = None,  # "mine" → the caller's own events (any status)
+    upcoming: Optional[bool] = None,  # default: True for browse, False for scope=mine
     page: int = Query(1, ge=1),
     limit: int = Query(20, le=50),
     db: AsyncSession = Depends(get_db),
@@ -80,6 +92,13 @@ async def list_events(
         stmt = select(Event).where(Event.host_id == current_user.id)
     else:
         stmt = select(Event).where(Event.status == "active")
+    # Nothing ever flips status to "past", so a date filter is the only thing
+    # standing between "Upcoming events" and July: browse defaults to upcoming
+    # (an event stays visible until it ENDS); hosts default to full history.
+    if upcoming is None:
+        upcoming = scope != "mine"
+    if upcoming:
+        stmt = stmt.where(func.coalesce(Event.ends_at, Event.starts_at) >= func.now())
     if category:
         stmt = stmt.where(Event.categories.contains([category]))
     if city:
@@ -182,6 +201,11 @@ async def create_event(
         bring=body.bring,
         starts_at=body.starts_at,
         ends_at=body.ends_at,
+        is_free=body.is_free,
+        price=0 if body.is_free else max(body.price, 0),
+        currency=body.currency,
+        ticket_url=body.ticket_url,
+        contact=body.contact,
         is_admin_created=current_user.is_admin,
         status="active" if current_user.is_admin else "pending_approval",
     )
@@ -200,6 +224,9 @@ async def update_event(
     event = await _require_host(db, event_id, current_user)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(event, field, value)
+    # DV8 — a free event carries no price; flipping the toggle clears the stale one.
+    if event.is_free:
+        event.price = 0
     await db.flush()
 
     host = (
@@ -407,6 +434,11 @@ def _event_dict(
         "online_url": e.online_url,
         "cover_image_url": e.cover_image_url,
         "bring": e.bring,
+        "is_free": e.is_free,
+        "price": e.price,
+        "currency": e.currency,
+        "ticket_url": e.ticket_url,
+        "contact": e.contact,
         "starts_at": e.starts_at.isoformat(),
         "ends_at": e.ends_at.isoformat() if e.ends_at else None,
         "going_count": e.going_count,

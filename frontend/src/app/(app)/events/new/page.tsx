@@ -3,28 +3,32 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X, Shield, Check, Info, Plus, ChevronRight, MapPin } from "lucide-react";
+import { X, Shield, Check, Info, Plus, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiCommunity, ApiEvent } from "@/components/cards";
 import { Segmented, SectionLabel } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
-import { resolvePincode } from "@/lib/pincode";
+import { CityField, formatTime12 } from "@/components/CityField";
+import { MoneyField } from "@/components/forms";
 import { fireToast } from "@/components/gamification";
 import { ADD_CATEGORIES } from "@/lib/catalog";
 
-// v4 EventCreate maps the global 5-category CATEGORIES (incl. TCG) as plain chipLabel
-// pills, no icons. ADD_CATEGORIES is that exact list in v4 order. Kept in lockstep.
+// v8 EventCreate maps the global 5-category CATEGORIES (incl. TCG) as plain chipLabel
+// pills, no icons. ADD_CATEGORIES is that exact list in v8 order. Kept in lockstep.
 const CATEGORIES = ADD_CATEGORIES;
 
 const DRAFT_KEY = "ch_event_draft";
 
 type ComMode = "none" | "create" | "existing";
+type Pricing = "free" | "paid";
 interface ModCommunity extends ApiCommunity { member_role?: string }
 
 interface Draft {
   cover: string | null; title: string; cats: string[];
   date: string; endDate: string; time: string; endTime: string;
-  venue: string; pincode: string; about: string; bring: string;
+  city: string; venue: string; about: string; bring: string;
+  pricing: Pricing; price: string; priceCur: string;
+  ticketUrl: string; contact: string;
   comMode: ComMode; existingCom: string;
 }
 
@@ -47,13 +51,13 @@ function Label({ children, required, missing, hint }: {
   );
 }
 
-// Returning from the create-community round-trip (?newCommunity=<id>): pull the
-// stashed form draft + the new community id once, so every field can lazy-init from
-// it (avoids setState-in-effect; mirrors the compose-page window.location pattern).
+// DV8-16 — the draft restores whenever one exists, not only on the ?newCommunity=
+// round-trip. Abandoning the community form (back button, closed tab within the
+// session) used to strand everything typed here; now the form comes back either way
+// and a "Discard draft" affordance covers the deliberate-restart case.
 function readBoot(): { draft: Draft | null; newCommunityId: string | null } {
   if (typeof window === "undefined") return { draft: null, newCommunityId: null };
   const newCommunityId = new URLSearchParams(window.location.search).get("newCommunity");
-  if (!newCommunityId) return { draft: null, newCommunityId: null };
   let draft: Draft | null = null;
   try { draft = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "null"); } catch { /* ignore */ }
   return { draft, newCommunityId };
@@ -70,11 +74,16 @@ export default function CreateEventPage() {
   const [endDate, setEndDate] = useState(d?.endDate ?? "");
   const [time, setTime] = useState(d?.time ?? "");
   const [endTime, setEndTime] = useState(d?.endTime ?? "");
+  const [city, setCity] = useState(d?.city ?? "");
   const [venue, setVenue] = useState(d?.venue ?? "");
-  const [pincode, setPincode] = useState(d?.pincode ?? "");
   const [about, setAbout] = useState(d?.about ?? "");
   const [bring, setBring] = useState(d?.bring ?? "");
-  const [comMode, setComMode] = useState<ComMode>(boot.newCommunityId ? "create" : "none");
+  const [pricing, setPricing] = useState<Pricing>(d?.pricing ?? "free");
+  const [price, setPrice] = useState(d?.price ?? "");
+  const [priceCur, setPriceCur] = useState(d?.priceCur ?? "INR");
+  const [ticketUrl, setTicketUrl] = useState(d?.ticketUrl ?? "");
+  const [contact, setContact] = useState(d?.contact ?? "");
+  const [comMode, setComMode] = useState<ComMode>(boot.newCommunityId ? "create" : d?.comMode ?? "none");
   const [existingCom, setExistingCom] = useState(d?.existingCom ?? "");
   const [createdCom, setCreatedCom] = useState<ApiCommunity | null>(null);
   const [ownedComs, setOwnedComs] = useState<ModCommunity[]>([]);
@@ -82,13 +91,34 @@ export default function CreateEventPage() {
   const [tried, setTried] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Stranded-draft banner: only when the restore did NOT come from the expected
+  // community round-trip (that flow restores silently, as before).
+  const [draftRestored, setDraftRestored] = useState(!!d && !boot.newCommunityId);
 
-  // Canonical city is derived from the PIN — never typed (DV4-07b city dedup).
-  const resolved = resolvePincode(pincode);
+  const dirty = !!(cover || title || cats.length || date || endDate || time || endTime ||
+    city || venue || about || bring || ticketUrl || contact || price ||
+    pricing !== "free" || existingCom || comMode !== "none");
 
-  const snapshot = (): Draft => ({
-    cover, title, cats, date, endDate, time, endTime, venue, pincode, about, bring, comMode, existingCom,
-  });
+  // Persist continuously (v8 pattern) so ANY exit — the community detour or a plain
+  // navigation — can restore. An untouched form keeps no draft behind.
+  useEffect(() => {
+    if (submitting) return;
+    if (dirty) {
+      const snap: Draft = { cover, title, cats, date, endDate, time, endTime, city, venue, about, bring, pricing, price, priceCur, ticketUrl, contact, comMode, existingCom };
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify(snap));
+    } else {
+      sessionStorage.removeItem(DRAFT_KEY);
+    }
+  }, [dirty, submitting, cover, title, cats, date, endDate, time, endTime, city, venue, about, bring, pricing, price, priceCur, ticketUrl, contact, comMode, existingCom]);
+
+  const discardDraft = () => {
+    sessionStorage.removeItem(DRAFT_KEY);
+    setCover(null); setTitle(""); setCats([]); setDate(""); setEndDate(""); setTime(""); setEndTime("");
+    setCity(""); setVenue(""); setAbout(""); setBring("");
+    setPricing("free"); setPrice(""); setPriceCur("INR"); setTicketUrl(""); setContact("");
+    setComMode("none"); setExistingCom(""); setCreatedCom(null);
+    setTried(false); setDraftRestored(false);
+  };
 
   // Bind the freshly-made community (async fetch + URL cleanup are effect-safe — the
   // setState happens inside the promise callback, not synchronously in the effect).
@@ -117,16 +147,20 @@ export default function CreateEventPage() {
 
   const miss = {
     title: !title.trim(), cats: cats.length === 0, date: !date, time: !time.trim(),
-    venue: !venue.trim(), pincode: !resolved, about: !about.trim(),
+    city: !city.trim(), venue: !venue.trim(), about: !about.trim(),
     // v7 blocks a submit whose title collides with an event that already exists.
     dup: !!dupEvent,
     endDate: !!(endDate && date && endDate < date),
     community: comMode === "existing" ? !existingCom : comMode === "create" ? !createdCom : false,
+    price: pricing === "paid" && !(Number(price) > 0),
   };
   const invalid = Object.values(miss).some(Boolean);
 
   const launchCreateCommunity = () => {
-    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot()));
+    // The continuous-persistence effect already keeps the draft current; this is
+    // just a belt-and-braces flush before we leave the page.
+    const snap: Draft = { cover, title, cats, date, endDate, time, endTime, city, venue, about, bring, pricing, price, priceCur, ticketUrl, contact, comMode, existingCom };
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(snap));
     const qs = new URLSearchParams({ forEvent: "1" });
     if (title.trim()) qs.set("prefillName", title.trim());
     if (cats[0]) qs.set("prefillCat", cats[0]);
@@ -154,10 +188,9 @@ export default function CreateEventPage() {
         title: title.trim(),
         description: about.trim(),
         categories: cats,
-        // v7 EventCreate is physical-only — no online mode on the create surface.
+        // v8 EventCreate is physical-only — no online mode on the create surface.
         mode: "in_person",
-        city: resolved?.city ?? null,
-        pincode,
+        city: city.trim(),
         venue: venue.trim(),
         online_url: null,
         cover_image_url: cover,
@@ -165,6 +198,12 @@ export default function CreateEventPage() {
         community_id: communityId,
         starts_at: startsAt,
         ends_at: endsAt,
+        // DV8-16 — pricing + ticketing/contact. Price travels in minor units.
+        is_free: pricing === "free",
+        price: pricing === "paid" ? Math.round(Number(price) * 100) : 0,
+        currency: priceCur,
+        ticket_url: ticketUrl.trim() || null,
+        contact: contact.trim() || null,
       });
       sessionStorage.removeItem(DRAFT_KEY);
       // v7 returns to the list and points the host at "My Events"; replace (not push)
@@ -195,6 +234,17 @@ export default function CreateEventPage() {
       </div>
 
       <div style={{ padding: "4px 20px 16px" }}>
+        {draftRestored && (
+          <div style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 12, padding: "10px 13px", background: "var(--bone)", border: "1px solid var(--border)", borderRadius: 12 }}>
+            <Info size={15} style={{ flexShrink: 0, color: "var(--ink-faint)" }} />
+            <span style={{ flex: 1, fontSize: 12.5, color: "var(--ink-soft)" }}>Picked up where you left off.</span>
+            <button onClick={discardDraft} type="button" style={{ background: "none", border: "none", color: "var(--stamp-red)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: 4, whiteSpace: "nowrap" }}>
+              Discard draft
+            </button>
+          </div>
+        )}
+
+        {/* DV8-16 — cover shrunk to a 96px banner-style uploader */}
         <Label hint="optional">Cover photo</Label>
         <ImageUploader onUpload={(url) => setCover(url)} previewUrl={cover ?? undefined} label="Add a cover photo" />
 
@@ -244,45 +294,41 @@ export default function CreateEventPage() {
             <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={{ ...fieldStyle, fontFamily: "var(--font-mono)", fontSize: 13 }} />
           </div>
         </div>
+        {time.trim() && (
+          <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>
+            Shows as {formatTime12(time.trim())}{endTime.trim() ? ` – ${formatTime12(endTime.trim())}` : ""}
+          </div>
+        )}
+
+        <Label required missing={tried && miss.city}>City</Label>
+        <CityField value={city} onChange={(c) => setCity(c)} missing={tried && miss.city} />
 
         <Label required missing={tried && miss.venue}>Venue</Label>
-        <input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="e.g. Phoenix Marketcity, Kurla" style={{ ...fieldStyle, borderColor: tried && miss.venue ? "var(--stamp-red)" : "var(--border-strong)" }} />
-
-        <Label required missing={tried && miss.pincode} hint="6-digit PIN">Location pincode</Label>
-        <input value={pincode} onChange={(e) => setPincode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))} inputMode="numeric" placeholder="e.g. 560038"
-          style={{ ...fieldStyle, fontFamily: "var(--font-mono)", letterSpacing: "0.12em", borderColor: tried && miss.pincode ? "var(--stamp-red)" : "var(--border-strong)" }} />
-        {resolved ? (
-          <div style={{ marginTop: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 13px", background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", borderRadius: 12 }}>
-              <MapPin size={17} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)" }}>{resolved.city}{resolved.area ? <span style={{ fontWeight: 500, color: "var(--ink-faint)" }}> · {resolved.area}</span> : null}</div>
-                <div style={{ fontSize: 11, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em", marginTop: 1 }}>CITY SET FROM PIN {pincode}</div>
-              </div>
-            </div>
-            {/* exact-spot map preview (v4 parity; the draggable pin is an app-only affordance) */}
-            <div style={{ position: "relative", marginTop: 10, aspectRatio: "5 / 2", borderRadius: 12, overflow: "hidden", border: "1px solid var(--border-strong)",
-              background: "repeating-linear-gradient(45deg, var(--paper-soft), var(--paper-soft) 9px, var(--bone) 9px, var(--bone) 18px)" }}>
-              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 7 }}>
-                <span style={{ width: 18, height: 18, borderRadius: "50% 50% 50% 0", background: "var(--stamp-red)", transform: "rotate(-45deg)", boxShadow: "var(--shadow-2)" }} />
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.08em", color: "var(--ink-mute)", textTransform: "uppercase" }}>Map pin set in the app</span>
-              </div>
-            </div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0", lineHeight: 1.5 }}>Spelling never splits a city — the PIN sets it.</div>
-          </div>
-        ) : pincode.length === 6 ? (
-          <div style={{ display: "flex", gap: 9, alignItems: "flex-start", marginTop: 10, padding: "10px 13px", background: "var(--stamp-red-soft)", border: "1px solid var(--stamp-red)", borderRadius: 12, fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.45 }}>
-            <Info size={15} style={{ color: "var(--stamp-red)", flexShrink: 0, marginTop: 1 }} />
-            We couldn&rsquo;t match that PIN. Check the 6 digits and try again.
-          </div>
-    ) : null}
+        <textarea value={venue} onChange={(e) => setVenue(e.target.value)} rows={2} placeholder="Full address — e.g. Phoenix Marketcity, LBS Marg, Kurla West, 3rd floor atrium"
+          style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none", borderColor: tried && miss.venue ? "var(--stamp-red)" : "var(--border-strong)" }} />
 
         <Label required missing={tried && miss.about}>Description</Label>
-    <textarea value={about} onChange={(e) => setAbout(e.target.value)} rows={3} placeholder="What's happening, who it's for, what to expect…"
-      style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none", borderColor: tried && miss.about ? "var(--stamp-red)" : "var(--border-strong)" }} />
+        <textarea value={about} onChange={(e) => setAbout(e.target.value)} rows={3} placeholder="What's happening, who it's for, what to expect…"
+          style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none", borderColor: tried && miss.about ? "var(--stamp-red)" : "var(--border-strong)" }} />
 
         <Label hint="optional">What to bring</Label>
         <input value={bring} onChange={(e) => setBring(e.target.value)} placeholder="e.g. Up to 3 pieces to display or trade" style={fieldStyle} />
+
+        {/* DV8-16 — Free/Paid entry with multi-currency price */}
+        <Label required>Entry</Label>
+        <Segmented value={pricing} onChange={(v) => setPricing(v)} options={[{ id: "free", label: "Free" }, { id: "paid", label: "Paid" }]} />
+        {pricing === "paid" && (
+          <div style={{ marginTop: 11 }}>
+            <MoneyField value={price} onChange={setPrice} cur={priceCur} onCur={setPriceCur} bad={tried && miss.price} placeholder="e.g. 500" />
+            {tried && miss.price && <div style={{ fontSize: 11.5, color: "var(--stamp-red)", marginTop: 6 }}>Add a ticket price.</div>}
+          </div>
+        )}
+
+        <Label hint="optional">Ticket link</Label>
+        <input type="url" value={ticketUrl} onChange={(e) => setTicketUrl(e.target.value)} placeholder="e.g. https://in.bookmyshow.com/…" style={fieldStyle} />
+
+        <Label hint="optional">Contact details</Label>
+        <input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="Phone, email or WhatsApp for questions" style={fieldStyle} />
 
         <Label hint="optional">Event community</Label>
         <div style={{ fontSize: 12.5, color: "var(--ink-faint)", margin: "-2px 2px 10px", lineHeight: 1.5 }}>A space for attendees to talk, network and post. Totally optional.</div>

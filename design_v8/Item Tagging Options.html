@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="design_doc_mode" content="canvas">
+<title>Tag an item from the DB — options</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+body{margin:0;font-family:var(--font-body);color:var(--ink)}
+a{color:var(--stamp-red)}a:hover{color:var(--ink)}
+.frame{position:absolute;width:390px}
+.frame h3{margin:0 0 4px;font-family:var(--font-display);font-weight:700;font-size:15px;letter-spacing:-0.01em}
+.frame p.note{margin:0 0 10px;font-size:12px;line-height:1.45;color:var(--ink-faint)}
+.tagline{display:inline-block;margin:0 0 8px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-ghost)}
+.sheet{background:var(--paper);border-radius:20px;box-shadow:0 1px 4px rgba(0,0,0,0.1);overflow:hidden}
+.head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+.head b{font-family:var(--font-display);font-size:16px}
+.post-btn{background:var(--stamp-red);color:var(--paper);border:none;border-radius:999px;padding:7px 16px;font-weight:700;font-size:13px}
+.pad{padding:14px 16px}
+.seg{display:flex;gap:4px;padding:3px;border-radius:11px;background:var(--bone);margin-bottom:12px}
+.seg span{flex:1;text-align:center;font-size:12.5px;font-weight:600;color:var(--ink-mute);padding:6px 0;border-radius:8px}
+.seg span.on{background:var(--paper);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+.lbl{font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-faint)}
+.tool{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 9px;border-radius:8px;border:1px solid var(--border-strong);background:var(--paper-soft);font-size:12.5px}
+.tool.on{border-color:var(--ink);background:var(--bone);font-weight:600}
+.field{display:flex;align-items:center;gap:8px;height:44px;padding:0 13px;border-radius:11px;border:1px solid var(--border-strong);background:var(--paper-soft);font-size:14px;color:var(--ink-faint)}
+.thumb{border-radius:8px;background:linear-gradient(135deg,#3D3A34,#6B6459);flex-shrink:0}
+.thumb.gold{background:linear-gradient(135deg,#C48420,#E8A33D)}
+.thumb.red{background:linear-gradient(135deg,#9E2222,#C72A2A)}
+.thumb.teal{background:linear-gradient(135deg,#1F5D57,#2E7D74)}
+.res{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--border)}
+.res .t{font-size:13px;font-weight:600;line-height:1.2}
+.res .s{font-size:11.5px;color:var(--ink-faint)}
+.mono{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-faint)}
+.stack{display:flex;flex-direction:column;gap:8px}
+.wanted{margin-top:12px;border-radius:16px;background:rgba(232,163,61,0.07);border:1.5px solid rgba(232,163,61,0.32);padding:14px 16px;position:relative;overflow:hidden}
+.wanted .stampword{position:absolute;right:-4px;top:50%;transform:translateY(-50%) rotate(15deg);font-family:var(--font-display);font-weight:900;font-size:30px;letter-spacing:0.2em;color:rgba(176,119,36,0.1)}
+</style>
+</head>
+<body>
+
+<!-- A -->
+<div class="frame" style="left:0;top:0">
+<span class="tagline">Option A · shipped today</span>
+<h3>Toolbar chip → inline search</h3>
+<p class="note">"Tag item" sits beside Emoji/Photo. Cheapest to build, discoverable only if you scan the toolbar. Same control on all four post types.</p>
+<div class="sheet">
+  <div class="head"><b>Create a post</b><button class="post-btn">Post</button></div>
+  <div class="pad">
+    <div class="seg"><span>Post</span><span class="on">ISO</span><span>Poll</span><span>Review</span></div>
+    <div style="font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--ink-faint)">Add a title</div>
+    <div style="font-size:14px;color:var(--ink-faint);margin-top:6px">Variant, colourway, condition notes…</div>
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <span class="tool">😊 Emoji</span><span class="tool">📷 Photo *</span><span class="tool on">🏷 Tag item</span>
+    </div>
+    <div style="margin-top:8px;border:1px solid var(--border-strong);border-radius:12px;background:var(--paper-soft);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-bottom:1px solid var(--border)">
+        <span style="color:var(--ink-faint)">⌕</span><span style="font-size:13.5px;color:var(--ink)">iron man</span>
+      </div>
+      <div class="res" style="border-top:none"><div class="thumb red" style="width:34px;height:34px"></div><div><div class="t">Hot Toys Iron Man Mark III</div><div class="s">Hot Toys</div></div></div>
+      <div class="res"><div class="thumb gold" style="width:34px;height:34px"></div><div><div class="t">MMS256 Iron Man Mark VII</div><div class="s">Hot Toys</div></div></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- B -->
+<div class="frame" style="left:430px;top:0">
+<span class="tagline">Option B · recommended for ISO</span>
+<h3>The ISO field <em>is</em> the database</h3>
+<p class="note">No extra control: "What are you looking for?" autocompletes against the DB as you type, with a free-text escape hatch and an "add to DB" row when nothing matches. The item is the point of an ISO — make the primary field do the work.</p>
+<div class="sheet">
+  <div class="head"><b>Post an ISO</b><button class="post-btn">Post</button></div>
+  <div class="pad">
+    <div class="seg"><span>Post</span><span class="on">ISO</span><span>Poll</span><span>Review</span></div>
+    <div class="lbl">What are you looking for? *</div>
+    <div class="field" style="margin-top:8px;color:var(--ink);border-color:var(--ink)">iron man mark<span style="flex:1"></span><span class="mono">DB</span></div>
+    <div style="margin-top:6px;border:1px solid var(--border-strong);border-radius:12px;background:var(--paper);box-shadow:0 6px 20px rgba(0,0,0,0.07);overflow:hidden">
+      <div class="res" style="border-top:none"><div class="thumb red" style="width:38px;height:38px"></div><div style="flex:1"><div class="t">Hot Toys Iron Man Mark III</div><div class="s">Hot Toys · 42 owners · est ₹38,000</div></div><span class="mono">HT-IM3</span></div>
+      <div class="res"><div class="thumb gold" style="width:38px;height:38px"></div><div style="flex:1"><div class="t">MMS256 Iron Man Mark VII</div><div class="s">Hot Toys · 18 owners</div></div><span class="mono">HT-M7</span></div>
+      <div class="res" style="background:var(--bone)"><span style="font-size:12.5px;color:var(--ink-mute);flex:1">Not in the DB — post as free text</span><span style="font-size:12.5px;font-weight:700;color:var(--stamp-red)">Use “iron man mark”</span></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:12px">
+      <div style="flex:1"><div class="lbl">Max budget</div><div class="field" style="margin-top:8px">₹ Any</div></div>
+      <div style="flex:1"><div class="lbl">Condition</div><div class="field" style="margin-top:8px">Any</div></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- C -->
+<div class="frame" style="left:860px;top:0">
+<span class="tagline">Option C · recommended for Poll</span>
+<h3>Per-choice item tagging</h3>
+<p class="note">Each poll choice can link its own DB item, so "which should I buy" polls render as a real item comparison with thumbnails and prices — and votes roll up onto the item pages.</p>
+<div class="sheet">
+  <div class="head"><b>Create a poll</b><button class="post-btn">Post</button></div>
+  <div class="pad">
+    <div class="seg"><span>Post</span><span>ISO</span><span class="on">Poll</span><span>Review</span></div>
+    <div style="font-size:14.5px;margin-top:2px">Which grail do I pull the trigger on?</div>
+    <div class="lbl" style="display:block;margin-top:14px">Choices</div>
+    <div class="stack" style="margin-top:10px">
+      <div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border-strong);border-radius:11px;background:var(--paper-soft)">
+        <div class="thumb red" style="width:38px;height:38px"></div>
+        <div style="flex:1;min-width:0"><div class="t" style="font-size:13px;font-weight:600">Iron Man Mark III</div><div class="mono">HT-IM3 · est ₹38,000</div></div>
+        <span style="color:var(--ink-ghost);font-size:15px">×</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border-strong);border-radius:11px;background:var(--paper-soft)">
+        <div class="thumb teal" style="width:38px;height:38px"></div>
+        <div style="flex:1;min-width:0"><div class="t" style="font-size:13px;font-weight:600">MG Sazabi Ver.Ka</div><div class="mono">BAN-SZK · est ₹21,500</div></div>
+        <span style="color:var(--ink-ghost);font-size:15px">×</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;height:42px;padding:0 12px;border:1px dashed var(--border-strong);border-radius:11px">
+        <span style="font-size:13.5px;color:var(--ink-faint);flex:1">Choice 3</span>
+        <span class="tool" style="height:24px;font-size:11.5px">🏷 Link item</span>
+      </div>
+    </div>
+    <div style="margin-top:9px;font-size:13.5px;font-weight:700;color:var(--stamp-red)">＋ Add choice</div>
+  </div>
+</div>
+</div>
+
+<!-- D -->
+<div class="frame" style="left:0;top:640px">
+<span class="tagline">Option D</span>
+<h3>Dedicated item slot at the top</h3>
+<p class="note">An empty slot card above the caption, like the photo tray. Unmissable and reads as first-class structure — but it takes vertical space on Post/Review where tagging is optional.</p>
+<div class="sheet">
+  <div class="head"><b>Create a post</b><button class="post-btn">Post</button></div>
+  <div class="pad">
+    <div class="seg"><span>Post</span><span class="on">ISO</span><span>Poll</span><span>Review</span></div>
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;border:1.5px dashed var(--border-strong);border-radius:14px;background:var(--paper-soft)">
+      <div style="width:46px;height:46px;border-radius:11px;border:1.5px dashed var(--border-strong);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--ink-faint)">🏷</div>
+      <div style="flex:1"><div style="font-size:13.5px;font-weight:700">Tag an item from the database</div><div style="font-size:12px;color:var(--ink-faint);margin-top:2px">Links your post to prices, owners and listings</div></div>
+      <span style="color:var(--ink-faint)">›</span>
+    </div>
+    <div class="lbl" style="display:block;margin-top:14px">Picked state</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:8px;padding:12px;border:1.5px solid var(--ink);border-radius:14px;background:var(--bone)">
+      <div class="thumb red" style="width:52px;height:52px;border-radius:11px"></div>
+      <div style="flex:1;min-width:0"><div class="mono">HT-IM3</div><div style="font-size:13.5px;font-weight:700;line-height:1.25">Hot Toys Iron Man Mark III</div><div style="font-size:11.5px;color:var(--ink-faint);margin-top:2px">42 own · 118 wishlist · est ₹38,000</div></div>
+      <span style="color:var(--ink-faint);font-size:15px">×</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- E -->
+<div class="frame" style="left:430px;top:640px">
+<span class="tagline">Option E</span>
+<h3>Full-sheet picker with sources</h3>
+<p class="note">Tapping "Tag item" pushes a sheet with Your collection / Wishlist / Recent / All DB. Best when people mostly tag things they already own or want — two taps instead of typing.</p>
+<div class="sheet">
+  <div class="head"><b>Tag an item</b><span style="font-size:13px;font-weight:600;color:var(--ink-faint)">Cancel</span></div>
+  <div style="padding:12px 16px 0"><div class="field">⌕ Search 12,480 items…</div></div>
+  <div style="display:flex;gap:6px;padding:12px 16px;overflow:hidden">
+    <span class="tool on">Your collection</span><span class="tool">Wishlist</span><span class="tool">Recent</span><span class="tool">All</span>
+  </div>
+  <div style="border-top:1px solid var(--border)">
+    <div class="res" style="border-top:none"><div class="thumb red" style="width:40px;height:40px"></div><div style="flex:1"><div class="t">Hot Toys Iron Man Mark III</div><div class="s">Owned · bought Mar 2024</div></div><span class="mono">HT-IM3</span></div>
+    <div class="res"><div class="thumb teal" style="width:40px;height:40px"></div><div style="flex:1"><div class="t">MG Sazabi Ver.Ka</div><div class="s">Owned · 2 in collection</div></div><span class="mono">BAN-SZK</span></div>
+    <div class="res"><div class="thumb gold" style="width:40px;height:40px"></div><div style="flex:1"><div class="t">Mini GT Nissan GT-R R35</div><div class="s">Owned</div></div><span class="mono">MGT-R35</span></div>
+    <div class="res" style="background:var(--bone)"><span style="flex:1;font-size:12.5px;color:var(--ink-mute)">Can’t find it?</span><span style="font-size:12.5px;font-weight:700;color:var(--stamp-red)">Add to database +50 XP</span></div>
+  </div>
+</div>
+</div>
+
+<!-- F -->
+<div class="frame" style="left:860px;top:640px">
+<span class="tagline">How it reads in the feed</span>
+<h3>Output on the cards</h3>
+<p class="note">Whichever input wins, the tagged item surfaces the same way: a tappable strip into the item page. ISO gets it inside the WANTED block; Poll gets thumbnails on the bars.</p>
+<div class="sheet">
+  <div style="padding:16px 18px">
+    <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;gap:8px;align-items:center"><div style="width:34px;height:34px;border-radius:50%;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">R</div><div><div style="font-size:13.5px;font-weight:700">Rohit</div><div class="mono">30m</div></div></div><span style="padding:4px 9px;border-radius:6px;background:rgba(176,119,36,0.13);color:#B07724;font-size:11px;font-weight:700">ISO</span></div>
+    <div class="wanted">
+      <div class="stampword">WANTED</div>
+      <div style="font-family:var(--font-display);font-weight:700;font-size:16px;line-height:1.25;padding-right:48px">Hot Toys Iron Man Mark III</div>
+      <div style="display:flex;align-items:center;gap:8px;margin:10px 0;padding:6px 8px;border:1px solid rgba(176,119,36,0.32);border-radius:10px;background:var(--paper)">
+        <div class="thumb red" style="width:30px;height:30px;border-radius:7px"></div>
+        <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">Hot Toys Iron Man Mark III</div><div class="mono">HT-IM3</div></div>
+        <span style="color:#9A6010">›</span>
+      </div>
+      <div style="display:flex;gap:6px"><span style="padding:4px 9px;border-radius:6px;background:rgba(176,119,36,0.15);font-family:var(--font-mono);font-size:12px;font-weight:700;color:#9A6010">Max ₹38,000</span><span style="padding:4px 9px;border-radius:6px;background:var(--bone);font-size:12px;font-weight:600;color:var(--ink-mute)">MIB</span></div>
+    </div>
+  </div>
+  <div style="border-top:1px solid var(--border);padding:16px 18px">
+    <div style="font-size:14px;margin-bottom:10px">Which grail do I pull the trigger on?</div>
+    <div class="stack">
+      <div style="display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:10px;background:linear-gradient(90deg,rgba(199,42,42,0.12) 62%,var(--paper-soft) 62%);border:1px solid var(--border)">
+        <div class="thumb red" style="width:28px;height:28px;border-radius:6px"></div><span style="flex:1;font-size:13px;font-weight:600">Iron Man Mark III</span><span class="mono" style="font-weight:700;color:var(--ink)">62%</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:10px;background:linear-gradient(90deg,rgba(31,93,87,0.12) 38%,var(--paper-soft) 38%);border:1px solid var(--border)">
+        <div class="thumb teal" style="width:28px;height:28px;border-radius:6px"></div><span style="flex:1;font-size:13px;font-weight:600">MG Sazabi Ver.Ka</span><span class="mono" style="font-weight:700;color:var(--ink)">38%</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+</body>
+</html>

@@ -6,7 +6,17 @@ import { useRouter } from "next/navigation";
 import { X, Shield, Check, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { SectionLabel } from "@/components/ui";
+import { ImageUploader } from "@/components/ImageUploader";
 import { ADD_CATEGORIES } from "@/lib/catalog";
+
+// DV8-14 — rules cap enforced client-side (server 422s beyond it): max 10 rules,
+// 140 chars per rule. Same constants live in the manage-page rules editor (page
+// files can't export extras, so the pair is duplicated there by design).
+const RULES_MAX_COUNT = 10;
+const RULE_MAX_CHARS = 140;
+function ruleLinesOf(text: string): string[] {
+  return text.split("\n").map((r) => r.trim()).filter(Boolean);
+}
 
 // v4 CreateCommunity maps the global 5-category CATEGORIES (incl. TCG) as plain
 // chipLabel pills, no icons. ADD_CATEGORIES is that exact list in v4 order.
@@ -87,6 +97,9 @@ export default function CreateCommunityPage() {
   const [privacy, setPrivacy] = useState<"public" | "invite">("public");
   const [posting, setPosting] = useState<"open" | "approval">("open");
   const [rules, setRules] = useState("");
+  // DV8-14 — optional banner + square photo, uploaded to R2 via ImageUploader.
+  const [banner, setBanner] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,8 +126,13 @@ export default function CreateCommunityPage() {
   }, [name]);
 
   const nameTaken = nameCheck?.available === false;
+  // Rules cap (DV8-14): max 10 rules × 140 chars each — live counter, submit blocked beyond.
+  const ruleLines = ruleLinesOf(rules);
+  const rulesTooMany = ruleLines.length > RULES_MAX_COUNT;
+  const firstLongRule = ruleLines.findIndex((r) => r.length > RULE_MAX_CHARS);
+  const rulesInvalid = rulesTooMany || firstLongRule !== -1;
   const miss = { name: !name.trim(), desc: !desc.trim() };
-  const invalid = miss.name || miss.desc || nameTaken;
+  const invalid = miss.name || miss.desc || nameTaken || rulesInvalid;
 
   const submit = async () => {
     if (invalid) { setTried(true); return; }
@@ -122,7 +140,7 @@ export default function CreateCommunityPage() {
     setSubmitting(true);
     setError(null);
     const tone = TONES[Math.floor(Math.random() * TONES.length)];
-    const ruleList = rules.split("\n").map((r) => r.trim()).filter(Boolean);
+    const ruleList = ruleLinesOf(rules);
     const id = slugify(name);
     try {
       await api.post("/communities", {
@@ -137,6 +155,8 @@ export default function CreateCommunityPage() {
         post_mode: posting,
         is_invite_only: privacy === "invite",
         rules: ruleList,
+        ...(banner ? { banner_url: banner } : {}),
+        ...(photo ? { avatar_url: photo } : {}),
       });
       router.push(forEvent ? `/events/new?newCommunity=${id}` : "/community");
     } catch (e) {
@@ -154,7 +174,7 @@ export default function CreateCommunityPage() {
           </Link>
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Create a community</div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Reviewed before it goes public</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Reviewed before it goes public · members are approved</div>
           </div>
           <button onClick={submit} disabled={submitting} style={{ height: 36, padding: "0 16px", borderRadius: 9, border: "none", background: invalid ? "var(--bone)" : "var(--stamp-red)", color: invalid ? "var(--ink-ghost)" : "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, cursor: submitting ? "wait" : "pointer" }}>
             {submitting ? "Submitting…" : "Submit"}
@@ -163,6 +183,18 @@ export default function CreateCommunityPage() {
       </div>
 
       <div style={{ padding: "4px 20px 16px" }}>
+        {/* DV8-14 — banner + square photo (both optional), same R2 upload path as events. */}
+        <Label hint="optional">Community photos</Label>
+        <ImageUploader onUpload={(url) => setBanner(url)} previewUrl={banner ?? undefined} label="Add a banner image" />
+        <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginTop: 10 }}>
+          <div style={{ width: 148, flexShrink: 0 }}>
+            <ImageUploader onUpload={(url) => setPhoto(url)} previewUrl={photo ?? undefined} label="Add a photo" />
+          </div>
+          <div style={{ fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.5, paddingTop: 6 }}>
+            Square photo — shown on the community tile and next to its name. The banner sits behind the community header.
+          </div>
+        </div>
+
         <Label required missing={tried && miss.name}>Community name</Label>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mumbai Figure Heads" style={{ ...fieldStyle, borderColor: (tried && miss.name) || nameTaken ? "var(--stamp-red)" : "var(--border-strong)" }} />
         {nameTaken ? (
@@ -206,8 +238,9 @@ export default function CreateCommunityPage() {
 
         <Label required>Who can join</Label>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <RadioRow title="Public" sub="Anyone can find and join" on={privacy === "public"} onClick={() => setPrivacy("public")} />
-          <RadioRow title="Invite-only" sub="People join by approval or invite" on={privacy === "invite"} onClick={() => setPrivacy("invite")} />
+          {/* Joining is gated for everyone now — no copy may imply instant joining. */}
+          <RadioRow title="Public" sub="Anyone can find it — you approve every join request" on={privacy === "public"} onClick={() => setPrivacy("public")} />
+          <RadioRow title="Invite-only" sub="Hidden from discovery — people join by request or invite" on={privacy === "invite"} onClick={() => setPrivacy("invite")} />
         </div>
 
         <Label required>Who can post</Label>
@@ -219,8 +252,17 @@ export default function CreateCommunityPage() {
         <Label hint="optional">Community rules &amp; terms</Label>
         <textarea value={rules} onChange={(e) => setRules(e.target.value)} rows={7}
           placeholder={"1. Be respectful — no harassment or hate speech.\n2. No spam or self-promotion without context.\n3. Trades are off-platform — always vouch after a deal.\n4. Verified photos only for listings…"}
-          style={{ ...fieldStyle, height: "auto", padding: "12px 13px", lineHeight: 1.6, resize: "vertical", minHeight: 160, fontSize: 13.5 }} />
-        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "6px 2px 0", lineHeight: 1.5 }}>One rule per line. You can edit rules and manage members after the community goes live.</div>
+          style={{ ...fieldStyle, height: "auto", padding: "12px 13px", lineHeight: 1.6, resize: "vertical", minHeight: 160, fontSize: 13.5, borderColor: rulesInvalid ? "var(--stamp-red)" : "var(--border-strong)" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11.5, color: rulesInvalid ? "var(--stamp-red)" : "var(--ink-faint)", margin: "6px 2px 0", lineHeight: 1.5 }}>
+          <span>
+            {firstLongRule !== -1
+              ? `Rule ${firstLongRule + 1} is over ${RULE_MAX_CHARS} characters (${ruleLines[firstLongRule].length}/${RULE_MAX_CHARS}).`
+              : rulesTooMany
+                ? `Too many rules — keep it to ${RULES_MAX_COUNT}.`
+                : "One rule per line. You can edit rules and manage members after the community goes live."}
+          </span>
+          <span style={{ flexShrink: 0, fontFamily: "var(--font-mono)" }}>{ruleLines.length}/{RULES_MAX_COUNT} rules</span>
+        </div>
 
         {error && <div style={{ marginTop: 16, fontSize: 13, color: "var(--stamp-red)" }}>{error}</div>}
 
@@ -233,8 +275,8 @@ export default function CreateCommunityPage() {
         }}>
           <Shield size={18} />{submitting ? "Submitting…" : "Submit for review"}
         </button>
-        <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8 }}>
-          Scorred reviews new communities before they&rsquo;re public.
+        <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.5 }}>
+          Scorred reviews new communities before they&rsquo;re public — and every member who joins is approved by you.
         </div>
       </div>
     </div>

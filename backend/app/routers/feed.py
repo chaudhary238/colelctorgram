@@ -180,6 +180,16 @@ async def get_feed(
     # QA §5 — the three newest likers per post, for the social-proof strip.
     likers_by_post = await likers_preview(db, post_ids)
 
+    # DV8 — batch-resolve tagged catalogue entries for the "Tagged item" chip.
+    tagged_skus = {p.ref_sku for p in page_posts if p.ref_sku}
+    cat_titles: dict = {}
+    if tagged_skus:
+        from app.models.catalogue import Catalogue
+        cat_rows = await db.execute(
+            select(Catalogue.sku, Catalogue.title, Catalogue.brand).where(Catalogue.sku.in_(tagged_skus))
+        )
+        cat_titles = {sku: {"title": title, "brand": brand} for sku, title, brand in cat_rows.all()}
+
     return {
         "page": page,
         "limit": limit,
@@ -193,6 +203,7 @@ async def get_feed(
                 communities_by_post.get(p.id, []),
                 poll_votes_by_post.get(p.id),
                 likers_by_post.get(p.id, []),
+                cat_titles.get(p.ref_sku or ""),
             )
             for p in page_posts
         ],
@@ -207,8 +218,12 @@ def _feed_badge(author: Optional[User]) -> Optional[dict]:
     return feed_badge(author)
 
 
-def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, is_following: bool = False, community_ids: Optional[list] = None, my_poll_vote: Optional[int] = None, likers: Optional[list] = None) -> dict:
+def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, is_following: bool = False, community_ids: Optional[list] = None, my_poll_vote: Optional[int] = None, likers: Optional[list] = None, ref_entry: Optional[dict] = None) -> dict:
     return {
+        # DV8 composer item-tagging — the tagged catalogue entry, when resolvable.
+        "ref_sku": p.ref_sku,
+        "ref_sku_title": (ref_entry or {}).get("title"),
+        "ref_sku_brand": (ref_entry or {}).get("brand"),
         "id": str(p.id),
         "user_id": str(p.user_id),
         "handle": author.handle if author else None,

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import UUID, Boolean, DateTime, Integer, String, Text, Index
+from sqlalchemy import UUID, Boolean, DateTime, ForeignKey, Integer, String, Text, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -47,4 +47,40 @@ class Catalogue(Base):
     __table_args__ = (
         Index("idx_catalogue_category", "category"),
         Index("idx_catalogue_brand", "brand"),
+    )
+
+
+class CatalogueRating(Base):
+    """DV8 — v8 reintroduces ratings on CATALOGUE ENTRIES only (the 2026-07-18
+    app-wide star removal stands for user/seller ratings). One 1-5 rating per
+    user per sku, changeable in place; the item page shows the aggregate as a
+    score block plus the viewer's own stars."""
+    __tablename__ = "catalogue_ratings"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    sku: Mapped[str] = mapped_column(String(64), ForeignKey("catalogue.sku", ondelete="CASCADE"), primary_key=True)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-5, CHECK-constrained in the migration
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+    __table_args__ = (
+        Index("idx_catalogue_ratings_sku", "sku"),
+    )
+
+
+class CatalogueComment(Base):
+    """DV8-18 — comments on a catalogue entry (the unified item page's thread,
+    'same pattern as a post'). Post comments are post_id-NOT-NULL, so entries
+    carry their own table; parent_id gives one level of threading like posts."""
+    __tablename__ = "catalogue_comments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    sku: Mapped[str] = mapped_column(String(64), ForeignKey("catalogue.sku", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("catalogue_comments.id", ondelete="CASCADE"), nullable=True)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    __table_args__ = (
+        Index("idx_catalogue_comments_sku", "sku", "created_at"),
     )

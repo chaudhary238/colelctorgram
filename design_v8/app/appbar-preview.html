@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AppBar Layout Preview</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html, body { margin: 0; padding: 0; background: var(--bone); font-family: var(--font-body); color: var(--ink); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .stage { display: flex; gap: 40px; padding: 48px; align-items: flex-start; }
+  .frame { display: flex; flex-direction: column; gap: 12px; }
+  .label-above { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); text-align: center; }
+  .label-tag { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+  .tag-current { background: var(--slate-200); color: var(--slate-600); }
+  .tag-proposed { background: var(--stamp-red-soft); color: var(--stamp-red); }
+
+  /* Phone frame */
+  .phone { width: 320px; border-radius: 32px; background: var(--paper); overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.06); }
+
+  /* Fake status bar */
+  .status-bar { background: var(--paper); padding: 14px 22px 0; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--ink); }
+  .status-icons { display: flex; align-items: center; gap: 5px; }
+
+  /* AppBar */
+  .appbar { background: var(--paper); border-bottom: 1px solid var(--slate-200); padding: 10px 16px 13px; display: flex; align-items: center; gap: 8px; }
+  .icon-btn { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
+  .icon-btn-dark { background: var(--slate-900); color: var(--paper); border: none; }
+  .icon-btn-outline { background: transparent; color: var(--ink); border: 1px solid var(--border-strong); }
+  .wordmark { flex: 1; display: flex; align-items: center; gap: 8px; justify-content: center; }
+  .seal { width: 24px; height: 24px; border-radius: 6px; background: var(--stamp-red); color: var(--paper); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 800; font-size: 13px; transform: rotate(-4deg); box-shadow: 2px 2px 0 var(--ink); flex-shrink: 0; }
+  .wordmark-text { font-family: var(--font-display); font-weight: 800; font-size: 20px; letter-spacing: -0.03em; }
+  .right-group { display: flex; gap: 6px; }
+  .badge-wrap { position: relative; }
+  .badge { position: absolute; top: -3px; right: -3px; width: 15px; height: 15px; border-radius: 999px; background: var(--stamp-red); color: var(--paper); font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 1.5px solid var(--paper); }
+
+  /* Feed stub */
+  .feed-stub { padding: 14px 14px 0; display: flex; flex-direction: column; gap: 10px; }
+  .tab-bar { background: var(--slate-100); border-radius: 13px; padding: 4px; display: flex; gap: 3px; }
+  .tab-btn { flex: 1; padding: 7px 4px; border-radius: 10px; border: none; font-family: var(--font-body); font-size: 12.5px; cursor: pointer; text-align: center; }
+  .tab-active { background: var(--paper); color: var(--ink); font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .tab-inactive { background: transparent; color: var(--slate-500); font-weight: 500; }
+  .hashtags { display: flex; gap: 7px; overflow: hidden; padding: 6px 0 2px; }
+  .htag { padding: 6px 13px; border-radius: 999px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+  .htag-active { background: var(--stamp-red); color: var(--paper); font-weight: 700; }
+  .htag-inactive { background: var(--rose-tint-bg); color: var(--rose-tint-text); border: 1px solid var(--rose-tint-border); }
+  .card-stub { background: var(--paper); border-radius: 16px; padding: 14px; box-shadow: var(--card-shadow); }
+  .card-row { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+  .avatar-stub { width: 34px; height: 34px; border-radius: 50%; background: var(--stamp-red); flex-shrink: 0; }
+  .line { height: 10px; border-radius: 4px; background: var(--slate-200); }
+  .line2 { height: 8px; border-radius: 4px; background: var(--slate-100); margin-top: 5px; }
+  .img-stub { width: 100%; height: 100px; border-radius: 10px; background: linear-gradient(135deg, #c0392b, #7b241c); opacity: 0.7; margin-bottom: 10px; }
+  .action-row { display: flex; gap: 16px; }
+  .action-stub { width: 50px; height: 8px; border-radius: 4px; background: var(--slate-100); }
+
+  /* annotation */
+  .annotation { margin-top: 14px; background: var(--paper); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow-2); }
+  .ann-row { display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; font-size: 12.5px; line-height: 1.4; }
+  .ann-icon { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; }
+  .ann-bad { background: #FFE4E8; color: var(--stamp-red); }
+  .ann-good { background: #D2E0D3; color: var(--forest); }
+  .divider { height: 1px; background: var(--slate-200); margin: 6px 0; }
+
+  svg { display: block; }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- CURRENT -->
+  <div class="frame">
+    <div style="text-align:center"><span class="label-tag tag-current">Current</span></div>
+    <div class="phone">
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="status-icons">
+          <svg width="16" height="11" viewBox="0 0 16 11"><rect x="0" y="4" width="3" height="7" rx="1" fill="currentColor"/><rect x="4" y="2.5" width="3" height="8.5" rx="1" fill="currentColor"/><rect x="8" y="1" width="3" height="10" rx="1" fill="currentColor"/><rect x="12" y="0" width="3" height="11" rx="1" fill="currentColor" opacity=".3"/></svg>
+          <svg width="14" height="11" viewBox="0 0 14 11"><path d="M7 2.5a6 6 0 0 1 6 5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M7 4.5a4 4 0 0 1 4 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M7 6.5a2 2 0 0 1 2 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="9.5" r="1" fill="currentColor"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0" y="1" width="22" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="1.5" y="2.5" width="17" height="7" rx="2" fill="currentColor"/><path d="M23 4.5v3a1.5 1.5 0 0 0 0-3z" fill="currentColor" opacity=".4"/></svg>
+        </div>
+      </div>
+
+      <!-- CURRENT APPBAR: + search | title | msg bell -->
+      <div class="appbar">
+        <!-- LEFT: create + search -->
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="icon-btn icon-btn-dark">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <button class="icon-btn icon-btn-outline">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          </button>
+        </div>
+        <!-- CENTER -->
+        <div class="wordmark">
+          <div class="seal">C</div>
+          <span class="wordmark-text">CollectorHub</span>
+        </div>
+        <!-- RIGHT: msg + bell -->
+        <div class="right-group" style="flex-shrink:0">
+          <div class="badge-wrap">
+            <button class="icon-btn icon-btn-outline">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </button>
+            <div class="badge">2</div>
+          </div>
+          <div class="badge-wrap">
+            <button class="icon-btn icon-btn-outline">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            </button>
+            <div class="badge">5</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- feed stub -->
+      <div class="feed-stub">
+        <div class="tab-bar">
+          <button class="tab-btn tab-active">For You</button>
+          <button class="tab-btn tab-inactive">Explore</button>
+          <button class="tab-btn tab-inactive">Following</button>
+        </div>
+        <div class="hashtags">
+          <div class="htag htag-active">All</div>
+          <div class="htag htag-inactive">#NewDrops</div>
+          <div class="htag htag-inactive">#Grails</div>
+          <div class="htag htag-inactive">#HotToys</div>
+        </div>
+        <div class="card-stub">
+          <div class="card-row">
+            <div class="avatar-stub"></div>
+            <div style="flex:1"><div class="line" style="width:60%"></div><div class="line2" style="width:40%"></div></div>
+          </div>
+          <div class="img-stub"></div>
+          <div class="action-row"><div class="action-stub"></div><div class="action-stub"></div><div class="action-stub"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Annotation -->
+    <div class="annotation" style="width:320px;box-sizing:border-box">
+      <div class="ann-row">
+        <div class="ann-icon ann-bad">✕</div>
+        <div><strong>Search left of title</strong> — 2 actions compete on the left, center feels imbalanced</div>
+      </div>
+      <div class="divider"></div>
+      <div class="ann-row">
+        <div class="ann-icon ann-bad">✕</div>
+        <div><strong>Title gets squeezed</strong> — "CollectorHub" + seal have less room with search also left</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROPOSED -->
+  <div class="frame">
+    <div style="text-align:center"><span class="label-tag tag-proposed">Proposed</span></div>
+    <div class="phone">
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="status-icons">
+          <svg width="16" height="11" viewBox="0 0 16 11"><rect x="0" y="4" width="3" height="7" rx="1" fill="currentColor"/><rect x="4" y="2.5" width="3" height="8.5" rx="1" fill="currentColor"/><rect x="8" y="1" width="3" height="10" rx="1" fill="currentColor"/><rect x="12" y="0" width="3" height="11" rx="1" fill="currentColor" opacity=".3"/></svg>
+          <svg width="14" height="11" viewBox="0 0 14 11"><path d="M7 2.5a6 6 0 0 1 6 5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M7 4.5a4 4 0 0 1 4 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M7 6.5a2 2 0 0 1 2 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="9.5" r="1" fill="currentColor"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0" y="1" width="22" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="1.5" y="2.5" width="17" height="7" rx="2" fill="currentColor"/><path d="M23 4.5v3a1.5 1.5 0 0 0 0-3z" fill="currentColor" opacity=".4"/></svg>
+        </div>
+      </div>
+
+      <!-- PROPOSED APPBAR: create | title | search msg bell -->
+      <div class="appbar">
+        <!-- LEFT: create only -->
+        <button class="icon-btn icon-btn-dark" style="flex-shrink:0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <!-- CENTER -->
+        <div class="wordmark">
+          <div class="seal">C</div>
+          <span class="wordmark-text">CollectorHub</span>
+        </div>
+        <!-- RIGHT: search + msg + bell -->
+        <div class="right-group" style="flex-shrink:0">
+          <button class="icon-btn icon-btn-outline">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          </button>
+          <div class="badge-wrap">
+            <button class="icon-btn icon-btn-outline">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </button>
+            <div class="badge">2</div>
+          </div>
+          <div class="badge-wrap">
+            <button class="icon-btn icon-btn-outline">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            </button>
+            <div class="badge">5</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- feed stub -->
+      <div class="feed-stub">
+        <div class="tab-bar">
+          <button class="tab-btn tab-active">For You</button>
+          <button class="tab-btn tab-inactive">Explore</button>
+          <button class="tab-btn tab-inactive">Following</button>
+        </div>
+        <div class="hashtags">
+          <div class="htag htag-active">All</div>
+          <div class="htag htag-inactive">#NewDrops</div>
+          <div class="htag htag-inactive">#Grails</div>
+          <div class="htag htag-inactive">#HotToys</div>
+        </div>
+        <div class="card-stub">
+          <div class="card-row">
+            <div class="avatar-stub"></div>
+            <div style="flex:1"><div class="line" style="width:60%"></div><div class="line2" style="width:40%"></div></div>
+          </div>
+          <div class="img-stub"></div>
+          <div class="action-row"><div class="action-stub"></div><div class="action-stub"></div><div class="action-stub"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Annotation -->
+    <div class="annotation" style="width:320px;box-sizing:border-box">
+      <div class="ann-row">
+        <div class="ann-icon ann-good">✓</div>
+        <div><strong>1 action left, 3 right</strong> — clear visual balance, matches Instagram / Xiaohongshu convention</div>
+      </div>
+      <div class="divider"></div>
+      <div class="ann-row">
+        <div class="ann-icon ann-good">✓</div>
+        <div><strong>Title breathes</strong> — wordmark has full center width, no competition from left icons</div>
+      </div>
+      <div class="divider"></div>
+      <div class="ann-row">
+        <div class="ann-icon ann-good">✓</div>
+        <div><strong>Search groups with alerts</strong> — search + messages + bell are all "discovery/comms" — natural right cluster</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

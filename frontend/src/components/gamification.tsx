@@ -237,15 +237,16 @@ export function TopSeasonBadge({ handle, size = 26 }: { handle: string; size?: n
   );
 }
 
-/* ── FeedBadge — the ONE badge next to an author name (v3 §2.4/§3/§4) ─────── */
+/* ── FeedBadge — the ONE badge next to an author name (v3 §2.4/§3/§4) ───────
+   v8 25-Aug polish: author chips are NEUTRAL ink chips — one style (bone bg,
+   --ink-mute text, 1px border) regardless of tier, so feed cards stop reading
+   as "rainbow badges". The rewards surfaces (BadgeSheet, /rewards, leaderboard)
+   keep their full tier colors. */
 export function FeedBadge({ badge, size = "sm" }: { badge: FeedBadgeT | null | undefined; size?: "sm" | "md" }) {
   const [open, setOpen] = useState(false);
   if (!badge) return null;
   const sm = size === "sm";
   const isFirst = badge.kind === "first_start";
-  const color = isFirst
-    ? (FIRST_START_VIS[badge.code]?.color ?? "var(--ink)")
-    : (TIER_VIS[badge.code]?.color ?? "var(--ink-mute)");
   const Icon = isFirst ? null : (TIER_VIS[badge.code]?.Icon ?? Box);
   return (
     <>
@@ -255,13 +256,13 @@ export function FeedBadge({ badge, size = "sm" }: { badge: FeedBadgeT | null | u
         style={{
           display: "inline-flex", alignItems: "center", gap: sm ? 3 : 4, flexShrink: 0, cursor: "pointer",
           padding: sm ? "1.5px 7px 1.5px 5px" : "3px 9px 3px 6px", borderRadius: 999,
-          background: "var(--bone)", border: `1px solid ${color}33`, lineHeight: 1.4,
+          background: "var(--bone)", border: "1px solid var(--border-strong)", lineHeight: 1.4,
         }}
       >
         <span style={{ display: "inline-flex", fontSize: sm ? 11 : 13 }}>
-          {isFirst ? (badge.emoji ?? "⭐") : Icon && <Icon size={sm ? 11 : 13} strokeWidth={2.3} color={color} />}
+          {isFirst ? (badge.emoji ?? "⭐") : Icon && <Icon size={sm ? 11 : 13} strokeWidth={2.3} color="var(--ink-mute)" />}
         </span>
-        <span style={{ fontSize: sm ? 11 : 12.5, fontWeight: 700, color, letterSpacing: "0.01em" }}>{badge.name}</span>
+        <span style={{ fontSize: sm ? 11 : 12.5, fontWeight: 700, color: "var(--ink-mute)", letterSpacing: "0.01em" }}>{badge.name}</span>
       </button>
       {open && <BadgeSheet badge={badge} onClose={() => setOpen(false)} />}
     </>

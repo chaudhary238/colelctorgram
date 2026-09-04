@@ -7,7 +7,7 @@ import { Search, Filter, X, Plus, PlusCircle, Star, Check, Clock } from "lucide-
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { ProductPhoto, SectionLabel, Button, SealMark } from "@/components/ui";
-import { fireToast } from "@/components/gamification";
+import { fireToast, fireXpToast } from "@/components/gamification";
 import { ContributeGuidelines } from "@/components/ContributeGuidelines";
 import { ADD_CATEGORIES, CAT_SCALES } from "@/lib/catalog";
 
@@ -285,6 +285,47 @@ export default function DatabasePage() {
     }
   }
 
+  // DV8-02 quick-add — the tile's "+" adds INSTANTLY (POST {sku, quick:true}), no form,
+  // no navigation, so several items can be added in a row. The toast teaches the reward
+  // at the moment it's earned; a second, staggered toast sells the finish-later flow.
+  // A wishlist row silently converts server-side; an owned copy 409s ("Already in your
+  // collection"), which is also pre-empted client-side for tiles we know are owned.
+  // The pre-order path is NOT here — the /db/[sku] entry page CTA still opens the form.
+  async function quickAdd(it: DbItem) {
+    if (OWNS(it.viewer_status)) {
+      fireToast("Already in your collection");
+      return;
+    }
+    const prev = it.viewer_status;
+    // Optimistic flip to owned (wishlist converts, so the star clears too).
+    setItems((p) => p?.map((x) => x.sku === it.sku
+      ? { ...x, viewer_status: "owned", owners_count: x.owners_count + 1 }
+      : x) ?? p);
+    try {
+      const res = await api.post<{ id: string; add_xp?: number; complete_xp?: number }>(
+        "/items", { sku: it.sku, quick: true, status: "owned" },
+      );
+      if (res.add_xp && res.add_xp > 0) fireXpToast(res.add_xp, "Added to collection");
+      else fireToast("Added to collection");
+      // Quick adds land without condition & price — teach the +20 XP finish, staggered
+      // so the two toasts don't overlap (they share the same fixed slot).
+      if (!(res.complete_xp && res.complete_xp > 0)) {
+        setTimeout(() => fireToast("+20 XP when you add condition & price"), 2500);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg === "Already in your collection") {
+        // 409 — an owned copy already exists, so the optimistic "owned" state is the truth.
+        fireToast("Already in your collection");
+      } else {
+        setItems((p) => p?.map((x) => x.sku === it.sku
+          ? { ...x, viewer_status: prev, owners_count: Math.max(0, x.owners_count - 1) }
+          : x) ?? p);
+        fireToast("Couldn't add to your collection");
+      }
+    }
+  }
+
   // Change Spec §4.5 — one per picked category, plus one each for a non-default scale and
   // sort. Drives both the trigger's active state and the number it shows.
   const activeFilters = cats.length + (scale ? 1 : 0) + (sort !== DEFAULT_SORT ? 1 : 0);
@@ -475,7 +516,7 @@ export default function DatabasePage() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {items.map((it) => (
-              <DbTile key={it.sku} item={it} onWishlist={() => toggleWishlist(it)} />
+              <DbTile key={it.sku} item={it} onWishlist={() => toggleWishlist(it)} onQuickAdd={() => quickAdd(it)} />
             ))}
           </div>
         )}
@@ -539,7 +580,7 @@ export default function DatabasePage() {
 }
 
 /* ── Grid tile — full-bleed photo with wishlist + add overlays (v7 ExploreView) ── */
-function DbTile({ item, onWishlist }: { item: DbItem; onWishlist: () => void }) {
+function DbTile({ item, onWishlist, onQuickAdd }: { item: DbItem; onWishlist: () => void; onQuickAdd: () => void }) {
   const owned = OWNS(item.viewer_status);
   const wishlisted = item.viewer_status === "wishlist";
 
@@ -585,25 +626,27 @@ function DbTile({ item, onWishlist }: { item: DbItem; onWishlist: () => void }) 
           />
         </button>
 
-        {/* Add a copy — opens the v7 "Add to collection" screen with the SKU resolved.
-            NOT the multi-mode /add/catalogue form: the catalogue already knows what this
-            item IS, so that form showed mostly locked pills (QA 2026-08-05).
-            `plusCircle` at 32px per v7 (ExploreView.jsx:106); a bare plus read as a
-            second "add item to the database" next to the search row's button.
-            Sits at the SAME x as the star above it — that shared axis is the whole
-            point of the column, so nothing may share this corner with it. */}
-        <Link
-          href={`/add/collection?sku=${encodeURIComponent(item.sku)}`}
-          aria-label={`Add ${item.title} to your collection`}
-          title="Add to my collection"
+        {/* Add a copy — INSTANT quick-add (DV8-02, v8 "Quick-add + finish-later"): one
+            tap POSTs {sku, quick:true} and flips the tile, so a shelf of items can be
+            added in a row without ever leaving the grid. The full form is no longer
+            behind this button; the pre-order path lives on the /db/[sku] entry page CTA.
+            `plusCircle` at 32px per v7 (ExploreView.jsx:106); the icon flips to a check
+            once you own a copy. Sits at the SAME x as the star above it — that shared
+            axis is the whole point of the column, so nothing may share this corner. */}
+        <button
+          type="button"
+          onClick={onQuickAdd}
+          aria-label={owned ? `${item.title} is in your collection` : `Add ${item.title} to your collection`}
+          title={owned ? "Already in your collection" : "Add to my collection"}
           style={{
             position: "absolute", bottom: 8, right: 8, width: 32, height: 32, borderRadius: 999,
+            border: "none", cursor: "pointer",
             background: "var(--stamp-red)", color: "var(--paper)", boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >
-          <PlusCircle size={17} strokeWidth={2} />
-        </Link>
+          {owned ? <Check size={16} strokeWidth={2.6} /> : <PlusCircle size={17} strokeWidth={2} />}
+        </button>
       </div>
 
       {/* §13 — title + brand only. "N own · N want" belonged to the detail page; on a

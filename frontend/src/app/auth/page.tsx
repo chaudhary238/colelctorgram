@@ -38,7 +38,7 @@ export default function SplashPage() {
           className="scr-fu-2"
           style={{ fontSize: 15.5, color: "var(--ink-mute)", lineHeight: 1.55, margin: 0, maxWidth: 264, textAlign: "center" }}
         >
-          Track, trade &amp; network — Score every grail on India&apos;s #1 collectibles platform.
+          For the collectors, by the collectors — Track, trade &amp; network on the #1 collectibles platform.
         </p>
       </div>
 

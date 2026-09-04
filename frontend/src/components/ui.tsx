@@ -133,14 +133,14 @@ export function Avatar({
   );
 }
 
-/* ── Tag (sale / sold / reserved / vouch / event …) ──────────── */
-type TagKind = "sale" | "po" | "misb" | "sold" | "reserved" | "vouch" | "event" | "default";
+/* ── Tag (sale / sold / vouch / event …) ─────────────────────── */
+/* "reserved" retired with DV8-13 — a listing is available | sold | closed. */
+type TagKind = "sale" | "po" | "misb" | "sold" | "vouch" | "event" | "default";
 const TAG_STYLES: Record<TagKind, React.CSSProperties> = {
   sale: { background: "var(--stamp-red)", color: "var(--paper)" },
   po: { background: "var(--grail-gold)", color: "var(--ink)" },
   misb: { background: "var(--ink)", color: "var(--paper)" },
   sold: { background: "var(--forest)", color: "var(--paper)" },
-  reserved: { background: "var(--grail-gold-soft)", color: "var(--grail-gold-deep)", border: "1px solid var(--grail-gold)" },
   vouch: { background: "var(--verified-teal-soft)", color: "var(--verified-teal)", border: "1px solid var(--verified-teal)" },
   event: { background: "var(--plum-soft)", color: "var(--plum)", border: "1px solid var(--plum)" },
   default: { background: "var(--bone)", color: "var(--ink)" },
@@ -171,17 +171,19 @@ export function Tag({ kind = "default", children, style }: { kind?: TagKind; chi
 }
 
 /* ── Post-type pill (Post / Showcase / Discussion / Review / Poll / ISO) ──
-   v3 (DF-29c): tinted pill. In the feed only ISO renders a type tag. */
+   v8 post-type differentiation: FEED cards no longer use this — they carry the
+   TypeRibbon corner pill + matching card border (cards.tsx) instead. This pill
+   survives only in non-feed contexts (post detail header, community manage
+   queue) in its neutral ink/slate hue. */
 export function PostTypeTag({ type }: { type: string }) {
-  const map: Record<string, { label: string; c: string; bg: string }> = {
-    post: { label: "Post", c: "#999999", bg: "rgba(0,0,0,0.06)" },
-    showcase: { label: "Showcase", c: "#2D8F87", bg: "rgba(45,143,135,0.12)" },
-    discussion: { label: "Discussion", c: "#6B3656", bg: "rgba(107,54,86,0.12)" },
-    review: { label: "Review", c: "#C48420", bg: "rgba(196,132,32,0.12)" },
-    poll: { label: "Poll", c: "#FF2442", bg: "rgba(255,36,66,0.10)" },
-    iso: { label: "ISO", c: "#B07724", bg: "rgba(176,119,36,0.13)" },
+  const label: Record<string, string> = {
+    post: "Post",
+    showcase: "Showcase",
+    discussion: "Discussion",
+    review: "Review",
+    poll: "Poll",
+    iso: "ISO",
   };
-  const m = map[type] || map.post;
   return (
     <span
       style={{
@@ -189,8 +191,8 @@ export function PostTypeTag({ type }: { type: string }) {
         alignItems: "center",
         padding: "4px 8px",
         borderRadius: 6,
-        background: m.bg,
-        color: m.c,
+        background: "var(--slate-800)",
+        color: "var(--paper)",
         fontFamily: "var(--font-body)",
         fontWeight: 700,
         fontSize: 10,
@@ -200,7 +202,7 @@ export function PostTypeTag({ type }: { type: string }) {
         flexShrink: 0,
       }}
     >
-      {m.label}
+      {label[type] ?? label.post}
     </span>
   );
 }
@@ -211,9 +213,12 @@ export function PostTypeTag({ type }: { type: string }) {
    Trust is now the vouch count, shown inline via <TrustSignals /> below and the
    profile's Vouches stat tiles — matching design_v6. See DECISIONS.md. */
 
-/* ── Trust signals row (deals / rating / response / joined) ──────
-   Ported from design/mobile/app/shared.jsx. Only renders the metrics
-   that are provided, so it degrades gracefully when the API lacks one. */
+/* ── Trust signals row (vouches / response / joined) ─────────────
+   Ported from design/mobile/app/shared.jsx. Only renders the metrics that are
+   provided, so it degrades gracefully when the API lacks one. Deals and star
+   ratings are DEAD (deals retired with the deal flow; ratings QA 7.1) — trust
+   is vouches, plus "Joined {year}" now that the listing payload carries
+   seller_joined. `rating`/`ratingCount` props kept for API compat but unused. */
 export function TrustSignals({
   vouches,
   rating,
@@ -226,16 +231,14 @@ export function TrustSignals({
   rating?: number | null;
   ratingCount?: number | null;
   response?: string | null;
-  joined?: string | null;
+  joined?: string | number | null;
   compact?: boolean;
 }) {
   const items: { v: string; l: string }[] = [];
   if (vouches != null) items.push({ v: String(vouches), l: "vouches" });
-  // QA 7.1 — star ratings removed app-wide; trust is carried by vouches, not a
-  // rating system. `rating`/`ratingCount` props kept for API compat but unused.
   void rating; void ratingCount;
   if (response) items.push({ v: response, l: "replies" });
-  if (joined) items.push({ v: joined, l: "joined" });
+  if (joined) items.push({ v: String(joined), l: "joined" });
   if (items.length === 0) items.push({ v: "New", l: "new seller" });
   return (
     <div
@@ -501,7 +504,6 @@ export function initialsOf(name: string) {
 const STATUS_LABEL: Record<string, string> = {
   available: "Available",
   sold: "Sold",
-  reserved: "Reserved",
   preorder: "Pre-order",
   wishlist: "Wishlist",
   owned: "Owned",

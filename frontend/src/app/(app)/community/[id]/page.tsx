@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Share2, Shield, Globe, CheckCircle2, Check, Settings2, UserPlus, Clock } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
+import { useUser } from "@/lib/auth-context";
 import { ApiPost } from "@/components/cards";
 import { Avatar, Segmented, SectionLabel, EmptyNote, Button } from "@/components/ui";
 import { PostCard } from "@/components/cards";
@@ -32,6 +34,8 @@ interface CommunityDetail {
   tag: string | null;
   category: string;
   tone: string;
+  banner_url: string | null; // DV8-14 — uploaded banner (fallback: tone block)
+  avatar_url: string | null; // DV8-14 — square photo (fallback: letter tile)
   member_count: number;
   post_count: number;
   recent_post_count: number; // published posts in the last 24h (QA2)
@@ -44,22 +48,57 @@ interface CommunityDetail {
   admins: CommunityAdmin[];
 }
 
+// Community post payloads carry the author's role in THIS community (DV8-14).
+type CommunityPost = ApiPost & { author_role?: "admin" | "mod" | null };
+
 type Tab = "posts" | "members" | "about";
 
-/* Rules list + admins/mods list — shared by the About tab and the private lock (v3 RulesAndAdmins). */
+/* "Founder" reads as "Admin" everywhere it renders (DV8-15) — the API still says founder. */
+function displayRole(role: string) {
+  return role === "founder" ? "admin" : role;
+}
+
+/* ADMIN = ink-inverted, MOD = bone — shared chip for rosters and post cards. */
+function RoleChip({ role, style }: { role: string; style?: React.CSSProperties }) {
+  const admin = role === "founder" || role === "admin";
+  return (
+    <span style={{
+      fontFamily: "var(--font-mono)", fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase",
+      padding: "3px 8px", borderRadius: 6, fontWeight: 700, flexShrink: 0,
+      background: admin ? "var(--ink)" : "var(--bone-deep)", color: admin ? "var(--paper)" : "var(--ink-mute)",
+      ...style,
+    }}>
+      {displayRole(role)}
+    </span>
+  );
+}
+
+/* Rules list + admins/mods list — shared by the Rules tab and the private lock (v3 RulesAndAdmins).
+   DV8-14 — long lists collapse: past 4 rules, show 4 + "Show all N rules". */
+const RULES_VISIBLE_CAP = 4;
 function RulesAndAdmins({ community }: { community: CommunityDetail }) {
+  const [showAllRules, setShowAllRules] = useState(false);
+  const rules = showAllRules ? community.rules : community.rules.slice(0, RULES_VISIBLE_CAP);
   return (
     <>
       <SectionLabel>Community rules</SectionLabel>
-      {/* QA2 — no default/placeholder rules. Show only what the founder actually added. */}
+      {/* QA2 — no default/placeholder rules. Show only what the admin actually added. */}
       {community.rules.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
-          {community.rules.map((r, i) => (
+          {rules.map((r, i) => (
             <div key={i} style={{ display: "flex", gap: 11, alignItems: "flex-start" }}>
               <div style={{ width: 22, height: 22, borderRadius: 6, background: "var(--bone)", color: "var(--ink-mute)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{i + 1}</div>
               <div style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.5, paddingTop: 1 }}>{r}</div>
             </div>
           ))}
+          {community.rules.length > RULES_VISIBLE_CAP && (
+            <button
+              onClick={() => setShowAllRules((s) => !s)}
+              style={{ alignSelf: "flex-start", background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--ink-faint)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5 }}
+            >
+              {showAllRules ? "Show fewer rules" : `Show all ${community.rules.length} rules`}
+            </button>
+          )}
         </div>
       ) : (
         <div style={{ fontSize: 13.5, color: "var(--ink-faint)", marginTop: 10, lineHeight: 1.5 }}>
@@ -78,9 +117,7 @@ function RulesAndAdmins({ community }: { community: CommunityDetail }) {
               </div>
               <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>@{a.handle}</div>
             </div>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", padding: "4px 9px", borderRadius: 7, background: a.role === "founder" ? "var(--ink)" : "var(--bone-deep)", color: a.role === "founder" ? "var(--paper)" : "var(--ink-mute)", fontWeight: 700 }}>
-              {a.role}
-            </span>
+            <RoleChip role={a.role} style={{ fontSize: 10.5, padding: "4px 9px", borderRadius: 7 }} />
           </Link>
         ))}
       </div>
@@ -90,8 +127,9 @@ function RulesAndAdmins({ community }: { community: CommunityDetail }) {
 
 export default function CommunityDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useUser();
   const [community, setCommunity] = useState<CommunityDetail | null>(null);
-  const [posts, setPosts] = useState<ApiPost[]>([]);
+  const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [members, setMembers] = useState<RosterMember[]>([]);
   const [tab, setTab] = useState<Tab>("posts");
   const [joinState, setJoinState] = useState<string>("none"); // member | requested | none
@@ -131,15 +169,37 @@ export default function CommunityDetailPage() {
       }
       return;
     }
-    // join (or request, for invite-only)
+    // DV8-14 — joining is gated for EVERYONE now (public included): the API answers
+    // {"join_state":"requested"}. Only site admins skip the queue (they get "member").
     try {
       const res = await api.post<{ join_state?: string }>(`/communities/${community.id}/join`);
-      const next = res?.join_state ?? (community.is_invite_only ? "requested" : "member");
+      const next = res?.join_state ?? "requested";
       setJoinState(next);
       if (next === "member") setCommunity((c) => c ? { ...c, member_count: c.member_count + 1 } : c);
     } finally {
       setJoinBusy(false);
     }
+  }
+
+  // v8 — admin takedown of a published post, with the reason collected on the card.
+  // The removal is scoped to THIS community (an orphaned community-only post is
+  // deleted server-side); the list refetches so counts and ordering stay honest.
+  async function removePost(postId: string, reason: string) {
+    try {
+      await api.post(`/communities/${id}/posts/${postId}/remove`, { reason });
+      const p = await api.get<CommunityPost[]>(`/communities/${id}/posts?limit=10`);
+      setPosts(p ?? []);
+      setCommunity((c) => c ? { ...c, post_count: Math.max(0, c.post_count - 1) } : c);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // Leave needs a confirm step — rejoining now goes back through admin approval.
+  function confirmLeave() {
+    if (!community) return;
+    if (!window.confirm(`Leave ${community.name}? You'll need approval to rejoin.`)) return;
+    toggleJoin();
   }
 
   async function share() {
@@ -153,7 +213,7 @@ export default function CommunityDetailPage() {
   useEffect(() => {
     Promise.all([
       api.get<CommunityDetail>(`/communities/${id}`),
-      api.get<ApiPost[]>(`/communities/${id}/posts?limit=10`),
+      api.get<CommunityPost[]>(`/communities/${id}/posts?limit=10`),
       api.get<RosterMember[]>(`/communities/${id}/roster`).catch(() => []),
     ])
       .then(([c, p, m]) => {
@@ -195,7 +255,37 @@ export default function CommunityDetailPage() {
   const locked = isPrivate && !joined && !isMod;
   const founder = community.admins.find((a) => a.role === "founder");
   const requested = joinState === "requested";
-  const joinLabel = joined ? "Joined" : isPrivate ? (requested ? "Requested" : "Request to join") : "Join";
+  const hasBanner = !!community.banner_url;
+  const hasPhoto = !!community.avatar_url;
+
+  // Header CTA (DV8-14/15): admins & mods get Manage; a joined member gets Leave
+  // (confirm-guarded — rejoining needs approval again); everyone else gets the gated
+  // Join, which flips to a withdrawable "Requested" once the API queues it.
+  let joinCtaLabel = "Join";
+  if (requested) joinCtaLabel = "Requested — tap to withdraw";
+  else if (isPrivate) joinCtaLabel = "Request to join";
+  let headerCta: React.ReactNode;
+  if (isMod) {
+    headerCta = (
+      <Link href={`/community/${id}/manage`} style={{ textDecoration: "none" }}>
+        <Button size="sm" variant="secondary" icon={<Settings2 size={15} />}>
+          Manage{pendingCount > 0 ? ` · ${pendingCount}` : ""}
+        </Button>
+      </Link>
+    );
+  } else if (joined) {
+    headerCta = (
+      <Button size="sm" variant="secondary" onClick={confirmLeave} disabled={joinBusy}>
+        Leave
+      </Button>
+    );
+  } else {
+    headerCta = (
+      <Button size="sm" variant={requested ? "secondary" : "dark"} onClick={toggleJoin} disabled={joinBusy}>
+        {joinCtaLabel}
+      </Button>
+    );
+  }
 
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-8">
@@ -210,12 +300,21 @@ export default function CommunityDetailPage() {
         </div>
       </div>
 
-      {/* Banner */}
-      <div style={{ height: 132, background: tone, position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at 25% 30%, rgba(255,255,255,0.18), transparent 55%)" }} />
-        <div style={{ position: "absolute", right: -20, bottom: -30, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 150, color: "rgba(255,255,255,0.12)", lineHeight: 1 }}>
-          {community.tag ?? "🏷"}
-        </div>
+      {/* Banner — uploaded image when set, else the tone block with the tag watermark (DV8-14) */}
+      <div style={{
+        height: 132, position: "relative", overflow: "hidden",
+        ...(hasBanner
+          ? { backgroundImage: `url(${community.banner_url})`, backgroundSize: "cover", backgroundPosition: "center" }
+          : { background: tone }),
+      }}>
+        {!hasBanner && (
+          <>
+            <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at 25% 30%, rgba(255,255,255,0.18), transparent 55%)" }} />
+            <div style={{ position: "absolute", right: -20, bottom: -30, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 150, color: "rgba(255,255,255,0.12)", lineHeight: 1 }}>
+              {community.tag ?? "🏷"}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Identity row — position:relative + z-index so the avatar paints ABOVE the
@@ -223,27 +322,11 @@ export default function CommunityDetailPage() {
           this the positioned banner would paint over the negative-margin avatar (QA 13.1). */}
       <div style={{ padding: "0 20px", position: "relative", zIndex: 1 }}>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 14, marginTop: -34 }}>
-          <div style={{ width: 76, height: 76, borderRadius: 18, background: tone, color: "var(--paper)", border: "3px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, flexShrink: 0 }}>
-            {community.tag ?? "🏷"}
+          {/* Photo tile — uploaded square photo when set, else the letter tile (DV8-14) */}
+          <div style={{ width: 76, height: 76, borderRadius: 18, background: hasPhoto ? `center/cover url(${community.avatar_url})` : tone, color: "var(--paper)", border: "3px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, flexShrink: 0 }}>
+            {!hasPhoto && (community.tag ?? "🏷")}
           </div>
-          <div style={{ flex: 1, paddingBottom: 4, display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            {isMod ? (
-              <Link href={`/community/${id}/manage`} style={{ textDecoration: "none" }}>
-                <Button size="sm" variant="secondary" icon={<Settings2 size={15} />}>
-                  Manage{pendingCount > 0 ? ` · ${pendingCount}` : ""}
-                </Button>
-              </Link>
-            ) : (
-              <Button
-                size="sm"
-                variant={joined || requested ? "secondary" : "dark"}
-                onClick={toggleJoin}
-                disabled={joinBusy}
-              >
-                {joinLabel}
-              </Button>
-            )}
-          </div>
+          <div style={{ flex: 1, paddingBottom: 4, display: "flex", justifyContent: "flex-end", gap: 8 }}>{headerCta}</div>
         </div>
 
         <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 23, letterSpacing: "-0.025em", margin: "12px 0 4px" }}>{community.name}</h1>
@@ -282,7 +365,7 @@ export default function CommunityDetailPage() {
           {isMod && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, background: "var(--ink)", border: "1px solid var(--ink)" }}>
               <Shield size={13} style={{ color: "var(--paper)" }} />
-              <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--paper)" }}>You&rsquo;re an admin</span>
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--paper)" }}>{community.member_role === "mod" ? "You’re a mod" : "You’re an admin"}</span>
             </span>
           )}
         </div>
@@ -314,7 +397,7 @@ export default function CommunityDetailPage() {
             <Segmented
               value={tab}
               onChange={(v) => setTab(v as Tab)}
-              options={[{ id: "posts", label: "Posts" }, { id: "members", label: "Members" }, { id: "about", label: "About" }]}
+              options={[{ id: "posts", label: "Posts" }, { id: "members", label: "Members" }, { id: "about", label: "Rules" }]}
             />
           </div>
 
@@ -344,12 +427,26 @@ export default function CommunityDetailPage() {
               ))}
               {!joined && (
                 <div style={{ margin: "14px 20px 4px", textAlign: "center", fontSize: 13, color: "var(--ink-faint)", padding: "8px 0" }}>
-                  {isPrivate ? "Request to join to post here." : "Join to post and join the conversation."}
+                  {/* Joining is gated for everyone now, so the gate copy says so (DV8-14). */}
+                  Join and get approved to post here.
                 </div>
               )}
               <div style={{ marginTop: 8 }}>
                 {posts.length > 0
-                  ? posts.map((p) => <PostCard key={p.id} post={p} />)
+                  ? posts.map((p) => (
+                      /* DV8-14/17 — ADMIN/MOD chip renders IN the author row via
+                         PostCard's authorRole prop (the absolute overlay hack is gone).
+                         v8 — community admins (founder, or site staff) get the trash
+                         action + inline removal-reason panel; the endpoint is
+                         admin-gated server-side, so mods don't get the affordance. */
+                      <PostCard
+                        key={p.id}
+                        post={p}
+                        authorRole={p.author_role ?? null}
+                        canModerate={community.member_role === "founder" || !!user?.is_admin}
+                        onRemove={(reason) => removePost(p.id, reason)}
+                      />
+                    ))
                   : <EmptyNote>Quiet so far — be the first to post.</EmptyNote>}
               </div>
             </div>
@@ -367,7 +464,7 @@ export default function CommunityDetailPage() {
                       <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>@{m.handle}</div>
                     </div>
                     {m.role !== "member" && (
-                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", padding: "4px 9px", borderRadius: 7, background: m.role === "founder" ? "var(--ink)" : "var(--bone-deep)", color: m.role === "founder" ? "var(--paper)" : "var(--ink-mute)", fontWeight: 700 }}>{m.role}</span>
+                      <RoleChip role={m.role} style={{ fontSize: 10.5, padding: "4px 9px", borderRadius: 7 }} />
                     )}
                   </Link>
                 ))}

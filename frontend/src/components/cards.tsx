@@ -6,13 +6,14 @@ import { useRouter } from "next/navigation";
 import {
   Heart, MessageCircle, Share2, Bookmark, Star, Send, Calendar, MapPin, Clock,
   Users, MessageSquare, Bell, Shield, Tag as TagIcon, Pencil, Trash2, MoreHorizontal, FileText, Pin,
+  ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { timeAgo, shortDate } from "@/lib/utils";
-import { symOf } from "@/lib/catalog";
+import { symOf, conditionLabel } from "@/lib/catalog";
 import {
-  Avatar, PostTypeTag, Stars, Money, ProductPhoto, SealMark,
+  Avatar, Stars, Money, ProductPhoto, SealMark,
   Badge, Button, IconButton, LocationTag, statusLabel,
 } from "@/components/ui";
 import { FeedBadge, fireXpToast } from "@/components/gamification";
@@ -60,6 +61,46 @@ export interface ApiPost {
   iso_budget?: number | null;
   iso_cond?: string | null;
   iso_city?: string | null;
+  // Referenced item/listing → the v8 "Tagged item" chip. The post DETAIL payload
+  // resolves this as `ref`; feed/community lists send the flat ref_sku fields
+  // (composer "Tag item"), which postRef() below folds into the same shape.
+  ref?: ApiPostRef | null;
+  ref_sku?: string | null;
+  ref_sku_title?: string | null;
+  ref_sku_brand?: string | null;
+}
+
+export interface ApiPostRef {
+  kind: "item" | "listing" | "catalogue";
+  id: string;
+  sku: string | null;
+  title: string;
+  price?: number;
+}
+
+/* One resolver for the tagged chip: the detail payload's `ref` wins; otherwise a
+   composer-tagged catalogue entry (ref_sku) synthesizes the same shape. */
+export function postRef(post: ApiPost): ApiPostRef | null {
+  if (post.ref) return post.ref;
+  if (post.ref_sku && post.ref_sku_title) {
+    return { kind: "catalogue", id: post.ref_sku, sku: post.ref_sku, title: post.ref_sku_title };
+  }
+  return null;
+}
+
+/* SKU prefix → ProductPhoto tone for referenced-item chips (no catalogue join on web yet) */
+const REF_TONE: Record<string, string> = { FIG: "red", KIT: "forest", DSN: "plum", DCS: "teal" };
+export function refTone(sku: string | null): string {
+  const m = (sku ?? "").match(/SKU-([A-Z]+)-/);
+  return (m && REF_TONE[m[1]]) || "ink";
+}
+
+/* Where a referenced item/listing chip should land: listings → the listing page;
+   catalogue-backed items → the database page when we have a SKU, else the item page. */
+function refHref(ref: ApiPostRef): string {
+  if (ref.kind === "listing") return `/listing/${ref.id}`;
+  if (ref.kind === "catalogue") return `/db/${ref.id}`;
+  return ref.sku ? `/db/${ref.sku}` : `/item/${ref.id}`;
 }
 
 export interface ApiComment {
@@ -99,6 +140,8 @@ export interface ApiListing {
   avatar_url: string | null;
   rating: number;
   vouches_count?: number;
+  /** Year the seller joined (listing detail payload) — TrustSignals "Joined {year}". */
+  seller_joined?: number | null;
   price: number;
   currency?: string;
   retail_price: number | null;
@@ -155,6 +198,12 @@ export interface ApiEvent {
   online_url?: string | null;
   cover_image_url?: string | null;
   bring?: string | null;
+  // DV8-16 — real pricing + ticketing/contact (price is minor units of currency).
+  is_free: boolean;
+  price: number;
+  currency: string;
+  ticket_url: string | null;
+  contact: string | null;
   starts_at: string;
   ends_at?: string | null;
   going_count?: number;
@@ -190,23 +239,6 @@ export interface ApiCommunity {
   created_at: string;
 }
 
-/* ── Condition label map — matches the "List for sale" form (QA 11.3):
-   Sealed / MIB / BIB / Loose. Legacy keys map to the nearest grade. ── */
-const CONDITION_LABEL: Record<string, string> = {
-  sealed_misb: "Sealed",
-  sealed: "Sealed",
-  mint: "MIB",
-  excellent: "MIB",
-  like_new: "BIB",
-  opened: "BIB",
-  good: "Loose",
-  built: "Loose",
-  loose: "Loose",
-  fair: "Loose",
-  for_parts: "Loose",
-  damaged: "Loose",
-};
-
 /* ── Floating card shell (v3 — white card on canvas, hover lift) ──── */
 const CARD_BASE: React.CSSProperties = {
   background: "var(--card-surface)",
@@ -221,6 +253,23 @@ function liftOn(e: React.MouseEvent<HTMLElement>) {
 function liftOff(e: React.MouseEvent<HTMLElement>) {
   e.currentTarget.style.transform = "";
   e.currentTarget.style.boxShadow = "var(--card-shadow)";
+}
+
+/* ── Per-type ribbon (v8 post-type differentiation) ──────────────────
+   Absolute top-right pill, always paired with a matching 1.5px card border:
+   Review = grail-gold border + "★ Review" gold ribbon · ISO = plum border +
+   "Wanted" teal ribbon · listing share = teal border + "For sale" teal ribbon.
+   Plain post/showcase/poll/discussion cards keep the neutral border, no ribbon. */
+function TypeRibbon({ label, bg, fg = "#fff" }: { label: string; bg: string; fg?: string }) {
+  return (
+    <span style={{
+      position: "absolute", top: 14, right: 16, fontSize: 10.5, fontWeight: 700,
+      padding: "4px 10px", borderRadius: 999, letterSpacing: "0.02em",
+      background: bg, color: fg, zIndex: 1,
+    }}>
+      {label}
+    </span>
+  );
 }
 
 /* ── Quick-action button ─────────────────────────────────────────── */
@@ -325,7 +374,30 @@ function OfficialAuthorLine({ post }: { post: ApiPost }) {
   );
 }
 
-function AuthorLine({ post, showFollow }: { post: ApiPost; showFollow?: boolean }) {
+/* Community role chip beside the author name (DV8-14 / v8 25-Aug polish):
+   ADMIN = ink-inverted, MOD = bone. Same treatment as the community rosters. */
+export type AuthorRole = "admin" | "mod" | null;
+function AuthorRoleChip({ role }: { role: "admin" | "mod" }) {
+  const admin = role === "admin";
+  return (
+    <span style={{
+      fontFamily: "var(--font-mono)", fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase",
+      padding: "3px 8px", borderRadius: 6, fontWeight: 700, flexShrink: 0, lineHeight: 1,
+      background: admin ? "var(--ink)" : "var(--bone-deep)", color: admin ? "var(--paper)" : "var(--ink-mute)",
+    }}>
+      {role}
+    </span>
+  );
+}
+
+function AuthorLine({ post, showFollow, authorRole, reserveRight = 0 }: {
+  post: ApiPost;
+  showFollow?: boolean;
+  authorRole?: AuthorRole;
+  /** v8 — right padding (px) reserved so name/badges never collide with an
+      absolute TypeRibbon in the card corner (~72 for the "★ Review" pill). */
+  reserveRight?: number;
+}) {
   const { user } = useUser();
   const [following, setFollowing] = useState(post.is_following ?? false);
   const [busy, setBusy] = useState(false);
@@ -353,11 +425,19 @@ function AuthorLine({ post, showFollow }: { post: ApiPost; showFollow?: boolean 
       <Link href={`/profile/${post.handle ?? "unknown"}`} className="shrink-0">
         <Avatar name={post.name ?? "?"} photo={post.avatar_url} size={38} />
       </Link>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <Link href={`/profile/${post.handle ?? "unknown"}`} style={{ textDecoration: "none" }} className="hover:underline">
-            <span style={{ fontWeight: 600, fontSize: 14, color: "var(--ink)" }}>{post.name}</span>
+      <div style={{ flex: 1, minWidth: 0, paddingRight: reserveRight }}>
+        {/* v8 25-Aug polish — nowrap + minWidth 0: the NAME truncates first, so the
+            role chip / badge / Follow button never wrap into or collide with a
+            review ribbon or the card edge. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
+          <Link
+            href={`/profile/${post.handle ?? "unknown"}`}
+            style={{ textDecoration: "none", flexShrink: 1, minWidth: 0, overflow: "hidden" }}
+            className="hover:underline"
+          >
+            <span style={{ display: "block", fontWeight: 600, fontSize: 14, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.name}</span>
           </Link>
+          {authorRole && <AuthorRoleChip role={authorRole} />}
           {/* v3 §3: the single rewards badge (First Start badge, else rank badge) */}
           <FeedBadge badge={post.badge} />
           {showFollow && !isOwn && (
@@ -821,7 +901,17 @@ function PostCarousel({ images }: { images: string[] }) {
 }
 
 /* ── Post card ───────────────────────────────────────────────────── */
-export function PostCard({ post, showFollow = false }: { post: ApiPost; showFollow?: boolean }) {
+export function PostCard({ post, showFollow = false, authorRole = null, canModerate = false, onRemove }: {
+  post: ApiPost;
+  showFollow?: boolean;
+  /** Author's role in the community this card renders in (DV8-14) — ADMIN/MOD chip
+      in the author row. Null (default) renders no chip. */
+  authorRole?: AuthorRole;
+  /** Community moderation (v8): admins get a trash action that opens an inline
+      "Remove this post — why?" panel; the reason is handed to onRemove. */
+  canModerate?: boolean;
+  onRemove?: (reason: string) => void;
+}) {
   const [liked, setLiked] = useState(post.is_liked ?? false);
   const [saved, setSaved] = useState(post.is_saved ?? false);
   const [likes, setLikes] = useState(post.likes_count);
@@ -831,6 +921,8 @@ export function PostCard({ post, showFollow = false }: { post: ApiPost; showFoll
   const [commentCount, setCommentCount] = useState(post.comments_count);
   const [shared, setShared] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removeReason, setRemoveReason] = useState("");
 
   // Adopt fresh server counts when the `post` prop changes (QA 2026-08-05 §3).
   // These useState calls only read their argument on the FIRST render, and the feed
@@ -851,8 +943,9 @@ export function PostCard({ post, showFollow = false }: { post: ApiPost; showFoll
     setCommentCount(post.comments_count);
   }
 
-  if (post.type === "iso") return <ISOCard post={post} />;
+  if (post.type === "iso") return <ISOCard post={post} authorRole={authorRole} />;
 
+  const isReview = post.type === "review";
   const metaStrip = likes > 0 || !!post.city;
 
   async function toggleLike() {
@@ -890,9 +983,21 @@ export function PostCard({ post, showFollow = false }: { post: ApiPost; showFoll
   }
 
   return (
-    <div style={{ ...CARD_BASE, transition: "transform 200ms var(--ease-out), box-shadow 200ms" }} onMouseEnter={liftOn} onMouseLeave={liftOff}>
+    <div
+      style={{
+        ...CARD_BASE,
+        // v8 ribbon system — review cards carry the grail-gold border + ribbon;
+        // every other plain post keeps the neutral border and no ribbon.
+        border: `1.5px solid ${isReview ? "var(--grail-gold)" : "var(--border)"}`,
+        position: "relative",
+        transition: "transform 200ms var(--ease-out), box-shadow 200ms",
+      }}
+      onMouseEnter={liftOn}
+      onMouseLeave={liftOff}
+    >
+      {isReview && <TypeRibbon label="★ Review" bg="var(--grail-gold)" />}
       <div style={{ padding: "16px 18px 0" }}>
-        <AuthorLine post={post} showFollow={showFollow} />
+        <AuthorLine post={post} showFollow={showFollow} authorRole={authorRole} reserveRight={isReview ? 72 : 0} />
         <Link href={`/post/${post.id}`} style={{ display: "block", marginTop: 11, textDecoration: "none", color: "inherit" }}>
           {post.type === "review" && post.review_rating && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -950,13 +1055,68 @@ export function PostCard({ post, showFollow = false }: { post: ApiPost; showFoll
         <PollBlock postId={post.id} options={post.poll_options} initialVote={post.my_poll_vote} />
       )}
 
+      {/* Tagged database item (v8) — the referenced item/listing/catalogue entry
+          as a tappable chip. postRef() folds the detail payload's `ref` and the
+          feed lists' flat ref_sku fields into one shape. */}
+      {(() => { const ref = postRef(post); return ref && (
+        <Link
+          href={refHref(ref)}
+          style={{
+            display: "flex", alignItems: "center", gap: 10, width: "calc(100% - 36px)",
+            margin: "12px 18px 0", textAlign: "left", padding: 8, borderRadius: 12,
+            border: "1px solid var(--border-strong)", background: "var(--paper-soft)",
+            textDecoration: "none",
+          }}
+        >
+          <div style={{ width: 38, height: 38, flexShrink: 0 }}>
+            <ProductPhoto tone={refTone(ref.sku)} ratio="1/1" rounded={9} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--ink-faint)" }}>Tagged item</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ref.title}</div>
+          </div>
+          <ChevronRight size={15} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
+        </Link>
+      ); })()}
+
       <div style={{ display: "flex", alignItems: "center", gap: 18, padding: metaStrip ? "12px 18px 10px" : "12px 18px 14px" }}>
         <ActionBtn icon={<Heart size={20} strokeWidth={1.8} fill={liked ? "var(--stamp-red)" : "none"} />} label={likes.toLocaleString()} active={liked} onClick={toggleLike} />
         <ActionBtn icon={<MessageCircle size={20} strokeWidth={1.8} />} label={commentCount.toLocaleString()} active={showComments} onClick={() => setShowComments((v) => !v)} />
         <ActionBtn icon={<Share2 size={19} strokeWidth={1.8} />} label={shared ? "Copied" : undefined} active={shared} activeColor="var(--ink)" onClick={sharePost} />
         <div style={{ flex: 1 }} />
         <ActionBtn icon={<Bookmark size={20} strokeWidth={1.8} fill={saved ? "var(--ink)" : "none"} />} active={saved} activeColor="var(--ink)" onClick={toggleSave} />
+        {canModerate && (
+          <ActionBtn icon={<Trash2 size={19} strokeWidth={1.8} />} active={confirmRemove} onClick={() => setConfirmRemove((v) => !v)} />
+        )}
       </div>
+
+      {/* v8 — inline removal panel: collects a short reason before the takedown. */}
+      {confirmRemove && (
+        <div style={{ margin: "0 18px 14px", padding: 12, borderRadius: 12, background: "var(--stamp-red-soft)", border: "1px solid var(--stamp-red)" }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--stamp-red-deep)", marginBottom: 7 }}>Remove this post — why?</div>
+          <textarea
+            value={removeReason}
+            onChange={(e) => setRemoveReason(e.target.value.slice(0, 200))}
+            rows={2}
+            placeholder="e.g. Breaks community rules, off-topic, spam…"
+            style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 9, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink)", outline: "none", resize: "none" }}
+          />
+          <div style={{ display: "flex", gap: 8, marginTop: 9 }}>
+            <button
+              onClick={() => { setConfirmRemove(false); setRemoveReason(""); }}
+              style={{ flex: 1, background: "none", border: "1px solid var(--border-strong)", borderRadius: 9, padding: "8px 0", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, color: "var(--ink-mute)" }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { onRemove?.(removeReason.trim()); setConfirmRemove(false); }}
+              style={{ flex: 1, background: "var(--stamp-red)", border: "none", borderRadius: 9, padding: "8px 0", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12.5, color: "#fff" }}
+            >
+              Remove post
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Social-proof + location strip (design_v7 Cards.jsx:137). The liker faces
           come from the server; `likes` is the optimistic local count, so your own
@@ -974,7 +1134,7 @@ export function PostCard({ post, showFollow = false }: { post: ApiPost; showFoll
 }
 
 /* ── ISO ("In Search Of") card — "Wanted" post; "I have this" DMs the author (DF-30c) */
-function ISOCard({ post }: { post: ApiPost }) {
+function ISOCard({ post, authorRole = null }: { post: ApiPost; authorRole?: AuthorRole }) {
   const router = useRouter();
   const { user } = useUser();
   const [liked, setLiked] = useState(post.is_liked ?? false);
@@ -988,9 +1148,11 @@ function ISOCard({ post }: { post: ApiPost }) {
 
   async function shareIso() {
     const url = `${window.location.origin}/post/${post.id}`;
+    // v8 — shares read "…'s wanted post", not "ISO".
+    const who = (post.name ?? "A collector").split(" ")[0];
     try {
       if (navigator.share) {
-        await navigator.share({ title: "Scorred", text: `ISO: ${post.iso_item ?? post.body.slice(0, 80)}`, url });
+        await navigator.share({ title: "Scorred", text: `${who}'s wanted post: ${post.iso_item ?? post.body.slice(0, 80)}`, url });
       } else {
         await navigator.clipboard.writeText(url);
         setShared(true);
@@ -1026,19 +1188,43 @@ function ISOCard({ post }: { post: ApiPost }) {
   }
 
   return (
-    <div style={CARD_BASE}>
+    <div
+      style={{ ...CARD_BASE, border: "1.5px solid var(--plum)", position: "relative", transition: "transform 200ms var(--ease-out), box-shadow 200ms" }}
+      onMouseEnter={liftOn}
+      onMouseLeave={liftOff}
+    >
+      <TypeRibbon label="Wanted" bg="var(--verified-teal)" />
       <div style={{ padding: "16px 18px 0" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <AuthorLine post={post} />
-          <PostTypeTag type="iso" />
-        </div>
-        <div style={{ marginTop: 12, borderRadius: 16, overflow: "hidden", background: "rgba(232,163,61,0.07)", border: "1.5px solid rgba(232,163,61,0.32)", padding: "14px 16px", position: "relative" }}>
-          <div style={{ position: "absolute", right: -4, top: "50%", transform: "translateY(-50%) rotate(15deg)", fontFamily: "var(--font-display)", fontWeight: 900, fontSize: 30, letterSpacing: "0.2em", color: "rgba(176,119,36,0.1)", textTransform: "uppercase", pointerEvents: "none", userSelect: "none" }}>WANTED</div>
-          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em", color: "var(--ink)", lineHeight: 1.25, marginBottom: 10, paddingRight: 48 }}>{post.iso_item ?? post.title ?? post.body.slice(0, 60)}</div>
+        <AuthorLine post={post} authorRole={authorRole} />
+
+        {/* Looking for — the item being sought, in the same visual language as any
+            other in-post reference block (v8). The gold WANTED watermark panel read
+            as a second, unrelated element sitting inside the post — it's gone. */}
+        <div style={{ marginTop: 11 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink-faint)", marginBottom: 4 }}>Looking for</div>
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17, letterSpacing: "-0.025em", color: "var(--ink)", lineHeight: 1.22, marginBottom: 9 }}>
+            {post.iso_item ?? post.title ?? post.body.slice(0, 60)}
+          </div>
+          {(() => { const ref = postRef(post); return ref && (
+            <Link
+              href={refHref(ref)}
+              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", marginBottom: 10, padding: "7px 9px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--paper-soft)", textDecoration: "none" }}
+            >
+              <div style={{ width: 30, height: 30, flexShrink: 0 }}>
+                <ProductPhoto tone={refTone(ref.sku)} ratio="1/1" rounded={7} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ref.title}</div>
+                {/* v8 shows the brand line here — never the SKU (DV8 removed SKUs from user-facing UI). */}
+                {post.ref_sku_brand && <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--ink-faint)" }}>{post.ref_sku_brand}</div>}
+              </div>
+              <ChevronRight size={14} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
+            </Link>
+          ); })()}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {post.iso_budget != null && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, background: "rgba(176,119,36,0.15)", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: "#9A6010" }}>
-                <TagIcon size={11} />Max ₹{Math.round(Number(post.iso_budget) / 100).toLocaleString("en-IN")}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, background: "var(--bone)", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>
+                <TagIcon size={11} />Up to ₹{Math.round(Number(post.iso_budget) / 100).toLocaleString("en-IN")}
               </span>
             )}
             {post.iso_cond && post.iso_cond !== "Any" && (
@@ -1051,7 +1237,7 @@ function ISOCard({ post }: { post: ApiPost }) {
             )}
           </div>
         </div>
-        {post.body && <div style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.55, marginTop: 9 }}>{post.body}</div>}
+        {post.body && <div style={{ fontSize: 15, color: "var(--ink-soft)", lineHeight: 1.55, marginTop: 10 }}>{post.body}</div>}
       </div>
 
       {post.images.length > 0 && <div style={{ padding: "12px 18px 0" }}><PostImages images={post.images} /></div>}
@@ -1077,24 +1263,29 @@ function ISOCard({ post }: { post: ApiPost }) {
 
 /* ── Listing feed card ───────────────────────────────────────────── */
 export function ListingFeedCard({ listing }: { listing: ApiListing }) {
-  const price = Math.round(listing.price / 100);
+  // Null-guard (v8 25-Aug polish): a sparse/legacy payload may lack price or city —
+  // skip the figure rather than render "₹ NaN" or a dangling "· 2h".
+  const price = listing.price != null ? Math.round(listing.price / 100) : null;
   const cur = symOf(listing.currency ?? "INR");
   const retail = listing.retail_price != null ? Math.round(listing.retail_price / 100) : null;
+  const metaLine = [listing.ships_from_city, timeAgo(listing.created_at)].filter(Boolean).join(" · ");
   return (
-    <div style={{ ...CARD_BASE, padding: "16px 18px" }}>
+    <div style={{ ...CARD_BASE, padding: "16px 18px", border: "1.5px solid var(--verified-teal)", position: "relative" }}>
+      {/* v8 ribbon system — the corner ribbon replaces the old "For sale" Badge. */}
+      <TypeRibbon label="For sale" bg="var(--verified-teal)" />
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <Link href={`/profile/${listing.handle ?? "unknown"}`} className="shrink-0">
           <Avatar name={listing.name ?? "?"} photo={listing.avatar_url} size={34} />
         </Link>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        {/* paddingRight reserves the ribbon's corner so the byline can't run under it */}
+        <div style={{ flex: 1, minWidth: 0, paddingRight: 64 }}>
           <Link href={`/profile/${listing.handle ?? "unknown"}`} style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }} className="hover:underline">
             @{listing.handle} listed an item
           </Link>
-          <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>
-            {listing.ships_from_city} · {timeAgo(listing.created_at)}
-          </div>
+          {metaLine && (
+            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{metaLine}</div>
+          )}
         </div>
-        <Badge variant="default">For sale</Badge>
       </div>
       <Link
         href={`/listing/${listing.id}`}
@@ -1110,11 +1301,13 @@ export function ListingFeedCard({ listing }: { listing: ApiListing }) {
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", lineHeight: 1.25 }}>{listing.title}</div>
           <div style={{ fontSize: 11.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", margin: "3px 0 8px" }}>
-            {CONDITION_LABEL[listing.condition] ?? listing.condition}
+            {conditionLabel(listing.condition, listing.category) ?? listing.condition}
           </div>
           <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "nowrap" }}>
-            <span style={{ fontSize: 17, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}><Money value={price} currency={cur} /></span>
-            {retail != null && retail > price && <Money value={retail} currency={cur} strike size={12} />}
+            {price != null && (
+              <span style={{ fontSize: 17, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}><Money value={price} currency={cur} /></span>
+            )}
+            {retail != null && price != null && retail > price && <Money value={retail} currency={cur} strike size={12} />}
           </div>
         </div>
       </Link>
@@ -1316,6 +1509,14 @@ export function EventCard({ event }: { event: ApiEvent }) {
             {new Date(event.starts_at).toLocaleString("en-IN", { hour: "numeric", minute: "2-digit" })}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+            {/* DV8-16 — entry pricing on the card: "Free" tag, or the formatted price.
+                Guarded so older/sparse payloads without the fields render nothing. */}
+            {event.is_free === true && <Badge variant="secondary">Free</Badge>}
+            {event.is_free === false && (event.price ?? 0) > 0 && (
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-mute)", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
+                {symOf(event.currency ?? "INR")} {Math.round(event.price / 100).toLocaleString("en-IN")}
+              </span>
+            )}
             {going && <Badge variant="success">Going</Badge>}
             {interested && <Badge variant="warning">Interested</Badge>}
             <span style={{ fontSize: 12, color: "var(--slate-400)", fontFamily: "var(--font-mono)" }}>{event.going_count ?? 0} going</span>
@@ -1353,13 +1554,16 @@ export function CommunityCard({ community, pinned, onTogglePin }: {
   const isMember = joinState === "member";
   const isRequested = joinState === "requested";
 
+  // v8 25-Aug polish — a member's CTA is "Open" (a plain Link into the community);
+  // leaving moved to the community detail header, so the card never leave-toggles.
+  // Join/withdraw-request still happen right on the card.
   async function toggleJoin() {
-    if (busy) return;
+    if (busy || isMember) return;
     setBusy(true);
     const prev = joinState;
     try {
-      if (isMember || isRequested) {
-        setJoinState("none"); // leave, or withdraw a pending request
+      if (isRequested) {
+        setJoinState("none"); // withdraw a pending request
         await api.delete(`/communities/${community.id}/join`);
       } else {
         // Optimistic guess; the server tells us "requested" (private) vs "member" (public).
@@ -1374,7 +1578,12 @@ export function CommunityCard({ community, pinned, onTogglePin }: {
   const tone = community.tone || "plum";
   const toneVar = tone.startsWith("var(--") ? tone : `var(--${tone})`;
   const fresh = community.recent_post_count ?? 0;
-  const joinLabel = isMember ? "Joined" : isRequested ? "Requested" : community.is_invite_only ? "Request" : "Join";
+  const joinLabel = isRequested ? "Requested" : community.is_invite_only ? "Request" : "Join";
+  // v8 25-Aug polish — the badge row renders ONLY when a badge exists (no reserved gap).
+  const hasBadges = community.is_founder || fresh > 0 || community.is_invite_only
+    || community.status === "pending" || isRequested;
+  // Fixed minimum width keeps Join / Request / Requested / Open aligned across rows.
+  const ctaStyle: React.CSSProperties = { minWidth: 92, justifyContent: "center" };
 
   return (
     <div style={{ display: "flex", gap: 14, alignItems: "center", background: "var(--card-surface)", border: `1px solid ${pinned ? "var(--stamp-red)" : "var(--slate-200)"}`, borderRadius: 16, padding: 14, boxShadow: "var(--card-shadow)" }}>
@@ -1389,17 +1598,20 @@ export function CommunityCard({ community, pinned, onTogglePin }: {
         </div>
       </Link>
       <Link href={`/community/${community.id}`} style={{ flex: 1, minWidth: 0, textDecoration: "none" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "space-between" }}>
-          <span style={{ fontWeight: 700, fontSize: 14.5, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{community.name}</span>
-          <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-            {/* §15 — "Owner" reads on the card itself, so a community you created is
+        <div style={{ fontWeight: 700, fontSize: 14.5, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{community.name}</div>
+        {/* v8 25-Aug polish — badges on their own conditional row: no reserved empty
+            space under the name when a public community carries no badge at all. */}
+        {hasBadges && (
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
+            {/* §15 — "Admin" reads on the card itself, so a community you created is
                 still identifiable in Discover, search or anywhere outside the section. */}
-            {community.is_founder && <Badge style={{ background: "var(--plum)", color: "var(--paper)" }}>Owner</Badge>}
+            {community.is_founder && <Badge style={{ background: "var(--plum)", color: "var(--paper)" }}>Admin</Badge>}
             {fresh > 0 && <Badge variant="default">{fresh} new</Badge>}
             {community.is_invite_only && <Badge variant="secondary">Private</Badge>}
             {community.status === "pending" && <Badge variant="warning">Under review</Badge>}
+            {isRequested && <Badge variant="secondary">Requested</Badge>}
           </div>
-        </div>
+        )}
         <div style={{ fontSize: 12.5, color: "var(--ink-mute)", margin: "3px 0 4px", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {community.short_desc ?? community.description}
         </div>
@@ -1421,15 +1633,19 @@ export function CommunityCard({ community, pinned, onTogglePin }: {
           <Pin size={15} fill={pinned ? "currentColor" : "none"} />
         </button>
       )}
-      {/* §15 — a founder can't leave their own community (the API refuses), so a
-          "Joined" toggle there is a button that only ever errors. Give them the action
-          they actually want instead: Manage. Mods keep the normal Joined control. */}
+      {/* §15 — a founder can't leave their own community (the API refuses); they get
+          Manage. A joined member's CTA is "Open" — a Link into the community, NOT a
+          leave toggle (leaving lives on the detail page, v8 25-Aug). */}
       {community.is_founder ? (
         <Link href={`/community/${community.id}/manage`} style={{ textDecoration: "none", flexShrink: 0 }}>
-          <Button size="sm" variant="secondary">Manage</Button>
+          <Button size="sm" variant="secondary" style={ctaStyle}>Manage</Button>
+        </Link>
+      ) : isMember ? (
+        <Link href={`/community/${community.id}`} style={{ textDecoration: "none", flexShrink: 0 }}>
+          <Button size="sm" variant="secondary" style={ctaStyle}>Open</Button>
         </Link>
       ) : (
-        <Button size="sm" variant={isMember || isRequested ? "secondary" : "dark"} onClick={toggleJoin} disabled={busy}>
+        <Button size="sm" variant={isRequested ? "secondary" : "dark"} onClick={toggleJoin} disabled={busy} style={ctaStyle}>
           {joinLabel}
         </Button>
       )}

@@ -31,6 +31,12 @@ class Event(Base):
     online_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     cover_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     bring: Mapped[str | None] = mapped_column(Text, nullable=True)  # "what to bring" note
+    # DV8 — real pricing + ticketing/contact (events rebuild, change review §6).
+    is_free: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    price: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # minor units of currency
+    currency: Mapped[str] = mapped_column(String(3), default="INR", nullable=False)
+    ticket_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    contact: Mapped[str | None] = mapped_column(Text, nullable=True)
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     going_count: Mapped[int] = mapped_column(Integer, default=0)

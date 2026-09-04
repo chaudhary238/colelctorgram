@@ -1,10 +1,10 @@
 from app.models.user import User, Follow
-from app.models.catalogue import Catalogue
+from app.models.catalogue import Catalogue, CatalogueRating, CatalogueComment
 from app.models.item import Item, ItemPhoto
 from app.models.post import Post, PostLike, PostSave, Comment, CommentLike
 from app.models.listing import Listing, ListingSave
 from app.models.deal import Vouch, VouchRequest
-from app.models.community import Community, CommunityMember, CommunityJoinRequest
+from app.models.community import Community, CommunityMember, CommunityJoinRequest, CommunityMemberRemoval
 from app.models.event import Event, EventInterest
 from app.models.thread import Thread, Message
 from app.models.notification import Notification
@@ -14,12 +14,12 @@ from app.models.gamification import XpEvent, SeasonBadge
 
 __all__ = [
     "User", "Follow",
-    "Catalogue",
+    "Catalogue", "CatalogueRating", "CatalogueComment",
     "Item", "ItemPhoto",
     "Post", "PostLike", "PostSave", "Comment", "CommentLike",
     "Listing", "ListingSave",
     "Vouch", "VouchRequest",
-    "Community", "CommunityMember", "CommunityJoinRequest",
+    "Community", "CommunityMember", "CommunityJoinRequest", "CommunityMemberRemoval",
     "Event", "EventInterest",
     "Thread", "Message",
     "Notification",

@@ -179,11 +179,22 @@ export default function ChatPage() {
           {/* Context-aware back: returns to wherever you opened this DM from
               (e.g. an ISO post), falling back to the inbox on a cold entry. */}
           <BackButton fallback="/inbox" />
-          <Link href={`/profile/${other?.handle}`} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, textDecoration: "none" }}>
+          <Link href={`/profile/${other?.handle}`} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0, textDecoration: "none" }}>
             <Avatar name={other?.name ?? "?"} size={36} />
-            <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink)" }}>{other?.name ?? "Unknown"}</div>
               {other?.handle && <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>@{other.handle}</div>}
+              {/* design_v8 (Chat.jsx) — a listing thread names its item: "re: {title}".
+                  The thread payload's listing.title IS the catalogue title (the backend
+                  prefers cat.title over the item's custom title), and the context card
+                  below already leads with that same string — so the re: line lives up
+                  here in the header, where it adds information instead of repeating the
+                  card's first line. No extra fetches (payload carries no separate sku). */}
+              {listing && (
+                <div style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  re: {listing.title}
+                </div>
+              )}
             </div>
           </Link>
           {other && (

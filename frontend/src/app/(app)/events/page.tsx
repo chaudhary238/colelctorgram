@@ -32,8 +32,10 @@ export default function EventsPage() {
   const [evCats, setEvCats] = useState<string[]>([]);
 
   // Public (active) events — split into upcoming / past client-side, as the design does.
+  // upcoming=false: this page owns the Past tab, so it wants the full set (the
+  // API now defaults to upcoming-only for every other consumer, e.g. the rail).
   useEffect(() => {
-    api.get<ApiEvent[]>("/events?limit=50")
+    api.get<ApiEvent[]>("/events?limit=50&upcoming=false")
       .then((data) => setEvents(data ?? []))
       .catch(console.error)
       .finally(() => setLoading(false));

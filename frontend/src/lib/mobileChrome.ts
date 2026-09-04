@@ -19,7 +19,9 @@ const TAB_ROOTS = ["/feed", "/market", "/db", "/community", "/profile"];
 // focused input flows where the tabs just get in the way. It STAYS on browsing
 // details (post, other profiles, community detail) — back-header + bottom tabs is
 // the Instagram post-detail model.
-const BOTTOMNAV_HIDE_PREFIX = ["/item/", "/listing/", "/db/", "/compose", "/add", "/chat/", "/onboarding"];
+// /collection/finish is the focused "finish your items" flow (DV8) — same rule as
+// compose/add: the tabs just get in the way of a form.
+const BOTTOMNAV_HIDE_PREFIX = ["/item/", "/listing/", "/db/", "/compose", "/add", "/chat/", "/onboarding", "/collection/finish"];
 const isEventDetail = (p: string) => /^\/events\/(?!new$)[^/]+/.test(p); // has the RSVP CTA bar
 
 export function hideAppBar(pathname: string): boolean {

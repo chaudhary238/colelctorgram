@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Heart, MessageCircle, Share2, Bookmark, Tag as TagIcon, MapPin, MessageSquare, Flag } from "lucide-react";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
-import { ApiPost, PollBlock, CommentThread, PostImages } from "@/components/cards";
+import { ApiPost, PollBlock, CommentThread, PostImages, refTone } from "@/components/cards";
 import { BackButton } from "@/components/BackButton";
 import { ReportSheet } from "@/components/ReportSheet";
 import { useUser } from "@/lib/auth-context";
@@ -23,24 +23,10 @@ interface Comment {
   created_at: string;
 }
 
-interface PostRef {
-  kind: "item" | "listing";
-  id: string;
-  sku: string | null;
-  title: string;
-  price?: number;
-}
-
+// `ref` (the tagged item/listing) and its tone helper now live on ApiPost /
+// in cards.tsx, shared with the feed's Tagged-item chip (v8).
 interface PostDetail extends ApiPost {
   comments?: Comment[];
-  ref?: PostRef | null;
-}
-
-// SKU prefix → ProductPhoto tone (no catalogue join on web yet)
-const REF_TONE: Record<string, string> = { FIG: "red", KIT: "forest", DSN: "plum", DCS: "teal" };
-function refTone(sku: string | null): string {
-  const m = (sku ?? "").match(/SKU-([A-Z]+)-/);
-  return (m && REF_TONE[m[1]]) || "ink";
 }
 
 export default function PostDetailPage() {
@@ -160,7 +146,8 @@ export default function PostDetailPage() {
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <BackButton fallback="/feed" />
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Post</span>
+          {/* v8 PostDetail — ISO posts read "Wanted" in the header. */}
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>{post.type === "iso" ? "Wanted" : "Post"}</span>
           {user?.id !== post.user_id && (
             /* W-48 — report entry point on post detail */
             <button
@@ -212,13 +199,14 @@ export default function PostDetailPage() {
 
         {post.type === "iso" && (
           <>
-            <div style={{ borderRadius: 16, overflow: "hidden", background: "rgba(232,163,61,0.07)", border: "1.5px solid rgba(232,163,61,0.32)", padding: "14px 16px", position: "relative", marginBottom: 12 }}>
-              <div style={{ position: "absolute", right: -4, top: "50%", transform: "translateY(-50%) rotate(15deg)", fontFamily: "var(--font-display)", fontWeight: 900, fontSize: 34, letterSpacing: "0.2em", color: "rgba(176,119,36,0.1)", textTransform: "uppercase", pointerEvents: "none", userSelect: "none" }}>WANTED</div>
-              <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em", color: "var(--ink)", lineHeight: 1.25, marginBottom: 10, paddingRight: 48 }}>{post.iso_item ?? post.title ?? post.body.slice(0, 60)}</div>
+            {/* v8 — neutral "Looking for" block; the gold WANTED watermark panel is gone. */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink-faint)", marginBottom: 4 }}>Looking for</div>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17, letterSpacing: "-0.025em", color: "var(--ink)", lineHeight: 1.22, marginBottom: 9 }}>{post.iso_item ?? post.title ?? post.body.slice(0, 60)}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {post.iso_budget != null && (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, background: "rgba(176,119,36,0.15)", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: "#9A6010" }}>
-                    <TagIcon size={11} />Max ₹{Math.round(Number(post.iso_budget) / 100).toLocaleString("en-IN")}
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, background: "var(--bone)", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>
+                    <TagIcon size={11} />Up to ₹{Math.round(Number(post.iso_budget) / 100).toLocaleString("en-IN")}
                   </span>
                 )}
                 {post.iso_cond && post.iso_cond !== "Any" && (

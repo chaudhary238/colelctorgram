@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CollectorHub — Layout Blueprint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --red:        #FF2442;
+  --red-dark:   #CC1133;
+  --red-soft:   rgba(255,36,66,0.10);
+  --red-ring:   rgba(255,36,66,0.30);
+  --white:      #FFFFFF;
+  --canvas:     #F8FAFC;
+  --s50:        #F8FAFC;
+  --s100:       #F1F5F9;
+  --s200:       #E2E8F0;
+  --s300:       #CBD5E1;
+  --s400:       #94A3B8;
+  --s500:       #64748B;
+  --s600:       #475569;
+  --s700:       #334155;
+  --s800:       #1E293B;
+  --s900:       #0F172A;
+  --emerald:    #10B981;
+  --amber:      #F59E0B;
+  --sky:        #0EA5E9;
+  --card-sh:    0 2px 16px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.03);
+  --card-lift:  0 12px 40px rgba(0,0,0,0.13), 0 0 0 1px rgba(0,0,0,0.04);
+  --card-red:   0 8px 32px rgba(255,36,66,0.22), 0 2px 8px rgba(255,36,66,0.14), 0 0 0 1.5px var(--red);
+}
+
+body {
+  background: var(--canvas);
+  font-family: 'Inter', sans-serif;
+  color: var(--s900);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── DOC HEADER ─── */
+.doc-header {
+  background: var(--s900);
+  padding: 56px 48px 52px;
+  position: relative;
+  overflow: hidden;
+}
+.doc-header::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(255,36,66,0.30) 0%, transparent 70%);
+  pointer-events: none;
+}
+.doc-header::after {
+  content: '';
+  position: absolute;
+  bottom: -40px; left: 200px;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(255,36,66,0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+.doc-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 12px; border-radius: 999px;
+  background: rgba(255,36,66,0.18); border: 1px solid rgba(255,36,66,0.35);
+  color: #FF6B81; font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; margin-bottom: 20px;
+}
+.doc-title {
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(32px, 5vw, 56px);
+  font-weight: 800;
+  color: var(--white);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin-bottom: 16px;
+}
+.doc-title span { color: var(--red); }
+.doc-sub {
+  font-size: 15px; color: var(--s400); line-height: 1.6;
+  max-width: 560px;
+}
+.doc-meta {
+  display: flex; gap: 24px; margin-top: 28px;
+  flex-wrap: wrap;
+}
+.doc-meta-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--s500);
+}
+.doc-meta-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); }
+
+/* ─── STRATEGY NAV ─── */
+.strategy-nav {
+  background: var(--white);
+  border-bottom: 1px solid var(--s200);
+  padding: 0 48px;
+  display: flex; gap: 0;
+  overflow-x: auto;
+  position: sticky; top: 0; z-index: 10;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.strategy-nav a {
+  flex-shrink: 0; padding: 16px 18px;
+  text-decoration: none; color: var(--s500);
+  font-size: 12.5px; font-weight: 600; letter-spacing: 0.01em;
+  border-bottom: 2px solid transparent;
+  transition: all 160ms;
+}
+.strategy-nav a:hover { color: var(--red); border-bottom-color: rgba(255,36,66,0.3); }
+.strategy-nav a.active { color: var(--red); border-bottom-color: var(--red); }
+
+/* ─── SECTION ─── */
+.section {
+  padding: 64px 48px;
+  border-bottom: 1px solid var(--s100);
+}
+.section-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 12px; border-radius: 999px;
+  background: var(--red-soft); border: 1px solid rgba(255,36,66,0.18);
+  color: var(--red-dark); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.09em; text-transform: uppercase; margin-bottom: 16px;
+}
+.section-num {
+  width: 22px; height: 22px; border-radius: 6px;
+  background: var(--red); color: var(--white);
+  font-size: 11px; font-weight: 800;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 32px; font-weight: 800;
+  letter-spacing: -0.025em; line-height: 1.1;
+  color: var(--s900); margin-bottom: 10px;
+}
+.section-desc {
+  font-size: 15px; color: var(--s500); line-height: 1.65;
+  max-width: 580px; margin-bottom: 40px;
+}
+.demo-area {
+  background: var(--s100);
+  border-radius: 24px;
+  padding: 32px;
+  border: 1px solid var(--s200);
+}
+.demo-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--s400); margin-bottom: 20px;
+}
+
+/* ─── STRATEGY 1: MASONRY ─── */
+.masonry-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.mcard {
+  background: var(--white);
+  border-radius: 20px;
+  overflow: visible;
+  box-shadow: var(--card-sh);
+  position: relative;
+  cursor: pointer;
+  transition: transform 200ms cubic-bezier(0.22,1,0.36,1), box-shadow 200ms;
+}
+.mcard:hover {
+  transform: scale(1.025) translateY(-3px);
+  box-shadow: var(--card-lift);
+}
+.mcard-img {
+  width: 100%; border-radius: 20px 20px 0 0;
+  object-fit: cover; display: block;
+}
+.mcard-img-area {
+  position: relative; border-radius: 20px 20px 0 0; overflow: hidden;
+}
+/* Glass floating badge */
+.glass-pill {
+  position: absolute;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border-radius: 999px;
+  background: rgba(15,23,42,0.52);
+  backdrop-filter: blur(8px) saturate(180%);
+  -webkit-backdrop-filter: blur(8px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: var(--white); font-size: 12px; font-weight: 600;
+}
+.glass-pill-red {
+  background: rgba(255,36,66,0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.22);
+  color: var(--white);
+}
+/* Overlap avatar block */
+.mcard-meta-overlap {
+  position: relative;
+  padding: 0 14px 14px;
+  margin-top: -22px; /* the overlap magic */
+  z-index: 2;
+}
+.overlap-avatar-row {
+  display: flex; align-items: center; gap: 0; margin-bottom: 8px;
+}
+.ov-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 2.5px solid var(--white);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  margin-left: -8px; flex-shrink: 0;
+}
+.ov-avatar:first-child { margin-left: 0; }
+
+/* ─── STRATEGY 2: GLASS ─── */
+.glass-card {
+  background: var(--white);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--card-sh);
+  /* double-stroke */
+  outline: 1px solid rgba(255,255,255,0.9);
+  outline-offset: -1px;
+  border: 1px solid var(--s200);
+  max-width: 320px;
+}
+.glass-img-area {
+  position: relative; height: 220px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  overflow: hidden;
+}
+.glass-img-placeholder {
+  width: 100%; height: 100%;
+  background: linear-gradient(160deg, #2c3e50 0%, #3498db 60%, #1abc9c 100%);
+  opacity: 0.85;
+}
+.float-bookmark {
+  position: absolute; top: 12px; right: 12px;
+  width: 36px; height: 36px; border-radius: 12px;
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.25);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--white); cursor: pointer;
+  font-size: 16px;
+  transition: background 140ms, transform 140ms;
+}
+.float-bookmark:hover { background: rgba(255,36,66,0.7); transform: scale(1.1); }
+.float-count {
+  position: absolute; bottom: 12px; left: 12px;
+}
+.float-count-right {
+  position: absolute; bottom: 12px; right: 12px;
+}
+.glass-body {
+  padding: 14px 16px 16px;
+}
+
+/* ─── STRATEGY 3: METADATA ─── */
+.meta-card {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: var(--card-sh);
+  border: 1px solid var(--s200);
+  max-width: 340px;
+}
+.stacked-avatars {
+  display: flex; align-items: center;
+}
+.s-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid var(--white);
+  font-size: 11px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  margin-left: -9px; flex-shrink: 0;
+}
+.s-avatar:first-child { margin-left: 0; }
+.location-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 999px;
+  background: rgba(14,165,233,0.10); border: 1px solid rgba(14,165,233,0.22);
+  color: var(--sky); font-size: 12px; font-weight: 600;
+}
+.sticker {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 6px;
+  font-size: 11.5px; font-weight: 700;
+}
+
+/* ─── STRATEGY 4: TYPOGRAPHY ─── */
+.typo-metric {
+  display: flex; align-items: baseline; gap: 6px;
+}
+.typo-giant {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800; font-size: 52px;
+  letter-spacing: -0.04em; line-height: 1;
+  color: var(--s900);
+}
+.typo-giant.red { color: var(--red); }
+.typo-label {
+  font-size: 11px; font-weight: 300;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--s400);
+}
+.trend-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px; border-radius: 12px;
+  background: var(--white); border: 1px solid var(--s200);
+  cursor: pointer; transition: background 120ms, transform 120ms;
+}
+.trend-item:hover { background: var(--s50); transform: translateX(3px); }
+.trend-num {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px; font-weight: 800;
+  letter-spacing: -0.03em; color: var(--red);
+  width: 28px; flex-shrink: 0;
+}
+
+/* ─── STRATEGY 5: MICRO INTERACTIONS ─── */
+.state-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+}
+.state-box {
+  background: var(--white);
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid var(--s200);
+}
+.state-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--s400); margin-bottom: 14px;
+}
+
+/* Interactive demo button — resting */
+.demo-btn-rest {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 22px; border-radius: 14px;
+  background: var(--white);
+  border: 1.5px solid var(--red);
+  color: var(--red);
+  font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  transition: all 180ms cubic-bezier(0.22,1,0.36,1);
+}
+/* Interactive demo button — active/hover */
+.demo-btn-active {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 22px; border-radius: 14px;
+  background: var(--red);
+  border: 1.5px solid var(--red);
+  color: var(--white);
+  font-size: 14px; font-weight: 700;
+  box-shadow: 0 8px 24px rgba(255,36,66,0.35), 0 3px 8px rgba(255,36,66,0.20), 0 0 0 4px rgba(255,36,66,0.12);
+  transform: scale(1.04);
+  cursor: pointer;
+}
+
+/* LIVE hover demo */
+.live-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 13px 24px; border-radius: 14px;
+  background: var(--white); border: 1.5px solid var(--red);
+  color: var(--red); font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.22,1,0.36,1);
+  font-family: inherit;
+}
+.live-btn:hover {
+  background: var(--red); color: var(--white);
+  box-shadow: 0 8px 28px rgba(255,36,66,0.38), 0 3px 10px rgba(255,36,66,0.22), 0 0 0 5px rgba(255,36,66,0.10);
+  transform: scale(1.05) translateY(-2px);
+}
+.live-btn:active {
+  transform: scale(0.97);
+  box-shadow: 0 3px 12px rgba(255,36,66,0.28);
+}
+
+/* card hover demo */
+.live-card {
+  background: var(--white); border-radius: 18px;
+  border: 1px solid var(--s200); padding: 16px;
+  cursor: pointer; transition: all 200ms cubic-bezier(0.22,1,0.36,1);
+  box-shadow: var(--card-sh);
+}
+.live-card:hover {
+  transform: scale(1.03) translateY(-4px);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.13), 0 0 0 1.5px var(--red);
+}
+
+/* ─── COLOR SWATCH ROW ─── */
+.swatch-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 28px; }
+.swatch {
+  flex: 1; min-width: 80px; height: 64px; border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.08);
+  display: flex; align-items: flex-end; padding: 8px;
+  font-size: 10px; font-weight: 700;
+}
+
+/* ─── RULE ─── */
+.rule { height: 1px; background: var(--s200); margin: 40px 0; }
+
+/* ─── BADGES ─── */
+.spec-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
+}
+
+/* ─── SPEC TABLE ─── */
+.spec-table { width: 100%; border-collapse: collapse; }
+.spec-table th {
+  text-align: left; font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--s400); padding: 8px 12px;
+  border-bottom: 1px solid var(--s200);
+}
+.spec-table td {
+  font-size: 13px; color: var(--s700);
+  padding: 11px 12px; border-bottom: 1px solid var(--s100);
+  vertical-align: top;
+}
+.spec-table tr:last-child td { border-bottom: none; }
+.spec-table td:first-child { font-weight: 600; color: var(--s900); width: 160px; }
+
+/* ─── IMPLEMENTATION NOTE ─── */
+.impl-note {
+  background: var(--s900); color: var(--white);
+  border-radius: 16px; padding: 20px 24px;
+  margin-top: 24px;
+  display: flex; gap: 14px; align-items: flex-start;
+}
+.impl-icon {
+  width: 32px; height: 32px; border-radius: 10px;
+  background: var(--red-soft); color: var(--red);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 15px;
+}
+.impl-title { font-size: 13px; font-weight: 700; color: var(--white); margin-bottom: 4px; }
+.impl-body { font-size: 12.5px; color: var(--s400); line-height: 1.6; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 700px) {
+  .section { padding: 48px 24px; }
+  .doc-header { padding: 40px 24px; }
+  .strategy-nav { padding: 0 24px; }
+  .masonry-grid, .state-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ HEADER ═══════════════════ -->
+<header class="doc-header">
+  <div class="doc-eyebrow">
+    <span>CollectorHub DS</span>
+    <span style="opacity:0.4">·</span>
+    <span>Layout Blueprint v3</span>
+  </div>
+  <h1 class="doc-title">Hyper-Vibrant<br/><span>Layout System</span></h1>
+  <p class="doc-sub">Five strategies for a Lemon8 / RED-grade visual system — masonry feeds, glass surfaces, metadata chaos, editorial typography, and explosive micro-interactions. Red &amp; white core, slate depth, accent tints.</p>
+  <div class="doc-meta">
+    <div class="doc-meta-item"><div class="doc-meta-dot"></div> 5 Strategies</div>
+    <div class="doc-meta-item"><div class="doc-meta-dot"></div> Live Demos</div>
+    <div class="doc-meta-item"><div class="doc-meta-dot"></div> Red + White + Slate palette</div>
+    <div class="doc-meta-item"><div class="doc-meta-dot"></div> June 2026</div>
+  </div>
+</header>
+
+<!-- ═══════════════════ NAV ═══════════════════ -->
+<nav class="strategy-nav">
+  <a href="#s1" class="active">01 · Masonry</a>
+  <a href="#s2">02 · Glass</a>
+  <a href="#s3">03 · Metadata</a>
+  <a href="#s4">04 · Typography</a>
+  <a href="#s5">05 · Interactions</a>
+  <a href="#palette">Palette</a>
+  <a href="#tokens">Tokens</a>
+</nav>
+
+<!-- ═══════════════════ S1: MASONRY ═══════════════════ -->
+<section class="section" id="s1">
+  <div class="section-eyebrow"><span class="section-num">1</span> Asymmetric Masonry Feeds</div>
+  <h2 class="section-title">Break the grid.<br/>Own the scroll.</h2>
+  <p class="section-desc">Cards breathe at different heights — tall editorial images beside tight compact cards. The user's avatar and title block bleeds upward over the image bottom edge, creating a tactile 3D layer that makes the feed feel alive and editorial, not spreadsheet-flat.</p>
+
+  <div class="demo-area">
+    <div class="demo-label">Live feed demo — hover a card</div>
+    <div class="masonry-grid">
+
+      <!-- TALL CARD -->
+      <div class="mcard">
+        <div class="mcard-img-area" style="height:260px;">
+          <div style="width:100%;height:100%;background:linear-gradient(160deg,#1a1a2e 0%,#e94560 60%,#f5a623 100%);"></div>
+          <!-- glass count top-left -->
+          <div class="glass-pill" style="top:12px;left:12px;">
+            <span>📸</span><span>6</span>
+          </div>
+          <!-- glass bookmark top-right -->
+          <div class="float-bookmark">🔖</div>
+          <!-- glass like bottom-left -->
+          <div class="glass-pill glass-pill-red float-count">
+            <span>❤️</span><span style="font-weight:700;">2.4K</span>
+          </div>
+          <!-- grade badge bottom-right -->
+          <div class="glass-pill float-count-right" style="font-size:11px;font-weight:800;">
+            PSA <span style="color:#f5a623;font-size:13px;font-weight:900;">9</span>
+          </div>
+        </div>
+        <!-- OVERLAP META BLOCK -->
+        <div class="mcard-meta-overlap">
+          <div class="overlap-avatar-row">
+            <div class="ov-avatar" style="background:#FF2442;color:#fff;">JK</div>
+            <div class="ov-avatar" style="background:#0F172A;color:#fff;">MC</div>
+            <div class="ov-avatar" style="background:#10B981;color:#fff;">AS</div>
+            <span style="font-size:11.5px;color:var(--s500);margin-left:8px;font-weight:500;">+14 want this</span>
+          </div>
+          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:14.5px;letter-spacing:-0.02em;color:var(--s900);line-height:1.2;margin-bottom:5px;">
+            1986 Transformers G1 Optimus Prime — MIB
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span class="sticker" style="background:var(--red-soft);color:var(--red-dark);">🔥 Grail</span>
+            <span class="sticker" style="background:rgba(245,158,11,0.12);color:#B45309;">✦ PSA 9</span>
+            <span style="font-size:11px;color:var(--s400);">2h ago</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SHORT + SECOND CARD stack -->
+      <div style="display:flex;flex-direction:column;gap:14px;">
+
+        <!-- SHORT CARD -->
+        <div class="mcard">
+          <div class="mcard-img-area" style="height:140px;">
+            <div style="width:100%;height:100%;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);"></div>
+            <div class="glass-pill glass-pill-red" style="top:10px;right:10px;font-size:11px;font-weight:800;">
+              🏷 ₹24,000
+            </div>
+            <div class="glass-pill" style="bottom:10px;left:10px;font-size:11px;">
+              📍 Mumbai
+            </div>
+          </div>
+          <div class="mcard-meta-overlap" style="margin-top:-16px;">
+            <div class="overlap-avatar-row">
+              <div class="ov-avatar" style="background:#8B5CF6;color:#fff;width:30px;height:30px;font-size:12px;">RA</div>
+              <span style="font-size:11px;color:var(--s500);margin-left:6px;">@raja_toys</span>
+            </div>
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:13px;letter-spacing:-0.02em;color:var(--s900);">
+              Hot Wheels '69 Camaro RLC
+            </div>
+          </div>
+        </div>
+
+        <!-- MEDIUM CARD -->
+        <div class="mcard">
+          <div class="mcard-img-area" style="height:160px;">
+            <div style="width:100%;height:100%;background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);"></div>
+            <div class="glass-pill" style="top:10px;left:10px;font-size:11px;">
+              📸 4
+            </div>
+            <div class="float-bookmark" style="top:10px;right:10px;">🔖</div>
+            <div class="glass-pill glass-pill-red float-count">
+              ❤️ <span style="font-weight:700;">891</span>
+            </div>
+          </div>
+          <div class="mcard-meta-overlap" style="margin-top:-16px;">
+            <div class="overlap-avatar-row">
+              <div class="ov-avatar" style="background:#0EA5E9;color:#fff;width:30px;height:30px;font-size:12px;">SN</div>
+              <div class="ov-avatar" style="background:#FF2442;color:#fff;width:30px;height:30px;font-size:12px;">PK</div>
+              <span style="font-size:11px;color:var(--s500);margin-left:6px;">+7 liked</span>
+            </div>
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:13px;letter-spacing:-0.02em;color:var(--s900);">
+              Bandai HG Gundam 00 — Sealed
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end masonry-grid -->
+  </div>
+
+  <div class="impl-note">
+    <div class="impl-icon">📐</div>
+    <div>
+      <div class="impl-title">Implementation target — Cards.jsx</div>
+      <div class="impl-body">Switch feed from single-column `borderBottom` dividers to a two-column CSS grid with `align-items: start`. Apply `margin-top: -20px` on the `.meta-block` to create the overlap. Each card gets `overflow: visible` and `z-index: 2` on the meta block. Glass pills use `backdrop-filter: blur(8px)` + `rgba` backgrounds.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ S2: GLASS ═══════════════════ -->
+<section class="section" id="s2" style="background:var(--white);">
+  <div class="section-eyebrow"><span class="section-num">2</span> Glass &amp; Texture Surfaces</div>
+  <h2 class="section-title">Every surface<br/>earns its depth.</h2>
+  <p class="section-desc">Double-stroke borders (white inner + slate-200 outer), frosted-glass floating controls inside image areas, and inner glow treatments turn flat white boxes into tactile objects.</p>
+
+  <div class="demo-area">
+    <div class="demo-label">Glass card anatomy</div>
+    <div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;">
+
+      <!-- GLASS CARD -->
+      <div class="glass-card">
+        <div class="glass-img-area">
+          <div class="glass-img-placeholder"></div>
+          <!-- Double-stroke outer ring treatment  -->
+          <div style="position:absolute;inset:0;border-radius:20px 20px 0 0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.30);pointer-events:none;"></div>
+          <!-- Glass bookmark -->
+          <div class="float-bookmark" style="top:12px;right:12px;">🔖</div>
+          <!-- Photo count -->
+          <div class="glass-pill" style="top:12px;left:12px;font-size:11.5px;">
+            📸 <span style="font-weight:700;">4</span>
+          </div>
+          <!-- Like count  -->
+          <div class="glass-pill glass-pill-red" style="bottom:12px;left:12px;">
+            ❤️ <span style="font-weight:700;">1.2K</span>
+          </div>
+          <!-- Grade badge -->
+          <div class="glass-pill" style="bottom:12px;right:12px;background:rgba(245,158,11,0.75);">
+            <span style="font-weight:800;">PSA 9.5</span>
+          </div>
+        </div>
+        <div class="glass-body">
+          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:15px;letter-spacing:-0.02em;margin-bottom:6px;">Nike Air Jordan 1 Retro High</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <span class="location-tag">📍 Delhi, India</span>
+            <span class="sticker" style="background:var(--red-soft);color:var(--red-dark);">🔥 Hot</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ANATOMY CALLOUTS -->
+      <div style="display:flex;flex-direction:column;gap:12px;max-width:280px;">
+        <div style="padding:14px 16px;background:var(--white);border-radius:14px;border:1px solid var(--s200);">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--s400);margin-bottom:6px;">Double-stroke border</div>
+          <div style="font-size:13px;color:var(--s700);line-height:1.55;">Outer: <code style="background:var(--s100);padding:1px 5px;border-radius:4px;font-size:11px;">1px solid #E2E8F0</code><br/>Inner: <code style="background:var(--s100);padding:1px 5px;border-radius:4px;font-size:11px;">inset 0 0 0 1px rgba(255,255,255,0.30)</code></div>
+        </div>
+        <div style="padding:14px 16px;background:var(--white);border-radius:14px;border:1px solid var(--s200);">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--s400);margin-bottom:6px;">Glass pill formula</div>
+          <div style="font-size:13px;color:var(--s700);line-height:1.55;"><code style="background:var(--s100);padding:1px 5px;border-radius:4px;font-size:11px;">backdrop-filter: blur(8px)</code><br/><code style="background:var(--s100);padding:1px 5px;border-radius:4px;font-size:11px;">bg: rgba(15,23,42,0.52)</code><br/><code style="background:var(--s100);padding:1px 5px;border-radius:4px;font-size:11px;">border: 1px rgba(255,255,255,0.18)</code></div>
+        </div>
+        <div style="padding:14px 16px;background:var(--white);border-radius:14px;border:1px solid var(--s200);">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--s400);margin-bottom:6px;">Red glass variant</div>
+          <div style="font-size:13px;color:var(--s700);line-height:1.55;"><code style="background:var(--s100);padding:1px 5px;border-radius:4px;font-size:11px;">bg: rgba(255,36,66,0.75)</code><br/>Used for likes, saves, hot tags</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="impl-note">
+    <div class="impl-icon">🪟</div>
+    <div>
+      <div class="impl-title">Implementation target — Cards.jsx image wrappers</div>
+      <div class="impl-body">All `.mcard-img-area` containers get `overflow: hidden` + an inset pseudo-element for the inner white ring. Floating glass pills are `position: absolute` children. The `backdrop-filter` degrades gracefully — if unsupported the `rgba` background still reads fine.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ S3: METADATA ═══════════════════ -->
+<section class="section" id="s3">
+  <div class="section-eyebrow"><span class="section-num">3</span> Chaotic Dynamic Metadata</div>
+  <h2 class="section-title">Pack every card.<br/>Make it feel alive.</h2>
+  <p class="section-desc">Location tints, stacked social-proof avatars, emoji inline labels, status stickers. Content should feel annotated by the community — not clinically blank.</p>
+
+  <div class="demo-area">
+    <div class="demo-label">Metadata block anatomy</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:700px;">
+
+      <!-- Social proof row -->
+      <div style="background:var(--white);border-radius:16px;padding:16px;border:1px solid var(--s200);box-shadow:var(--card-sh);">
+        <div style="font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--s400);margin-bottom:12px;">Social Proof Stack</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <div class="stacked-avatars">
+            <div class="s-avatar" style="background:#FF2442;color:white;">JK</div>
+            <div class="s-avatar" style="background:#8B5CF6;color:white;">MC</div>
+            <div class="s-avatar" style="background:#10B981;color:white;">AS</div>
+            <div class="s-avatar" style="background:#F59E0B;color:white;">+8</div>
+          </div>
+          <span style="font-size:12.5px;color:var(--s600);font-weight:500;">want this listing</span>
+        </div>
+        <div style="font-size:12px;color:var(--s400);">Three real avatars max, then +N overflow count. Tiny 28px circles, 2px white border, -9px margin.</div>
+      </div>
+
+      <!-- Location tag -->
+      <div style="background:var(--white);border-radius:16px;padding:16px;border:1px solid var(--s200);box-shadow:var(--card-sh);">
+        <div style="font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--s400);margin-bottom:12px;">Location + Status Tints</div>
+        <div style="display:flex;flex-direction:column;gap:7px;">
+          <div><span class="location-tag">📍 Mumbai, India</span></div>
+          <div><span class="sticker" style="background:rgba(16,185,129,0.10);color:#065F46;">✓ Ships Nationwide</span></div>
+          <div><span class="sticker" style="background:rgba(245,158,11,0.10);color:#92400E;">⚡ 2 left in stock</span></div>
+          <div><span class="sticker" style="background:var(--red-soft);color:var(--red-dark);">🔥 12 watching now</span></div>
+        </div>
+      </div>
+
+      <!-- Emoji metadata inline -->
+      <div style="background:var(--white);border-radius:16px;padding:16px;border:1px solid var(--s200);box-shadow:var(--card-sh);">
+        <div style="font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--s400);margin-bottom:12px;">Inline Emoji Labels</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--s700);">
+          <div>🎖️ <strong>Verified Collector</strong> · 214 deals</div>
+          <div>📦 <strong>Ships in 24h</strong> · Tracked + insured</div>
+          <div>🤝 <strong>Trade welcome</strong> · See wishlist</div>
+          <div>⭐ <strong>4.97</strong> · 128 reviews</div>
+        </div>
+      </div>
+
+      <!-- Numeric status indicators -->
+      <div style="background:var(--white);border-radius:16px;padding:16px;border:1px solid var(--s200);box-shadow:var(--card-sh);">
+        <div style="font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--s400);margin-bottom:12px;">Numeric Status Dots</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:42px;height:42px;border-radius:12px;background:var(--red-soft);border:1px solid rgba(255,36,66,0.2);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:var(--red);">12</div>
+            <span style="font-size:10px;color:var(--s400);letter-spacing:0.04em;">WATCHING</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:42px;height:42px;border-radius:12px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.20);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:var(--emerald);">3</div>
+            <span style="font-size:10px;color:var(--s400);letter-spacing:0.04em;">OFFERS</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:42px;height:42px;border-radius:12px;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.20);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:var(--amber);">7</div>
+            <span style="font-size:10px;color:var(--s400);letter-spacing:0.04em;">SAVES</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="impl-note">
+    <div class="impl-icon">🏷️</div>
+    <div>
+      <div class="impl-title">Implementation target — Cards.jsx + shared.jsx Badge</div>
+      <div class="impl-body">Add a `StackedAvatars` primitive to shared.jsx (max 3 shown, +N overflow). `LocationTag` wraps the sky tint treatment. Metadata blocks become a `display:flex; gap:6px; flex-wrap:wrap` row beneath the post body — no line limit.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ S4: TYPOGRAPHY ═══════════════════ -->
+<section class="section" id="s4" style="background:var(--white);">
+  <div class="section-eyebrow"><span class="section-num">4</span> Typographic Contrast</div>
+  <h2 class="section-title">Giant meets ghost.<br/>No middle ground.</h2>
+  <p class="section-desc">Key metrics use Syne 800 at extreme sizes. Descriptive labels drop to Inter 300 with wide tracking. The contrast between them IS the hierarchy — no color crutch needed.</p>
+
+  <div class="demo-area">
+    <div class="demo-label">Metric display + trending search</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+
+      <!-- Stats row -->
+      <div style="background:var(--white);border-radius:18px;padding:20px;border:1px solid var(--s200);box-shadow:var(--card-sh);">
+        <div style="display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap;">
+          <div>
+            <div class="typo-metric">
+              <span class="typo-giant red">2.4K</span>
+            </div>
+            <div class="typo-label">Followers</div>
+          </div>
+          <div>
+            <div class="typo-metric">
+              <span class="typo-giant">214</span>
+            </div>
+            <div class="typo-label">Deals done</div>
+          </div>
+          <div>
+            <div class="typo-metric">
+              <span class="typo-giant" style="font-size:40px;">4.97</span>
+              <span style="font-size:20px;font-family:'Syne',sans-serif;font-weight:800;color:var(--amber);letter-spacing:-0.02em;">★</span>
+            </div>
+            <div class="typo-label">Avg rating</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trending search -->
+      <div style="background:var(--white);border-radius:18px;padding:20px;border:1px solid var(--s200);box-shadow:var(--card-sh);">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--s400);margin-bottom:12px;">Trending now</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div class="trend-item">
+            <span class="trend-num">1</span>
+            <div style="flex:1;"><div style="font-size:13.5px;font-weight:600;color:var(--s900);">Transformers G1</div><div style="font-size:11px;color:var(--s400);">18.4K posts</div></div>
+            <span style="font-size:16px;">🔥</span>
+          </div>
+          <div class="trend-item">
+            <span class="trend-num">2</span>
+            <div style="flex:1;"><div style="font-size:13.5px;font-weight:600;color:var(--s900);">Hot Wheels RLC</div><div style="font-size:11px;color:var(--s400);">12.1K posts</div></div>
+            <span style="font-size:16px;">🔥</span>
+          </div>
+          <div class="trend-item">
+            <span class="trend-num">3</span>
+            <div style="flex:1;"><div style="font-size:13.5px;font-weight:600;color:var(--s900);">PSA 10 Pokémon</div><div style="font-size:11px;color:var(--s400);">9.7K posts</div></div>
+            <span>📈</span>
+          </div>
+          <div class="trend-item">
+            <span class="trend-num">4</span>
+            <div style="flex:1;"><div style="font-size:13.5px;font-weight:600;color:var(--s900);">Jordan 1 OG Chicago</div><div style="font-size:11px;color:var(--s400);">8.3K posts</div></div>
+            <span>⬆️</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="rule"></div>
+
+    <!-- Type scale reference -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;align-items:baseline;gap:16px;">
+        <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:48px;letter-spacing:-0.04em;color:var(--s900);">Syne 800</span>
+        <span style="font-size:11px;font-weight:300;letter-spacing:0.14em;text-transform:uppercase;color:var(--s400);">Metric · Giant numerics · Hero titles</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:16px;">
+        <span style="font-family:'Inter',sans-serif;font-weight:700;font-size:22px;letter-spacing:-0.025em;color:var(--s900);">Inter 700 — 22px</span>
+        <span style="font-size:11px;font-weight:300;letter-spacing:0.14em;text-transform:uppercase;color:var(--s400);">Card titles · Section heads</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:16px;">
+        <span style="font-family:'Inter',sans-serif;font-weight:500;font-size:14px;color:var(--s700);">Inter 500 — 14px</span>
+        <span style="font-size:11px;font-weight:300;letter-spacing:0.14em;text-transform:uppercase;color:var(--s400);">Body text · Descriptions</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:16px;">
+        <span style="font-family:'Inter',sans-serif;font-weight:300;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--s400);">INTER 300 · ALL CAPS · TRACKING WIDE</span>
+        <span style="font-size:11px;font-weight:300;letter-spacing:0.14em;text-transform:uppercase;color:var(--s300);">Labels · Timestamps · Metadata</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="impl-note">
+    <div class="impl-icon">Aa</div>
+    <div>
+      <div class="impl-title">Implementation target — ProfileView.jsx + Overlays.jsx Search</div>
+      <div class="impl-body">Profile stats: replace current medium-weight numbers with `font-family: Syne, font-weight: 800, font-size: 36px`. Search overlay: add a trending section beneath the input — numbered rows with flame emoji and post count. The `trend-num` gets the Syne 800 treatment.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ S5: MICRO INTERACTIONS ═══════════════════ -->
+<section class="section" id="s5">
+  <div class="section-eyebrow"><span class="section-num">5</span> Micro-Interactive States</div>
+  <h2 class="section-title">Every press is<br/>an event.</h2>
+  <p class="section-desc">Resting state: clean red outline. Active state: solid cherry red fill + multi-layer explosive shadow + scale(1.04) on the container. Cards scale up and cast a red-tinted halo when pressed.</p>
+
+  <div class="demo-area">
+    <div class="demo-label">Hover these — live interactive demos</div>
+    <div class="state-grid">
+
+      <!-- Button states -->
+      <div class="state-box">
+        <div class="state-label">Button — Resting vs Active</div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+          <button class="live-btn">🔖 Save Listing</button>
+          <span style="font-size:12px;color:var(--s400);">← hover me</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <button class="demo-btn-active">🔖 Save Listing</button>
+          <span style="font-size:12px;color:var(--s400);">← active state</span>
+        </div>
+        <div style="margin-top:14px;font-size:12px;color:var(--s500);line-height:1.6;">
+          Active shadow: <code style="background:var(--s100);padding:1px 5px;border-radius:4px;">0 8px 24px rgba(255,36,66,0.35), 0 3px 8px rgba(255,36,66,0.20), 0 0 0 4px rgba(255,36,66,0.12)</code>
+        </div>
+      </div>
+
+      <!-- Card scale state -->
+      <div class="state-box">
+        <div class="state-label">Card — Hover to lift</div>
+        <div class="live-card">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <div style="width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#FF2442,#ff6b81);"></div>
+            <div>
+              <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:14px;letter-spacing:-0.02em;">1986 G1 Grimlock</div>
+              <div style="font-size:11.5px;color:var(--s400);">@collector_raj · 2h ago</div>
+            </div>
+          </div>
+          <div style="font-size:13px;color:var(--s600);line-height:1.55;margin-bottom:10px;">Just picked this up at the Ahmedabad toy fair 🎉 Complete with box!</div>
+          <div style="display:flex;gap:6px;">
+            <span class="sticker" style="background:var(--red-soft);color:var(--red-dark);">🔥 Grail</span>
+            <span class="sticker" style="background:rgba(14,165,233,0.10);color:var(--sky);">📍 Ahmedabad</span>
+          </div>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--s500);">
+          On hover: <code style="background:var(--s100);padding:1px 5px;border-radius:4px;">scale(1.03) translateY(-4px)</code> + red ring shadow
+        </div>
+      </div>
+
+      <!-- Like animation state -->
+      <div class="state-box">
+        <div class="state-label">Action icons — before / after</div>
+        <div style="display:flex;gap:16px;align-items:center;">
+          <!-- Resting like -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+            <button style="width:44px;height:44px;border-radius:14px;border:1.5px solid var(--s200);background:var(--white);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;transition:all 180ms;" onmouseenter="this.style.cssText=this.style.cssText.replace('background:var(--white)','background:var(--red-soft)');this.style.borderColor='rgba(255,36,66,0.3)';" onmouseleave="this.style.cssText=this.style.cssText.replace('background:var(--red-soft)','background:var(--white)');this.style.borderColor='var(--s200)';">🤍</button>
+            <span style="font-size:10px;color:var(--s400);font-weight:600;">Resting</span>
+          </div>
+          <!-- Active like -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+            <button style="width:44px;height:44px;border-radius:14px;border:1.5px solid var(--red);background:var(--red-soft);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(255,36,66,0.25);transform:scale(1.06);">❤️</button>
+            <span style="font-size:10px;color:var(--red);font-weight:700;">Liked</span>
+          </div>
+          <!-- Bookmark resting -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+            <button style="width:44px;height:44px;border-radius:14px;border:1.5px solid var(--s200);background:var(--white);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;">🔖</button>
+            <span style="font-size:10px;color:var(--s400);font-weight:600;">Unsaved</span>
+          </div>
+          <!-- Bookmark active -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+            <button style="width:44px;height:44px;border-radius:14px;border:1.5px solid var(--s800);background:var(--s900);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;box-shadow:0 4px 16px rgba(15,23,42,0.3);transform:scale(1.06);">🔖</button>
+            <span style="font-size:10px;color:var(--s700);font-weight:700;">Saved</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transition spec -->
+      <div class="state-box">
+        <div class="state-label">Transition formula</div>
+        <table class="spec-table">
+          <thead><tr><th>Property</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td>Duration</td><td>180–200ms</td></tr>
+            <tr><td>Easing</td><td>cubic-bezier(0.22, 1, 0.36, 1)</td></tr>
+            <tr><td>Card scale</td><td>scale(1.025–1.05)</td></tr>
+            <tr><td>Card Y lift</td><td>translateY(-3px to -5px)</td></tr>
+            <tr><td>Shadow on hover</td><td>var(--card-lift)</td></tr>
+            <tr><td>Red ring on active</td><td>0 0 0 4px rgba(255,36,66,0.12)</td></tr>
+            <tr><td>Press down</td><td>scale(0.97), 120ms</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="impl-note">
+    <div class="impl-icon">✦</div>
+    <div>
+      <div class="impl-title">Implementation target — shared.jsx Button + Cards.jsx mcard</div>
+      <div class="impl-body">Button already has `onPointerDown scale(0.97)`. Add `onMouseEnter`/`onMouseLeave` handlers for the red-fill swap + shadow explosion. Cards get `transition: transform 200ms, box-shadow 200ms` + the hover handlers. `ActionBtn` (like, comment, share) gets the icon-state swap treatment with the `scale(1.06)` bump.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ PALETTE ═══════════════════ -->
+<section class="section" id="palette" style="background:var(--white);">
+  <div class="section-eyebrow">Reference</div>
+  <h2 class="section-title">Color palette</h2>
+  <p class="section-desc">Red + White core, Slate neutrals, Emerald/Amber/Sky/Violet accents. Every token already live in <code>colors_and_type.css</code>.</p>
+
+  <div style="display:flex;flex-direction:column;gap:24px;">
+    <!-- Red family -->
+    <div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--s400);margin-bottom:10px;">Brand red family</div>
+      <div class="swatch-row">
+        <div class="swatch" style="background:#FF2442;"><span style="color:rgba(255,255,255,0.7);font-size:10px;font-weight:700;">--stamp-red<br/>#FF2442</span></div>
+        <div class="swatch" style="background:#CC1133;"><span style="color:rgba(255,255,255,0.7);font-size:10px;font-weight:700;">--rose-tint-text<br/>#CC1133</span></div>
+        <div class="swatch" style="background:rgba(255,36,66,0.10);border:1px solid rgba(255,36,66,0.20);"><span style="color:var(--red-dark);font-size:10px;font-weight:700;">--rose-tint-bg<br/>rgba(255,36,66,0.10)</span></div>
+        <div class="swatch" style="background:rgba(255,36,66,0.07);border:1px solid rgba(255,36,66,0.14);"><span style="color:var(--red-dark);font-size:10px;font-weight:700;">--red-soft-2<br/>rgba(0.07)</span></div>
+      </div>
+    </div>
+    <!-- Slate scale -->
+    <div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--s400);margin-bottom:10px;">Slate neutral scale</div>
+      <div class="swatch-row">
+        <div class="swatch" style="background:var(--s100);"><span style="color:var(--s500);font-size:9px;font-weight:700;">100</span></div>
+        <div class="swatch" style="background:var(--s200);"><span style="color:var(--s600);font-size:9px;font-weight:700;">200</span></div>
+        <div class="swatch" style="background:var(--s300);"><span style="color:var(--s700);font-size:9px;font-weight:700;">300</span></div>
+        <div class="swatch" style="background:var(--s400);"><span style="color:white;font-size:9px;font-weight:700;">400</span></div>
+        <div class="swatch" style="background:var(--s500);"><span style="color:white;font-size:9px;font-weight:700;">500</span></div>
+        <div class="swatch" style="background:var(--s700);"><span style="color:rgba(255,255,255,0.7);font-size:9px;font-weight:700;">700</span></div>
+        <div class="swatch" style="background:var(--s800);"><span style="color:rgba(255,255,255,0.6);font-size:9px;font-weight:700;">800</span></div>
+        <div class="swatch" style="background:var(--s900);"><span style="color:rgba(255,255,255,0.5);font-size:9px;font-weight:700;">900</span></div>
+      </div>
+    </div>
+    <!-- Accents -->
+    <div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--s400);margin-bottom:10px;">Accent tints</div>
+      <div class="swatch-row">
+        <div class="swatch" style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.22);"><span style="color:var(--emerald);font-size:9px;font-weight:700;">Emerald<br/>Success</span></div>
+        <div class="swatch" style="background:rgba(245,158,11,0.13);border:1px solid rgba(245,158,11,0.22);"><span style="color:var(--amber);font-size:9px;font-weight:700;">Amber<br/>Warning</span></div>
+        <div class="swatch" style="background:rgba(14,165,233,0.12);border:1px solid rgba(14,165,233,0.22);"><span style="color:var(--sky);font-size:9px;font-weight:700;">Sky<br/>Location</span></div>
+        <div class="swatch" style="background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.22);"><span style="color:#8B5CF6;font-size:9px;font-weight:700;">Violet<br/>Community</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ TOKENS ═══════════════════ -->
+<section class="section" id="tokens">
+  <div class="section-eyebrow">Reference</div>
+  <h2 class="section-title">Key CSS tokens</h2>
+  <p class="section-desc">All tokens already live in <code style="font-size:14px;background:var(--s100);padding:2px 8px;border-radius:6px;">colors_and_type.css</code>. Use these in every file.</p>
+
+  <div style="background:var(--white);border-radius:18px;border:1px solid var(--s200);overflow:hidden;box-shadow:var(--card-sh);">
+    <table class="spec-table">
+      <thead><tr><th>Token</th><th>Value</th><th>Use case</th></tr></thead>
+      <tbody>
+        <tr><td>--canvas</td><td>#F8FAFC</td><td>Screen background — everywhere behind cards</td></tr>
+        <tr><td>--card-surface</td><td>#FFFFFF</td><td>Card bg — pops off canvas</td></tr>
+        <tr><td>--card-shadow</td><td>0 2px 16px …</td><td>Default card depth</td></tr>
+        <tr><td>--card-shadow-lifted</td><td>0 8px 32px …</td><td>Hovered / featured cards</td></tr>
+        <tr><td>--card-red</td><td>… rgba(255,36,66,…)</td><td>Active / selected card ring</td></tr>
+        <tr><td>--rose-tint-bg</td><td>rgba(255,36,66,0.07)</td><td>Hashtag chip bg</td></tr>
+        <tr><td>--rose-tint-text</td><td>#CC1133</td><td>Hashtag chip text</td></tr>
+        <tr><td>--ring</td><td>rgba(255,36,66,0.30)</td><td>Focus rings on inputs + buttons</td></tr>
+        <tr><td>--slate-200</td><td>#E2E8F0</td><td>Card borders, dividers</td></tr>
+        <tr><td>--slate-400</td><td>#94A3B8</td><td>Muted text, timestamps, labels</td></tr>
+        <tr><td>--slate-900</td><td>#0F172A</td><td>Dark button bg, primary headings</td></tr>
+        <tr><td>--emerald</td><td>#10B981</td><td>Success states, "Going" badge</td></tr>
+        <tr><td>--amber</td><td>#F59E0B</td><td>Warning, PSA grade highlight</td></tr>
+        <tr><td>--sky</td><td>#0EA5E9</td><td>Location tags</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <div style="margin-top:48px;padding-top:28px;border-top:1px solid var(--s200);display:flex;align-items:center;justify-content:space-between;flex-wrap:gap;gap:16px;">
+    <div>
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:16px;letter-spacing:-0.02em;color:var(--s900);">CollectorHub Design System</div>
+      <div style="font-size:12px;color:var(--s400);margin-top:2px;">Layout Blueprint v3 · June 2026 · 5 strategies defined</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <span class="spec-badge" style="background:var(--red-soft);color:var(--red-dark);">Next: Cards.jsx masonry</span>
+      <span class="spec-badge" style="background:var(--s100);color:var(--s600);">FeedView glass</span>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Sticky nav active state
+  const sections = document.querySelectorAll('section[id]');
+  const links = document.querySelectorAll('.strategy-nav a');
+  window.addEventListener('scroll', () => {
+    let cur = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 80) cur = s.id;
+    });
+    links.forEach(l => {
+      l.classList.toggle('active', l.getAttribute('href') === '#' + cur);
+    });
+  }, { passive: true });
+</script>
+</body>
+</html>

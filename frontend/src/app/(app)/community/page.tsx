@@ -34,7 +34,7 @@ type Tab = "discover" | "joined";
  * own also carry an Owner chip (see CommunityCard) so the distinction survives outside
  * this screen, in Discover and in search.
  *
- * The tab is called "My communities" rather than "Joined" because it now holds both.
+ * The tab is called "Your communities" (v8 §8) rather than "Joined" because it holds both.
  */
 
 // Most-active first: fresh (last-24h) posts, then total members. Pins float above all.
@@ -125,8 +125,9 @@ function CommunityPageInner() {
           value={tab}
           onChange={(v) => selectTab(v as Tab)}
           options={[
+            /* v8 §8 — exact labels: "Discover" / "Your communities" (joined tab keeps its count). */
             { id: "discover", label: "Discover" },
-            { id: "joined", label: mine.length ? `My communities · ${mine.length}` : "My communities" },
+            { id: "joined", label: mine.length ? `Your communities · ${mine.length}` : "Your communities" },
           ]}
         />
       </div>

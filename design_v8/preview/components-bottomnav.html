@@ -1,0 +1,55 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px 28px 28px; background: var(--bone);
+         font-family: var(--font-body); color: var(--ink); }
+  .label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+           letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 14px; }
+  .label b { color: var(--ink); font-weight: 600; }
+  .frame { background: var(--paper); border: 1px solid var(--border);
+           border-radius: var(--r-md); overflow: hidden;
+           box-shadow: var(--shadow-1); max-width: 380px; }
+  .nav { background: var(--paper); border-top: 1px solid var(--border);
+         display: flex; padding: 8px 8px 28px; align-items: stretch; }
+  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+         padding: 4px 0 2px; border: none; background: transparent;
+         color: var(--ink-faint); font-weight: 500; font-size: 10px; cursor: pointer;
+         position: relative; font-family: var(--font-body); }
+  .tab.active { color: var(--ink); font-weight: 600; }
+  .tab.active::before { content: ""; position: absolute; top: -8px; left: 50%;
+                        transform: translateX(-50%); width: 24px; height: 3px;
+                        background: var(--stamp-red); border-radius: 0 0 4px 4px; }
+  .tab svg { stroke: currentColor; fill: none; stroke-width: 1.75;
+             stroke-linecap: round; stroke-linejoin: round; }
+  .post { flex: 0 0 56px; margin: -6px 4px 0; height: 52px; border-radius: 14px;
+          background: var(--stamp-red); color: var(--paper); border: none;
+          display: flex; align-items: center; justify-content: center;
+          box-shadow: var(--shadow-stamp); cursor: pointer; }
+</style></head>
+<body>
+  <div class="label"><b>Bottom tab bar</b> · 5 tabs · centre "post" stamp · stamp-red active indicator</div>
+  <div class="frame">
+    <div class="nav">
+      <button class="tab active">
+        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M3 9 12 2l9 7v11a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2z"/></svg>
+        Feed
+      </button>
+      <button class="tab">
+        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        Market
+      </button>
+      <button class="post">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+      </button>
+      <button class="tab">
+        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m22 11-3 3-2-2"/></svg>
+        Vouches
+      </button>
+      <button class="tab">
+        <svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M3 21a9 9 0 0 1 18 0"/></svg>
+        Profile
+      </button>
+    </div>
+  </div>
+</body></html>

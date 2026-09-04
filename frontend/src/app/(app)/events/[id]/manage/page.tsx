@@ -3,15 +3,20 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Clock, Calendar, MapPin, Globe, Tag, ChevronRight, X, Pencil, Share2, MessageCircle } from "lucide-react";
+import { Clock, Calendar, MapPin, Globe, Tag, ChevronRight, X, Pencil, Share2, MessageCircle, Check } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiEvent } from "@/components/cards";
 import { shortDate } from "@/lib/utils";
-import { resolvePincode } from "@/lib/pincode";
-import { Avatar, SectionLabel, EmptyNote } from "@/components/ui";
+import { Avatar, SectionLabel, EmptyNote, Segmented } from "@/components/ui";
 import { BackButton } from "@/components/BackButton";
+import { ImageUploader } from "@/components/ImageUploader";
+import { CityField, formatTime12 } from "@/components/CityField";
+import { MoneyField } from "@/components/forms";
+import { ADD_CATEGORIES } from "@/lib/catalog";
 
 interface Guest { handle: string; name: string; avatar_url: string | null; city: string | null; status: "going" | "interested" }
+
+// DV8-16 pricing/ticketing fields now live on the shared ApiEvent (DV8-17).
 
 // v3 category short-labels (design_v3 data.jsx CATEGORIES.short).
 const CAT_LABEL: Record<string, string> = {
@@ -23,6 +28,15 @@ const fieldStyle: React.CSSProperties = {
   borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper-soft)",
   fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none",
 };
+
+function EditLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "16px 0 8px" }}>
+      <SectionLabel>{children}</SectionLabel>
+      {hint && <span style={{ fontSize: 11, color: "var(--ink-ghost)", marginLeft: "auto" }}>{hint}</span>}
+    </div>
+  );
+}
 
 function DetailRow({ icon: Icon, title, sub, last }: { icon: React.ComponentType<{ size?: number }>; title: string; sub?: string; last?: boolean }) {
   return (
@@ -78,16 +92,25 @@ export default function EventManagePage() {
   const [denied, setDenied] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // edit form
+  // DV8-16 — the full edit surface (mirrors the create form field-for-field).
   const [editing, setEditing] = useState(false);
   const [shared, setShared] = useState(false);
+  const [eCover, setECover] = useState<string | null>(null);
   const [eTitle, setETitle] = useState("");
-  const [eVenue, setEVenue] = useState("");
-  const [ePincode, setEPincode] = useState("");
-  const [eAbout, setEAbout] = useState("");
-  const [eBring, setEBring] = useState("");
+  const [eCats, setECats] = useState<string[]>([]);
   const [eDate, setEDate] = useState("");
   const [eTime, setETime] = useState("");
+  const [eEndDate, setEEndDate] = useState("");
+  const [eEndTime, setEEndTime] = useState("");
+  const [eCity, setECity] = useState("");
+  const [eVenue, setEVenue] = useState("");
+  const [eAbout, setEAbout] = useState("");
+  const [eBring, setEBring] = useState("");
+  const [ePricing, setEPricing] = useState<"free" | "paid">("free");
+  const [ePrice, setEPrice] = useState("");
+  const [ePriceCur, setEPriceCur] = useState("INR");
+  const [eTicketUrl, setETicketUrl] = useState("");
+  const [eContact, setEContact] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -110,32 +133,80 @@ export default function EventManagePage() {
 
   const openEdit = () => {
     if (!event) return;
-    const { date, time } = isoToParts(event.starts_at);
+    const start = isoToParts(event.starts_at);
+    setECover(event.cover_image_url ?? null);
     setETitle(event.title);
+    setECats(event.categories ?? []);
+    setEDate(start.date);
+    setETime(start.time);
+    if (event.ends_at) {
+      const end = isoToParts(event.ends_at);
+      setEEndDate(end.date);
+      setEEndTime(end.time);
+    } else {
+      setEEndDate("");
+      setEEndTime("");
+    }
+    setECity(event.city ?? "");
     setEVenue(event.venue ?? "");
-    setEPincode(event.pincode ?? "");
     setEAbout(event.description ?? "");
     setEBring(event.bring ?? "");
-    setEDate(date);
-    setETime(time);
+    setEPricing(event.is_free === false ? "paid" : "free");
+    setEPrice(event.is_free === false && event.price ? String(Math.round(event.price / 100)) : "");
+    setEPriceCur(event.currency ?? "INR");
+    setETicketUrl(event.ticket_url ?? "");
+    setEContact(event.contact ?? "");
     setEditing(true);
   };
 
+  const toggleECat = (cid: string) =>
+    setECats((cs) => (cs.includes(cid) ? cs.filter((x) => x !== cid) : [...cs, cid]));
+
+  const online = event?.mode === "online";
+  const editInvalid =
+    !eTitle.trim() || !eDate || !eTime || eCats.length === 0 || !eAbout.trim() ||
+    (!online && (!eCity.trim() || !eVenue.trim())) ||
+    (ePricing === "paid" && !(Number(ePrice) > 0)) ||
+    !!(eEndDate && eEndDate < eDate);
+
   const saveEdit = async () => {
-    if (!event || busy) return;
+    if (!event || busy || editInvalid) return;
     setBusy(true);
     try {
       const starts_at = new Date(`${eDate}T${eTime || "00:00"}`).toISOString();
-      const updated = await api.patch<ApiEvent>(`/events/${event.id}`, {
-        title: eTitle.trim(),
-        description: eAbout.trim(),
-        venue: eVenue.trim(),
-        city: event.mode === "online" ? null : resolvePincode(ePincode)?.city ?? null,
-        pincode: event.mode === "online" ? null : ePincode,
-        bring: eBring.trim() || null,
-        starts_at,
-      });
-      setEvent(updated);
+      let ends_at: string | null = null;
+      if (eEndTime || eEndDate) {
+        const ed = eEndDate || eDate;
+        ends_at = new Date(`${ed}T${eEndTime || eTime || "00:00"}`).toISOString();
+      }
+      const isFree = ePricing === "free";
+      const priceMinor = isFree ? 0 : Math.round(Number(ePrice) * 100);
+
+      // PATCH carries exactly what changed — every field is accepted server-side,
+      // but an untouched one shouldn't travel (exclude_unset semantics).
+      const patch: Record<string, unknown> = {};
+      if (eTitle.trim() !== event.title) patch.title = eTitle.trim();
+      if ((eCover ?? null) !== (event.cover_image_url ?? null)) patch.cover_image_url = eCover;
+      const oldCats = event.categories ?? [];
+      if (eCats.length !== oldCats.length || eCats.some((c) => !oldCats.includes(c))) patch.categories = eCats;
+      if (new Date(starts_at).getTime() !== new Date(event.starts_at).getTime()) patch.starts_at = starts_at;
+      const oldEnd = event.ends_at ? new Date(event.ends_at).getTime() : null;
+      const newEnd = ends_at ? new Date(ends_at).getTime() : null;
+      if (newEnd !== oldEnd) patch.ends_at = ends_at;
+      if (!online && eCity.trim() !== (event.city ?? "")) patch.city = eCity.trim();
+      if (eVenue.trim() !== (event.venue ?? "")) patch.venue = eVenue.trim();
+      if (eAbout.trim() !== (event.description ?? "")) patch.description = eAbout.trim();
+      if ((eBring.trim() || null) !== (event.bring ?? null)) patch.bring = eBring.trim() || null;
+      if (isFree !== (event.is_free ?? true)) patch.is_free = isFree;
+      if (!isFree && priceMinor !== (event.price ?? 0)) patch.price = priceMinor;
+      if (!isFree && ePriceCur !== (event.currency ?? "INR")) patch.currency = ePriceCur;
+      if ((eTicketUrl.trim() || null) !== (event.ticket_url ?? null)) patch.ticket_url = eTicketUrl.trim() || null;
+      if ((eContact.trim() || null) !== (event.contact ?? null)) patch.contact = eContact.trim() || null;
+
+      if (Object.keys(patch).length > 0) {
+        const updated = await api.patch<ApiEvent>(`/events/${event.id}`, patch);
+        setEvent(updated);
+      }
       setEditing(false);
     } finally {
       setBusy(false);
@@ -182,7 +253,9 @@ export default function EventManagePage() {
   const { day, month } = shortDate(event.starts_at);
   const eventDate = new Date(event.starts_at);
   const dayName = eventDate.toLocaleString("en-IN", { weekday: "short" });
-  const timeStr = eventDate.toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  // DV8-16 — every echoed time reads "4:00 pm".
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const timeStr = formatTime12(`${pad(eventDate.getHours())}:${pad(eventDate.getMinutes())}`);
   const pending = event.status === "pending_approval";
   const cancelled = event.status === "cancelled" || event.status === "rejected";
   const goingGuests = guests.filter((g) => g.status === "going");
@@ -217,7 +290,7 @@ export default function EventManagePage() {
             </div>
             <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden", margin: "16px 0" }}>
               <DetailRow icon={Calendar} title={`${dayName}, ${month} ${day} · ${timeStr}`} sub={event.city ?? undefined} />
-              <DetailRow icon={event.mode === "online" ? Globe : MapPin} title={event.venue ?? "TBA"} sub={event.mode === "online" ? "Online" : "In person"} />
+              <DetailRow icon={online ? Globe : MapPin} title={event.venue ?? "TBA"} sub={online ? "Online" : "In person"} />
               <DetailRow icon={Tag} title={event.categories.length ? event.categories.map((c) => CAT_LABEL[c] ?? c).join(" · ") : "—"} sub={event.community ? `Community: ${event.community.name}` : "No community"} last />
             </div>
           </>
@@ -260,43 +333,98 @@ export default function EventManagePage() {
           </>
         )}
 
-        {/* Edit details */}
+        {/* Edit details — DV8-16 full surface, mirrors the create-event fields */}
         {!cancelled && (
           editing ? (
-            <div style={{ border: "1px solid var(--border)", borderRadius: 14, padding: 14, marginBottom: 18, background: "var(--paper-soft)" }}>
-              <SectionLabel>Edit details</SectionLabel>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-                <input value={eTitle} onChange={(e) => setETitle(e.target.value)} placeholder="Title" style={fieldStyle} />
-                <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ border: "1px solid var(--border)", borderRadius: 14, padding: "2px 14px 14px", marginBottom: 18, background: "var(--paper-soft)" }}>
+              <EditLabel hint="optional">Cover photo</EditLabel>
+              <ImageUploader onUpload={(url) => setECover(url)} previewUrl={eCover ?? undefined} label="Add a cover photo" />
+
+              <EditLabel>Event title</EditLabel>
+              <input value={eTitle} onChange={(e) => setETitle(e.target.value)} placeholder="Title" style={fieldStyle} />
+
+              <EditLabel hint="pick one or more">Categories</EditLabel>
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                {ADD_CATEGORIES.map((c) => {
+                  const on = eCats.includes(c.id);
+                  return (
+                    <button key={c.id} type="button" onClick={() => toggleECat(c.id)} style={{
+                      display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 999, cursor: "pointer",
+                      background: on ? "var(--ink)" : "var(--paper)", color: on ? "var(--paper)" : "var(--ink)",
+                      border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
+                      fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, lineHeight: 1,
+                    }}>
+                      {on && <Check size={13} strokeWidth={2.6} />}{c.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <EditLabel>Start date</EditLabel>
                   <input type="date" value={eDate} onChange={(e) => setEDate(e.target.value)} style={{ ...fieldStyle, fontFamily: "var(--font-mono)", fontSize: 13 }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <EditLabel hint="optional">End date</EditLabel>
+                  <input type="date" value={eEndDate} min={eDate || undefined} onChange={(e) => setEEndDate(e.target.value)} style={{ ...fieldStyle, fontFamily: "var(--font-mono)", fontSize: 13 }} />
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <EditLabel>Start time</EditLabel>
                   <input type="time" value={eTime} onChange={(e) => setETime(e.target.value)} style={{ ...fieldStyle, fontFamily: "var(--font-mono)", fontSize: 13 }} />
                 </div>
-                <input value={eVenue} onChange={(e) => setEVenue(e.target.value)} placeholder={event.mode === "online" ? "Stream / link name" : "Venue"} style={fieldStyle} />
-                {event.mode !== "online" && (
-                  <div>
-                    <input value={ePincode} onChange={(e) => setEPincode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))} inputMode="numeric" placeholder="Location pincode (6-digit PIN)"
-                      style={{ ...fieldStyle, fontFamily: "var(--font-mono)", letterSpacing: "0.12em" }} />
-                    {resolvePincode(ePincode) ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 6, fontSize: 12, color: "var(--ink-soft)" }}>
-                        <MapPin size={14} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
-                        City set from PIN: <b style={{ color: "var(--ink)" }}>{resolvePincode(ePincode)!.city}</b>
-                      </div>
-                    ) : ePincode.length === 6 ? (
-                      <div style={{ marginTop: 6, fontSize: 12, color: "var(--stamp-red)" }}>We couldn&rsquo;t match that PIN — check the 6 digits.</div>
-                    ) : null}
-                  </div>
-                )}
-                <textarea value={eAbout} onChange={(e) => setEAbout(e.target.value)} rows={3} placeholder="Description" style={{ ...fieldStyle, height: "auto", padding: "10px 12px", lineHeight: 1.5, resize: "none" }} />
-                <input value={eBring} onChange={(e) => setEBring(e.target.value)} placeholder="What to bring (optional)" style={fieldStyle} />
+                <div style={{ flex: 1 }}>
+                  <EditLabel hint="optional">End time</EditLabel>
+                  <input type="time" value={eEndTime} onChange={(e) => setEEndTime(e.target.value)} style={{ ...fieldStyle, fontFamily: "var(--font-mono)", fontSize: 13 }} />
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 9, marginTop: 12 }}>
+              {eTime && (
+                <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>
+                  Shows as {formatTime12(eTime)}{eEndTime ? ` – ${formatTime12(eEndTime)}` : ""}
+                </div>
+              )}
+
+              {!online && (
+                <>
+                  <EditLabel>City</EditLabel>
+                  <CityField value={eCity} onChange={(c) => setECity(c)} />
+                </>
+              )}
+
+              <EditLabel>{online ? "Stream / link name" : "Venue"}</EditLabel>
+              <textarea value={eVenue} onChange={(e) => setEVenue(e.target.value)} rows={2} placeholder={online ? "Stream / link name" : "Full address"}
+                style={{ ...fieldStyle, height: "auto", padding: "10px 12px", lineHeight: 1.5, resize: "none" }} />
+
+              <EditLabel>Description</EditLabel>
+              <textarea value={eAbout} onChange={(e) => setEAbout(e.target.value)} rows={3} placeholder="Description" style={{ ...fieldStyle, height: "auto", padding: "10px 12px", lineHeight: 1.5, resize: "none" }} />
+
+              <EditLabel hint="optional">What to bring</EditLabel>
+              <input value={eBring} onChange={(e) => setEBring(e.target.value)} placeholder="e.g. Up to 3 pieces to display or trade" style={fieldStyle} />
+
+              <EditLabel>Entry</EditLabel>
+              <Segmented value={ePricing} onChange={(v) => setEPricing(v)} options={[{ id: "free", label: "Free" }, { id: "paid", label: "Paid" }]} />
+              {ePricing === "paid" && (
+                <div style={{ marginTop: 10 }}>
+                  <MoneyField value={ePrice} onChange={setEPrice} cur={ePriceCur} onCur={setEPriceCur} bad={!(Number(ePrice) > 0)} placeholder="e.g. 500" />
+                </div>
+              )}
+
+              <EditLabel hint="optional">Ticket link</EditLabel>
+              <input type="url" value={eTicketUrl} onChange={(e) => setETicketUrl(e.target.value)} placeholder="e.g. https://in.bookmyshow.com/…" style={fieldStyle} />
+
+              <EditLabel hint="optional">Contact details</EditLabel>
+              <input value={eContact} onChange={(e) => setEContact(e.target.value)} placeholder="Phone, email or WhatsApp for questions" style={fieldStyle} />
+
+              <div style={{ display: "flex", gap: 9, marginTop: 16 }}>
                 <button onClick={() => setEditing(false)} disabled={busy} style={{ flex: 1, height: 40, borderRadius: 10, border: "1px solid var(--border-strong)", background: "transparent", color: "var(--ink-soft)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13.5, cursor: "pointer" }}>Cancel</button>
-                <button onClick={saveEdit} disabled={busy || !eTitle.trim() || !eDate || (event.mode !== "online" && !resolvePincode(ePincode))} style={{ flex: 1, height: 40, borderRadius: 10, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13.5, cursor: busy ? "wait" : "pointer" }}>{busy ? "Saving…" : "Save changes"}</button>
+                <button onClick={saveEdit} disabled={busy || editInvalid} style={{ flex: 1, height: 40, borderRadius: 10, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13.5, cursor: busy ? "wait" : "pointer", opacity: editInvalid ? 0.5 : 1 }}>{busy ? "Saving…" : "Save changes"}</button>
               </div>
             </div>
           ) : (
             <button onClick={openEdit} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 44, borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", color: "var(--ink)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14, cursor: "pointer", marginBottom: 18 }}>
-              <Pencil size={16} />Edit details
+              <Pencil size={16} />Edit event details
             </button>
           )
         )}

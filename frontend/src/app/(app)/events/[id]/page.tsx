@@ -3,13 +3,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Share2, Bell, Calendar, MapPin, Globe, Users, Star, Settings2, Tag as TagIcon, Package, ChevronRight, MessageCircle, X } from "lucide-react";
+import { Share2, Bell, Calendar, MapPin, Globe, Users, Star, Settings2, Tag as TagIcon, Package, ChevronRight, MessageCircle, X, Ticket, Phone } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
 import { shortDate } from "@/lib/utils";
 import { ApiEvent } from "@/components/cards";
 import { Avatar, ProductPhoto, SectionLabel, Tag } from "@/components/ui";
 import { useUser } from "@/lib/auth-context";
+import { formatTime12FromDate } from "@/components/CityField";
+import { formatMoney } from "@/lib/catalog";
+
+// DV8-16 pricing/ticketing fields now live on the shared ApiEvent (DV8-17).
 
 interface Guest { handle: string; name: string; avatar_url: string | null; city: string | null; status: "going" | "interested" }
 
@@ -65,7 +69,8 @@ function DetailRow({ icon: Icon, title, sub, last }: { icon: React.ComponentType
         <Icon size={17} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{title}</div>
+        {/* pre-line: venue is a full-address textarea now — keep its line breaks */}
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", whiteSpace: "pre-line" }}>{title}</div>
         {sub && <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{sub}</div>}
       </div>
     </div>
@@ -163,11 +168,22 @@ export default function EventDetailPage() {
   const { day, month } = shortDate(event.starts_at);
   const eventDate = new Date(event.starts_at);
   const dayName = eventDate.toLocaleString("en-IN", { weekday: "short" });
-  const timeStr = eventDate.toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  // DV8-16 — every echoed time reads "4:00 pm"; ends_at extends it to a range.
+  const timeStr = formatTime12FromDate(eventDate);
+  const endDate = event.ends_at ? new Date(event.ends_at) : null;
+  const sameDay = !!endDate && endDate.toDateString() === eventDate.toDateString();
+  const whenStr = endDate
+    ? sameDay
+      ? `${dayName}, ${month} ${day} · ${timeStr} – ${formatTime12FromDate(endDate)}`
+      : `${dayName}, ${month} ${day}, ${timeStr} – ${endDate.toLocaleString("en-IN", { weekday: "short" })}, ${shortDate(event.ends_at!).month} ${shortDate(event.ends_at!).day}, ${formatTime12FromDate(endDate)}`
+    : `${dayName}, ${month} ${day} · ${timeStr}`;
   const online = event.mode === "online";
   const past = eventDate.getTime() < now;
   const going = guests.filter((g) => g.status === "going");
   const interested = guests.filter((g) => g.status === "interested");
+  const priceLabel = event.is_free === false && (event.price ?? 0) > 0
+    ? `${formatMoney(event.price ?? 0, event.currency ?? "INR")} entry`
+    : "Free entry";
 
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-28">
@@ -193,18 +209,18 @@ export default function EventDetailPage() {
           <ProductPhoto tone={event.community?.tone ?? "plum"} ratio="3/2" rounded={0} />
         )}
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 40%, rgba(20,17,15,0.8) 100%)" }} />
-        <div style={{ position: "absolute", bottom: 14, left: 20, right: 20, display: "flex", gap: 12, alignItems: "flex-end" }}>
-          <div style={{ width: 64, borderRadius: 12, background: "var(--paper)", color: "var(--ink)", textAlign: "center", padding: "8px 0", flexShrink: 0, boxShadow: "0 4px 16px rgba(0,0,0,0.24)" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--stamp-red)" }}>{month}</div>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, lineHeight: 1 }}>{day}</div>
-            <div style={{ fontSize: 10, color: "var(--ink-faint)" }}>{dayName}</div>
-          </div>
-          <div style={{ flex: 1, color: "var(--paper)" }}>
-            <div style={{ marginBottom: 6 }}>
-              <Tag kind={online ? "vouch" : "event"}>{online ? "Online" : "In person"}</Tag>
+        {/* DV8-16 — compact date pill ABOVE the title (v8 EventDetail): long titles get
+            the full card width instead of sharing the row with a fixed 64px tile. */}
+        <div style={{ position: "absolute", bottom: 14, left: 20, right: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <div style={{ display: "inline-flex", alignItems: "baseline", gap: 6, borderRadius: 8, background: "var(--paper)", color: "var(--ink)", padding: "4px 10px", boxShadow: "var(--shadow-2)" }}>
+              <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15 }}>{day}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--stamp-red)" }}>{month}</span>
+              <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>· {dayName}</span>
             </div>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{event.title}</div>
+            <Tag kind={online ? "vouch" : "event"}>{online ? "Online" : "In person"}</Tag>
           </div>
+          <div style={{ color: "var(--paper)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", lineHeight: 1.15, textWrap: "pretty" }}>{event.title}</div>
         </div>
       </div>
 
@@ -220,9 +236,24 @@ export default function EventDetailPage() {
 
         {/* Details */}
         <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden", marginBottom: 18 }}>
-          <DetailRow icon={Calendar} title={`${dayName}, ${month} ${day} · ${timeStr}`} sub={reminder ? "Reminder on" : past ? "Ended" : event.is_host ? "Upcoming" : "Tap the bell to get reminded"} />
-          <DetailRow icon={online ? Globe : MapPin} title={event.venue ?? (online ? "Online event" : "TBA")} sub={online ? "Online" : event.city ?? undefined} last={event.categories.length === 0 && !event.bring} />
-          {event.categories.length > 0 && <DetailRow icon={TagIcon} title={event.categories.map((c) => CAT_LABEL[c] ?? c).join(" · ")} sub={event.categories.length > 1 ? "Categories" : "Category"} last={!event.bring} />}
+          <DetailRow icon={Calendar} title={whenStr} sub={reminder ? "Reminder on" : past ? "Ended" : event.is_host ? "Upcoming" : "Tap the bell to get reminded"} />
+          <DetailRow icon={online ? Globe : MapPin} title={event.venue ?? (online ? "Online event" : "TBA")} sub={online ? "Online" : event.city ?? undefined} />
+          {/* DV8-16 — entry pricing + optional ticket link / contact */}
+          <DetailRow icon={Ticket} title={priceLabel} sub="Entry" last={event.categories.length === 0 && !event.ticket_url && !event.contact && !event.bring} />
+          {event.categories.length > 0 && <DetailRow icon={TagIcon} title={event.categories.map((c) => CAT_LABEL[c] ?? c).join(" · ")} sub={event.categories.length > 1 ? "Categories" : "Category"} last={!event.ticket_url && !event.contact && !event.bring} />}
+          {event.ticket_url && (
+            <a href={event.ticket_url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", textDecoration: "none", borderBottom: !event.contact && !event.bring ? "none" : "1px solid var(--border)" }}>
+              <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--stamp-red)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Ticket size={17} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--stamp-red)" }}>Get tickets</div>
+                <div style={{ fontSize: 12, color: "var(--ink-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{event.ticket_url}</div>
+              </div>
+              <ChevronRight size={17} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
+            </a>
+          )}
+          {event.contact && <DetailRow icon={Phone} title={event.contact} sub="Contact" last={!event.bring} />}
           {event.bring && <DetailRow icon={Package} title={event.bring} sub="What to bring" last />}
         </div>
 

@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.community import Community, CommunityMember, CommunityJoinRequest
+from app.models.community import Community, CommunityMember, CommunityJoinRequest, CommunityMemberRemoval
 from app.models.deal import Vouch
 from app.models.user import User
 
@@ -32,14 +32,37 @@ class CreateCommunityBody(BaseModel):
     post_mode: str = "open"
     rules: list[str] = []
     is_invite_only: bool = False
+    # DV8 — create flow gains banner + photo upload.
+    banner_url: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 
 class UpdateCommunityBody(BaseModel):
+    # DV8 — full "Manage community" sheet: rename + photos join the editable set.
+    name: Optional[str] = None
     description: Optional[str] = None
     short_desc: Optional[str] = None
     rules: Optional[list[str]] = None
     is_invite_only: Optional[bool] = None
     post_mode: Optional[str] = None
+    banner_url: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
+# DV8 — rules get a character cap (they were unbounded free text; the display is
+# collapsible now, but the cap keeps the Rules tab from becoming a wall of text).
+MAX_RULES = 10
+RULE_MAX_CHARS = 140
+
+
+def _validate_rules(rules: list[str]) -> list[str]:
+    cleaned = [r.strip() for r in rules if r and r.strip()]
+    if len(cleaned) > MAX_RULES:
+        raise HTTPException(status_code=422, detail=f"Up to {MAX_RULES} rules.")
+    for r in cleaned:
+        if len(r) > RULE_MAX_CHARS:
+            raise HTTPException(status_code=422, detail=f"Each rule must be {RULE_MAX_CHARS} characters or fewer.")
+    return cleaned
 
 
 async def _get_member(db: AsyncSession, community_id: str, user_id) -> Optional[CommunityMember]:
@@ -63,6 +86,21 @@ async def _require_mod(db: AsyncSession, community_id: str, user: User):
     member = await _get_member(db, community_id, user.id)
     if not (user.is_admin or (member and member.role in ("founder", "mod"))):
         raise HTTPException(status_code=403, detail="Not a community moderator")
+    return community, member
+
+
+async def _require_admin(db: AsyncSession, community_id: str, user: User):
+    """DV8 permission split — Mods can approve only; settings edits, member
+    removal and post removal need the community admin (role 'founder', displayed
+    as "Admin") or a site admin."""
+    community = (
+        await db.execute(select(Community).where(Community.id == community_id))
+    ).scalar_one_or_none()
+    if not community:
+        raise HTTPException(status_code=404, detail=NOT_FOUND)
+    member = await _get_member(db, community_id, user.id)
+    if not (user.is_admin or (member and member.role == "founder")):
+        raise HTTPException(status_code=403, detail="Admin only")
     return community, member
 
 
@@ -308,9 +346,11 @@ async def create_community(
         tag=body.tag,
         category=body.category,
         tone=body.tone,
+        banner_url=body.banner_url,
+        avatar_url=body.avatar_url,
         founder_id=current_user.id,
         post_mode=body.post_mode,
-        rules=body.rules,
+        rules=_validate_rules(body.rules),
         is_invite_only=body.is_invite_only,
         is_admin_created=current_user.is_admin,
         # Admin-created communities go live immediately; user-created ones await review.
@@ -336,9 +376,12 @@ async def join_community(
     if await _get_member(db, community_id, current_user.id):
         return {"join_state": "member"}
 
-    # DF-26 — invite-only communities require approval: create a pending join request
-    # instead of an instant membership.
-    if community.is_invite_only:
+    # DV8 approval gate — joining no longer grants activity immediately for ANY
+    # community: every join lands as a pending request that a mod/admin approves.
+    # Until then the requester can view a public community but cannot post,
+    # comment or act inside it (they simply aren't a member yet). Supersedes the
+    # DF-26 invite-only-only branch; site admins skip the queue.
+    if not current_user.is_admin:
         existing_req = (
             await db.execute(
                 select(CommunityJoinRequest).where(
@@ -372,6 +415,11 @@ async def leave_community(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # DV8 — the admin can't walk out of their own community (the endpoint used to
+    # allow it, orphaning the community; the UI only *hid* the button).
+    me = await _get_member(db, community_id, current_user.id)
+    if me and me.role == "founder":
+        raise HTTPException(status_code=409, detail="Admins can't leave their own community — delete it instead.")
     # B-75/B-76 — race-safe leave: delete decides, counter moves atomically in SQL
     removed = await db.execute(
         delete(CommunityMember).where(
@@ -436,6 +484,28 @@ async def get_community_posts(
     users_result = await db.execute(select(User).where(User.id.in_(author_ids))) if author_ids else None
     users_by_id = {u.id: u for u in (users_result.scalars().all() if users_result else [])}
 
+    # DV8 — tagged catalogue entries for the "Tagged item" chip (batched).
+    from app.models.catalogue import Catalogue
+    tagged_skus = {p.ref_sku for p in posts if p.ref_sku}
+    cat_by_sku: dict = {}
+    if tagged_skus:
+        cat_rows = await db.execute(
+            select(Catalogue.sku, Catalogue.title, Catalogue.brand).where(Catalogue.sku.in_(tagged_skus))
+        )
+        cat_by_sku = {sku: (title, brand) for sku, title, brand in cat_rows.all()}
+
+    # DV8 — Admin/Mod role badges on community posts ("founder" displays as Admin).
+    role_by_author: dict = {}
+    if author_ids:
+        role_rows = await db.execute(
+            select(CommunityMember.user_id, CommunityMember.role).where(
+                CommunityMember.community_id == community_id,
+                CommunityMember.user_id.in_(author_ids),
+                CommunityMember.role.in_(["founder", "mod"]),
+            )
+        )
+        role_by_author = {uid: ("admin" if role == "founder" else "mod") for uid, role in role_rows.all()}
+
     return [
         {
             "id": str(p.id),
@@ -443,6 +513,10 @@ async def get_community_posts(
             "handle": users_by_id.get(p.user_id, User()).handle if p.user_id in users_by_id else None,
             "name": users_by_id.get(p.user_id, User()).name if p.user_id in users_by_id else None,
             "avatar_url": users_by_id.get(p.user_id, User()).avatar_url if p.user_id in users_by_id else None,
+            "author_role": role_by_author.get(p.user_id),
+            "ref_sku": p.ref_sku,
+            "ref_sku_title": cat_by_sku.get(p.ref_sku or "", (None, None))[0],
+            "ref_sku_brand": cat_by_sku.get(p.ref_sku or "", (None, None))[1],
             "type": p.type,
             "title": p.title,
             "body": p.body,
@@ -471,8 +545,17 @@ async def update_community(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    community, _ = await _require_mod(db, community_id, current_user)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    # DV8 permission split — settings are ADMIN territory; mods approve only.
+    community, _ = await _require_admin(db, community_id, current_user)
+    patch = body.model_dump(exclude_unset=True)
+    if "rules" in patch and patch["rules"] is not None:
+        patch["rules"] = _validate_rules(patch["rules"])
+    # DV8 — rename goes through the same duplicate guard as create.
+    new_name = patch.get("name")
+    if new_name and new_name.strip().lower() != community.name.strip().lower():
+        if await _name_taken(db, new_name):
+            raise HTTPException(status_code=409, detail=f'A community named "{new_name.strip()}" already exists')
+    for field, value in patch.items():
         setattr(community, field, value)
     await db.flush()
     return _community_dict(community, True)
@@ -484,9 +567,20 @@ async def archive_community(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    community, member = await _require_mod(db, community_id, current_user)
-    if not (current_user.is_admin or (member and member.role == "founder")):
-        raise HTTPException(status_code=403, detail="Only the founder can archive")
+    community, _ = await _require_admin(db, community_id, current_user)
+    community.status = "archived"
+
+
+@router.delete("/{community_id}", status_code=204)
+async def delete_community(
+    community_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """DV8 — the Manage sheet's Delete. Soft: status='archived' hides the
+    community everywhere (directory/detail only surface 'approved') while posts,
+    events and the audit trail keep valid foreign keys."""
+    community, _ = await _require_admin(db, community_id, current_user)
     community.status = "archived"
 
 
@@ -574,14 +668,23 @@ async def set_member_role(
     member.role = role
 
 
+class RemoveMemberBody(BaseModel):
+    reason: str
+
+
 @router.delete("/{community_id}/members/{handle}", status_code=204)
 async def remove_member(
     community_id: str,
     handle: str,
+    body: RemoveMemberBody,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    community, _ = await _require_mod(db, community_id, current_user)
+    # DV8 — admin-only (mods approve only), and removal requires a stored reason:
+    # no more silent removals with no record of why.
+    community, _ = await _require_admin(db, community_id, current_user)
+    if not body.reason.strip():
+        raise HTTPException(status_code=422, detail="A reason is required to remove a member.")
     target_user = (await db.execute(select(User).where(User.handle == handle))).scalar_one_or_none()
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -589,7 +692,13 @@ async def remove_member(
     if not member:
         return
     if member.role == "founder":
-        raise HTTPException(status_code=400, detail="Cannot remove the founder")
+        raise HTTPException(status_code=400, detail="Cannot remove the admin")
+    db.add(CommunityMemberRemoval(
+        community_id=community_id,
+        user_id=target_user.id,
+        removed_by=current_user.id,
+        reason=body.reason.strip(),
+    ))
     await db.delete(member)
     community.member_count = max(0, community.member_count - 1)
 
@@ -776,6 +885,55 @@ async def reject_post(
         await db.delete(post)
 
 
+class RemovePostBody(BaseModel):
+    reason: Optional[str] = None
+
+
+@router.post("/{community_id}/posts/{post_id}/remove", status_code=204)
+async def remove_published_post(
+    community_id: str,
+    post_id: str,
+    body: Optional[RemovePostBody] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """DV8 — admins can remove a PUBLISHED post from their community directly
+    (previously only pending posts could be rejected). Same scoping as reject:
+    the post only leaves this community; an orphaned community-only post is
+    deleted outright."""
+    import logging
+    from app.models.post import Post, PostCommunity
+    await _require_admin(db, community_id, current_user)
+    pc = (await db.execute(
+        select(PostCommunity).where(
+            PostCommunity.community_id == community_id, PostCommunity.post_id == post_id
+        )
+    )).scalar_one_or_none()
+    if not pc:
+        raise HTTPException(status_code=404, detail="Post not found")
+    # v8 collects a removal reason on the card; logged like item-removal reasons.
+    if body and body.reason:
+        logging.getLogger(__name__).info(
+            "community_post_removed community=%s post=%s by=%s reason=%s",
+            community_id, post_id, current_user.id, body.reason.strip()[:200],
+        )
+    post = (await db.execute(select(Post).where(Post.id == post_id))).scalar_one_or_none()
+    was_published = pc.status == "published"
+    await db.delete(pc)
+    await db.flush()
+    if was_published:
+        await db.execute(
+            update(Community).where(Community.id == community_id)
+            .values(post_count=func.greatest(Community.post_count - 1, 0))
+        )
+    if post:
+        remaining = (
+            await db.execute(select(PostCommunity).where(PostCommunity.post_id == post.id))
+        ).scalars().all()
+        if not remaining and not post.to_feed:
+            await db.delete(post)
+
+
 def _community_dict(
     c: Community,
     is_member: bool = False,
@@ -792,6 +950,8 @@ def _community_dict(
         "tag": c.tag,
         "category": c.category,
         "tone": c.tone,
+        "banner_url": c.banner_url,
+        "avatar_url": c.avatar_url,
         "member_count": c.member_count,
         "post_count": c.post_count,
         "recent_post_count": recent_post_count,

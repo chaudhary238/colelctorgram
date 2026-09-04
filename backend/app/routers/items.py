@@ -10,15 +10,21 @@ from sqlalchemy import select, func, update
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.item import Item, ItemPhoto
+from app.models.item import Item, ItemPhoto, item_is_complete
 from app.models.catalogue import Catalogue
 from app.models.user import Follow, User
-from app.services.gamification import resolve_referral
+from app.services.gamification import EARN_RULES, award_xp, resolve_referral
 from app.services.catalogue import resolve_or_create, norm_scale, resolved_item_facts
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/items", tags=["items"])
+
+# DV8 — `status` was a free String(16) accepted verbatim; lock it to the real vocabulary.
+VALID_ITEM_STATUSES = {"owned", "wishlist", "preorder", "intel"}
+
+
+_is_complete = item_is_complete  # shared with users.py's collection endpoint
 
 
 class AddItemBody(BaseModel):
@@ -30,6 +36,12 @@ class AddItemBody(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
     status: str = "owned"
+    # DV8 — condition of your copy (category-specific vocabulary; the add forms
+    # collected this since v6 and silently dropped it).
+    condition: Optional[str] = None
+    # DV8 quick-add — True when the "+" tap adds with no form. Enables the
+    # duplicate guard (an owned copy blocks; a wishlist row converts instead).
+    quick: bool = False
     value: int = 0
     value_currency: str = "INR"
     privacy: str = "public"
@@ -53,6 +65,7 @@ class AddItemBody(BaseModel):
 
 class UpdateItemBody(BaseModel):
     status: Optional[str] = None
+    condition: Optional[str] = None
     value: Optional[int] = None
     value_currency: Optional[str] = None
     privacy: Optional[str] = None
@@ -85,10 +98,18 @@ class ItemOut(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
     status: str
-    value: int
+    condition: Optional[str] = None
+    # DV8 — None for non-owners: what you paid is visible only to you (v8 §1).
+    value: Optional[int] = None
     value_currency: str = "INR"
     is_listed: bool
     photo_count: int
+    # DV8 completeness — condition + price present (preorder: ETA + total).
+    is_complete: bool = True
+    # DV8 quick-add XP split — amounts actually granted by this request (0 when
+    # deduped/capped); the client toasts what the server says, like db_new_xp.
+    add_xp: int = 0
+    complete_xp: int = 0
     # Uploaded ownership photos (cover first). image_url is the cover convenience field.
     images: list[str] = []
     image_url: Optional[str] = None
@@ -120,6 +141,11 @@ class ItemOut(BaseModel):
     # Wishlist taxonomy (2026-07-11) — whether the VIEWER has a wishlist copy of this
     # item's identity (drives the Star toggle's initial state on item detail).
     is_wishlisted: bool = False
+    # DV8 §1 — the ownership card's "Sale · ₹x · View listing →" row needs the
+    # ACTUAL listing behind the Listed tag (one source of truth, not is_listed).
+    listing_id: Optional[uuid.UUID] = None
+    listing_price: Optional[int] = None
+    listing_currency: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -132,6 +158,24 @@ async def add_item(
 ):
     if not body.sku and not body.custom_title:
         raise HTTPException(status_code=400, detail="Either sku or custom_title required")
+    if body.status not in VALID_ITEM_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid item status")
+
+    # DV8 quick-add duplicate guard — only a REAL copy blocks (v8 bug list: a
+    # wishlist row must not count as owned; it converts to the new copy instead).
+    converted_wish: Optional[Item] = None
+    if body.quick and body.sku and body.status in ("owned", "preorder"):
+        rows = (await db.execute(
+            select(Item).where(
+                Item.user_id == current_user.id,
+                Item.sku == body.sku,
+                Item.status.in_(["owned", "wishlist"]),
+            )
+        )).scalars().all()
+        if any(i.status == "owned" for i in rows):
+            raise HTTPException(status_code=409, detail="Already in your collection")
+        converted_wish = next((i for i in rows if i.status == "wishlist"), None)
+
     item = Item(
         user_id=current_user.id,
         sku=body.sku,
@@ -143,6 +187,7 @@ async def add_item(
         description=body.description,
         category=body.category,
         status=body.status,
+        condition=body.condition,
         value=body.value,
         value_currency=body.value_currency,
         privacy=body.privacy,
@@ -160,6 +205,10 @@ async def add_item(
         wishlist_alert_enabled=body.wishlist_alert_enabled,
     )
     db.add(item)
+    # DV8 — the wishlist row this quick-add supersedes goes away (owning and
+    # wishing the same SKU is blocked elsewhere: POST /catalogue/{sku}/wishlist).
+    if converted_wish is not None:
+        await db.delete(converted_wish)
     await db.flush()
     # DV6-05 — adding a first collection item resolves a pending referral,
     # crediting the inviter +150 XP (idempotent; no-op if not referred).
@@ -179,9 +228,19 @@ async def add_item(
         )
         item.sku = sku
         await db.flush()
+    # DV8 — adding earns +5; finishing (condition + price) earns +20 more. Both
+    # dedup per item, so re-adds and later PATCHes can never double-grant.
+    add_xp = complete_xp = 0
+    if item.status in ("owned", "preorder"):
+        if await award_xp(db, current_user, "add_item", ref_id=str(item.id), ref_type="item"):
+            add_xp = EARN_RULES["add_item"]["points"]
+        if _is_complete(item) and await award_xp(db, current_user, "complete_item", ref_id=str(item.id), ref_type="item"):
+            complete_xp = EARN_RULES["complete_item"]["points"]
     out = _item_out(item)
     out["db_new_xp"] = db_new_xp
     out["catalogue_matched"] = catalogue_matched
+    out["add_xp"] = add_xp
+    out["complete_xp"] = complete_xp
     return out
 
 
@@ -358,6 +417,19 @@ async def get_item(
         if not out.get("images") and cat.thumbnail_url:
             out["images"] = [cat.thumbnail_url]
             out["image_url"] = cat.thumbnail_url
+    # DV8 §1 — resolve the live listing behind the Listed tag (newest available
+    # wins) so the ownership card can deep-link and show the asking price.
+    if item.is_listed:
+        from app.models.listing import Listing
+        lrow = (await db.execute(
+            select(Listing.id, Listing.price, Listing.currency)
+            .where(Listing.item_id == item.id, Listing.status == "available")
+            .order_by(Listing.created_at.desc()).limit(1)
+        )).first()
+        if lrow:
+            out["listing_id"] = lrow.id
+            out["listing_price"] = lrow.price
+            out["listing_currency"] = lrow.currency
     # DV6-11h — attach the owner's identity for the "DB Contribution by @handle" attribution.
     owner = await db.get(User, item.user_id)
     if owner:
@@ -368,6 +440,11 @@ async def get_item(
         wish_q = select(Item.id).where(Item.user_id == current_user.id, Item.status == "wishlist")
         wish_q = wish_q.where(Item.sku == item.sku) if item.sku else wish_q.where(Item.custom_title == item.custom_title)
         out["is_wishlisted"] = bool((await db.execute(wish_q.limit(1))).scalar_one_or_none())
+        # DV8 §1 — what you paid is visible only to you. Before this, ANY viewer of
+        # a public item saw the Est. value tile and the pre-order financials.
+        out["value"] = None
+        out["preorder_total"] = None
+        out["preorder_deposit"] = None
     return out
 
 
@@ -383,12 +460,32 @@ async def update_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
     patch = body.model_dump(exclude_none=True)
+    if "status" in patch and patch["status"] not in VALID_ITEM_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid item status")
     if "scale" in patch:
         patch["scale"] = norm_scale(patch["scale"])  # slash form only (Change Spec §5)
+    was_preorder = item.status == "preorder"
+    was_complete = _is_complete(item)
     for field, value in patch.items():
         setattr(item, field, value)
+    # DV8-07 "It arrived — mark as owned": PATCH uses exclude_none, so the client
+    # can never null the pre-order fields itself — the flip clears them here.
+    if was_preorder and patch.get("status") == "owned":
+        item.preorder_ordered_at = None
+        item.preorder_eta = None
+        item.preorder_window_precision = None
+        item.preorder_seller = None
+        item.preorder_total = None
+        item.preorder_deposit = None
+    # DV8 — finishing an item (condition + price landing) earns +20, exactly once.
+    complete_xp = 0
+    if not was_complete and item.status in ("owned", "preorder") and _is_complete(item):
+        if await award_xp(db, current_user, "complete_item", ref_id=str(item.id), ref_type="item"):
+            complete_xp = EARN_RULES["complete_item"]["points"]
     photos = (await db.execute(select(ItemPhoto).where(ItemPhoto.item_id == item.id))).scalars().all()
-    return _item_out(item, photos)
+    out = _item_out(item, photos)
+    out["complete_xp"] = complete_xp
+    return out
 
 
 # DV4-04: remove-from-collection reasons (design_v4 ItemDetail "Remove from collection?" sheet).
@@ -461,6 +558,8 @@ def _item_out(item: Item, photos: Optional[list[ItemPhoto]] = None) -> dict:
         "description": item.description,
         "category": item.category,
         "status": item.status,
+        "condition": item.condition,
+        "is_complete": _is_complete(item),
         "value": item.value,
         "value_currency": item.value_currency,
         "is_listed": item.is_listed,
