@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Share2, Bell, Calendar, MapPin, Globe, Users, Star, Settings2, Tag as TagIcon, Package, ChevronRight, MessageCircle, X, Ticket, Phone } from "lucide-react";
+import { Share2, Bell, Calendar, MapPin, Globe, Users, Star, Settings2, Tag as TagIcon, ChevronRight, MessageCircle, X } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
 import { shortDate } from "@/lib/utils";
 import { ApiEvent } from "@/components/cards";
-import { Avatar, ProductPhoto, SectionLabel, Tag } from "@/components/ui";
+import { Avatar, ProductPhoto, SectionLabel } from "@/components/ui";
 import { useUser } from "@/lib/auth-context";
 import { formatTime12FromDate } from "@/components/CityField";
 import { formatMoney } from "@/lib/catalog";
@@ -62,15 +62,15 @@ const heroBtn: React.CSSProperties = {
   cursor: "pointer",
 };
 
-function DetailRow({ icon: Icon, title, sub, last }: { icon: React.ComponentType<{ size?: number }>; title: string; sub?: string; last?: boolean }) {
+function DetailRow({ icon: Icon, title, sub, last }: { icon: React.ComponentType<{ size?: number }>; title: React.ReactNode; sub?: string; last?: boolean }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", borderBottom: last ? "none" : "1px solid var(--border)" }}>
       <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--bone)", color: "var(--ink-mute)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
         <Icon size={17} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* pre-line: venue is a full-address textarea now — keep its line breaks */}
-        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", whiteSpace: "pre-line" }}>{title}</div>
+        {/* pre-line keeps line breaks in multi-line address details */}
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", whiteSpace: "pre-line", overflowWrap: "anywhere" }}>{title}</div>
         {sub && <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{sub}</div>}
       </div>
     </div>
@@ -212,13 +212,13 @@ export default function EventDetailPage() {
         {/* DV8-16 — compact date pill ABOVE the title (v8 EventDetail): long titles get
             the full card width instead of sharing the row with a fixed 64px tile. */}
         <div style={{ position: "absolute", bottom: 14, left: 20, right: 20 }}>
+          {/* v8 — the date pill stands alone; no mode Tag beside it. */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
             <div style={{ display: "inline-flex", alignItems: "baseline", gap: 6, borderRadius: 8, background: "var(--paper)", color: "var(--ink)", padding: "4px 10px", boxShadow: "var(--shadow-2)" }}>
               <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15 }}>{day}</span>
               <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--stamp-red)" }}>{month}</span>
               <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>· {dayName}</span>
             </div>
-            <Tag kind={online ? "vouch" : "event"}>{online ? "Online" : "In person"}</Tag>
           </div>
           <div style={{ color: "var(--paper)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", lineHeight: 1.15, textWrap: "pretty" }}>{event.title}</div>
         </div>
@@ -236,25 +236,23 @@ export default function EventDetailPage() {
 
         {/* Details */}
         <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden", marginBottom: 18 }}>
-          <DetailRow icon={Calendar} title={whenStr} sub={reminder ? "Reminder on" : past ? "Ended" : event.is_host ? "Upcoming" : "Tap the bell to get reminded"} />
-          <DetailRow icon={online ? Globe : MapPin} title={event.venue ?? (online ? "Online event" : "TBA")} sub={online ? "Online" : event.city ?? undefined} />
-          {/* DV8-16 — entry pricing + optional ticket link / contact */}
-          <DetailRow icon={Ticket} title={priceLabel} sub="Entry" last={event.categories.length === 0 && !event.ticket_url && !event.contact && !event.bring} />
-          {event.categories.length > 0 && <DetailRow icon={TagIcon} title={event.categories.map((c) => CAT_LABEL[c] ?? c).join(" · ")} sub={event.categories.length > 1 ? "Categories" : "Category"} last={!event.ticket_url && !event.contact && !event.bring} />}
+          {/* v8 — no is_host branch on the date-row sub. */}
+          <DetailRow icon={Calendar} title={whenStr} sub={reminder ? "Reminder on" : past ? "Ended" : "Tap the bell to get reminded"} />
+          {/* v8 — location leads with the joined "venue — address" display form; city below. */}
+          <DetailRow icon={online ? Globe : MapPin} title={event.where ?? event.venue ?? (online ? "Online event" : "TBA")} sub={online ? "Online" : event.city ?? undefined} />
+          {/* v8 — Entry + ticket + contact rows all carry the plain DetailRow chrome;
+              "What to bring" is gone (removed in v8, column kept for legacy). */}
+          <DetailRow icon={TagIcon} title={priceLabel} sub="Entry" last={event.categories.length === 0 && !event.ticket_url && !event.contact} />
+          {event.categories.length > 0 && <DetailRow icon={TagIcon} title={event.categories.map((c) => CAT_LABEL[c] ?? c).join(" · ")} sub={event.categories.length > 1 ? "Categories" : "Category"} last={!event.ticket_url && !event.contact} />}
           {event.ticket_url && (
-            <a href={event.ticket_url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", textDecoration: "none", borderBottom: !event.contact && !event.bring ? "none" : "1px solid var(--border)" }}>
-              <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--stamp-red)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Ticket size={17} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--stamp-red)" }}>Get tickets</div>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{event.ticket_url}</div>
-              </div>
-              <ChevronRight size={17} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
-            </a>
+            <DetailRow
+              icon={TagIcon}
+              title={<a href={event.ticket_url} target="_blank" rel="noreferrer" style={{ color: "var(--ink)" }}>{event.ticket_url}</a>}
+              sub="Ticket link"
+              last={!event.contact}
+            />
           )}
-          {event.contact && <DetailRow icon={Phone} title={event.contact} sub="Contact" last={!event.bring} />}
-          {event.bring && <DetailRow icon={Package} title={event.bring} sub="What to bring" last />}
+          {event.contact && <DetailRow icon={MessageCircle} title={event.contact} sub="Contact" last />}
         </div>
 
         {/* Who's going */}
@@ -332,7 +330,8 @@ export default function EventDetailPage() {
         {/* Hosted by */}
         <SectionLabel>Hosted by</SectionLabel>
         <Link href={`/profile/${event.host_handle}`} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", marginTop: 10, padding: 12, textDecoration: "none", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13 }}>
-          <Avatar name={event.host_name ?? "?"} photo={event.host_avatar_url ?? undefined} size={40} />
+          {/* v8 — host avatar carries the verified tick when the payload flags a tier. */}
+          <Avatar name={event.host_name ?? "?"} photo={event.host_avatar_url ?? undefined} size={40} verified={!!event.host_tier} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{event.is_host ? "You" : event.host_name}</span>

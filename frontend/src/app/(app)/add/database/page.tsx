@@ -27,16 +27,17 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Check, Clock, PlusCircle, X } from "lucide-react";
+import { Clock, Info, PlusCircle, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { BackButton } from "@/components/BackButton";
 import { ProductPhoto, SectionLabel } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
-import { fireXpToast } from "@/components/gamification";
+import { fireToast, fireXpToast } from "@/components/gamification";
 import { ADD_CATEGORIES, CAT_BRANDS } from "@/lib/catalog";
 
 const DB_NEW_XP = 50;      // EARN_RULES.db_new — keep in step with the backend
-const PHOTO_MAX = 6;       // v7: "At least 1 required · up to 6"
+const PHOTO_MAX = 6;       // v7/v8: "At least 1 required · up to 6"
+const DESC_MAX = 500;      // v8 ContributeItemForm — counter goes red past DESC_MAX - 60
 
 const field = (bad: boolean): React.CSSProperties => ({
   width: "100%", boxSizing: "border-box", height: 46, padding: "0 13px", borderRadius: 11,
@@ -65,13 +66,15 @@ export default function AddToDatabasePage() {
   const [scale, setScale] = useState("");
   const [year, setYear] = useState("");
   const [est, setEst] = useState("");
+  const [desc, setDesc] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
 
   const [tried, setTried] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Post-submit state — v7 shows an "Under review" screen, not a redirect.
-  const [done, setDone] = useState<{ itemId: string; matched: boolean } | null>(null);
+  // Post-submit state — v8 shows an "Under review" screen, not a redirect. `sku` powers
+  // the deep links (database page + add-to-collection).
+  const [done, setDone] = useState<{ itemId: string; sku: string | null; matched: boolean } | null>(null);
 
   const missTitle = !title.trim();
   const missBrand = !brand.trim();
@@ -81,17 +84,19 @@ export default function AddToDatabasePage() {
   const brandOptions = useMemo(() => CAT_BRANDS[cat] ?? [], [cat]);
 
   async function submit() {
-    if (invalid) { setTried(true); return; }
+    // DV8 — invalid submit toasts, per v8 (ExploreView.jsx:402).
+    if (invalid) { setTried(true); fireToast("Fill the required fields marked *"); return; }
     if (saving) return;
     setSaving(true);
     setError(null);
     try {
-      const item = await api.post<{ id: string; db_new_xp?: number; catalogue_matched?: boolean }>("/items", {
+      const item = await api.post<{ id: string; sku?: string | null; db_new_xp?: number; catalogue_matched?: boolean }>("/items", {
         custom_title: title.trim(),
         brand: brand.trim(),
         category: cat,
         scale: scale.trim() || null,
         release_year: year ? Number(year) : null,
+        description: desc.trim() || null,
         // Seeds catalogue.est_retail_price on a NEW entry (public fact, not a purchase price).
         value: est ? Number(est) * 100 : 0,
         value_currency: "INR",
@@ -104,7 +109,7 @@ export default function AddToDatabasePage() {
         await api.post(`/items/${item.id}/photos?url=${encodeURIComponent(url)}&is_public=true`);
       }
       if (item.db_new_xp && item.db_new_xp > 0) fireXpToast(item.db_new_xp, "XP · added to Scorred DB");
-      setDone({ itemId: item.id, matched: !!item.catalogue_matched });
+      setDone({ itemId: item.id, sku: item.sku ?? null, matched: !!item.catalogue_matched });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not add this item");
     } finally {
@@ -112,10 +117,11 @@ export default function AddToDatabasePage() {
     }
   }
 
-  // ── Submitted (v7's "Under review" screen) ──────────────────────────────────
+  // ── Submitted — v8's "Under review" screen (ExploreView.jsx:413-438) ────────
   if (done) {
+    const dbHref = done.sku ? `/db/${encodeURIComponent(done.sku)}` : `/item/${done.itemId}`;
     return (
-      <div className="w-full max-w-[680px] flex flex-col pb-8">
+      <div className="w-full max-w-[680px] flex flex-col">
         <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <BackButton fallback="/db" />
@@ -127,28 +133,43 @@ export default function AddToDatabasePage() {
             <Clock size={26} style={{ color: "var(--ink-faint)" }} />
           </div>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, marginBottom: 6 }}>
-            {done.matched ? "Already in the database" : "Added to the database"}
+            {done.matched ? "Already in the database" : "Under review"}
           </div>
           <div style={{ fontSize: 13.5, color: "var(--ink-faint)", lineHeight: 1.55 }}>
             {done.matched ? (
               <>&ldquo;{title}&rdquo; matched an existing entry, so we linked to it instead of creating a duplicate.</>
             ) : (
-              <>&ldquo;{title}&rdquo; is in the Scorred database and will be reviewed by the team. You earned{" "}
+              <>&ldquo;{title}&rdquo; was added to the Scorred database and is pending review. You earned{" "}
                 <strong style={{ color: "var(--ink)" }}>+{DB_NEW_XP} XP</strong>.</>
             )}
           </div>
-          <div style={{ fontSize: 13, color: "var(--ink-soft)", marginTop: 18 }}>Own a copy? Add it to your collection below.</div>
           <button
-            onClick={() => router.push(`/item/${done.itemId}`)}
-            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, marginTop: 18, borderRadius: 13, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
+            type="button"
+            onClick={() => router.push(dbHref)}
+            style={{ marginTop: 14, background: "none", border: "none", cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13 }}
           >
-            <PlusCircle size={18} /> View the entry
+            View its database page
+          </button>
+          <div style={{ fontSize: 13, color: "var(--ink-soft)", marginTop: 18 }}>Own a copy? Add it to your collection below.</div>
+        </div>
+        {/* v8 sticky footer — PRIMARY dark deep-link into add-to-collection + secondary back. */}
+        <div
+          className="sticky z-10 bg-[var(--paper)] border-t border-[var(--border)] bottom-[calc(64px+env(safe-area-inset-bottom))] lg:bottom-0"
+          style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: 8 }}
+        >
+          <button
+            type="button"
+            onClick={() => router.push(done.sku ? `/add/collection?sku=${encodeURIComponent(done.sku)}` : `/item/${done.itemId}`)}
+            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, borderRadius: 13, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
+          >
+            <PlusCircle size={18} /> Add to my collection
           </button>
           <button
+            type="button"
             onClick={() => router.push("/db")}
-            style={{ width: "100%", height: 42, marginTop: 8, borderRadius: 12, border: "1px solid var(--border-strong)", background: "transparent", color: "var(--ink-soft)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+            style={{ width: "100%", height: 42, borderRadius: 12, border: "1px solid var(--border-strong)", background: "transparent", color: "var(--ink-soft)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
           >
-            Done
+            Back to database
           </button>
         </div>
       </div>
@@ -157,7 +178,7 @@ export default function AddToDatabasePage() {
 
   // ── Form ────────────────────────────────────────────────────────────────────
   return (
-    <div className="w-full max-w-[680px] flex flex-col pb-8">
+    <div className="w-full max-w-[680px] flex flex-col">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <BackButton fallback="/db" />
@@ -219,6 +240,23 @@ export default function AddToDatabasePage() {
             style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 16, color: "var(--ink)" }} />
         </div>
 
+        {/* DV8 — description with a live counter (red inside the last 60 chars), helper line
+            and worked example placeholder (v8 ExploreView.jsx:490-497). */}
+        <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+          <SectionLabel>Description</SectionLabel>
+          <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: 11, color: desc.length > DESC_MAX - 60 ? "var(--stamp-red)" : "var(--ink-ghost)" }}>{desc.length}/{DESC_MAX}</span>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 9, lineHeight: 1.45 }}>
+          What&rsquo;s in the box, articulation, accessories, release notes — anything a collector should know.
+        </div>
+        <textarea
+          value={desc}
+          onChange={(e) => setDesc(e.target.value.slice(0, DESC_MAX))}
+          rows={5}
+          placeholder="e.g. 1/6 scale die-cast figure with LED light-up arc reactor, 2 interchangeable head sculpts, 10 swappable hands, magnetic display base. Released as part of the Endgame line."
+          style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14.5, lineHeight: 1.55, color: "var(--ink)", outline: "none", resize: "none" }}
+        />
+
         <div style={{ marginTop: 18 }}><Req missing={missPhoto} tried={tried}>Photos</Req></div>
         <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 9 }}>
           At least 1 required · up to {PHOTO_MAX}. These are the catalogue&rsquo;s shared reference images.
@@ -252,25 +290,34 @@ export default function AddToDatabasePage() {
 
         {error && <div style={{ marginTop: 14, fontSize: 13, color: "var(--stamp-red)" }}>{error}</div>}
 
+        {/* DV8 — Info glyph, not Camera (the note is about review, not photos). */}
+        <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 16, fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.45 }}>
+          <Info size={14} style={{ flexShrink: 0 }} />
+          <span>Entries are reviewed by the Scorred team. Duplicates are merged and their XP reversed.</span>
+        </div>
+      </div>
+
+      {/* DV8 — sticky footer CTA (no Check icon) + v8's own-a-copy note (ExploreView.jsx:452-458). */}
+      <div
+        className="sticky z-10 bg-[var(--paper)] border-t border-[var(--border)] bottom-[calc(64px+env(safe-area-inset-bottom))] lg:bottom-0"
+        style={{ padding: "12px 20px", marginTop: 6 }}
+      >
         <button
           onClick={submit}
           disabled={saving}
+          type="button"
           style={{
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
-            height: 50, marginTop: 22, borderRadius: 13, border: "none", cursor: saving ? "wait" : "pointer",
+            height: 48, borderRadius: 13, border: "none", cursor: saving ? "wait" : "pointer",
             background: "var(--stamp-red)", color: "var(--paper)",
             fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15,
             opacity: invalid ? 0.55 : 1,
           }}
         >
-          {saving ? "Adding…" : <><Check size={17} strokeWidth={2.6} />Add to Database · +{DB_NEW_XP} XP</>}
+          {saving ? "Adding…" : `Add to Database · +${DB_NEW_XP} XP`}
         </button>
-        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", textAlign: "center", marginTop: 8, lineHeight: 1.45 }}>
-          Own a copy? You&rsquo;ll get the option to add it to your collection right after.
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 14, fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.45 }}>
-          <Camera size={14} style={{ flexShrink: 0 }} />
-          <span>Entries are reviewed by the Scorred team. Duplicates are merged and their XP reversed.</span>
+        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", textAlign: "center", marginTop: 8, lineHeight: 1.4 }}>
+          Own a copy? You&rsquo;ll get the option to add it to your collection right after adding it to the database.
         </div>
       </div>
     </div>

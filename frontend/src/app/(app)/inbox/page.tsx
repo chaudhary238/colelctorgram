@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
-import { Avatar, Money } from "@/components/ui";
+import { Avatar } from "@/components/ui";
 
 interface ThreadUser {
   id: string;
@@ -41,16 +41,11 @@ export default function InboxPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const totalUnread = threads.reduce((s, t) => s + t.unread, 0);
-
   return (
     <div className="w-full max-w-[680px] flex flex-col">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "12px 20px" }}>
-        {/* v4 InboxView header is just the "Messages" title (no action button). */}
+        {/* v8 InboxView header is just the "Messages" title — no unread sub, no action. */}
         <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, letterSpacing: "-0.025em", margin: 0 }}>Messages</h1>
-        {totalUnread > 0 && (
-          <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 1 }}>{totalUnread} unread</div>
-        )}
       </div>
 
       <div style={{ paddingBottom: 24 }}>
@@ -70,28 +65,29 @@ export default function InboxPage() {
                 href={`/chat/${thread.id}`}
                 style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textDecoration: "none", borderBottom: "1px solid var(--border)", padding: "13px 20px" }}
               >
-                <div style={{ position: "relative", flexShrink: 0 }}>
-                  <Avatar name={thread.other_user?.name ?? "?"} size={48} />
-                  {thread.unread > 0 && (
-                    <span style={{ position: "absolute", bottom: -2, right: -2, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid var(--paper)" }}>
-                      {thread.unread}
-                    </span>
-                  )}
-                </div>
+                <Avatar name={thread.other_user?.name ?? "?"} photo={thread.other_user?.avatar_url} size={48} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                    <span style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink)" }}>{thread.other_user?.name ?? "Unknown"}</span>
-                    <span style={{ fontSize: 11.5, color: "var(--ink-faint)", marginLeft: "auto" }}>{timeAgo(thread.last_message_at)}</span>
+                    <span style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{thread.other_user?.name ?? "Unknown"}</span>
+                    <span style={{ fontSize: 11.5, color: "var(--ink-faint)", flexShrink: 0 }}>{timeAgo(thread.last_message_at)}</span>
                   </div>
+                  {/* v8 (Chat.jsx:24) — the re: line is the plain body-font catalogue
+                      title, ellipsized. No mono, no price. */}
                   {thread.listing && (
-                    <div style={{ fontSize: 11, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", margin: "2px 0" }}>
-                      re: {thread.listing.title.slice(0, 32)}{thread.listing.title.length > 32 ? "…" : ""} · <Money value={Math.round(thread.listing.price / 100)} />
+                    <div style={{ fontSize: 11, color: "var(--ink-faint)", margin: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      re: {thread.listing.title}
                     </div>
                   )}
                   <div style={{ fontSize: 13, color: thread.unread > 0 ? "var(--ink)" : "var(--ink-faint)", fontWeight: thread.unread > 0 ? 500 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {thread.last_message ?? "No messages yet"}
                   </div>
                 </div>
+                {/* v8 — 20px red unread pill at the row's far right. */}
+                {thread.unread > 0 && (
+                  <span style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 999, background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    {thread.unread}
+                  </span>
+                )}
               </Link>
             ))}
 

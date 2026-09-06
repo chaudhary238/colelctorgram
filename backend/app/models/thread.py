@@ -44,6 +44,9 @@ class Message(Base):
     body: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     offer_item_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("items.id"), nullable=True)
+    # DV8 "Ask @owner about it" — the catalogue entry this message is about; the
+    # chat renders an inline item chip when set (pair threads stay singular).
+    ref_sku: Mapped[str | None] = mapped_column(String(64), ForeignKey("catalogue.sku"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     thread: Mapped["Thread"] = relationship("Thread", back_populates="messages")

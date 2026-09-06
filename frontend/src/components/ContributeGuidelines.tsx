@@ -13,7 +13,9 @@ import { Button } from "@/components/ui";
 export function ContributeGuidelines({ onAccept, onCancel }: { onAccept: () => void; onCancel: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ padding: 20 }}>
-      <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
+      {/* DV8 — the backdrop does NOT dismiss: the rules are the point of this gate, so
+          leaving is an explicit Cancel, not a stray tap outside the sheet. */}
+      <div className="absolute inset-0 bg-black/40" />
       {/* Column, not one scrolling box: the header and the Cancel/Accept footer are pinned
           and only the rules scroll. The previous single `overflow-y-auto` container let the
           buttons scroll off the bottom edge — on a short viewport the dialog opened with its

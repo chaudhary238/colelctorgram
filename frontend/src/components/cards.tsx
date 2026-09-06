@@ -16,7 +16,8 @@ import {
   Avatar, Stars, Money, ProductPhoto, SealMark,
   Badge, Button, IconButton, LocationTag, statusLabel,
 } from "@/components/ui";
-import { FeedBadge, fireXpToast } from "@/components/gamification";
+import { FeedBadge, fireXpToast, goldFrameRing, hasGoldFrame, type FeedBadgeT } from "@/components/gamification";
+import { formatTime12FromDate } from "@/components/CityField";
 
 /* ── API response shapes ────────────────────────────────────────── */
 
@@ -114,6 +115,8 @@ export interface ApiComment {
   likes_count?: number;
   is_liked?: boolean;
   is_mine?: boolean;
+  // v8 Cards.jsx :325 — the commenter's rewards badge pill beside their name.
+  badge?: FeedBadgeT | null;
   created_at: string;
 }
 
@@ -193,8 +196,12 @@ export interface ApiEvent {
   categories: string[];
   mode: string;
   city: string | null;
+  country?: string | null;
   pincode?: string | null;
   venue: string | null;
+  address?: string | null;
+  // Serialized display form "venue — address" (falls back to venue alone server-side).
+  where?: string | null;
   online_url?: string | null;
   cover_image_url?: string | null;
   bring?: string | null;
@@ -465,7 +472,7 @@ function AuthorLine({ post, showFollow, authorRole, reserveRight = 0 }: {
 }
 
 /* ── @mention rendering — highlight + link tappable @handles ─────── */
-function renderCommentBody(text: string) {
+export function renderCommentBody(text: string) {
   return text.split(/(@\w+)/g).map((p, i) =>
     p.startsWith("@") ? (
       <Link
@@ -488,7 +495,7 @@ function renderCommentBody(text: string) {
 // hammers /search on every keystroke; 2 is the common bar (Slack/GitHub-style).
 const MENTION_MIN_CHARS = 2;
 interface MentionUser { id: string; handle: string; name: string }
-function MentionInput({
+export function MentionInput({
   value, onChange, onSubmit, placeholder, size, autoFocus,
 }: {
   value: string;
@@ -676,11 +683,17 @@ export function CommentThread({ postId, onCountChange }: { postId: string; onCou
     const menuOpen = menuId === c.id;
     return (
       <div style={{ display: "flex", gap: 9 }}>
-        <Avatar name={c.name ?? "?"} photo={c.avatar_url} color="var(--ink)" size={reply ? 26 : 30} />
+        {/* v8 :319 avatarFrame — Pioneer/Early Believer commenters get the gold ring */}
+        <span style={{ display: "inline-flex", flexShrink: 0, alignSelf: "flex-start", ...(hasGoldFrame(c.badge) ? goldFrameRing : {}) }}>
+          <Avatar name={c.name ?? "?"} photo={c.avatar_url} color="var(--ink)" size={reply ? 26 : 30} />
+        </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ background: "var(--slate-50)", border: "1px solid var(--slate-200)", borderRadius: 14, padding: "10px 13px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name ?? "Unknown"}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name ?? "Unknown"}</span>
+              {/* v8 :325 — badge pill between name and the spacer */}
+              <FeedBadge badge={c.badge} />
+              <div style={{ flex: 1 }} />
               <span style={{ fontSize: 11, color: "var(--ink-faint)", flexShrink: 0 }}>{timeAgo(c.created_at)}</span>
               {isOwn && (
                 <div style={{ position: "relative", flexShrink: 0 }}>
@@ -1133,8 +1146,11 @@ export function PostCard({ post, showFollow = false, authorRole = null, canModer
   );
 }
 
-/* ── ISO ("In Search Of") card — "Wanted" post; "I have this" DMs the author (DF-30c) */
-function ISOCard({ post, authorRole = null }: { post: ApiPost; authorRole?: AuthorRole }) {
+/* ── ISO ("In Search Of") card — "Wanted" post; "I have this" DMs the author (DF-30c).
+   Exported for the post-detail page (v8 PostDetail renders the real card, ribbon and
+   all, above the comment thread). `detail` suppresses the card's own collapsible
+   thread — the detail page renders the full CommentThread right below the card. */
+export function ISOCard({ post, authorRole = null, detail = false }: { post: ApiPost; authorRole?: AuthorRole; detail?: boolean }) {
   const router = useRouter();
   const { user } = useUser();
   const [liked, setLiked] = useState(post.is_liked ?? false);
@@ -1245,7 +1261,7 @@ function ISOCard({ post, authorRole = null }: { post: ApiPost; authorRole?: Auth
       {/* DV4-07f: v4 groups save+share with heart/comment on the left; the teal CTA sits alone on the right (gap 8, pad-bottom 16). */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 18px 16px" }}>
         <ActionBtn icon={<Heart size={19} fill={liked ? "var(--stamp-red)" : "none"} />} label={likes} active={liked} onClick={toggleLike} />
-        <ActionBtn icon={<MessageCircle size={19} />} label={commentCount} active={showComments} onClick={() => setShowComments((v) => !v)} />
+        <ActionBtn icon={<MessageCircle size={19} />} label={commentCount} active={showComments} onClick={detail ? undefined : () => setShowComments((v) => !v)} />
         <ActionBtn icon={<Bookmark size={19} fill={saved ? "var(--ink)" : "none"} />} active={saved} activeColor="var(--ink)" onClick={toggleSave} />
         <ActionBtn icon={<Share2 size={19} />} label={shared ? "Copied" : undefined} active={shared} activeColor="var(--ink)" onClick={shareIso} />
         <div style={{ flex: 1 }} />
@@ -1255,7 +1271,7 @@ function ISOCard({ post, authorRole = null }: { post: ApiPost; authorRole?: Auth
           </Button>
         )}
       </div>
-      {showComments && <CommentThread postId={post.id} onCountChange={setCommentCount} />}
+      {!detail && showComments && <CommentThread postId={post.id} onCountChange={setCommentCount} />}
     </div>
   );
 }
@@ -1501,22 +1517,18 @@ export function EventCard({ event }: { event: ApiEvent }) {
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 4 }}>
         <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15.5, letterSpacing: "-0.02em", lineHeight: 1.2, color: "var(--ink)" }}>{event.title}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "var(--ink-mute)" }}>
-          <MapPin size={13} strokeWidth={2} style={{ flexShrink: 0 }} /> {event.mode === "online" ? "Online" : event.venue ?? event.city}
+          {/* DV8 — venue line prefers the joined "venue — address" display form. */}
+          <MapPin size={13} strokeWidth={2} style={{ flexShrink: 0 }} /> {event.mode === "online" ? "Online" : event.where ?? event.venue ?? event.city}
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--slate-400)" }}>
             <Clock size={13} strokeWidth={2} style={{ flexShrink: 0 }} />
-            {new Date(event.starts_at).toLocaleString("en-IN", { hour: "numeric", minute: "2-digit" })}
+            {/* DV8 — time renders as a range when ends_at is set ("4:00 pm – 8:00 pm"). */}
+            {formatTime12FromDate(new Date(event.starts_at))}
+            {event.ends_at ? ` – ${formatTime12FromDate(new Date(event.ends_at))}` : ""}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-            {/* DV8-16 — entry pricing on the card: "Free" tag, or the formatted price.
-                Guarded so older/sparse payloads without the fields render nothing. */}
-            {event.is_free === true && <Badge variant="secondary">Free</Badge>}
-            {event.is_free === false && (event.price ?? 0) > 0 && (
-              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-mute)", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
-                {symOf(event.currency ?? "INR")} {Math.round(event.price / 100).toLocaleString("en-IN")}
-              </span>
-            )}
+            {/* DV8 — the Free/price badge is gone; the card leads with the RSVP state. */}
             {going && <Badge variant="success">Going</Badge>}
             {interested && <Badge variant="warning">Interested</Badge>}
             <span style={{ fontSize: 12, color: "var(--slate-400)", fontFamily: "var(--font-mono)" }}>{event.going_count ?? 0} going</span>

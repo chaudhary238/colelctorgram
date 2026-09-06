@@ -103,6 +103,15 @@ export const MEDALS = ["var(--grail-gold)", "#A6A8AC", "#C08552"];
 export const FRAME_GOLD = "#E8A33D";
 export const FRAME_HALO = "#FEF3C7";
 
+/* Pioneer & Early Believer ring their avatar gold (v8 Cards.jsx :319 avatarFrame);
+   Founding Member keeps the pill only. Style for a round wrapper span. */
+export const hasGoldFrame = (b: FeedBadgeT | null | undefined) =>
+  !!b && b.kind === "first_start" && (b.code === "pioneer" || b.code === "early_believer");
+export const goldFrameRing: React.CSSProperties = {
+  borderRadius: "50%",
+  boxShadow: `0 0 0 2px ${FRAME_HALO}, 0 0 0 3.5px ${FRAME_GOLD}`,
+};
+
 const fmt = (n: number) => n.toLocaleString("en-IN");
 
 /* ── fireXpToast — imperative "+N XP" toast (v6 DV6-04) ──────────────────────
@@ -132,19 +141,26 @@ export function fireXpToast(xp: number, label = "XP earned") {
 
 /* ── fireToast — plain imperative toast (no XP styling); same lifecycle as fireXpToast.
    Used e.g. when a free-text add is auto-linked to an existing catalogue entry (DV6-12). */
-export function fireToast(message: string) {
+export function fireToast(message: string, sub?: string) {
   if (typeof document === "undefined" || !message) return;
   const el = document.createElement("div");
   el.setAttribute("role", "status");
   el.style.cssText = [
     "position:fixed", "left:50%", "bottom:28px", "transform:translateX(-50%) translateY(8px)",
-    "z-index:80", "display:flex", "align-items:center", "gap:8px",
-    "padding:10px 16px", "border-radius:999px", "background:var(--ink)", "color:var(--paper)",
+    "z-index:80", "display:flex", sub ? "flex-direction:column" : "align-items:center", "gap:" + (sub ? "2px" : "8px"),
+    "padding:10px 16px", "border-radius:" + (sub ? "14px" : "999px"), "background:var(--ink)", "color:var(--paper)",
     "font-family:var(--font-body)", "font-size:13.5px", "font-weight:600",
     "box-shadow:var(--shadow-3)", "opacity:0", "transition:opacity 200ms ease, transform 200ms ease",
     "pointer-events:none", "max-width:min(90vw,360px)", "text-align:center",
   ].join(";");
   el.textContent = message;
+  // v8 flashToast(title, sub) — an optional smaller second line on the same toast.
+  if (sub) {
+    const s = document.createElement("div");
+    s.style.cssText = "font-size:11.5px;font-weight:400;opacity:0.75";
+    s.textContent = sub;
+    el.appendChild(s);
+  }
   document.body.appendChild(el);
   requestAnimationFrame(() => { el.style.opacity = "1"; el.style.transform = "translateX(-50%) translateY(0)"; });
   setTimeout(() => {

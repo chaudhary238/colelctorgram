@@ -15,6 +15,7 @@ from app.routers import (
     auth, users, feed, catalogue, items, posts,
     listings, communities, events,
     threads, notifications, search, media, admin, rewards,
+    cities,
 )
 from app.routers.moderation import router as moderation_router
 from app.routers.posts import comments_router
@@ -68,6 +69,7 @@ api_v1.include_router(events.router)
 api_v1.include_router(threads.router)
 api_v1.include_router(notifications.router)
 api_v1.include_router(search.router)
+api_v1.include_router(cities.router)
 api_v1.include_router(media.router)
 api_v1.include_router(admin.router)
 api_v1.include_router(moderation_router)

@@ -1,12 +1,19 @@
 "use client";
 
+// Forgot password (design_v8/app/Onboarding.jsx Auth m="forgot") — request a
+// reset link. v8 copy wins over the earlier enumeration-safe wording (DV8
+// audit): success reads "We sent a reset link to {email}". Kept beyond v8:
+// error state, busy label, and the dev-only reset link (no email infra yet).
+
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Mail } from "lucide-react";
 import { api } from "@/lib/api";
+import { AuthShell, AuthTitle, AuthField, BlockButton } from "../_ui";
 
-// Forgot password (DF-37a / B-71) — request a reset link.
 export default function ForgotPasswordPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [devToken, setDevToken] = useState<string | null>(null);
@@ -29,50 +36,66 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--bone)] px-4">
-      <div className="w-full max-w-sm bg-[var(--paper)] rounded-2xl shadow-[var(--shadow-3)] p-8">
-        <div style={{ width: 52, height: 52, borderRadius: 14, background: "var(--stamp-red-soft)", color: "var(--stamp-red)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
-          <Mail size={24} />
-        </div>
+    <AuthShell back="/auth/signin">
+      <AuthTitle
+        title="Reset password"
+        sub="Enter your email and we’ll send you a link to reset your password."
+        subMb={28}
+      />
 
-        {sent ? (
-          <>
-            <h2 className="text-[24px] font-bold mb-1" style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>Check your inbox</h2>
-            <p className="text-sm text-[var(--ink-mute)] leading-relaxed mb-5">
-              If an account exists for <b className="text-[var(--ink)]">{email}</b>, we&apos;ve sent a link to reset your password. It expires in 15 minutes.
-            </p>
-            {devToken && (
-              <Link href={`/auth/reset?token=${devToken}`} className="block text-center text-sm font-semibold text-[var(--stamp-red)] underline mb-4">
-                Dev: open reset link →
-              </Link>
-            )}
-            <Link href="/auth/signin" className="block text-center text-sm text-[var(--ink-faint)] hover:underline">Back to sign in</Link>
-          </>
-        ) : (
-          <>
-            <h2 className="text-[24px] font-bold mb-1" style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>Reset your password</h2>
-            <p className="text-sm text-[var(--ink-mute)] mb-6">Enter your email and we&apos;ll send you a reset link.</p>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[var(--ink-mute)] mb-1">Email</label>
-                <input
-                  type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
-                  className="w-full px-3 py-2.5 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--ink)] text-sm outline-none focus:border-[var(--stamp-red)] transition-colors"
-                  placeholder="you@example.com"
-                />
+      {!sent ? (
+        <form onSubmit={handleSubmit}>
+          <AuthField label="Email" type="email" value={email} onChange={setEmail} placeholder="you@email.com" required />
+          {error && <p className="text-sm text-[var(--stamp-red)]" style={{ marginTop: 12 }}>{error}</p>}
+          <div style={{ marginTop: 22 }}>
+            <BlockButton type="submit" disabled={loading} style={!email.trim() ? { opacity: 0.5 } : undefined}>
+              {loading ? "Sending…" : "Send reset link"}
+            </BlockButton>
+          </div>
+        </form>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, paddingTop: 24, textAlign: "center" }}>
+          <div
+            style={{
+              width: 64, height: 64, borderRadius: "50%", background: "var(--forest-soft)",
+              border: "1px solid var(--forest)", display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <Mail size={28} style={{ color: "var(--forest)" }} />
+          </div>
+          <div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, letterSpacing: "-0.02em", color: "var(--ink)" }}>
+              Check your inbox
+            </div>
+            <div style={{ fontSize: 14, color: "var(--ink-mute)", marginTop: 6, lineHeight: 1.55 }}>
+              We sent a reset link to <strong>{email}</strong>. It expires in 15 minutes.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push("/auth/signin")}
+            style={{
+              background: "none", border: "none", color: "var(--stamp-red)", fontFamily: "var(--font-body)",
+              fontWeight: 600, fontSize: 14, cursor: "pointer", padding: 0,
+            }}
+          >
+            Back to log in
+          </button>
+
+          {/* Dev-only until a sending domain exists: the backend echoes the reset
+              token in local debug so testing isn't a dead end. */}
+          {process.env.NODE_ENV !== "production" && devToken && (
+            <div className="w-full rounded-xl border border-dashed border-[var(--border-strong)] bg-[var(--bone)] px-4 py-3 text-center" style={{ marginTop: 12 }}>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">
+                Dev only — emails not wired yet
               </div>
-              {error && <p className="text-sm text-[var(--stamp-red)]">{error}</p>}
-              <button type="submit" disabled={loading} className="w-full py-2.5 rounded-lg bg-[var(--stamp-red)] text-white font-semibold text-sm hover:bg-[var(--stamp-red-deep)] transition-colors disabled:opacity-60">
-                {loading ? "Sending…" : "Send reset link"}
-              </button>
-            </form>
-            <p className="text-sm text-[var(--ink-faint)] text-center mt-6">
-              Remembered it?{" "}
-              <Link href="/auth/signin" className="text-[var(--stamp-red)] font-medium hover:underline">Sign in</Link>
-            </p>
-          </>
-        )}
-      </div>
-    </div>
+              <Link href={`/auth/reset?token=${devToken}`} className="block text-sm font-semibold text-[var(--stamp-red)] underline mt-1">
+                Open reset link →
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+    </AuthShell>
   );
 }

@@ -1,70 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MapPin, Search, X } from "lucide-react";
+import { api } from "@/lib/api";
 
 // ─────────────────────────────────────────────────────────────
 // CityField — type-to-search canonical city picker (DV8-16, port of
-// design_v8/app/shared.jsx CityPicker + CITIES).
+// design_v8/app/shared.jsx CityPicker).
 //
 // A fed list, not free text: typo'd and inconsistently-spelled cities
 // ("Bangalore" / "Bengaluru" / "banglore") fragment every location filter,
-// meetup search and shipping estimate. Each entry is
-// [city, region, country, ...aliases] — aliases are searchable but never
-// stored, so a user typing a former or short name still lands on one
-// canonical value. City and country are reported SEPARATELY (never as one
+// meetup search and shipping estimate. The list is served by GET /cities
+// (founder 2026-09-06: "city list is not dynamic" — growing it is now a DB
+// insert, not a frontend deploy); aliases are matched server-side but never
+// stored. City and country are reported SEPARATELY (never as one
 // "City, Country" string) because event and listing matching compares bare
 // city names.
 // ─────────────────────────────────────────────────────────────
 
-const CITIES: readonly (readonly string[])[] = [
-  // India
-  ["Mumbai", "Maharashtra", "India", "bombay"], ["Pune", "Maharashtra", "India", "poona"], ["Nagpur", "Maharashtra", "India"], ["Nashik", "Maharashtra", "India"], ["Thane", "Maharashtra", "India"], ["Navi Mumbai", "Maharashtra", "India"],
-  ["Delhi", "Delhi", "India", "ncr"], ["New Delhi", "Delhi", "India"],
-  ["Bengaluru", "Karnataka", "India", "bangalore", "blr"], ["Mysuru", "Karnataka", "India", "mysore"], ["Mangaluru", "Karnataka", "India", "mangalore"], ["Hubballi", "Karnataka", "India", "hubli"],
-  ["Chennai", "Tamil Nadu", "India", "madras"], ["Coimbatore", "Tamil Nadu", "India"], ["Madurai", "Tamil Nadu", "India"], ["Tiruchirappalli", "Tamil Nadu", "India", "trichy"],
-  ["Hyderabad", "Telangana", "India", "hyd"], ["Warangal", "Telangana", "India"],
-  ["Kolkata", "West Bengal", "India", "calcutta"], ["Howrah", "West Bengal", "India"], ["Siliguri", "West Bengal", "India"],
-  ["Ahmedabad", "Gujarat", "India", "amdavad"], ["Surat", "Gujarat", "India"], ["Vadodara", "Gujarat", "India", "baroda"], ["Rajkot", "Gujarat", "India"],
-  ["Jaipur", "Rajasthan", "India"], ["Jodhpur", "Rajasthan", "India"], ["Udaipur", "Rajasthan", "India"], ["Kota", "Rajasthan", "India"],
-  ["Lucknow", "Uttar Pradesh", "India"], ["Kanpur", "Uttar Pradesh", "India"], ["Noida", "Uttar Pradesh", "India"], ["Ghaziabad", "Uttar Pradesh", "India"], ["Agra", "Uttar Pradesh", "India"], ["Varanasi", "Uttar Pradesh", "India", "banaras"], ["Prayagraj", "Uttar Pradesh", "India", "allahabad"], ["Meerut", "Uttar Pradesh", "India"],
-  ["Gurugram", "Haryana", "India", "gurgaon"], ["Faridabad", "Haryana", "India"], ["Panchkula", "Haryana", "India"], ["Chandigarh", "Chandigarh", "India"],
-  ["Ludhiana", "Punjab", "India"], ["Amritsar", "Punjab", "India"], ["Jalandhar", "Punjab", "India"],
-  ["Bhopal", "Madhya Pradesh", "India"], ["Indore", "Madhya Pradesh", "India"], ["Jabalpur", "Madhya Pradesh", "India"], ["Gwalior", "Madhya Pradesh", "India"],
-  ["Patna", "Bihar", "India"], ["Gaya", "Bihar", "India"],
-  ["Kochi", "Kerala", "India", "cochin", "ernakulam"], ["Thiruvananthapuram", "Kerala", "India", "trivandrum"], ["Kozhikode", "Kerala", "India", "calicut"], ["Thrissur", "Kerala", "India"],
-  ["Bhubaneswar", "Odisha", "India"], ["Cuttack", "Odisha", "India"], ["Guwahati", "Assam", "India"],
-  ["Raipur", "Chhattisgarh", "India"], ["Ranchi", "Jharkhand", "India"], ["Jamshedpur", "Jharkhand", "India"],
-  ["Dehradun", "Uttarakhand", "India"], ["Shimla", "Himachal Pradesh", "India"], ["Srinagar", "Jammu & Kashmir", "India"], ["Jammu", "Jammu & Kashmir", "India"],
-  ["Visakhapatnam", "Andhra Pradesh", "India", "vizag"], ["Vijayawada", "Andhra Pradesh", "India"], ["Guntur", "Andhra Pradesh", "India"],
-  ["Goa", "Goa", "India", "panaji"], ["Puducherry", "Puducherry", "India", "pondicherry"], ["Imphal", "Manipur", "India"], ["Shillong", "Meghalaya", "India"], ["Agartala", "Tripura", "India"], ["Aizawl", "Mizoram", "India"], ["Kohima", "Nagaland", "India"], ["Gangtok", "Sikkim", "India"], ["Itanagar", "Arunachal Pradesh", "India"],
-  // Asia-Pacific
-  ["Singapore", "", "Singapore", "sg"], ["Hong Kong", "", "Hong Kong SAR", "hk"], ["Tokyo", "Kantō", "Japan"], ["Osaka", "Kansai", "Japan"], ["Kyoto", "Kansai", "Japan"], ["Nagoya", "Chūbu", "Japan"], ["Yokohama", "Kantō", "Japan"],
-  ["Seoul", "", "South Korea"], ["Busan", "", "South Korea"], ["Taipei", "", "Taiwan"], ["Kaohsiung", "", "Taiwan"],
-  ["Shanghai", "", "China"], ["Beijing", "", "China", "peking"], ["Shenzhen", "", "China"], ["Guangzhou", "", "China", "canton"], ["Chengdu", "", "China"],
-  ["Bangkok", "", "Thailand"], ["Kuala Lumpur", "", "Malaysia", "kl"], ["Penang", "", "Malaysia"], ["Jakarta", "", "Indonesia"], ["Manila", "", "Philippines"], ["Ho Chi Minh City", "", "Vietnam", "saigon"], ["Hanoi", "", "Vietnam"],
-  ["Sydney", "New South Wales", "Australia"], ["Melbourne", "Victoria", "Australia"], ["Brisbane", "Queensland", "Australia"], ["Perth", "Western Australia", "Australia"], ["Auckland", "", "New Zealand"], ["Wellington", "", "New Zealand"],
-  ["Colombo", "", "Sri Lanka"], ["Kathmandu", "", "Nepal"], ["Dhaka", "", "Bangladesh"], ["Karachi", "", "Pakistan"], ["Lahore", "", "Pakistan"], ["Islamabad", "", "Pakistan"],
-  // Middle East & Africa
-  ["Dubai", "", "United Arab Emirates", "uae"], ["Abu Dhabi", "", "United Arab Emirates"], ["Sharjah", "", "United Arab Emirates"], ["Doha", "", "Qatar"], ["Riyadh", "", "Saudi Arabia"], ["Jeddah", "", "Saudi Arabia"], ["Kuwait City", "", "Kuwait"], ["Manama", "", "Bahrain"], ["Muscat", "", "Oman"],
-  ["Tel Aviv", "", "Israel"], ["Istanbul", "", "Turkey"], ["Cairo", "", "Egypt"], ["Nairobi", "", "Kenya"], ["Lagos", "", "Nigeria"], ["Johannesburg", "", "South Africa", "jozi"], ["Cape Town", "", "South Africa"],
-  // Europe
-  ["London", "England", "United Kingdom", "uk"], ["Manchester", "England", "United Kingdom"], ["Birmingham", "England", "United Kingdom"], ["Glasgow", "Scotland", "United Kingdom"], ["Edinburgh", "Scotland", "United Kingdom"], ["Dublin", "", "Ireland"],
-  ["Paris", "Île-de-France", "France"], ["Lyon", "", "France"], ["Marseille", "", "France"],
-  ["Berlin", "", "Germany"], ["Munich", "Bavaria", "Germany", "münchen"], ["Frankfurt", "", "Germany"], ["Hamburg", "", "Germany"], ["Cologne", "", "Germany", "köln"],
-  ["Amsterdam", "", "Netherlands"], ["Rotterdam", "", "Netherlands"], ["Brussels", "", "Belgium"], ["Zürich", "", "Switzerland", "zurich"], ["Geneva", "", "Switzerland"], ["Vienna", "", "Austria", "wien"],
-  ["Madrid", "", "Spain"], ["Barcelona", "", "Spain"], ["Lisbon", "", "Portugal", "lisboa"], ["Rome", "", "Italy", "roma"], ["Milan", "", "Italy", "milano"],
-  ["Stockholm", "", "Sweden"], ["Copenhagen", "", "Denmark"], ["Oslo", "", "Norway"], ["Helsinki", "", "Finland"], ["Warsaw", "", "Poland"], ["Prague", "", "Czechia"], ["Budapest", "", "Hungary"], ["Athens", "", "Greece"],
-  // Americas
-  ["New York", "New York", "United States", "nyc", "new york city"], ["Los Angeles", "California", "United States", "la"], ["San Francisco", "California", "United States", "sf"], ["San Jose", "California", "United States"], ["San Diego", "California", "United States"],
-  ["Chicago", "Illinois", "United States"], ["Houston", "Texas", "United States"], ["Dallas", "Texas", "United States"], ["Austin", "Texas", "United States"], ["Seattle", "Washington", "United States"], ["Portland", "Oregon", "United States"],
-  ["Boston", "Massachusetts", "United States"], ["Philadelphia", "Pennsylvania", "United States"], ["Atlanta", "Georgia", "United States"], ["Miami", "Florida", "United States"], ["Orlando", "Florida", "United States"], ["Denver", "Colorado", "United States"], ["Phoenix", "Arizona", "United States"], ["Las Vegas", "Nevada", "United States"], ["Washington", "District of Columbia", "United States", "dc"],
-  ["Toronto", "Ontario", "Canada"], ["Vancouver", "British Columbia", "Canada"], ["Montreal", "Quebec", "Canada"], ["Calgary", "Alberta", "Canada"], ["Ottawa", "Ontario", "Canada"],
-  ["Mexico City", "", "Mexico", "cdmx"], ["São Paulo", "", "Brazil", "sao paulo"], ["Rio de Janeiro", "", "Brazil", "rio"], ["Buenos Aires", "", "Argentina"], ["Santiago", "", "Chile"], ["Bogotá", "", "Colombia", "bogota"], ["Lima", "", "Peru"],
-];
+type CityRow = { name: string; region: string | null; country: string };
+
+// Suggestions barely change within a session — cache per query across every
+// CityField instance so reopening the field or retyping costs no request.
+const cityCache = new Map<string, CityRow[]>();
 
 // The dropdown's secondary line: region where one exists, otherwise the country alone.
-const cityRegion = (c: readonly string[]) => (c[1] ? `${c[1]}, ${c[2]}` : c[2]);
+const cityRegion = (c: CityRow) => (c.region ? `${c.region}, ${c.country}` : c.country);
 
 export function CityField({
   value,
@@ -72,6 +33,7 @@ export function CityField({
   label,
   placeholder = "Start typing your city…",
   missing = false,
+  height = 46,
 }: {
   value: string;
   /** Reports city and country separately — callers that only store city can ignore the 2nd arg. */
@@ -81,11 +43,17 @@ export function CityField({
   placeholder?: string;
   /** Paints the required-field red border (matches the events form fields). */
   missing?: boolean;
+  /** Field height (px). Events forms use the 46px default; Edit profile passes 48 (v8 field spec). */
+  height?: number;
 }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [hi, setHi] = useState(0);
+  const [matches, setMatches] = useState<CityRow[]>([]);
+  const [loading, setLoading] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
+  // Guards against a slow response for an old query landing after a newer one.
+  const latestQ = useRef("");
 
   useEffect(() => {
     const away = (e: MouseEvent) => {
@@ -95,33 +63,36 @@ export function CityField({
     return () => document.removeEventListener("mousedown", away);
   }, []);
 
-  // Matches city, region, country or alias, so "Kerala", "Japan" and "bombay"
-  // all surface the right rows.
-  const matches = useMemo(() => {
+  // Server-side matching (city, region, country or alias — "Kerala", "Japan"
+  // and "bombay" all surface the right rows). Debounced; previous matches stay
+  // rendered while the next query is in flight so the dropdown doesn't flicker.
+  useEffect(() => {
+    if (!open) return;
     const s = q.trim().toLowerCase();
-    if (!s) return CITIES.slice(0, 8);
-    const starts: (readonly string[])[] = [];
-    const contains: (readonly string[])[] = [];
-    CITIES.forEach((c) => {
-      const city = c[0].toLowerCase();
-      const region = (c[1] || "").toLowerCase();
-      const ctry = c[2].toLowerCase();
-      const aliases = c.slice(3);
-      if (city.startsWith(s) || aliases.some((a) => a.startsWith(s))) starts.push(c);
-      else if (city.includes(s) || region.startsWith(s) || ctry.startsWith(s) || region.includes(s) || ctry.includes(s) || aliases.some((a) => a.includes(s))) contains.push(c);
-    });
-    return [...starts, ...contains].slice(0, 8);
-  }, [q]);
+    latestQ.current = s;
+    const cached = cityCache.get(s);
+    if (cached) { setMatches(cached); setLoading(false); return; }
+    setLoading(true);
+    const t = setTimeout(() => {
+      api.get<{ cities: CityRow[] }>(`/cities?q=${encodeURIComponent(s)}`)
+        .then((r) => {
+          cityCache.set(s, r.cities);
+          if (latestQ.current === s) { setMatches(r.cities); setLoading(false); }
+        })
+        .catch(() => { if (latestQ.current === s) setLoading(false); });
+    }, s ? 160 : 0);
+    return () => clearTimeout(t);
+  }, [q, open]);
 
-  const pick = (c: readonly string[]) => {
-    onChange(c[0], c[2]);
+  const pick = (c: CityRow) => {
+    onChange(c.name, c.country);
     setQ("");
     setOpen(false);
   };
 
   const fieldStyle: React.CSSProperties = {
-    display: "block", width: "100%", boxSizing: "border-box", height: 46, padding: "0 40px 0 38px",
-    borderRadius: 11, border: `1px solid ${missing ? "var(--stamp-red)" : "var(--border-strong)"}`,
+    display: "block", width: "100%", boxSizing: "border-box", height, padding: "0 40px 0 38px",
+    borderRadius: height >= 48 ? 12 : 11, border: `1px solid ${missing ? "var(--stamp-red)" : "var(--border-strong)"}`,
     background: "var(--paper-soft)",
     fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", outline: "none",
   };
@@ -174,11 +145,11 @@ export function CityField({
         }}>
           {matches.length === 0 ? (
             <div style={{ padding: "13px 14px", fontSize: 13, color: "var(--ink-faint)", lineHeight: 1.45 }}>
-              No match. Try the nearest large city — this keeps location filters consistent for everyone.
+              {loading ? "Searching…" : "No match. Try the nearest large city — this keeps location filters consistent for everyone."}
             </div>
           ) : matches.map((c, i) => (
             <button
-              key={c[0] + c[2]}
+              key={c.name + c.country}
               type="button"
               onMouseEnter={() => setHi(i)}
               onClick={() => pick(c)}
@@ -189,7 +160,7 @@ export function CityField({
               }}
             >
               <MapPin size={14} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
-              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", flexShrink: 0 }}>{c[0]}</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", flexShrink: 0 }}>{c.name}</span>
               <span style={{ fontSize: 11.5, color: "var(--ink-faint)", marginLeft: "auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cityRegion(c)}</span>
             </button>
           ))}

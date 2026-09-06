@@ -1,13 +1,15 @@
 "use client";
 
-// Email OTP confirmation after signup (DF-06 / B-72).
-// Until the email provider (B-71) is wired, the code is printed in backend logs;
-// "Skip for now" keeps the flow usable pre-email-infra.
+// Email OTP confirmation after signup (DF-06 / B-72), v8 shell
+// (design_v8/app/Onboarding.jsx OtpVerify). Until the email provider (B-71) is
+// wired, the code is printed in backend logs; the dev helpers below keep the
+// flow usable pre-email-infra.
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Mail } from "lucide-react";
 import { api } from "@/lib/api";
+import { AuthShell, BlockButton } from "../_ui";
 
 function VerifyForm() {
   const router = useRouter();
@@ -87,89 +89,100 @@ function VerifyForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--bone)] px-4">
-      <div className="w-full max-w-sm bg-[var(--paper)] rounded-2xl shadow-[var(--shadow-3)] p-8">
-        <div className="w-14 h-14 rounded-[15px] bg-[var(--stamp-red-soft)] text-[var(--stamp-red)] flex items-center justify-center mb-[18px]">
-          <Mail size={26} />
-        </div>
-        <h1
-          className="text-[28px] font-bold text-[var(--ink)] mb-1.5"
-          style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}
-        >
-          Check your email
-        </h1>
-        <p className="text-[15px] text-[var(--ink-mute)] leading-relaxed mb-6">
-          We sent a 6-digit code to{" "}
-          <b className="text-[var(--ink)]">{email || "your email"}</b>. Enter it below to
-          confirm your account.
-        </p>
+    <AuthShell back="/auth/signup">
+      <div className="w-14 h-14 rounded-[15px] bg-[var(--stamp-red-soft)] text-[var(--stamp-red)] flex items-center justify-center mb-[18px]">
+        <Mail size={26} />
+      </div>
+      <h1
+        style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 30, letterSpacing: "-0.03em", margin: "0 0 6px", color: "var(--ink)" }}
+      >
+        Check your email
+      </h1>
+      <p style={{ fontSize: 15, color: "var(--ink-mute)", lineHeight: 1.5, margin: "0 0 26px" }}>
+        We sent a 6-digit code to{" "}
+        <b className="text-[var(--ink)]">{email || "your email"}</b>. Enter it below to
+        confirm your account.
+      </p>
 
-        <div className="flex gap-2 justify-between" onPaste={onPaste}>
-          {digits.map((d, i) => (
-            <input
-              key={i}
-              ref={(el) => { refs.current[i] = el; }}
-              value={d}
-              inputMode="numeric"
-              maxLength={1}
-              onChange={(e) => setAt(i, e.target.value)}
-              onKeyDown={(e) => onKey(i, e)}
-              className="w-full h-[58px] text-center rounded-[13px] border-[1.5px] bg-[var(--paper-soft)] font-mono font-semibold text-2xl text-[var(--ink)] outline-none transition-colors"
-              style={{
-                borderColor: d ? "var(--ink)" : "var(--border-strong)",
-                caretColor: "var(--stamp-red)",
-              }}
-            />
-          ))}
-        </div>
+      <div className="flex justify-between" style={{ gap: 9 }} onPaste={onPaste}>
+        {digits.map((d, i) => (
+          <input
+            key={i}
+            ref={(el) => { refs.current[i] = el; }}
+            value={d}
+            inputMode="numeric"
+            maxLength={1}
+            onChange={(e) => setAt(i, e.target.value)}
+            onKeyDown={(e) => onKey(i, e)}
+            className="w-full h-[58px] text-center rounded-[13px] border-[1.5px] bg-[var(--paper-soft)] font-mono font-semibold text-2xl text-[var(--ink)] outline-none transition-colors"
+            style={{
+              borderColor: d ? "var(--ink)" : "var(--border-strong)",
+              caretColor: "var(--stamp-red)",
+            }}
+          />
+        ))}
+      </div>
 
-        {error && <p className="text-sm text-[var(--stamp-red)] mt-3">{error}</p>}
+      {error && <p className="text-sm text-[var(--stamp-red)] mt-3">{error}</p>}
 
-        <button
-          onClick={verify}
-          disabled={!full || loading}
-          className="w-full mt-6 py-3 rounded-xl bg-[var(--stamp-red)] text-white font-semibold text-sm hover:bg-[var(--stamp-red-deep)] transition-colors disabled:opacity-50 cursor-pointer"
-        >
+      <div style={{ marginTop: 24 }}>
+        <BlockButton onClick={verify} disabled={!full || loading}>
           {loading ? "Verifying…" : "Verify & continue"}
+        </BlockButton>
+      </div>
+
+      <div className="text-center mt-5 text-[13.5px] text-[var(--ink-mute)]">
+        {secs > 0 ? (
+          <span>
+            Resend code in{" "}
+            <b className="font-mono text-[var(--ink)]">0:{String(secs).padStart(2, "0")}</b>
+          </span>
+        ) : (
+          <button
+            onClick={resend}
+            className="bg-transparent border-none text-[var(--stamp-red)] font-semibold text-[13.5px] cursor-pointer p-0"
+          >
+            Resend code
+          </button>
+        )}
+      </div>
+      {resent && secs > 0 && (
+        <p className="text-center mt-2 text-[12.5px] text-[var(--forest)]">
+          A new code is on its way.
+        </p>
+      )}
+
+      {/* v8 footer: escape hatch back to signup for a mistyped address */}
+      <div style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: "var(--ink-faint)" }}>
+        Wrong address?{" "}
+        <button
+          onClick={() => router.push("/auth/signup")}
+          style={{
+            background: "none", border: "none", color: "var(--ink-soft)", fontWeight: 600,
+            fontSize: 13, cursor: "pointer", padding: 0, textDecoration: "underline",
+          }}
+        >
+          Change email
         </button>
+      </div>
 
-        <div className="text-center mt-5 text-[13.5px] text-[var(--ink-mute)]">
-          {secs > 0 ? (
-            <span>
-              Resend code in{" "}
-              <b className="font-mono text-[var(--ink)]">0:{String(secs).padStart(2, "0")}</b>
-            </span>
-          ) : (
-            <button
-              onClick={resend}
-              className="bg-transparent border-none text-[var(--stamp-red)] font-semibold text-[13.5px] cursor-pointer p-0"
-            >
-              Resend code
-            </button>
+      {/* Dev-only helpers, visually fenced off from the v8 screen above.
+          Until a sending domain exists (blocked on the name decision), the
+          backend echoes the OTP in local debug so testing isn't a dead end.
+          Double-gated: backend only sends it when app_debug && env != production;
+          this block only renders in non-production builds. */}
+      {process.env.NODE_ENV !== "production" && (
+        <div style={{ marginTop: 28, paddingTop: 18, borderTop: "1px dashed var(--border-strong)" }}>
+          {devOtp && (
+            <div className="rounded-xl border border-dashed border-[var(--border-strong)] bg-[var(--bone)] px-4 py-3 text-center">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">
+                Dev only — emails not wired yet
+              </div>
+              <div className="font-mono font-bold text-xl tracking-[6px] text-[var(--ink)] mt-1">
+                {devOtp}
+              </div>
+            </div>
           )}
-        </div>
-        {resent && secs > 0 && (
-          <p className="text-center mt-2 text-[12.5px] text-[var(--forest)]">
-            A new code is on its way.
-          </p>
-        )}
-
-        {/* Dev-only: until a sending domain exists (blocked on the name decision),
-            the backend echoes the OTP in local debug so testing isn't a dead end.
-            Double-gated: backend only sends it when app_debug && env != production;
-            this block only renders in non-production builds. */}
-        {process.env.NODE_ENV !== "production" && devOtp && (
-          <div className="mt-5 rounded-xl border border-dashed border-[var(--border-strong)] bg-[var(--bone)] px-4 py-3 text-center">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">
-              Dev only — emails not wired yet
-            </div>
-            <div className="font-mono font-bold text-xl tracking-[6px] text-[var(--ink)] mt-1">
-              {devOtp}
-            </div>
-          </div>
-        )}
-
-        {process.env.NODE_ENV !== "production" && (
           <p className="text-center mt-4 text-[13px] text-[var(--ink-faint)]">
             <button
               onClick={() => router.push("/onboarding")}
@@ -178,9 +191,9 @@ function VerifyForm() {
               Skip for now <span className="no-underline">(dev only — code is in backend logs)</span>
             </button>
           </p>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </AuthShell>
   );
 }
 

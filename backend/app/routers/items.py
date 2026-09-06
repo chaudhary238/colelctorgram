@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -51,6 +51,7 @@ class AddItemBody(BaseModel):
     tcg_graded: bool = False
     tcg_grader: Optional[str] = None
     tcg_grade: Optional[str] = None
+    tcg_cert_no: Optional[str] = None  # DV8 grading card — slab cert number
     # Pre-order financial + calendar layer (DV4-03)
     preorder_eta: Optional[str] = None
     preorder_window_precision: Optional[str] = None
@@ -66,6 +67,11 @@ class AddItemBody(BaseModel):
 class UpdateItemBody(BaseModel):
     status: Optional[str] = None
     condition: Optional[str] = None
+    description: Optional[str] = None  # DV8 — the sell/edit page lets you edit your copy's notes
+    tcg_graded: Optional[bool] = None
+    tcg_grader: Optional[str] = None
+    tcg_grade: Optional[str] = None
+    tcg_cert_no: Optional[str] = None
     value: Optional[int] = None
     value_currency: Optional[str] = None
     privacy: Optional[str] = None
@@ -106,6 +112,9 @@ class ItemOut(BaseModel):
     photo_count: int
     # DV8 completeness — condition + price present (preorder: ETA + total).
     is_complete: bool = True
+    # DV8 sold state (owner-only price; sold copies are shelf history).
+    sold_at: Optional[str] = None
+    sold_price: Optional[int] = None
     # DV8 quick-add XP split — amounts actually granted by this request (0 when
     # deduped/capped); the client toasts what the server says, like db_new_xp.
     add_xp: int = 0
@@ -118,6 +127,7 @@ class ItemOut(BaseModel):
     tcg_graded: bool = False
     tcg_grader: Optional[str] = None
     tcg_grade: Optional[str] = None
+    tcg_cert_no: Optional[str] = None
     preorder_ordered_at: Optional[date] = None
     preorder_eta: Optional[str] = None
     preorder_window_precision: Optional[str] = None
@@ -146,6 +156,14 @@ class ItemOut(BaseModel):
     listing_id: Optional[uuid.UUID] = None
     listing_price: Optional[int] = None
     listing_currency: Optional[str] = None
+    # v8 "Relist for sale" (ItemDetail :114) — the owner's newest CLOSED listing for
+    # this copy, so the manage sheet can offer one-tap relist at the archived terms.
+    closed_listing_id: Optional[uuid.UUID] = None
+    closed_listing_price: Optional[int] = None
+    closed_listing_currency: Optional[str] = None
+    # v8 AddListing :724 — photo ids beside `images`, so the edit form can delete
+    # existing uploads (DELETE /items/{id}/photos/{photo_id}).
+    photos: Optional[list[dict]] = None
 
     model_config = {"from_attributes": True}
 
@@ -172,7 +190,8 @@ async def add_item(
                 Item.status.in_(["owned", "wishlist"]),
             )
         )).scalars().all()
-        if any(i.status == "owned" for i in rows):
+        # A SOLD copy is history, not a duplicate — re-buying the same sku is legit.
+        if any(i.status == "owned" and i.sold_at is None for i in rows):
             raise HTTPException(status_code=409, detail="Already in your collection")
         converted_wish = next((i for i in rows if i.status == "wishlist"), None)
 
@@ -430,6 +449,20 @@ async def get_item(
             out["listing_id"] = lrow.id
             out["listing_price"] = lrow.price
             out["listing_currency"] = lrow.currency
+    elif is_owner and getattr(item, "sold_at", None) is None:
+        # v8 ItemDetail :40-42/:114 "Relist for sale — back on the market at ₹X":
+        # unlisting keeps the closed listing row, so relisting is one tap at the
+        # archived terms. Owner-only, and pointless on a sold copy.
+        from app.models.listing import Listing
+        crow = (await db.execute(
+            select(Listing.id, Listing.price, Listing.currency)
+            .where(Listing.item_id == item.id, Listing.status == "closed")
+            .order_by(Listing.created_at.desc()).limit(1)
+        )).first()
+        if crow:
+            out["closed_listing_id"] = crow.id
+            out["closed_listing_price"] = crow.price
+            out["closed_listing_currency"] = crow.currency
     # DV6-11h — attach the owner's identity for the "DB Contribution by @handle" attribution.
     owner = await db.get(User, item.user_id)
     if owner:
@@ -488,6 +521,64 @@ async def update_item(
     return out
 
 
+class MarkSoldBody(BaseModel):
+    price: Optional[int] = None  # minor units, optional ("what it went for")
+
+
+@router.post("/{item_id}/sold", response_model=ItemOut)
+async def mark_item_sold(
+    item_id: uuid.UUID,
+    body: MarkSoldBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """DV8 sold state — the copy STAYS on the shelf as history (v8: grayscale
+    tile, struck-through value, Sold tag) instead of being deleted. Closes any
+    live listing for the copy as sold in the same stroke."""
+    result = await db.execute(select(Item).where(Item.id == item_id, Item.user_id == current_user.id))
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if item.status not in ("owned", "preorder"):
+        raise HTTPException(status_code=422, detail="Only items you hold can be marked sold")
+    if item.sold_at is None:
+        item.sold_at = datetime.now(timezone.utc)
+    item.sold_price = body.price if body.price and body.price > 0 else item.sold_price
+    # Close the live listing (if any): market history keeps the sold record.
+    from app.models.listing import Listing
+    live = (await db.execute(
+        select(Listing).where(Listing.item_id == item.id, Listing.status == "available")
+    )).scalars().all()
+    for l in live:
+        l.status = "sold"
+    if live:
+        await db.execute(
+            update(User).where(User.id == current_user.id)
+            .values(active_listings_count=func.greatest(User.active_listings_count - len(live), 0))
+        )
+    item.is_listed = False
+    photos = (await db.execute(select(ItemPhoto).where(ItemPhoto.item_id == item.id))).scalars().all()
+    return _item_out(item, photos)
+
+
+@router.delete("/{item_id}/sold", response_model=ItemOut)
+async def undo_item_sold(
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """v8 undo-sold — clears the sold stamp; the copy reads owned again. The
+    closed listing stays sold (history); relist via the normal sell flow."""
+    result = await db.execute(select(Item).where(Item.id == item_id, Item.user_id == current_user.id))
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    item.sold_at = None
+    item.sold_price = None
+    photos = (await db.execute(select(ItemPhoto).where(ItemPhoto.item_id == item.id))).scalars().all()
+    return _item_out(item, photos)
+
+
 # DV4-04: remove-from-collection reasons (design_v4 ItemDetail "Remove from collection?" sheet).
 REMOVE_REASONS = {"sold", "traded", "lost", "broken", "gifted", "other"}
 
@@ -510,8 +601,8 @@ async def delete_item(
     await db.delete(item)
 
 
-# DV6-13 — a collector's shelf holds at most 4 personal photos per item.
-MAX_ITEM_PHOTOS = 4
+# DV8 — v8's in-hand add allows 8 personal photos (was 4 since DV6-13).
+MAX_ITEM_PHOTOS = 8
 
 
 @router.post("/{item_id}/photos", status_code=201)
@@ -542,13 +633,41 @@ async def add_photo(
     return {"id": str(photo.id), "url": url}
 
 
+@router.delete("/{item_id}/photos/{photo_id}", status_code=204)
+async def remove_photo(
+    item_id: uuid.UUID,
+    photo_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """v8 AddListing :724 — every photo tile carries a delete X, existing uploads
+    included (the edit form previously could only drop photos queued that session)."""
+    result = await db.execute(select(Item).where(Item.id == item_id, Item.user_id == current_user.id))
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    photo = (await db.execute(
+        select(ItemPhoto).where(ItemPhoto.id == photo_id, ItemPhoto.item_id == item.id)
+    )).scalar_one_or_none()
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    await db.delete(photo)
+    await db.execute(update(Item).where(Item.id == item.id).values(
+        photo_count=func.greatest(Item.photo_count - 1, 0)
+    ))
+
+
 def _item_out(item: Item, photos: Optional[list[ItemPhoto]] = None) -> dict:
     # Cover = earliest upload (the AddToCollection photo).
-    urls = [p.url for p in sorted(photos, key=lambda p: p.uploaded_at)] if photos else []
+    ordered = sorted(photos, key=lambda p: p.uploaded_at) if photos else []
+    urls = [p.url for p in ordered]
     return {
         "id": str(item.id),
         "images": urls,
         "image_url": urls[0] if urls else None,
+        # v8 AddListing :724 — the edit form deletes EXISTING uploads too, which
+        # needs the photo ids alongside the bare urls.
+        "photos": [{"id": str(p.id), "url": p.url} for p in ordered],
         "user_id": str(item.user_id),
         "sku": item.sku,
         "custom_title": item.custom_title,
@@ -560,6 +679,8 @@ def _item_out(item: Item, photos: Optional[list[ItemPhoto]] = None) -> dict:
         "status": item.status,
         "condition": item.condition,
         "is_complete": _is_complete(item),
+        "sold_at": item.sold_at.isoformat() if item.sold_at else None,
+        "sold_price": item.sold_price,
         "value": item.value,
         "value_currency": item.value_currency,
         "is_listed": item.is_listed,
@@ -569,6 +690,7 @@ def _item_out(item: Item, photos: Optional[list[ItemPhoto]] = None) -> dict:
         "tcg_graded": item.tcg_graded,
         "tcg_grader": item.tcg_grader,
         "tcg_grade": item.tcg_grade,
+        "tcg_cert_no": item.tcg_cert_no,
         "preorder_ordered_at": item.preorder_ordered_at.isoformat() if item.preorder_ordered_at else None,
         "preorder_eta": item.preorder_eta,
         "preorder_window_precision": item.preorder_window_precision,

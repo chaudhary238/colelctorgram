@@ -8,12 +8,12 @@ from sqlalchemy import select, or_, func
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.catalogue import Catalogue, CatalogueComment, CatalogueRating
+from app.models.catalogue import Catalogue, CatalogueComment, CatalogueCommentLike, CatalogueRating
 from app.models.item import Item
 from app.models.trust import Report
 from app.models.user import Follow, User
 from app.services.catalogue import norm_title, norm_scale, MATCH_MEDIUM
-from app.services.gamification import award_xp
+from app.services.gamification import award_xp, feed_badge
 
 router = APIRouter(prefix="/catalogue", tags=["catalogue"])
 
@@ -556,6 +556,23 @@ async def list_catalogue_comments(
         .where(CatalogueComment.sku == sku)
         .order_by(CatalogueComment.created_at.asc())
     )).all()
+    # v8 Cards.jsx :356 — per-comment hearts; both aggregates batched (one query
+    # each for the whole thread, not per row).
+    ids = [c.id for c, _ in rows]
+    likes_by_id: dict = {}
+    liked_ids: set = set()
+    if ids:
+        likes_by_id = dict((await db.execute(
+            select(CatalogueCommentLike.comment_id, func.count())
+            .where(CatalogueCommentLike.comment_id.in_(ids))
+            .group_by(CatalogueCommentLike.comment_id)
+        )).all())
+        liked_ids = set((await db.execute(
+            select(CatalogueCommentLike.comment_id).where(
+                CatalogueCommentLike.comment_id.in_(ids),
+                CatalogueCommentLike.user_id == current_user.id,
+            )
+        )).scalars().all())
     return {"comments": [
         {
             "id": str(c.id),
@@ -565,6 +582,10 @@ async def list_catalogue_comments(
             "name": u.name,
             "avatar_url": u.avatar_url,
             "is_mine": u.id == current_user.id,
+            "likes_count": likes_by_id.get(c.id, 0),
+            "is_liked": c.id in liked_ids,
+            # v8 :325 — the rewards badge pill beside the commenter's name.
+            "badge": feed_badge(u),
             "created_at": c.created_at.isoformat(),
         }
         for c, u in rows
@@ -607,8 +628,93 @@ async def add_catalogue_comment(
         "name": current_user.name,
         "avatar_url": current_user.avatar_url,
         "is_mine": True,
+        "likes_count": 0,
+        "is_liked": False,
+        "badge": feed_badge(current_user),
         "created_at": comment.created_at.isoformat(),
     }
+
+
+class EditCatalogueCommentBody(BaseModel):
+    body: str
+
+
+@router.patch("/{sku}/comments/{comment_id}")
+async def edit_catalogue_comment(
+    sku: str,
+    comment_id: uuid.UUID,
+    body: EditCatalogueCommentBody,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """v8 Cards.jsx :333 — the ··· menu edits your own comment in place."""
+    text = body.body.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="Comment can't be empty")
+    comment = (await db.execute(
+        select(CatalogueComment).where(
+            CatalogueComment.id == comment_id, CatalogueComment.sku == sku,
+            CatalogueComment.user_id == current_user.id,
+        )
+    )).scalar_one_or_none()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    comment.body = text
+    return {"id": str(comment.id), "body": comment.body}
+
+
+@router.delete("/{sku}/comments/{comment_id}", status_code=204)
+async def delete_catalogue_comment(
+    sku: str,
+    comment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """v8 Cards.jsx :336 — delete your own comment (replies cascade via FK)."""
+    comment = (await db.execute(
+        select(CatalogueComment).where(
+            CatalogueComment.id == comment_id, CatalogueComment.sku == sku,
+            CatalogueComment.user_id == current_user.id,
+        )
+    )).scalar_one_or_none()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    await db.delete(comment)
+
+
+@router.post("/{sku}/comments/{comment_id}/like")
+async def toggle_catalogue_comment_like(
+    sku: str,
+    comment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """v8 Cards.jsx :356 — heart toggle; returns the fresh aggregate."""
+    exists = (await db.execute(
+        select(CatalogueComment.id).where(
+            CatalogueComment.id == comment_id, CatalogueComment.sku == sku
+        )
+    )).scalar_one_or_none()
+    if not exists:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    like = (await db.execute(
+        select(CatalogueCommentLike).where(
+            CatalogueCommentLike.comment_id == comment_id,
+            CatalogueCommentLike.user_id == current_user.id,
+        )
+    )).scalar_one_or_none()
+    if like:
+        await db.delete(like)
+        liked = False
+    else:
+        db.add(CatalogueCommentLike(comment_id=comment_id, user_id=current_user.id))
+        liked = True
+    await db.flush()
+    count = (await db.execute(
+        select(func.count()).select_from(CatalogueCommentLike)
+        .where(CatalogueCommentLike.comment_id == comment_id)
+    )).scalar_one()
+    return {"is_liked": liked, "likes_count": count}
 
 
 class ReportCatalogueBody(BaseModel):

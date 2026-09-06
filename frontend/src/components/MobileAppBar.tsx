@@ -55,15 +55,21 @@ function IconBtn({
   icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
   badge?: number;
 }) {
+  // v8 IconButton.jsx — 40px square, radius 13, 1px --border outline, red
+  // focus-visible ring; badge sits at -3/-3 with a 1.5px paper ring.
   return (
     <Link
       href={href}
       aria-label={label}
-      className="relative flex items-center justify-center w-10 h-11 rounded-xl text-[var(--ink)] active:bg-[var(--bone)]"
+      className="relative flex items-center justify-center w-10 h-10 text-[var(--ink)] active:bg-[var(--bone)] outline-none focus-visible:shadow-[0_0_0_3px_rgba(255,36,66,0.30)]"
+      style={{ borderRadius: 13, border: "1px solid var(--border)" }}
     >
       <Icon size={20} strokeWidth={1.9} />
       {badge ? (
-        <span className="absolute top-1 right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-[var(--stamp-red)] text-white text-[9px] font-bold font-mono flex items-center justify-center border-[1.5px] border-[var(--paper)]">
+        <span
+          className="absolute min-w-[16px] h-[16px] px-1 rounded-full bg-[var(--stamp-red)] text-white text-[10px] font-bold font-mono flex items-center justify-center border-[1.5px] border-[var(--paper)]"
+          style={{ top: -3, right: -3 }}
+        >
           {badge}
         </span>
       ) : null}
@@ -83,7 +89,7 @@ export function MobileAppBar() {
   return (
     <header
       className="lg:hidden sticky top-0 z-20 bg-[var(--paper)] border-b border-[var(--border)]"
-      style={{ paddingTop: "env(safe-area-inset-top)" }}
+      style={{ paddingTop: "env(safe-area-inset-top)", boxShadow: "var(--shadow-sm)" }}
     >
       <div className="flex items-center gap-1.5 px-3" style={{ minHeight: 52 }}>
         {/* Create + Search — top left. Create is Home-only (v7 `leading`). */}
@@ -91,11 +97,8 @@ export function MobileAppBar() {
           <Link
             href="/compose?type=post"
             aria-label="Create post"
-            className="flex items-center justify-center shrink-0 text-white"
-            style={{
-              width: 40, height: 40, borderRadius: 12, border: "none",
-              background: "var(--stamp-red)", boxShadow: "0 2px 8px rgba(199,42,42,0.28)",
-            }}
+            className="flex items-center justify-center shrink-0 text-white outline-none shadow-[0_2px_8px_rgba(199,42,42,0.28)] focus-visible:shadow-[0_0_0_3px_rgba(255,36,66,0.30)]"
+            style={{ width: 40, height: 40, borderRadius: 13, border: "none", background: "var(--stamp-red)" }}
           >
             <Plus size={20} strokeWidth={2.4} />
           </Link>
@@ -104,14 +107,15 @@ export function MobileAppBar() {
 
         {/* Wordmark (Home) or screen title — centred, ellipsised */}
         <div className="flex-1 flex items-center justify-center min-w-0 overflow-hidden">
+          {/* v8 Chrome.jsx AppBar — wordmark 22, title 24/800 */}
           {isHome ? (
             <Link href="/feed" className="flex items-center min-w-0" aria-label="Home">
-              <ScorredWordmark fontSize={19} />
+              <ScorredWordmark fontSize={22} />
             </Link>
           ) : (
             <h1
               className="truncate"
-              style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 19, letterSpacing: "-0.03em", color: "var(--ink)", margin: 0 }}
+              style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em", color: "var(--ink)", margin: 0 }}
             >
               {title}
             </h1>

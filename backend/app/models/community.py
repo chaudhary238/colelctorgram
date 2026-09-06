@@ -50,6 +50,12 @@ class CommunityMember(Base):
     status: Mapped[str] = mapped_column(String(16), default="approved", nullable=False)  # pending | approved
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
+    __table_args__ = (
+        # "Your communities" tab + created-vs-joined sections are user-led; the
+        # (community_id, user_id) pkey can't serve them (migration a1b4d7e9c2f5).
+        Index("idx_community_members_user", "user_id"),
+    )
+
 
 class CommunityJoinRequest(Base):
     __tablename__ = "community_join_requests"
@@ -60,6 +66,13 @@ class CommunityJoinRequest(Base):
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | approved | rejected
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    __table_args__ = (
+        # DV8 gated all joins through this table: "your pending request" runs per
+        # community page view, the approval queue per manage view (a1b4d7e9c2f5).
+        Index("idx_cjr_user", "user_id", "status"),
+        Index("idx_cjr_community", "community_id", "status"),
+    )
 
 
 class CommunityMemberRemoval(Base):

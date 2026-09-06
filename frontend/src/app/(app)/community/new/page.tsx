@@ -9,11 +9,10 @@ import { SectionLabel } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
 import { ADD_CATEGORIES } from "@/lib/catalog";
 
-// DV8-14 — rules cap enforced client-side (server 422s beyond it): max 10 rules,
-// 140 chars per rule. Same constants live in the manage-page rules editor (page
-// files can't export extras, so the pair is duplicated there by design).
-const RULES_MAX_COUNT = 10;
-const RULE_MAX_CHARS = 140;
+// v8 (CreateCommunity.jsx) — rules carry ONE budget: 900 characters TOTAL, hard-
+// sliced as you type (replaces the old 10-rules × 140-chars model; the server cap
+// matches). The counter turns red once the budget is spent.
+const RULES_TOTAL_MAX = 900;
 function ruleLinesOf(text: string): string[] {
   return text.split("\n").map((r) => r.trim()).filter(Boolean);
 }
@@ -103,6 +102,8 @@ export default function CreateCommunityPage() {
   const [tried, setTried] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // v8 — submit confirmation toast, shown briefly before returning to the directory.
+  const [toast, setToast] = useState("");
   // QA2 — live duplicate-name check: is the name free, and if not, what to suggest.
   const [nameCheck, setNameCheck] = useState<{ available: boolean; suggestion: string | null } | null>(null);
   const nameDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -126,11 +127,10 @@ export default function CreateCommunityPage() {
   }, [name]);
 
   const nameTaken = nameCheck?.available === false;
-  // Rules cap (DV8-14): max 10 rules × 140 chars each — live counter, submit blocked beyond.
-  const ruleLines = ruleLinesOf(rules);
-  const rulesTooMany = ruleLines.length > RULES_MAX_COUNT;
-  const firstLongRule = ruleLines.findIndex((r) => r.length > RULE_MAX_CHARS);
-  const rulesInvalid = rulesTooMany || firstLongRule !== -1;
+  // Rules budget (v8): the field hard-slices at 900 total, so "over" only shows
+  // as the counter sitting at the cap; the guard stays as a belt-and-braces block.
+  const rulesOver = rules.length >= RULES_TOTAL_MAX;
+  const rulesInvalid = rules.length > RULES_TOTAL_MAX;
   const miss = { name: !name.trim(), desc: !desc.trim() };
   const invalid = miss.name || miss.desc || nameTaken || rulesInvalid;
 
@@ -158,7 +158,13 @@ export default function CreateCommunityPage() {
         ...(banner ? { banner_url: banner } : {}),
         ...(photo ? { avatar_url: photo } : {}),
       });
-      router.push(forEvent ? `/events/new?newCommunity=${id}` : "/community");
+      if (forEvent) {
+        router.push(`/events/new?newCommunity=${id}`);
+      } else {
+        // v8 (CreateCommunity.jsx:94) — exact toast copy, then back to the directory.
+        setToast("Community submitted — pending review before it's live");
+        setTimeout(() => router.push("/community"), 1400);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not submit community");
       setSubmitting(false);
@@ -250,18 +256,12 @@ export default function CreateCommunityPage() {
         </div>
 
         <Label hint="optional">Community rules &amp; terms</Label>
-        <textarea value={rules} onChange={(e) => setRules(e.target.value)} rows={7}
+        <textarea value={rules} onChange={(e) => setRules(e.target.value.slice(0, RULES_TOTAL_MAX))} rows={7}
           placeholder={"1. Be respectful — no harassment or hate speech.\n2. No spam or self-promotion without context.\n3. Trades are off-platform — always vouch after a deal.\n4. Verified photos only for listings…"}
-          style={{ ...fieldStyle, height: "auto", padding: "12px 13px", lineHeight: 1.6, resize: "vertical", minHeight: 160, fontSize: 13.5, borderColor: rulesInvalid ? "var(--stamp-red)" : "var(--border-strong)" }} />
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11.5, color: rulesInvalid ? "var(--stamp-red)" : "var(--ink-faint)", margin: "6px 2px 0", lineHeight: 1.5 }}>
-          <span>
-            {firstLongRule !== -1
-              ? `Rule ${firstLongRule + 1} is over ${RULE_MAX_CHARS} characters (${ruleLines[firstLongRule].length}/${RULE_MAX_CHARS}).`
-              : rulesTooMany
-                ? `Too many rules — keep it to ${RULES_MAX_COUNT}.`
-                : "One rule per line. You can edit rules and manage members after the community goes live."}
-          </span>
-          <span style={{ flexShrink: 0, fontFamily: "var(--font-mono)" }}>{ruleLines.length}/{RULES_MAX_COUNT} rules</span>
+          style={{ ...fieldStyle, height: "auto", padding: "12px 13px", lineHeight: 1.6, resize: "vertical", minHeight: 160, fontSize: 13.5, borderColor: rulesOver ? "var(--stamp-red)" : "var(--border-strong)" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11.5, color: rulesOver ? "var(--stamp-red)" : "var(--ink-faint)", margin: "6px 2px 0", lineHeight: 1.5 }}>
+          <span>One rule per line. You can edit rules and manage members after the community goes live.</span>
+          <span style={{ flexShrink: 0, fontFamily: "var(--font-mono)" }}>{rules.length}/{RULES_TOTAL_MAX}</span>
         </div>
 
         {error && <div style={{ marginTop: 16, fontSize: 13, color: "var(--stamp-red)" }}>{error}</div>}
@@ -279,6 +279,12 @@ export default function CreateCommunityPage() {
           Scorred reviews new communities before they&rsquo;re public — and every member who joins is approved by you.
         </div>
       </div>
+
+      {toast && (
+        <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 60, background: "var(--ink)", color: "var(--paper)", padding: "10px 18px", borderRadius: 999, fontSize: 13, fontWeight: 500, boxShadow: "var(--shadow-3)", whiteSpace: "nowrap" }}>
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

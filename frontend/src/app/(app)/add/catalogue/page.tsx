@@ -2,34 +2,39 @@
 
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X, Tag, PlusCircle, Shield, Clock, Plus, Check, Eye, ChevronRight, Search, Sparkles, Info, ShieldCheck, Lock } from "lucide-react";
+import { X, Tag, PlusCircle, Shield, Clock, Check, Eye, ChevronRight, Search, Sparkles, Info, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { fireXpToast, fireToast } from "@/components/gamification";
 import { SectionLabel, ProductPhoto, CategoryChip } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
 import { MoneyField, ReleaseWindowPicker } from "@/components/forms";
-import { ReportCatalogueSheet } from "@/components/ReportCatalogueSheet";
 import {
-  ADD_CATEGORIES, CAT_SCALES, CAT_BRANDS, CAT_META, symOf, buildPoEta, conditionsFor,
-  TCG_LANGUAGES, TCG_PRODUCT_TYPES, TCG_GRADERS, type PoPrecision,
+  ADD_CATEGORIES, CAT_SCALES, CAT_BRANDS, CAT_META, symOf, formatMoney, buildPoEta, conditionsFor,
+  TCG_LANGUAGES, TCG_PRODUCT_TYPES, GRADERS, isGradedCondition, type PoPrecision,
 } from "@/lib/catalog";
 
-// `intel` (contribute a catalogue entry) moved to its own screen at /add/database —
-// design_v7's ContributeItemForm is a six-field form and shared nothing useful with
-// these two (QA 2026-08-05). This form is now only about adding YOUR copy of something.
+// DV8 — two-step flow: pick (mode) → form. The old SearchStep screen is gone; catalogue
+// de-dup is INLINE under the Title field (design_v8 AddListing.jsx:659-691).
 type AcqMode = "inhand" | "preorder";
+type ModeId = AcqMode | "intel";
 
 interface CatalogueHit {
   sku: string; title: string; brand: string; category: string;
   scale?: string | null; thumbnail_url: string | null;
   year?: string | null; description?: string | null;
+  est_retail_price?: number | null;
   pending?: boolean; score?: number | null; is_verified?: boolean;
 }
 
-// v6 "What are you adding?" mode picker (design_v6/app/AddListing.jsx → AcqModePicker).
+// v8's fuzzy-resolve threshold — a top hit at/above it renders the gold
+// "Possible duplicate" treatment (backend MATCH_HIGH is the same 0.7).
+const STRONG_MATCH = 0.7;
+
+// v8 "What are you adding?" mode picker (design_v8/app/AddListing.jsx → AcqModePicker),
+// including the THIRD tile — DB Contribution — which routes to /add/database.
 const ACQ_MODES: {
-  id: AcqMode; label: string; desc: string; detail: string;
+  id: ModeId; label: string; desc: string; detail: string;
   color: string; bg: string; border: string; Icon: typeof Check;
 }[] = [
   { id: "inhand", label: "In Hand", desc: "You own this physically.",
@@ -38,9 +43,12 @@ const ACQ_MODES: {
   { id: "preorder", label: "Pre-order", desc: "Ordered, not arrived yet.",
     detail: "Track the release window, deposit paid and expected delivery.",
     color: "var(--grail-gold-deep)", bg: "var(--grail-gold-soft)", border: "var(--grail-gold)", Icon: Clock },
+  { id: "intel", label: "DB Contribution", desc: "Spotted it? Help the community find it.",
+    detail: "Share what you know — brand, scale and title. Other collectors can track, wishlist and discover it. Earns +50 XP if you're first to add it to Scorred.",
+    color: "var(--verified-teal)", bg: "var(--verified-teal-soft)", border: "var(--verified-teal)", Icon: Eye },
 ];
 
-function ModePicker({ onPick, onClose }: { onPick: (m: AcqMode) => void; onClose: () => void }) {
+function ModePicker({ onPick, onClose }: { onPick: (m: ModeId) => void; onClose: () => void }) {
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-8">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
@@ -77,112 +85,23 @@ function ModePicker({ onPick, onClose }: { onPick: (m: AcqMode) => void; onClose
   );
 }
 
-// DV6-13 — search-first step: find the item in the shared catalogue before adding. Picking a
-// hit links the SKU (you inherit its reference image); "Add new" opens the full form.
-function SearchStep({ onPick, onAddNew, onBack }: { onPick: (h: CatalogueHit) => void; onAddNew: () => void; onBack: () => void }) {
-  const [q, setQ] = useState("");
-  const [hits, setHits] = useState<CatalogueHit[]>([]);
-  const [loading, setLoading] = useState(false);
-  const deb = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (deb.current) clearTimeout(deb.current);
-    const query = q.trim();
-    deb.current = setTimeout(async () => {
-      if (query.length < 3) { setHits([]); setLoading(false); return; }
-      setLoading(true);
-      try {
-        const data = await api.get<{ hits: CatalogueHit[] }>(`/catalogue/search?q=${encodeURIComponent(query)}`);
-        setHits(data.hits.slice(0, 12));
-      } catch { setHits([]); } finally { setLoading(false); }
-    }, 280);
-    return () => { if (deb.current) clearTimeout(deb.current); };
-  }, [q]);
-
-  const typed = q.trim().length >= 3;
-
-  return (
-    <div className="w-full max-w-[680px] flex flex-col pb-8">
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button onClick={onBack} aria-label="Back" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "transparent", cursor: "pointer" }}>
-            <ChevronRight size={18} style={{ transform: "rotate(180deg)" }} />
-          </button>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Find it in the catalogue</div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Search first so we don&rsquo;t create a duplicate</div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ padding: "14px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, height: 48, padding: "0 14px", borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>
-          <Search size={18} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
-          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by title or brand…"
-            style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)" }} />
-          {q && (
-            <button type="button" onClick={() => setQ("")} aria-label="Clear" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)", display: "flex", padding: 0 }}>
-              <X size={15} />
-            </button>
-          )}
-        </div>
-
-        {typed && (
-          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-            {loading && hits.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-faint)", padding: "8px 2px" }}>Searching…</div>}
-            {hits.map((h) => (
-              <button key={h.sku} type="button" onClick={() => onPick(h)} style={{
-                display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", cursor: "pointer",
-                background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 12, padding: 10,
-              }}>
-                <div style={{ width: 48, height: 48, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
-                  <ProductPhoto tone="ink" src={h.thumbnail_url ?? undefined} ratio="1/1" rounded={8} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.title}</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{h.brand}{h.scale && h.scale !== "—" ? ` · ${h.scale}` : ""}</span>
-                    {h.is_verified
-                      ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: "var(--verified-teal)" }}><ShieldCheck size={10} />Scorred Verified</span>
-                      : h.pending
-                        ? <span style={{ fontSize: 10, fontWeight: 700, color: "var(--grail-gold-deep)" }}>Pending verification</span>
-                        : null}
-                  </div>
-                </div>
-                <ChevronRight size={18} style={{ color: "var(--ink-ghost)", flexShrink: 0 }} />
-              </button>
-            ))}
-            {!loading && hits.length === 0 && (
-              <div style={{ fontSize: 13, color: "var(--ink-faint)", padding: "8px 2px" }}>No matches in the catalogue.</div>
-            )}
-          </div>
-        )}
-
-        {/* Can't find it → add new (full form). The first photo you add becomes the shared reference. */}
-        <button type="button" onClick={onAddNew} style={{
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, marginTop: 16,
-          borderRadius: 12, border: "1px dashed var(--verified-teal)", background: "var(--verified-teal-soft)",
-          color: "var(--verified-teal)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14.5, cursor: "pointer",
-        }}>
-          <Plus size={17} />
-          {typed ? `Can’t find it — add “${q.trim()}” as new` : "Not in the catalogue? Add it new"}
-        </button>
-        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", textAlign: "center", marginTop: 8, lineHeight: 1.5 }}>
-          Adding new needs one photo — it becomes the shared reference and earns you <b style={{ color: "var(--verified-teal)" }}>+50 XP</b>.
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// DV8-10 — condition options come from the picked category's vocabulary
-// (CAT_CONDITIONS via conditionsFor); the old app-wide 4-value ladder is retired.
-
 const fieldStyle: React.CSSProperties = {
   width: "100%", boxSizing: "border-box", height: 46, padding: "0 13px",
   borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)",
   fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", outline: "none",
 };
+
+// v8 shared Toggle — ON is FOREST green (design_v8 AddToCollection.jsx Toggle).
+function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={on} style={{
+      width: 46, height: 27, borderRadius: 999, flexShrink: 0, cursor: "pointer", position: "relative",
+      border: "none", background: on ? "var(--forest)" : "var(--bone-deep)", transition: "background 160ms",
+    }}>
+      <span style={{ position: "absolute", top: 3, left: on ? 22 : 3, width: 21, height: 21, borderRadius: "50%", background: "var(--paper)", transition: "left 160ms" }} />
+    </button>
+  );
+}
 
 function Label({ children, required, missing, hint }: {
   children: React.ReactNode; required?: boolean; missing?: boolean; hint?: string;
@@ -197,79 +116,65 @@ function Label({ children, required, missing, hint }: {
   );
 }
 
-// DV6-13 — read-only display of a catalogue-owned fact when linked to an existing entry.
-function LockedPill({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 7, minHeight: 46, padding: "0 13px", borderRadius: 11, background: "var(--bone)", border: "1px solid var(--border)", color: "var(--ink-mute)", fontSize: 15, fontWeight: 500 }}>
-      <Lock size={13} style={{ flexShrink: 0, color: "var(--ink-faint)" }} />
-      <span>{children}</span>
-    </div>
-  );
-}
-
 function AddListingPageInner() {
   const router = useRouter();
   const { user } = useUser();
 
-  // v6 mode picker (DV6-10). ?mode= or ?sku= deep-links (Scorred DB "Add to my
-  // collection", catalogue Sell) skip straight to the form. useSearchParams (not
+  // ?mode= or ?sku= deep-links skip straight to the form. useSearchParams (not
   // window.location) so an in-place navigation to /add/catalogue?sku=… still reacts
   // when the page component is already mounted (App Router reuses it).
   const searchParams = useSearchParams();
   const preMode = searchParams.get("mode");
   const skuParam = searchParams.get("sku");
-  // ?mode=intel used to land here; that flow lives at /add/database now, and the
-  // redirect below sends any stale link there.
   const initAcq: AcqMode = preMode === "preorder" ? preMode : "inhand";
   const [acq, setAcq] = useState<AcqMode>(initAcq);
-  // DV6-13 — flow is pick (mode) → search (find in catalogue) → form. ?mode/?sku deep-links skip
-  // ahead. Both modes (In Hand, Pre-order) are search-first: find it in the
-  // shared catalogue before adding, so we don't mint a duplicate. A ?sku deep-link is already
-  // resolved to an entry, so it lands straight on the form.
-  // DV7-02 — ?new=1 also lands on the form: it comes from the Database tab's "can't find
-  // something?" CTA, where browsing/searching the catalogue IS the screen you just left, so
-  // re-running the search step would only ask the same question twice.
+  // DV8 — two steps only: pick → form. Any deep-link (?mode / ?sku / ?new=1) lands on
+  // the form; catalogue de-dup happens inline under Title, not on a separate screen.
   const isNewEntry = searchParams.get("new") === "1";
-  const [step, setStep] = useState<"pick" | "search" | "form">(
-    skuParam || isNewEntry ? "form" : preMode ? "search" : "pick"
+  const [step, setStep] = useState<"pick" | "form">(
+    skuParam || isNewEntry || preMode ? "form" : "pick"
   );
 
   const [cat, setCat] = useState("figures");
   const [photos, setPhotos] = useState<string[]>([]);
   // DV6-13 — per-photo "share to catalogue" visibility (parallel to photos). Private by default.
   const [photoPublic, setPhotoPublic] = useState<boolean[]>([]);
-  // DV6-13 — when you pick an existing item you inherit its shared reference image (shown as the
-  // cover; no upload required). Cleared once you're adding a brand-new entry.
+  // DV6-13 — when linked to an existing entry you inherit its shared reference image (shown
+  // as the identity-card photo; no upload required). Cleared once you're adding a new entry.
   const [refImage, setRefImage] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [brand, setBrand] = useState("");
+  const [brandIsOther, setBrandIsOther] = useState(false);
   const [brandFocus, setBrandFocus] = useState(false);
   const [scale, setScale] = useState("");
   const [scaleOther, setScaleOther] = useState("");
   const [size, setSize] = useState("");
-  // TCG-specific (DV4-01b)
+  // TCG spec (DV4-01b) — language / product type chips live in the scale slot.
   const [tcgLang, setTcgLang] = useState("");
   const [tcgFormat, setTcgFormat] = useState("");
-  const [tcgGraded, setTcgGraded] = useState(false);
-  const [tcgGrader, setTcgGrader] = useState<string>("PSA");
-  const [tcgGrade, setTcgGrade] = useState("");
   const [year, setYear] = useState("");
-  // Estimated market value, DB-contribution only — seeds catalogue.est_retail_price.
-  const [est, setEst] = useState("");
   const [desc, setDesc] = useState("");
 
-  // catalogue search-select on Title (DV6-12) — debounced fuzzy search filtered by
-  // category + brand + scale; results include pending community entries.
+  // Inline catalogue de-dup on Title (DV8, v8 AddListing.jsx) — debounced fuzzy search.
   const [dupes, setDupes] = useState<CatalogueHit[]>([]);
   const [linkedSku, setLinkedSku] = useState<string | null>(skuParam);
+  // The linked entry's est_retail_price — anchors "MRP ~₹X" inside the asking price.
+  const [linkedEst, setLinkedEst] = useState(0);
+  // DV8 — identity card "Fix item details" reveal state.
+  const [idOpen, setIdOpen] = useState(false);
   const dupDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Brand dropdown = canonical CAT_BRANDS ∪ distinct catalogue brands for the category (DV6-12).
+  // Brand combobox = canonical CAT_BRANDS ∪ distinct catalogue brands for the category (DV6-12).
   const [catBrands, setCatBrands] = useState<string[]>([]);
 
   // acquisition
   const [cond, setCond] = useState("");
   const [paid, setPaid] = useState("");
   const [paidCur, setPaidCur] = useState("INR");
+  // DV8 grading details — shown when cat is tcg and condition is the graded id.
+  const [grader, setGrader] = useState<string>("PSA");
+  const [graderOther, setGraderOther] = useState("");
+  const [grade, setGrade] = useState("");
+  const [certNo, setCertNo] = useState("");
   // pre-order (DV4-03a)
   const [poPrec, setPoPrec] = useState<PoPrecision>("month");
   const [poDate, setPoDate] = useState("");
@@ -282,39 +187,29 @@ function AddListingPageInner() {
   const [poDeposit, setPoDeposit] = useState("");
   const poBalance = Math.max(0, (parseInt(poTotal, 10) || 0) - (parseInt(poDeposit, 10) || 0));
 
-  // for sale
-  // ?sell=1 (from an owned item's "Sell / Trade") lands on the form with the
-  // List-for-sale toggle already on (QA 14.1).
+  // for sale — ?sell=1 (from an owned item's "Sell / Trade") lands with the toggle on.
   const [forSale, setForSale] = useState(searchParams.get("sell") === "1");
   const [price, setPrice] = useState("");
   const [priceCur, setPriceCur] = useState("INR");
   const [condNote, setCondNote] = useState("");
   const [shipIncl, setShipIncl] = useState(false);
   const [returns, setReturns] = useState(false);
-  const [trade, setTrade] = useState(false);
 
   const [tried, setTried] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Post-save success interstitial — keeps the user on the add page (no redirect to profile)
-  // and offers "Add another". Holds the mode that was just saved so the copy can adapt.
-  const [success, setSuccess] = useState<AcqMode | null>(null);
 
   const scales = CAT_SCALES[cat];
   const usesScale = !!scales;
   const meta = CAT_META[cat] ?? CAT_META.figures;
-  const isIntel = false as const; // `intel` moved to /add/database (QA 2026-08-05)
-  const canSell = acq === "inhand"; // pre-orders & DB contributions can't be listed
-  const photoMax = 4; // DV6-13 — up to 4 personal photos per item
-  // DV6-13 — linked to an existing catalogue entry: its facts (title/brand/category/scale/
-  // year/description) are SHARED and read-only here. Editing = unlink and add as new.
-  const locked = !!linkedSku;
-  // QA 2.1 — a DB Contribution that matches an existing catalogue entry is a
-  // duplicate. The record already exists, so the whole form is read-only and the
-  // only action is to flag an error to admins — never edit the shared entry.
-  const existingDuplicate = isIntel && !!linkedSku;
-  const [reporting, setReporting] = useState(false);
+  const canSell = acq === "inhand"; // pre-orders can't be listed
+  const photoMax = 8; // DV8 — v8's in-hand cap (MAX_ITEM_PHOTOS server-side)
+  // DV8 — linked to an existing catalogue entry: identity renders as the fixed summary
+  // card; "Fix item details" reveals the editable fields (editing any of them unlinks).
+  const identityFixed = !!linkedSku;
+  const isGraded = acq === "inhand" && isGradedCondition(cat, cond);
 
+  const brandQuickChips = useMemo(() => (CAT_BRANDS[cat] ?? CAT_BRANDS.figures).slice(0, 6), [cat]);
   const brandList = useMemo(() => {
     const canonical = CAT_BRANDS[cat] ?? CAT_BRANDS.figures;
     const seen = new Set(canonical.map((b) => b.toLowerCase()));
@@ -323,11 +218,10 @@ function AddListingPageInner() {
   }, [cat, catBrands]);
   const brandMatches = useMemo(() => {
     const q = brand.trim().toLowerCase();
-    if (!q) return brandList.slice(0, 8);
-    return brandList.filter((b) => b.toLowerCase().includes(q)).slice(0, 8);
+    if (!q) return brandList.slice(0, 6);
+    return brandList.filter((b) => b.toLowerCase().includes(q)).slice(0, 6);
   }, [brand, brandList]);
   const exactBrand = brandList.some((b) => b.toLowerCase() === brand.trim().toLowerCase());
-  const scaleFilter = usesScale && scale && scale !== "Other" ? scale : "";
 
   // Brand suggestions: pull the catalogue's distinct brands for the category (DV6-12).
   useEffect(() => {
@@ -338,43 +232,76 @@ function AddListingPageInner() {
     return () => { alive = false; };
   }, [cat]);
 
-  // Central-catalogue search-select (DV6-12): fuzzy search as the title is typed, filtered
-  // by category + brand + scale. All state writes live inside the debounced timeout so none
-  // run synchronously in the effect body.
+  // Inline de-dup (DV8): title + category only, like v8's catTitleMatches — brand/scale
+  // filters would hide weak matches the header exists to surface.
   useEffect(() => {
     if (dupDebounce.current) clearTimeout(dupDebounce.current);
     const q = title.trim();
-    const brandF = brand.trim();
     dupDebounce.current = setTimeout(async () => {
       if (linkedSku || q.length < 3) { setDupes([]); return; }
       try {
         const qs = new URLSearchParams({ q, category: cat });
-        if (brandF) qs.set("brand", brandF);
-        if (scaleFilter) qs.set("scale", scaleFilter);
         const data = await api.get<{ hits: CatalogueHit[] }>(`/catalogue/search?${qs.toString()}`);
-        setDupes(data.hits.slice(0, 5));
+        setDupes(data.hits.slice(0, 3));
       } catch { setDupes([]); }
     }, 300);
     return () => { if (dupDebounce.current) clearTimeout(dupDebounce.current); };
-  }, [title, cat, brand, scaleFilter, linkedSku]);
+  }, [title, cat, linkedSku]);
+  const strongMatch = dupes.length > 0 && (dupes[0].score ?? 0) >= STRONG_MATCH;
   // "New to Scorred DB" → +50 XP as first contributor (only when not linked to an existing SKU).
   const isNewToDb = !linkedSku && title.trim().length >= 5 && dupes.length === 0 && !!brand.trim();
 
+  // Editing any identity field of a linked entry unlinks it — the shared record can't be
+  // edited from here; your corrected facts become a fresh (server-de-duped) entry.
+  const unlink = () => { setLinkedSku(null); setRefImage(null); setLinkedEst(0); };
+
   // Condition resets with the category — the vocabularies don't share ids (DV8-10).
-  const changeCat = (id: string) => { setCat(id); setScale(""); setScaleOther(""); setSize(""); setBrand(""); setTcgLang(""); setTcgFormat(""); setTcgGraded(false); setTcgGrade(""); setCond(""); };
-  const linkDupe = (h: CatalogueHit) => { setTitle(h.title); setBrand(h.brand); setLinkedSku(h.sku); setDupes([]); };
+  const changeCat = (id: string) => {
+    setCat(id); setScale(""); setScaleOther(""); setSize(""); setBrand(""); setBrandIsOther(false);
+    setTcgLang(""); setTcgFormat(""); setCond(""); setGrader("PSA"); setGraderOther(""); setGrade(""); setCertNo("");
+    unlink();
+  };
+
+  // Tapping a de-dup row links the SKU and pre-fills the identity from the DB (v8:
+  // "Linked to catalogue — pre-filled from DB").
+  const linkDupe = (h: CatalogueHit) => {
+    setLinkedSku(h.sku);
+    setTitle(h.title);
+    setBrand(h.brand);
+    setBrandIsOther(!brandQuickChips.includes(h.brand));
+    if (h.category) setCat(h.category);
+    if (h.scale && h.scale !== "—") {
+      if ((CAT_SCALES[h.category ?? cat] ?? []).includes(h.scale)) { setScale(h.scale); setScaleOther(""); }
+      else { setScale("Other"); setScaleOther(h.scale); }
+    }
+    setYear(h.year ?? "");
+    setDesc(h.description ?? "");
+    setRefImage(h.thumbnail_url ?? null); // inherit the shared cover; upload optional
+    setLinkedEst(h.est_retail_price ?? 0);
+    setIdOpen(false);
+    setDupes([]);
+  };
 
   const miss = {
     // Inheriting the catalogue reference image satisfies the photo requirement (DV6-13).
     photo: photos.length === 0 && !refImage,
     title: !title.trim(),
     brand: !brand.trim(),
-    scale: !isIntel && usesScale && (scale === "Other" ? !scaleOther.trim() : !scale),
+    // Identity linked to the DB never blocks on scale — the shared record owns that fact,
+    // and the field may be hidden behind the summary card.
+    scale: !identityFixed && usesScale && (scale === "Other" ? !scaleOther.trim() : !scale),
     cond: acq === "inhand" && !cond,
     price: canSell && forSale && !price.trim(),
   };
   const invalid = Object.values(miss).some(Boolean);
-  const condLabel = conditionsFor(cat).find((c) => c.id === cond)?.label ?? (acq === "preorder" ? "Pre-order" : "");
+  const condLabel = (() => {
+    if (isGraded) {
+      const house = grader === "Other" ? (graderOther.trim() || "Graded") : grader;
+      return grade ? `${house} ${grade}` : `${house} graded`;
+    }
+    return conditionsFor(cat).find((c) => c.id === cond)?.label ?? (acq === "preorder" ? "Pre-order" : "");
+  })();
+  const displayScale = usesScale ? (scale === "Other" ? scaleOther : scale) : size;
 
   const rmPhoto = (i: number) => {
     setPhotos((p) => p.filter((_, idx) => idx !== i));
@@ -391,37 +318,35 @@ function AddListingPageInner() {
   // public by nature (it's a public sale); otherwise honor the per-photo toggle (DV6-13).
   const isPhotoPublic = (i: number) => (!linkedSku && i === 0) || forSale || !!photoPublic[i];
 
-  // Return the flow to cold defaults (fresh mode picker). Used by the "Add another" success
-  // action and by the on-hide cleanup below so the two stay in sync.
+  // Return the flow to cold defaults (fresh mode picker) when the page is hidden — this
+  // Next version keeps pages mounted (React Activity), so state would otherwise linger.
   const resetForm = () => {
     setStep("pick");
     setAcq("inhand");
     setCat("figures");
     setPhotos([]); setPhotoPublic([]); setRefImage(null);
-    setTitle(""); setBrand(""); setBrandFocus(false);
+    setTitle(""); setBrand(""); setBrandIsOther(false); setBrandFocus(false);
     setScale(""); setScaleOther(""); setSize("");
-    setTcgLang(""); setTcgFormat(""); setTcgGraded(false); setTcgGrader("PSA"); setTcgGrade("");
-    setYear(""); setEst(""); setDesc("");
-    setDupes([]); setLinkedSku(null);
+    setTcgLang(""); setTcgFormat("");
+    setYear(""); setDesc("");
+    setDupes([]); setLinkedSku(null); setLinkedEst(0); setIdOpen(false);
     setCond(""); setPaid(""); setPaidCur("INR");
+    setGrader("PSA"); setGraderOther(""); setGrade(""); setCertNo("");
     setPoPrec("month"); setPoDate(""); setPoMonth(""); setPoQuarter(""); setPoYear("2026");
     setPoSeller(""); setPoOrderDate(""); setPoTotal(""); setPoDeposit("");
     setForSale(false); setPrice(""); setPriceCur("INR"); setCondNote("");
-    setShipIncl(false); setReturns(false); setTrade(false);
+    setShipIncl(false); setReturns(false);
     setTried(false); setSubmitting(false); setError(null);
   };
 
   const submit = async () => {
-    if (invalid) { setTried(true); return; }
+    // DV8 — invalid submit keeps the CTA tappable and toasts, per v8.
+    if (invalid) { setTried(true); fireToast("Fill the required fields marked *"); return; }
     if (submitting) return;
     setSubmitting(true);
     setError(null);
     try {
       const isPreorder = acq === "preorder";
-      // DB Contribution → unowned catalogue seed stored with its own `intel` status (matches the
-      // design + DECISIONS 2026-07-03; keeps it out of owned/wishlist/preorder tabs). `status` is a
-      // free String(16) — no migration. The backend awards +50 XP `db_new` for any free-text item.
-      const status = isIntel ? "intel" : isPreorder ? "preorder" : "owned";
       const item = await api.post<{ id: string; db_new_xp?: number; catalogue_matched?: boolean; add_xp?: number; complete_xp?: number }>("/items", {
         sku: linkedSku ?? undefined,
         // DV8-10 — the stored id from the category's CAT_CONDITIONS vocabulary (in-hand only).
@@ -435,18 +360,18 @@ function AddListingPageInner() {
         release_year: year ? Number(year) : null,
         description: desc.trim() || null,
         category: cat,
-        status,
-        // `value` seeds catalogue.est_retail_price when this add creates a NEW entry.
-        // In-hand adds pass what you paid (private); a DB contribution passes the public
-        // estimated value, since there's no purchase to record (QA §14).
-        value: isIntel ? (est ? Number(est) * 100 : 0) : (paid ? Number(paid) * 100 : 0),
-        value_currency: isIntel ? "INR" : paidCur,
-        // TCG spec (DV4-01b)
+        status: isPreorder ? "preorder" : "owned",
+        // `value` seeds catalogue.est_retail_price when this add creates a NEW entry;
+        // in-hand adds pass what you paid (private).
+        value: paid ? Number(paid) * 100 : 0,
+        value_currency: paidCur,
+        // TCG spec (DV4-01b) + DV8 grading card (condition = Graded drives the flag now).
         tcg_language: cat === "tcg" ? (tcgLang || null) : null,
         tcg_product_type: cat === "tcg" ? (tcgFormat || null) : null,
-        tcg_graded: cat === "tcg" ? tcgGraded : false,
-        tcg_grader: cat === "tcg" && tcgGraded ? tcgGrader : null,
-        tcg_grade: cat === "tcg" && tcgGraded ? (tcgGrade || null) : null,
+        tcg_graded: isGraded,
+        tcg_grader: isGraded ? (grader === "Other" ? (graderOther.trim() || null) : grader) : null,
+        tcg_grade: isGraded ? (grade || null) : null,
+        tcg_cert_no: isGraded ? (certNo.trim() || null) : null,
         // pre-order financial layer (DV4-03a)
         preorder_eta: isPreorder ? buildPoEta(poPrec, { date: poDate, monthIdx: poMonth, quarter: poQuarter, year: poYear }) : null,
         preorder_window_precision: isPreorder ? poPrec : null,
@@ -460,23 +385,21 @@ function AddListingPageInner() {
       for (let idx = 0; idx < photos.length; idx++) {
         await api.post(`/items/${item.id}/photos?url=${encodeURIComponent(photos[idx])}${isPhotoPublic(idx) ? "&is_public=true" : ""}`);
       }
-      // DV6-10b — surface the +50 XP when this was the first contribution to the shared DB;
-      // DV6-12 — otherwise, if the server auto-linked a free-text add to an existing catalogue
-      // entry, tell the user (no duplicate was created, so no XP).
-      if (item.db_new_xp && item.db_new_xp > 0) fireXpToast(item.db_new_xp, "XP · added to Scorred DB");
-      else if (item.catalogue_matched) fireToast("Linked to an existing Scorred entry — no duplicate created");
-      // DV8-02/03 — also surface the add/complete XP the server actually granted (0 when
-      // capped or deduped). All toasts share one fixed slot, so later ones are staggered.
-      {
-        const toasts: [number, string][] = [];
-        if (item.add_xp && item.add_xp > 0) toasts.push([item.add_xp, "Added to collection"]);
-        if (item.complete_xp && item.complete_xp > 0) toasts.push([item.complete_xp, "Item details complete"]);
-        const busySlot = (item.db_new_xp && item.db_new_xp > 0) || item.catalogue_matched;
-        toasts.forEach(([xp, label], i) => {
-          const delay = ((busySlot ? 1 : 0) + i) * 2400;
-          if (delay === 0) fireXpToast(xp, label);
-          else setTimeout(() => fireXpToast(xp, label), delay);
-        });
+      // Surface what the server actually granted (0 when capped or deduped). All toasts
+      // share one fixed slot, so later ones are staggered.
+      const toasts: [number, string][] = [];
+      if (item.add_xp && item.add_xp > 0) toasts.push([item.add_xp, "Added to collection"]);
+      if (item.complete_xp && item.complete_xp > 0) toasts.push([item.complete_xp, "Item details complete"]);
+      let slot = 0;
+      if (item.db_new_xp && item.db_new_xp > 0) { fireXpToast(item.db_new_xp, "XP · added to Scorred DB"); slot = 1; }
+      else if (item.catalogue_matched) { fireToast("Linked to an existing Scorred entry — no duplicate created"); slot = 1; }
+      toasts.forEach(([xp, label], i) => {
+        const delay = (slot + i) * 2400;
+        if (delay === 0) fireXpToast(xp, label);
+        else setTimeout(() => fireXpToast(xp, label), delay);
+      });
+      if (slot === 0 && toasts.length === 0) {
+        fireToast(isPreorder ? "Pre-order saved to your collection" : "Added to your collection");
       }
       // Listing for sale is a publish action → go straight to the new live listing.
       if (canSell && forSale) {
@@ -486,7 +409,8 @@ function AddListingPageInner() {
           currency: priceCur,
           condition: cond,
           condition_notes: condNote.trim() || null,
-          trade_willing: trade,
+          // DV8 — v8 dropped the "Open to trades" row; always false on new listings.
+          trade_willing: false,
           shipping_cost: 0,
           ships_from_city: user?.city ?? null,
           ships_nationwide: true,
@@ -495,128 +419,383 @@ function AddListingPageInner() {
         router.push(`/listing/${listing.id}`);
         return;
       }
-      // In Hand (collection), Pre-order and DB Contribution all stay on the add page and show a
-      // success interstitial ("Add another") — no silent redirect to the profile.
-      setSuccess(acq);
-      setSubmitting(false);
+      // DV8 — v8 pops back with a toast; the success interstitial is gone.
+      if (window.history.length > 1) router.back();
+      else router.push(user ? `/profile/${user.handle}` : "/market");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save the item");
       setSubmitting(false);
     }
   };
 
-  // DV6-13 — picking a catalogue hit at the search step pre-fills the form and links the SKU
-  // (you inherit its shared reference image; no upload required).
-  const prefillFromHit = (h: CatalogueHit) => {
-    setLinkedSku(h.sku);
-    setTitle(h.title);
-    setBrand(h.brand);
-    if (h.category) setCat(h.category);
-    if (h.scale && h.scale !== "—") setScale(h.scale);
-    setYear(h.year ?? "");
-    setDesc(h.description ?? "");
-    setRefImage(h.thumbnail_url ?? null);  // inherit the shared cover; upload optional
-    setDupes([]);
-    setStep("form");
-  };
-
-  // Stale deep links belong to the two purpose-built screens now (QA 2026-08-05):
+  // Stale deep links belong to the two purpose-built screens (QA 2026-08-05):
   //   ?mode=intel  -> /add/database   (contribute a catalogue entry)
   //   ?sku=…       -> /add/collection (add YOUR copy of an existing entry)
-  // Redirect rather than 404 or drop them into a form full of locked fields.
   useEffect(() => {
     if (preMode === "intel") router.replace("/add/database");
     else if (skuParam) router.replace(`/add/collection?sku=${encodeURIComponent(skuParam)}`);
   }, [preMode, skuParam, router]);
 
-  // ?sku= deep-link (Scorred DB page "Add to my collection", DV6-13 catalogue Sell):
-  // fetch the entry and land on the form prefilled + locked, same as picking it at
-  // the search step — never the mode picker. Keyed on the param (not mount-only) so
-  // it also fires when navigating to ?sku=… while this page is already mounted.
-  // If the entry is gone (removed), fall back to the search step.
+  // ?sku= deep-link fallback (while the redirect above resolves): fetch the entry and land
+  // on the form prefilled + linked, same as tapping a de-dup row.
   useEffect(() => {
     if (!skuParam) return;
     let alive = true;
     api.get<CatalogueHit>(`/catalogue/${encodeURIComponent(skuParam)}`)
-      .then((h) => { if (alive) prefillFromHit(h); })
-      .catch(() => { if (alive) { setLinkedSku(null); setRefImage(null); setStep("search"); } });
+      .then((h) => { if (alive) linkDupe(h); })
+      .catch(() => { if (alive) unlink(); });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skuParam]);
 
-  // The add flow should start fresh every visit. This Next version keeps pages mounted with
-  // React Activity (Cache Components), so navigating away and back would otherwise restore the
-  // whole half-filled form. Reset to cold defaults when the page is hidden. Deep-linked entries
-  // (?sku / ?mode) are intentional prefilled flows — leave those so an accidental back-and-forth
-  // doesn't wipe a linked item. The cleanup only runs on hide/unmount, never on first mount.
+  // The add flow should start fresh every visit (pages stay mounted via React Activity).
+  // Deep-linked entries (?sku / ?mode) are intentional prefilled flows — leave those.
   useLayoutEffect(() => {
     if (skuParam || preMode) return;
     return () => { resetForm(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skuParam, preMode]);
 
   if (step === "pick") {
     // Close = return to wherever the add flow was opened from (profile, compose, DB page);
     // /market only on a cold/deep-link entry with no in-app history.
-    // Every mode is search-first — find it in the catalogue before adding a new entry.
     return <ModePicker onPick={(m) => {
+      if (m === "intel") { router.push("/add/database"); return; }
       setAcq(m);
       if (m !== "inhand") setForSale(false);
-      setStep("search");
+      setStep("form");
     }} onClose={() => (window.history.length > 1 ? router.back() : router.push("/market"))} />;
   }
 
-  if (step === "search") {
-    return (
-      <SearchStep
-        onPick={prefillFromHit}
-        onAddNew={() => { setLinkedSku(null); setRefImage(null); setStep("form"); }}
-        onBack={() => setStep("pick")}
-      />
-    );
-  }
-
-  const mode = ACQ_MODES.find((m) => m.id === acq)!;
-  const headerAccent = forSale ? "var(--stamp-red)" : isIntel ? "var(--verified-teal)" : "var(--ink)";
+  const identityCard = identityFixed && (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", background: "var(--bone)", border: "1px solid var(--border)", borderRadius: 14, padding: 12 }}>
+        <div style={{ width: 54, height: 54, borderRadius: 10, overflow: "hidden", flexShrink: 0 }}>
+          <ProductPhoto tone="ink" src={refImage ?? undefined} ratio="1/1" rounded={10} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 700, lineHeight: 1.25 }}>{title || "Untitled item"}</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--ink-faint)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {[brand, displayScale || null, year || null].filter(Boolean).join(" · ")}
+          </div>
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "9px 2px 0" }}>
+        <span style={{ fontSize: 11.5, color: "var(--ink-faint)", flex: 1, lineHeight: 1.45 }}>
+          From the Scorred database — details below are about your copy.
+        </span>
+        <button type="button" onClick={() => setIdOpen((v) => !v)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}>
+          {idOpen ? "Hide item details" : "Fix item details"}
+        </button>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="w-full max-w-[680px] flex flex-col pb-8">
+    <div className="w-full max-w-[680px] flex flex-col">
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* ?sku= / ?new=1 deep-links came from outside (Scorred DB page, Database tab) —
-              back leaves the flow; otherwise back returns in-flow to the search step
-              (every in-flow mode is search-first). */}
-          <button onClick={() => (skuParam || isNewEntry ? router.back() : setStep("search"))} aria-label="Back" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "transparent", cursor: "pointer" }}>
+          {/* ?sku= / ?new=1 deep-links came from outside — back leaves the flow;
+              otherwise back returns in-flow to the mode picker. */}
+          <button onClick={() => (skuParam || isNewEntry || preMode ? router.back() : setStep("pick"))} aria-label="Back" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "transparent", cursor: "pointer" }}>
             <ChevronRight size={18} style={{ transform: "rotate(180deg)" }} />
           </button>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{isIntel ? "Add to database" : "Add an item"}</div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{isIntel ? `Scorred DB · ${meta.label}` : `${mode.label} · ${meta.label}`}</div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Add an item</div>
+            {/* Bare category label per v8 (AddListing.jsx:485 subtitle={meta.label}). */}
+            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{meta.label}</div>
           </div>
-          {/* No header save for a duplicate DB entry (QA 2.1) — flag-only below. */}
-          {!existingDuplicate && (
-            <button onClick={submit} disabled={submitting} style={{ height: 36, padding: "0 16px", borderRadius: 9, border: "none", background: invalid ? "var(--bone)" : headerAccent, color: invalid ? "var(--ink-ghost)" : "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, cursor: submitting ? "wait" : "pointer" }}>
-              {submitting ? "Saving…" : forSale ? "List" : "Add"}
-            </button>
-          )}
         </div>
       </div>
 
       <div style={{ padding: "4px 20px 16px" }}>
-        {/* DV6-13 — linked to a catalogue entry: its facts are locked (this is a shared record) */}
-        {locked && (
-          <div style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: "10px 12px", marginTop: 14, borderRadius: 11, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)" }}>
-            <Lock size={14} style={{ color: "var(--verified-teal)", flexShrink: 0, marginTop: 1 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.45 }}>
-                Linked to the Scorred catalogue — the <b>title, brand, category &amp; year</b> are shared and can&rsquo;t be edited. Your scale, photos, condition and notes stay yours. To use a different item, go <b>back</b> and search again.
-              </span>
+        {identityCard}
+
+        {/* Identity — v8 field order: Category → Brand → Scale/TCG/Size → Title(+dedup) → Year.
+            Hidden behind the summary card once linked; "Fix item details" reveals it. */}
+        {(!identityFixed || idOpen) && (
+          <>
+            {/* Category — shared CategoryChip (stamp-red active), singular chipLabel (DV8). */}
+            <Label>Category</Label>
+            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+              {ADD_CATEGORIES.map((c) => (
+                <CategoryChip key={c.id} active={cat === c.id} onClick={() => changeCat(c.id)}>{c.chipLabel}</CategoryChip>
+              ))}
             </div>
+            <div style={{ fontSize: 12, color: "var(--ink-faint)", margin: "9px 2px 0", lineHeight: 1.5 }}>
+              The form adapts to the category.
+            </div>
+
+            {/* Brand — 6 quick chips + "Other brand" combobox (v8 AddListing.jsx:545-596). */}
+            <Label required missing={tried && miss.brand}>Brand</Label>
+            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+              {brandQuickChips.map((b) => (
+                <CategoryChip key={b} active={brand === b && !brandIsOther} onClick={() => { setBrand(b); setBrandIsOther(false); setBrandFocus(false); unlink(); }}>{b}</CategoryChip>
+              ))}
+            </div>
+            <div style={{ position: "relative", marginTop: 9 }}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 8, height: 42, padding: "0 12px", borderRadius: 11,
+                border: `1px solid ${tried && miss.brand && (!brand.trim() || brandIsOther) ? "var(--stamp-red)" : brandIsOther && brand ? "var(--ink)" : "var(--border-strong)"}`,
+                background: "var(--paper-soft)",
+              }}>
+                <Search size={15} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
+                <input
+                  value={brandIsOther ? brand : ""}
+                  onFocus={() => { setBrandIsOther(true); setBrandFocus(true); }}
+                  onBlur={() => setTimeout(() => setBrandFocus(false), 150)}
+                  onChange={(e) => { setBrand(e.target.value); setBrandIsOther(true); unlink(); }}
+                  placeholder="Other brand — search or type..."
+                  style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)" }} />
+                {brandIsOther && brand && (
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); setBrand(""); setBrandIsOther(false); unlink(); }} aria-label="Clear brand"
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)", display: "flex", padding: 0 }}>
+                    <X size={13} strokeWidth={2} />
+                  </button>
+                )}
+              </div>
+              {brandFocus && brandIsOther && (brandMatches.length > 0 || (brand.trim().length > 1 && !exactBrand)) && (
+                <div style={{ position: "absolute", top: "calc(100% + 5px)", left: 0, right: 0, zIndex: 20, background: "var(--paper)", border: "1px solid var(--border-strong)", borderRadius: 11, overflow: "hidden", boxShadow: "var(--shadow-3)", maxHeight: 260, overflowY: "auto" }}>
+                  {brandMatches.map((b) => (
+                    <button key={b} type="button" onMouseDown={(e) => { e.preventDefault(); setBrand(b); setBrandIsOther(true); setBrandFocus(false); unlink(); }} style={{
+                      display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left", cursor: "pointer",
+                      padding: "10px 13px", background: "transparent", border: "none", borderBottom: "1px solid var(--border)",
+                    }}>
+                      <Tag size={14} style={{ color: "var(--ink-faint)" }} />
+                      <span style={{ fontSize: 14, color: "var(--ink)" }}>{b}</span>
+                    </button>
+                  ))}
+                  {brand.trim().length > 1 && !exactBrand && (
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); setBrand(brand.trim()); setBrandIsOther(true); setBrandFocus(false); }} style={{
+                      display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left", cursor: "pointer",
+                      padding: "10px 13px", background: "var(--verified-teal-soft)", border: "none",
+                    }}>
+                      <Plus size={14} strokeWidth={2.4} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
+                      <span style={{ fontSize: 14, color: "var(--verified-teal)", fontWeight: 600 }}>Add &ldquo;{brand.trim()}&rdquo; as a new brand</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Scale (or TCG spec / Size for designer) */}
+            {usesScale ? (
+              <>
+                <Label required missing={tried && miss.scale}>Scale</Label>
+                <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                  {scales.map((s) => (
+                    <CategoryChip key={s} active={scale === s} onClick={() => { setScale(s); unlink(); }}>{s}</CategoryChip>
+                  ))}
+                  <CategoryChip active={scale === "Other"} onClick={() => { setScale("Other"); unlink(); }}>+ Other</CategoryChip>
+                </div>
+                {scale === "Other" && (
+                  <input value={scaleOther} onChange={(e) => { setScaleOther(e.target.value); unlink(); }} placeholder="e.g. 1/20, non-scale" style={{ ...fieldStyle, height: 42, fontSize: 14.5, marginTop: 9, borderColor: tried && miss.scale ? "var(--stamp-red)" : "var(--border-strong)" }} />
+                )}
+              </>
+            ) : cat === "tcg" ? (
+              <>
+                <Label hint="optional">Language / Print</Label>
+                <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                  {TCG_LANGUAGES.map((l) => (
+                    <CategoryChip key={l} active={tcgLang === l} onClick={() => setTcgLang(tcgLang === l ? "" : l)}>{l}</CategoryChip>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>EN and JP are the most common prints — always specify.</div>
+
+                <Label hint="optional">Product type</Label>
+                <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                  {TCG_PRODUCT_TYPES.map((f) => (
+                    <CategoryChip key={f} active={tcgFormat === f} onClick={() => setTcgFormat(tcgFormat === f ? "" : f)}>{f}</CategoryChip>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <Label hint="optional">Size</Label>
+                <input value={size} onChange={(e) => { setSize(e.target.value); unlink(); }} placeholder="e.g. 400% · 28 cm · 7 inch" style={{ ...fieldStyle, fontSize: 14.5 }} />
+                <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>Blind boxes don&rsquo;t use scale — note the height or % size instead.</div>
+              </>
+            )}
+
+            {/* Title + inline catalogue de-dup (DV8, v8 AddListing.jsx:655-691) */}
+            <Label required missing={tried && miss.title}>Title</Label>
+            <input value={title} onChange={(e) => { setTitle(e.target.value); unlink(); }} placeholder={meta.titleEg} style={{ ...fieldStyle, borderColor: tried && miss.title ? "var(--stamp-red)" : "var(--border-strong)" }} />
+            {!linkedSku && title.trim().length >= 3 && dupes.length > 0 && (
+              <div style={{ marginTop: 7, borderRadius: 11, border: `1px solid ${strongMatch ? "var(--grail-gold)" : "var(--border-strong)"}`, overflow: "hidden", background: "var(--paper)" }}>
+                <div style={{ padding: "7px 11px", background: strongMatch ? "var(--grail-gold-soft)" : "var(--bone)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 6 }}>
+                  {strongMatch
+                    ? <Info size={12} style={{ color: "var(--grail-gold-deep)", flexShrink: 0 }} />
+                    : <Search size={12} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />}
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: strongMatch ? "var(--grail-gold-deep)" : "var(--ink-soft)" }}>
+                    {strongMatch ? "Possible duplicate — is this the same item?" : "Similar items already in catalogue"}
+                  </span>
+                </div>
+                {dupes.map((m, i) => (
+                  <button key={m.sku} type="button" onMouseDown={(e) => { e.preventDefault(); linkDupe(m); }} style={{
+                    display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", cursor: "pointer",
+                    padding: "9px 11px", background: "transparent", border: "none",
+                    borderBottom: i < dupes.length - 1 ? "1px solid var(--border)" : "none",
+                  }}>
+                    <div style={{ width: 34, height: 34, flexShrink: 0 }}>
+                      <ProductPhoto tone="ink" src={m.thumbnail_url ?? undefined} ratio="1/1" rounded={7} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title}</div>
+                      <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 1 }}>
+                        {m.brand}{m.scale && m.scale !== "—" ? ` · ${m.scale}` : ""}
+                        {m.pending && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--grail-gold-deep)", background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 4, padding: "1px 5px" }}>Pending verification</span>}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {isNewToDb && (
+              <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 9, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)" }}>
+                <Sparkles size={13} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
+                <span style={{ fontSize: 12, color: "var(--verified-teal)", fontWeight: 600 }}>New to Scorred DB — you&rsquo;ll earn +50 XP as first contributor</span>
+              </div>
+            )}
+
+            <Label hint="optional">Release year</Label>
+            <input value={year} onChange={(e) => { setYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4)); unlink(); }} inputMode="numeric" placeholder="e.g. 2022" style={{ ...fieldStyle, height: 42, fontSize: 14.5, fontFamily: "var(--font-mono)" }} />
+          </>
+        )}
+
+        {/* v8 linked strip WITH the unlink X (AddListing.jsx:683-689). */}
+        {linkedSku && (
+          <div style={{ marginTop: 9, display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 9, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)" }}>
+            <Check size={13} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: "var(--verified-teal)", fontWeight: 600 }}>Linked to catalogue — pre-filled from DB</span>
+            <button type="button" onClick={unlink} aria-label="Unlink from catalogue" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)", padding: 0, display: "flex", marginLeft: "auto" }}>
+              <X size={14} strokeWidth={2} />
+            </button>
           </div>
         )}
 
-        {/* Pre-order details lead the form (design_v6 AddToCollection) — the release-window
-            calendar is what makes this flow different from In Hand, so it comes first. */}
+        {/* Photos — v8 72px tile grid (AddListing.jsx:706-737); per-photo Public/Private +
+            Set cover are ours and stay (privacy load-bearing), restyled into the grid. */}
+        <Label required missing={tried && miss.photo} hint={photos.length ? `${photos.length} added` : "first = cover"}>Photos</Label>
+        {refImage && (
+          <div style={{ display: "flex", alignItems: "center", gap: 11, padding: 10, borderRadius: 12, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", marginBottom: 11 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 9, overflow: "hidden", flexShrink: 0 }}>
+              <ProductPhoto tone="ink" src={refImage} ratio="1/1" rounded={9} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--verified-teal)" }}>Using the catalogue image</div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 2, lineHeight: 1.45 }}>It&rsquo;s the shared cover for this item — no need to upload. Your own photos below stay private by default.</div>
+            </div>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 9, flexWrap: "wrap", marginTop: 4 }}>
+          {photos.map((url, i) => (
+            <div key={url} style={{ position: "relative", width: 72, height: 72, flexShrink: 0 }}>
+              <ProductPhoto tone="ink" src={url} ratio="1/1" rounded={10} />
+              {i === 0 ? (
+                <span title={!linkedSku ? "Cover — the shared public reference image for a new entry" : "Cover photo"} style={{ position: "absolute", bottom: 6, left: 6, background: "var(--ink)", color: "var(--paper)", fontWeight: 700, fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase", padding: "3px 5px", borderRadius: 4 }}>
+                  Cover
+                </span>
+              ) : (
+                <>
+                  <button type="button" onClick={() => togglePhotoPublic(i)} title={isPhotoPublic(i) ? "Shared to the catalogue — tap to make private" : "Private to you — tap to share to the catalogue"} style={{
+                    position: "absolute", bottom: 5, left: 5, display: "inline-flex", alignItems: "center", gap: 3, cursor: "pointer",
+                    background: isPhotoPublic(i) ? "var(--verified-teal)" : "rgba(15,23,42,0.72)", color: "var(--paper)",
+                    fontWeight: 700, fontSize: 8, letterSpacing: "0.04em", textTransform: "uppercase", padding: "2px 5px", borderRadius: 4, border: "none",
+                  }}>
+                    {isPhotoPublic(i) ? <><Eye size={8} /> Public</> : "Private"}
+                  </button>
+                  <button type="button" onClick={() => makeCover(i)} title="Make this the cover" style={{
+                    position: "absolute", top: 5, left: 5, cursor: "pointer",
+                    background: "rgba(15,23,42,0.72)", color: "var(--paper)", border: "none",
+                    fontWeight: 700, fontSize: 8, letterSpacing: "0.04em", textTransform: "uppercase", padding: "2px 5px", borderRadius: 4,
+                  }}>Set cover</button>
+                </>
+              )}
+              <button type="button" onClick={() => rmPhoto(i)} aria-label="Remove photo" style={{
+                position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: "50%", cursor: "pointer",
+                background: "var(--ink)", color: "var(--paper)", border: "2px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <X size={11} strokeWidth={3} />
+              </button>
+            </div>
+          ))}
+          {photos.length < photoMax && (
+            <ImageUploader
+              tile
+              bad={tried && miss.photo}
+              multiple
+              maxFiles={photoMax - photos.length}
+              onUpload={(url) => { setPhotos((p) => [...p, url]); setPhotoPublic((v) => [...v, false]); }}
+              label="Add"
+            />
+          )}
+        </div>
+        {!refImage && (
+          <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "8px 2px 0", lineHeight: 1.5 }}>
+            The <b style={{ color: "var(--ink)" }}>first photo is the cover</b> — it&rsquo;s public and represents this item in the Scorred catalogue. Your other photos stay private unless you flip them to Public.
+          </div>
+        )}
+
+        <Label hint="optional">Description</Label>
+        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} placeholder="What makes this one special? Accessories, edition, where you got it…" style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none", fontSize: 14.5 }} />
+
+        {/* In-hand: condition — v8 wrapping chips + one hint line below (AddListing.jsx:745-764). */}
+        {acq === "inhand" && (
+          <>
+            <Label required missing={tried && miss.cond}>Condition</Label>
+            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+              {conditionsFor(cat).map((c) => {
+                const on = cond === c.id;
+                return (
+                  <button key={c.id} type="button" onClick={() => setCond(c.id)} style={{
+                    display: "inline-flex", alignItems: "center", padding: "8px 13px", borderRadius: 10, cursor: "pointer",
+                    background: on ? "var(--ink)" : "var(--paper-soft)", color: on ? "var(--paper)" : "var(--ink)",
+                    border: `1px solid ${on ? "var(--ink)" : tried && miss.cond ? "var(--stamp-red)" : "var(--border-strong)"}`,
+                    fontFamily: "var(--font-body)", fontWeight: on ? 700 : 500, fontSize: 13, whiteSpace: "nowrap", lineHeight: 1,
+                  }}>{c.label}</button>
+                );
+              })}
+            </div>
+            {(() => {
+              const picked = conditionsFor(cat).find((c) => c.id === cond);
+              return picked?.hint ? <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>{picked.hint}</div> : null;
+            })()}
+
+            {/* DV8 grading details — tcg + Graded (AddListing.jsx:765-789). */}
+            {isGraded && (
+              <div style={{ marginTop: 12, padding: 13, borderRadius: 13, border: "1px solid var(--border-strong)", background: "var(--bone)" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--ink-faint)" }}>Grading details</div>
+                <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 10 }}>
+                  {GRADERS.map((g) => (
+                    <CategoryChip key={g} active={grader === g} onClick={() => setGrader(g)}>{g}</CategoryChip>
+                  ))}
+                </div>
+                {grader === "Other" && (
+                  <input value={graderOther} onChange={(e) => setGraderOther(e.target.value.slice(0, 24))} placeholder="Grading company"
+                    style={{ width: "100%", boxSizing: "border-box", marginTop: 10, height: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none" }} />
+                )}
+                <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                  <div style={{ width: 96, flexShrink: 0 }}>
+                    <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 5 }}>Grade</div>
+                    <input value={grade} onChange={(e) => setGrade(e.target.value.replace(/[^0-9.]/g, "").slice(0, 4))} inputMode="decimal" placeholder="10"
+                      style={{ width: "100%", boxSizing: "border-box", height: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--ink)", outline: "none" }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 5 }}>Cert number</div>
+                    <input value={certNo} onChange={(e) => setCertNo(e.target.value.toUpperCase())} placeholder="e.g. 78412095"
+                      style={{ width: "100%", boxSizing: "border-box", height: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-mono)", fontSize: 14, letterSpacing: "0.03em", color: "var(--ink)", outline: "none" }} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 9, lineHeight: 1.45 }}>Buyers can verify the slab on the grader&rsquo;s site with this number.</div>
+              </div>
+            )}
+
+            <Label hint="optional · private">What you paid</Label>
+            <MoneyField value={paid} onChange={setPaid} cur={paidCur} onCur={setPaidCur} placeholder="Purchase price" />
+            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>Only you see this.</div>
+          </>
+        )}
+
+        {/* Pre-order details — moved DOWN below the copy facts, per v8 (AddListing.jsx:797). */}
         {acq === "preorder" && (
           <div style={{ marginTop: 16, background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 14, padding: 15 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 13 }}>
@@ -630,8 +809,8 @@ function AddListingPageInner() {
                 monthIdx={poMonth} onMonth={setPoMonth} quarter={poQuarter} onQuarter={setPoQuarter} year={poYear} onYear={setPoYear} />
             </div>
 
-            <div style={{ marginTop: 14 }}><SectionLabel>Ordered from (seller)</SectionLabel></div>
-            <input value={poSeller} onChange={(e) => setPoSeller(e.target.value)} placeholder="Store, distributor or seller name"
+            <div style={{ marginTop: 14 }}><SectionLabel>Seller / Store</SectionLabel></div>
+            <input value={poSeller} onChange={(e) => setPoSeller(e.target.value)} placeholder="e.g. BBToyStore, Bangalore"
               style={{ ...fieldStyle, marginTop: 9, background: "var(--paper)", fontSize: 14.5 }} />
 
             <div style={{ display: "flex", gap: 11, marginTop: 14 }}>
@@ -664,359 +843,6 @@ function AddListingPageInner() {
           </div>
         )}
 
-        {/* Title leads the form (design_v7 ContributeItemForm) — it is also the
-            catalogue de-dup field, so asking for it first is what surfaces "already in
-            Scorred" before anyone fills the rest in. DV6-11's Category-first order is
-            superseded (QA 2026-08-04 §14). */}
-        <Label required missing={tried && miss.title}>Title</Label>
-        <input value={title} readOnly={locked} onChange={(e) => { setTitle(e.target.value); setLinkedSku(null); setRefImage(null); }} placeholder={meta.titleEg} style={{ ...fieldStyle, borderColor: tried && miss.title ? "var(--stamp-red)" : "var(--border-strong)", ...(locked ? { background: "var(--bone)", color: "var(--ink-mute)", cursor: "default" } : {}) }} />
-        {/* Central-catalogue search results — tap to link instead of creating a duplicate (DV6-12) */}
-        {!linkedSku && dupes.length > 0 && (
-          <div style={{ marginTop: 7, borderRadius: 11, border: "1px solid var(--border-strong)", overflow: "hidden", background: "var(--paper)" }}>
-            <div style={{ padding: "7px 11px", background: "var(--bone)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 6 }}>
-              <Search size={12} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
-              <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink-soft)" }}>Already in Scorred — tap to link (don&rsquo;t create a duplicate)</span>
-            </div>
-            {dupes.map((m, i) => (
-              <button key={m.sku} type="button" onMouseDown={(e) => { e.preventDefault(); linkDupe(m); }} style={{
-                display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", cursor: "pointer",
-                padding: "9px 11px", background: "transparent", border: "none",
-                borderBottom: i < dupes.length - 1 ? "1px solid var(--border)" : "none",
-              }}>
-                <div style={{ width: 34, height: 34, flexShrink: 0 }}>
-                  <ProductPhoto tone="ink" src={m.thumbnail_url ?? undefined} ratio="1/1" rounded={7} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title}</div>
-                  <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 1 }}>
-                    {m.brand}{m.scale && m.scale !== "—" ? ` · ${m.scale}` : ""}
-                    {m.pending && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--grail-gold-deep)", background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 4, padding: "1px 5px" }}>Pending verification</span>}
-                  </div>
-                </div>
-                <Plus size={16} style={{ color: "var(--stamp-red)", flexShrink: 0 }} />
-              </button>
-            ))}
-          </div>
-        )}
-        {linkedSku && !existingDuplicate && (
-          <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 9, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)" }}>
-            <Check size={13} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: "var(--verified-teal)", fontWeight: 600 }}>Linked to catalogue — pre-filled from the Scorred DB</span>
-          </div>
-        )}
-        {existingDuplicate && (
-          <div style={{ marginTop: 9, padding: "12px 13px", borderRadius: 11, background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)" }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-              <Info size={15} style={{ color: "var(--grail-gold-deep)", flexShrink: 0, marginTop: 1 }} />
-              <div style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
-                <b>Already in the Scorred database.</b> This entry can&rsquo;t be edited or re-added. If you own one, add it to your collection; if something looks wrong, report it for our admins to review.
-              </div>
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-              {/* "I own" — add your copy of the existing entry instead of a dead-end (QA 2.1). */}
-              <button type="button" onClick={() => setAcq("inhand")} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 9, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>
-                <PlusCircle size={13} /> I own this — add to my collection
-              </button>
-              <button type="button" onClick={() => setReporting(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 9, border: "1px solid var(--grail-gold)", background: "var(--paper)", color: "var(--grail-gold-deep)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>
-                <Info size={13} /> Report an error to admins
-              </button>
-            </div>
-          </div>
-        )}
-        {isNewToDb && (
-          <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 9, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)" }}>
-            <Sparkles size={13} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: "var(--verified-teal)", fontWeight: 600 }}>New to Scorred DB — you&rsquo;ll earn +50 XP as first contributor</span>
-          </div>
-        )}
-
-        {/* Category */}
-        <Label>Category</Label>
-        {locked ? (
-          <LockedPill>{ADD_CATEGORIES.find((c) => c.id === cat)?.label ?? cat}</LockedPill>
-        ) : (
-          <>
-            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-              {ADD_CATEGORIES.map((c) => {
-                const on = cat === c.id;
-                return (
-                  <button key={c.id} type="button" onClick={() => changeCat(c.id)} style={{
-                    display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 999, cursor: "pointer",
-                    background: on ? "var(--ink)" : "var(--paper-soft)", color: on ? "var(--paper)" : "var(--ink)",
-                    border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
-                    fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, lineHeight: 1,
-                  }}>
-                    {c.label}
-                  </button>
-                );
-              })}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--ink-faint)", margin: "9px 2px 0", lineHeight: 1.5 }}>
-              The form adapts to the category — scale, brands and condition are tuned for {meta.label.toLowerCase()}s.
-            </div>
-          </>
-        )}
-
-        {/* Brand — single searchable dropdown (DV6-12): canonical ∪ catalogue brands; no chips */}
-        <Label required missing={tried && miss.brand}>Brand</Label>
-        {locked ? (
-          <LockedPill>{brand}</LockedPill>
-        ) : (
-        <div style={{ position: "relative" }}>
-          <div style={{
-            display: "flex", alignItems: "center", gap: 8, height: 46, padding: "0 13px", borderRadius: 11,
-            border: `1px solid ${tried && miss.brand ? "var(--stamp-red)" : "var(--border-strong)"}`,
-            background: "var(--paper-soft)",
-          }}>
-            <Search size={15} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
-            <input
-              value={brand}
-              onFocus={() => setBrandFocus(true)}
-              onBlur={() => setTimeout(() => setBrandFocus(false), 150)}
-              onChange={(e) => { setBrand(e.target.value); setBrandFocus(true); }}
-              placeholder={`Search or type — ${meta.brandEg}`}
-              style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)" }} />
-            {brand && (
-              <button type="button" onMouseDown={(e) => { e.preventDefault(); setBrand(""); }} aria-label="Clear brand"
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)", display: "flex", padding: 0 }}>
-                <X size={13} strokeWidth={2} />
-              </button>
-            )}
-          </div>
-          {brandFocus && (brandMatches.length > 0 || (brand.trim().length > 1 && !exactBrand)) && (
-            <div style={{ position: "absolute", top: "calc(100% + 5px)", left: 0, right: 0, zIndex: 20, background: "var(--paper)", border: "1px solid var(--border-strong)", borderRadius: 11, overflow: "hidden", boxShadow: "var(--shadow-3)", maxHeight: 260, overflowY: "auto" }}>
-              {brandMatches.map((b) => (
-                <button key={b} type="button" onMouseDown={(e) => { e.preventDefault(); setBrand(b); setBrandFocus(false); }} style={{
-                  display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left", cursor: "pointer",
-                  padding: "10px 13px", background: brand.trim().toLowerCase() === b.toLowerCase() ? "var(--bone)" : "transparent",
-                  border: "none", borderBottom: "1px solid var(--border)",
-                }}>
-                  <Tag size={14} style={{ color: "var(--ink-faint)" }} />
-                  <span style={{ fontSize: 14, color: "var(--ink)" }}>{b}</span>
-                </button>
-              ))}
-              {brand.trim().length > 1 && !exactBrand && (
-                <button type="button" onMouseDown={(e) => { e.preventDefault(); setBrand(brand.trim()); setBrandFocus(false); }} style={{
-                  display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left", cursor: "pointer",
-                  padding: "10px 13px", background: "var(--verified-teal-soft)", border: "none",
-                }}>
-                  <Plus size={14} strokeWidth={2.4} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
-                  <span style={{ fontSize: 14, color: "var(--verified-teal)", fontWeight: 600 }}>Add &ldquo;{brand.trim()}&rdquo; as a new brand</span>
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-        )}
-
-        {/* Scale (or Size for designer) */}
-        {usesScale ? (
-          <>
-            <Label required={!isIntel} missing={tried && miss.scale}>Scale</Label>
-            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-              {scales!.map((s) => {
-                const on = scale === s;
-                return (
-                  <button key={s} type="button" onClick={() => setScale(s)} style={{
-                    padding: "7px 13px", borderRadius: 999, cursor: "pointer", fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 600,
-                    background: on ? "var(--ink)" : "var(--paper-soft)", color: on ? "var(--paper)" : "var(--ink)",
-                    border: `1px solid ${on ? "var(--ink)" : tried && miss.scale ? "var(--stamp-red)" : "var(--border-strong)"}`,
-                  }}>{s}</button>
-                );
-              })}
-              <button type="button" onClick={() => setScale("Other")} style={{
-                padding: "7px 13px", borderRadius: 999, cursor: "pointer", fontSize: 13, fontWeight: 600,
-                background: scale === "Other" ? "var(--ink)" : "var(--paper-soft)", color: scale === "Other" ? "var(--paper)" : "var(--ink)",
-                border: `1px solid ${scale === "Other" ? "var(--ink)" : "var(--border-strong)"}`,
-              }}>+ Other</button>
-            </div>
-            {scale === "Other" && (
-              <input value={scaleOther} onChange={(e) => setScaleOther(e.target.value)} placeholder="e.g. 1/20, non-scale" style={{ ...fieldStyle, height: 42, fontSize: 14.5, marginTop: 9, borderColor: tried && miss.scale ? "var(--stamp-red)" : "var(--border-strong)" }} />
-            )}
-          </>
-        ) : cat === "tcg" ? (
-          <>
-            {/* TCG: language/print + product type + optional graded (DV4-01b) */}
-            <Label hint="optional">Language / Print</Label>
-            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-              {TCG_LANGUAGES.map((l) => (
-                <CategoryChip key={l} active={tcgLang === l} onClick={() => setTcgLang(tcgLang === l ? "" : l)}>{l}</CategoryChip>
-              ))}
-            </div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>EN and JP are the most common prints — always specify.</div>
-
-            <Label hint="optional">Product type</Label>
-            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-              {TCG_PRODUCT_TYPES.map((f) => (
-                <CategoryChip key={f} active={tcgFormat === f} onClick={() => setTcgFormat(tcgFormat === f ? "" : f)}>{f}</CategoryChip>
-              ))}
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 1px", marginTop: 10, borderBottom: "1px solid var(--border)" }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>Graded card</div>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 2, lineHeight: 1.4 }}>PSA / BGS / CGC professional grade</div>
-              </div>
-              <button type="button" onClick={() => setTcgGraded((v) => !v)} aria-pressed={tcgGraded} style={{
-                width: 46, height: 27, borderRadius: 999, flexShrink: 0, cursor: "pointer", position: "relative",
-                border: "none", background: tcgGraded ? "var(--forest)" : "var(--bone-deep)", transition: "background 160ms",
-              }}>
-                <span style={{ position: "absolute", top: 3, left: tcgGraded ? 22 : 3, width: 21, height: 21, borderRadius: "50%", background: "var(--paper)", transition: "left 160ms" }} />
-              </button>
-            </div>
-            {tcgGraded && (
-              <div style={{ marginTop: 12, display: "flex", gap: 9, alignItems: "flex-end" }}>
-                <div style={{ flex: 1 }}>
-                  <Label>Grading company</Label>
-                  <div style={{ display: "flex", gap: 7 }}>
-                    {TCG_GRADERS.map((g) => (
-                      <CategoryChip key={g} active={tcgGrader === g} onClick={() => setTcgGrader(g)}>{g}</CategoryChip>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ width: 88 }}>
-                  <Label>Grade</Label>
-                  <input value={tcgGrade} onChange={(e) => setTcgGrade(e.target.value.replace(/[^0-9.]/g, "").slice(0, 4))} inputMode="decimal" placeholder="e.g. 9"
-                    style={{ ...fieldStyle, height: 40, fontSize: 16, fontFamily: "var(--font-mono)", fontWeight: 700, textAlign: "center" }} />
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <Label hint="optional">Size</Label>
-            <input value={size} onChange={(e) => setSize(e.target.value)} placeholder="e.g. 400% · 28 cm · 7 inch" style={{ ...fieldStyle, fontSize: 14.5 }} />
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>Blind boxes don&rsquo;t use scale — note the height or % size instead.</div>
-          </>
-        )}
-
-        <Label hint="optional">Release year</Label>
-        <input value={year} readOnly={locked} onChange={(e) => setYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))} inputMode="numeric" placeholder="e.g. 2022" style={{ ...fieldStyle, height: 42, fontSize: 14.5, fontFamily: "var(--font-mono)", ...(locked ? { background: "var(--bone)", color: "var(--ink-mute)", cursor: "default" } : {}) }} />
-
-        {/* Estimated value — DB-contribution only (design_v7 ContributeItemForm). It seeds
-            the catalogue entry's est_retail_price, so it's a PUBLIC fact about the item,
-            not the private "what you paid" that In-hand adds collect further down.
-            Nothing to fill in when the entry already exists (locked). */}
-        {isIntel && !locked && (
-          <>
-            <Label hint="optional">Estimated value (₹)</Label>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, height: 46, padding: "0 13px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 17, color: "var(--ink-faint)" }}>₹</span>
-              <input value={est} onChange={(e) => setEst(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="Retail / market price"
-                style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 16, color: "var(--ink)" }} />
-            </div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>Roughly what it sells for — helps other collectors value their shelf.</div>
-          </>
-        )}
-
-        {/* Photos */}
-        <Label required missing={tried && miss.photo} hint={refImage ? "your own — optional" : photos.length ? `${photos.length} added · first = cover` : "min 1 · up to 4"}>Photos</Label>
-        {/* DV6-13 — inherited catalogue reference (shown when you picked an existing item) */}
-        {refImage && (
-          <div style={{ display: "flex", alignItems: "center", gap: 11, padding: 10, borderRadius: 12, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", marginBottom: 11 }}>
-            <div style={{ width: 56, height: 56, borderRadius: 9, overflow: "hidden", flexShrink: 0 }}>
-              <ProductPhoto tone="ink" src={refImage} ratio="1/1" rounded={9} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--verified-teal)" }}>Using the catalogue image</div>
-              <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 2, lineHeight: 1.45 }}>It&rsquo;s the shared cover for this item — no need to upload. Add your own photos below if you like (private by default).</div>
-            </div>
-          </div>
-        )}
-        {isIntel && photos.length === 0 && (
-          <div style={{ display: "flex", gap: 8, padding: "9px 12px", borderRadius: 10, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", marginBottom: 11 }}>
-            <Info size={14} style={{ color: "var(--verified-teal)", flexShrink: 0, marginTop: 1 }} />
-            <span style={{ fontSize: 12, color: "var(--verified-teal)", lineHeight: 1.45 }}>Add at least 1 photo — official images help verify the item in the Scorred DB.</span>
-          </div>
-        )}
-        {photos.length > 0 && (
-          <div style={{ display: "flex", gap: 9, flexWrap: "wrap", marginBottom: 11 }}>
-            {photos.map((url, i) => (
-              <div key={i} style={{ position: "relative", width: 88, height: 88, flexShrink: 0 }}>
-                <ProductPhoto tone="ink" src={url} ratio="1/1" rounded={13} />
-                {/* DV6-13 — visibility chip. New-entry cover is the mandatory public reference (locked). */}
-                {!linkedSku && i === 0 ? (
-                  <span title="Shared reference image — required to add a new item" style={{ position: "absolute", bottom: 6, left: 6, display: "inline-flex", alignItems: "center", gap: 3, background: "var(--verified-teal)", color: "var(--paper)", fontWeight: 700, fontSize: 9, letterSpacing: "0.06em", textTransform: "uppercase", padding: "3px 5px", borderRadius: 4 }}>
-                    <Eye size={9} /> Cover
-                  </span>
-                ) : (
-                  <button type="button" onClick={() => togglePhotoPublic(i)} title={isPhotoPublic(i) ? "Shared to the catalogue — tap to make private" : "Private to you — tap to share to the catalogue"} style={{
-                    position: "absolute", bottom: 6, left: 6, display: "inline-flex", alignItems: "center", gap: 3, cursor: "pointer",
-                    background: isPhotoPublic(i) ? "var(--verified-teal)" : "rgba(15,23,42,0.72)", color: "var(--paper)",
-                    fontWeight: 700, fontSize: 9, letterSpacing: "0.04em", textTransform: "uppercase", padding: "3px 6px", borderRadius: 4, border: "none",
-                  }}>
-                    {isPhotoPublic(i) ? <><Eye size={9} /> Public</> : "Private"}
-                  </button>
-                )}
-                {/* Set-as-cover (DV6-13) — non-cover photos only */}
-                {i !== 0 && (
-                  <button type="button" onClick={() => makeCover(i)} title="Make this the cover" style={{
-                    position: "absolute", top: 6, left: 6, cursor: "pointer",
-                    background: "rgba(15,23,42,0.72)", color: "var(--paper)", border: "none",
-                    fontWeight: 700, fontSize: 9, letterSpacing: "0.04em", textTransform: "uppercase", padding: "3px 6px", borderRadius: 4,
-                  }}>Set cover</button>
-                )}
-                <button type="button" onClick={() => rmPhoto(i)} aria-label="Remove photo" style={{
-                  position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: "50%", cursor: "pointer",
-                  background: "var(--ink)", color: "var(--paper)", border: "2px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <X size={11} strokeWidth={3} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        {/* A duplicate DB entry is read-only — no photo edits (QA 2.1). */}
-        {photos.length < photoMax && !existingDuplicate && (
-          <ImageUploader
-            multiple
-            maxFiles={photoMax - photos.length}
-            onUpload={(url) => { setPhotos((p) => [...p, url]); setPhotoPublic((v) => [...v, false]); }}
-            label={photos.length ? `Add more (up to ${photoMax - photos.length})` : `Add photos — pick up to ${photoMax} at once`}
-          />
-        )}
-        {/* Cover note (DV6-13) — only when this add owns the cover (a brand-new entry) */}
-        {!refImage && (
-          <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "8px 2px 0", lineHeight: 1.5 }}>
-            The <b style={{ color: "var(--ink)" }}>first photo is the cover</b> — it&rsquo;s <b style={{ color: "var(--verified-teal)" }}>public</b> and represents this item in the Scorred catalogue. Tap <b>Set cover</b> on any photo to change it. Your other photos stay private unless you tap <b>Private → Public</b>.
-          </div>
-        )}
-
-        <Label hint="optional">Description</Label>
-        <textarea value={desc} readOnly={existingDuplicate} onChange={(e) => setDesc(e.target.value)} rows={3} placeholder="What makes this one special? Accessories, edition, where you got it…" style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none", fontSize: 14.5, ...(existingDuplicate ? { background: "var(--bone)", color: "var(--ink-mute)", cursor: "default" } : {}) }} />
-
-        {/* Acquisition — mode is chosen upfront in the picker (DV6-10). Condition is In-hand only. */}
-        {acq === "inhand" && (
-          <>
-            <Label required missing={tried && miss.cond}>Condition</Label>
-            {/* DV8-10 — the picked category's own vocabulary; options are {id,label,hint}
-                objects: render the LABEL, store the id. */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {conditionsFor(cat).map((c) => {
-                const on = cond === c.id;
-                return (
-                  <button key={c.id} type="button" onClick={() => setCond(c.id)} style={{
-                    display: "flex", alignItems: "center", gap: 11, width: "100%", textAlign: "left", cursor: "pointer",
-                    padding: "11px 13px", borderRadius: 11, background: on ? "var(--ink)" : "var(--paper-soft)",
-                    border: `1px solid ${on ? "var(--ink)" : tried && miss.cond ? "var(--stamp-red)" : "var(--border-strong)"}`,
-                  }}>
-                    <span style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: on ? "rgba(255,255,255,0.15)" : "var(--bone-deep)", color: on ? "var(--paper)" : "var(--ink-faint)" }}>
-                      {on && <Check size={11} strokeWidth={3} />}
-                    </span>
-                    <span style={{ display: "flex", flexDirection: "column" }}>
-                      <span style={{ fontSize: 14, fontWeight: 600, color: on ? "var(--paper)" : "var(--ink)" }}>{c.label}</span>
-                      <span style={{ fontSize: 11.5, color: on ? "rgba(244,239,230,0.7)" : "var(--ink-faint)", marginTop: 1 }}>{c.hint}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <Label hint="optional · private">What you paid</Label>
-            <MoneyField value={paid} onChange={setPaid} cur={paidCur} onCur={setPaidCur} placeholder="Purchase price" />
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>Only you see this — it helps track your collection&rsquo;s value.</div>
-          </>
-        )}
         {/* For sale — in-hand items only */}
         {canSell ? (
           <div style={{ marginTop: 24, borderRadius: 16, border: `1px solid ${forSale ? "var(--stamp-red)" : "var(--border)"}`, background: forSale ? "var(--stamp-red-soft)" : "var(--paper-soft)", overflow: "hidden" }}>
@@ -1028,36 +854,31 @@ function AddListingPageInner() {
                 <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>List for sale</div>
                 <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 2, lineHeight: 1.4 }}>Show it in the Market — goes live instantly.</div>
               </div>
-              <button type="button" onClick={() => setForSale((v) => !v)} aria-pressed={forSale} style={{
-                width: 46, height: 27, borderRadius: 999, flexShrink: 0, cursor: "pointer", position: "relative",
-                border: "none", background: forSale ? "var(--stamp-red)" : "var(--bone-deep)", transition: "background 160ms",
-              }}>
-                <span style={{ position: "absolute", top: 3, left: forSale ? 22 : 3, width: 21, height: 21, borderRadius: "50%", background: "var(--paper)", transition: "left 160ms" }} />
-              </button>
+              <Toggle on={forSale} onClick={() => setForSale((v) => !v)} />
             </div>
 
             {forSale && (
               <div style={{ padding: "2px 15px 16px", borderTop: "1px solid var(--stamp-red)" }}>
                 <Label required missing={tried && miss.price}>Asking price</Label>
-                <MoneyField value={price} onChange={setPrice} cur={priceCur} onCur={setPriceCur} bad={tried && miss.price} placeholder="Your price" big />
+                {/* DV8 — MRP anchor from the linked entry's est_retail_price, inside the field. */}
+                <MoneyField value={price} onChange={setPrice} cur={priceCur} onCur={setPriceCur} bad={tried && miss.price} placeholder="Your price" big
+                  trailing={linkedEst > 0 ? `MRP ~${formatMoney(linkedEst)}` : undefined} />
 
                 <Label hint="optional">Condition notes</Label>
                 <textarea value={condNote} onChange={(e) => setCondNote(e.target.value)} rows={2} placeholder="Box wear, paint, joints, what's included…" style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none", fontSize: 14.5, background: "var(--paper)" }} />
 
+                {/* Exactly two toggle rows — v8 dropped "Open to trades" (AddListing.jsx:876-879). */}
                 <div style={{ marginTop: 12 }}>
                   {[
                     { k: "ship", title: "Shipping included", sub: "Price covers delivery — no extra at checkout", on: shipIncl, set: () => setShipIncl((v) => !v) },
                     { k: "ret", title: "Returns accepted", sub: "Buyer can return within a short window", on: returns, set: () => setReturns((v) => !v) },
-                    { k: "trade", title: "Open to trades", sub: "Buyers can propose an item swap", on: trade, set: () => setTrade((v) => !v) },
                   ].map((row, i, arr) => (
                     <div key={row.k} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 0", borderBottom: i === arr.length - 1 ? "none" : "1px solid var(--border)" }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{row.title}</div>
                         <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 2, lineHeight: 1.4 }}>{row.sub}</div>
                       </div>
-                      <button type="button" onClick={row.set} aria-pressed={row.on} style={{ width: 46, height: 27, borderRadius: 999, flexShrink: 0, cursor: "pointer", position: "relative", border: "none", background: row.on ? "var(--ink)" : "var(--bone-deep)", transition: "background 160ms" }}>
-                        <span style={{ position: "absolute", top: 3, left: row.on ? 22 : 3, width: 21, height: 21, borderRadius: "50%", background: "var(--paper)", transition: "left 160ms" }} />
-                      </button>
+                      <Toggle on={row.on} onClick={row.set} />
                     </div>
                   ))}
                 </div>
@@ -1066,7 +887,7 @@ function AddListingPageInner() {
                 <Label>Market preview</Label>
                 <div style={{ display: "flex", gap: 11, alignItems: "center", padding: 10, borderRadius: 13, background: "var(--paper)", border: "1px solid var(--border)" }}>
                   <div style={{ width: 56, height: 56, flexShrink: 0 }}>
-                    <ProductPhoto tone="ink" src={photos[0]} ratio="1/1" rounded={9} />
+                    <ProductPhoto tone="ink" src={photos[0] ?? refImage ?? undefined} ratio="1/1" rounded={9} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title.trim() || "Your item title"}</div>
@@ -1079,12 +900,12 @@ function AddListingPageInner() {
 
                 <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 13, fontSize: 12, color: "var(--ink-mute)", lineHeight: 1.5 }}>
                   <Shield size={15} style={{ color: "var(--verified-teal)", flexShrink: 0, marginTop: 1 }} />
-                  <span>Listing goes live now. Clear, well-lit photos and honest condition notes help it sell faster.</span>
+                  <span>Listing goes live now. Add clear photos so buyers know exactly what they&rsquo;re getting.</span>
                 </div>
               </div>
             )}
           </div>
-        ) : acq === "preorder" ? (
+        ) : (
           <div style={{ marginTop: 24, display: "flex", gap: 11, alignItems: "flex-start", padding: 15, borderRadius: 16, border: "1px solid var(--border)", background: "var(--paper-soft)" }}>
             <div style={{ width: 40, height: 40, borderRadius: 11, flexShrink: 0, background: "var(--bone-deep)", color: "var(--ink-faint)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Tag size={20} />
@@ -1094,92 +915,28 @@ function AddListingPageInner() {
               <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 3, lineHeight: 1.45 }}>List it on the Market once it&rsquo;s in hand. For now it&rsquo;s saved to your collection as a pre-order.</div>
             </div>
           </div>
-        ) : (
-          <div style={{ marginTop: 24, display: "flex", gap: 11, alignItems: "flex-start", padding: 15, borderRadius: 16, border: "1px solid var(--verified-teal)", background: "var(--verified-teal-soft)" }}>
-            <div style={{ width: 40, height: 40, borderRadius: 11, flexShrink: 0, background: "var(--verified-teal)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Eye size={20} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>Thanks for helping the community</div>
-              <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 3, lineHeight: 1.45 }}>This won&rsquo;t claim ownership — it just adds the item to the Scorred DB so others can track, wishlist and discover it.</div>
-            </div>
-          </div>
         )}
 
         {error && <div style={{ marginTop: 16, fontSize: 13, color: "var(--stamp-red)" }}>{error}</div>}
-
-        {existingDuplicate ? (
-          // Duplicate entry — the only action is to flag it (QA 2.1); no contribute/save.
-          <button onClick={() => setReporting(true)} type="button" style={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
-            height: 48, marginTop: 22, borderRadius: 12, border: "1px solid var(--grail-gold)",
-            background: "var(--paper)", color: "var(--grail-gold-deep)",
-            fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer",
-          }}>
-            <Info size={18} /> Report an error to admins
-          </button>
-        ) : (
-          <button onClick={submit} disabled={submitting} type="button" style={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
-            height: 48, marginTop: 22, borderRadius: 12, border: "none",
-            background: forSale ? "var(--stamp-red)" : isIntel ? "var(--verified-teal)" : "var(--ink)", color: "var(--paper)",
-            fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15,
-            cursor: submitting ? "wait" : "pointer", opacity: invalid ? 0.5 : 1,
-          }}>
-            {isIntel ? <Eye size={18} /> : forSale ? <Tag size={18} /> : <PlusCircle size={18} />}
-            {submitting ? "Saving…" : isIntel ? "Contribute to DB" : forSale ? "List in the Market" : "Add to my collection"}
-          </button>
-        )}
       </div>
-      {reporting && linkedSku && (
-        <ReportCatalogueSheet sku={linkedSku} onClose={() => setReporting(false)} />
-      )}
 
-      {/* Post-save success — stay on the add page, offer "Add another" (no redirect to profile).
-          Copy + secondary action adapt to the mode that was just saved. */}
-      {success && (() => {
-        const cfg = {
-          inhand: {
-            title: "Added to your collection!",
-            body: "It’s saved to your shelf. Add another item, or head to your collection to see it.",
-            secondary: "View my collection",
-            onSecondary: () => router.push(user ? `/profile/${user.handle}` : "/market"),
-          },
-          preorder: {
-            title: "Pre-order saved!",
-            body: "We’ll track the release window in your collection. Add another, or view your pre-orders.",
-            secondary: "View my collection",
-            onSecondary: () => router.push(user ? `/profile/${user.handle}` : "/market"),
-          },
-        }[success];
-        const addAnother = () => { setSuccess(null); resetForm(); };
-        return (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={addAnother} />
-            <div className="relative z-10 w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-4)] p-6 text-center">
-              <div style={{ width: 56, height: 56, borderRadius: 16, margin: "0 auto 14px", background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Check size={26} style={{ color: "var(--verified-teal)" }} />
-              </div>
-              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19 }}>{cfg.title}</h2>
-              <p style={{ fontSize: 13.5, color: "var(--ink-mute)", lineHeight: 1.55, marginTop: 8 }}>
-                {cfg.body}
-              </p>
-              <button
-                onClick={addAnother}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 48, marginTop: 18, borderRadius: 13, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
-              >
-                <PlusCircle size={18} /> Add another item
-              </button>
-              <button
-                onClick={cfg.onSecondary}
-                style={{ width: "100%", height: 42, marginTop: 8, borderRadius: 12, border: "1px solid var(--border-strong)", background: "transparent", color: "var(--ink-soft)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
-              >
-                {cfg.secondary}
-              </button>
-            </div>
-          </div>
-        );
-      })()}
+      {/* ONE sticky footer CTA (DV8) — primary red only when listing for sale, else dark.
+          Sits above the fixed BottomNav below lg. */}
+      <div
+        className="sticky z-10 bg-[var(--paper)] border-t border-[var(--border)] bottom-[calc(64px+env(safe-area-inset-bottom))] lg:bottom-0"
+        style={{ padding: "11px 20px", marginTop: 6 }}
+      >
+        <button onClick={submit} disabled={submitting} type="button" style={{
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
+          height: 48, borderRadius: 12, border: "none",
+          background: forSale ? "var(--stamp-red)" : "var(--ink)", color: "var(--paper)",
+          fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15,
+          cursor: submitting ? "wait" : "pointer", opacity: invalid ? 0.5 : 1,
+        }}>
+          {forSale ? <Tag size={18} /> : <PlusCircle size={18} />}
+          {submitting ? "Saving…" : forSale ? "List in the Market" : "Add to my collection"}
+        </button>
+      </div>
     </div>
   );
 }

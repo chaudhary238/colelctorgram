@@ -26,14 +26,15 @@ export function formatMoney(amountMinor: number, currency: string = "INR"): stri
 // ── Category chips for the add forms — figure-first, with TCG (DV4-01). ──
 // These are the app's ONE set of category names (Change Spec §4.2): the Database filter
 // sheet, Create-a-community, Create-an-event, the Market filter and the composer all read
-// them from here, so a category can never be worded two ways in two places. Full names
-// only — "Action Figures", not "Action Figure" or "Figures".
+// them from here, so a category can never be worded two ways in two places. `label` is the
+// full plural name ("Action Figures"); `chipLabel` is v8's singular chip wording
+// (design_v8 data.jsx CATEGORIES) used on selection chips in the add flows.
 export const ADD_CATEGORIES = [
-  { id: "figures", label: "Action Figures" },
-  { id: "diecast", label: "Diecast" },
-  { id: "kits", label: "Model Kits & Lego" },
-  { id: "designer", label: "Designer Toys & Blind Boxes" },
-  { id: "tcg", label: "Trading Cards (TCG)" },
+  { id: "figures", label: "Action Figures", chipLabel: "Action Figure" },
+  { id: "diecast", label: "Diecast", chipLabel: "Diecast" },
+  { id: "kits", label: "Model Kits & Lego", chipLabel: "Model Kits & Lego" },
+  { id: "designer", label: "Designer Toys & Blind Boxes", chipLabel: "Designer Toys & Blind Boxes" },
+  { id: "tcg", label: "Trading Cards (TCG)", chipLabel: "Trading Cards (TCG)" },
 ] as const;
 
 // Per-category scale options (designer + tcg use no scale — null).
@@ -124,7 +125,13 @@ export function conditionLabel(id: string | null | undefined, cat?: string | nul
 // already-seeded values like "Case" / "Collection Box"). ──
 export const TCG_LANGUAGES = ["EN", "JP", "KR", "TW", "FR", "DE", "IT", "PT", "ES"] as const;
 export const TCG_PRODUCT_TYPES = ["Single Card", "Booster Pack", "Booster Box", "Elite Trainer Box", "Collection Box", "Sealed Set", "Bundle", "Case"] as const;
-export const TCG_GRADERS = ["PSA", "BGS", "CGC", "ACE"] as const;
+// DV8 grading card — PSA / BGS / CGC plus a free-text "Other" company (design_v8 data.jsx
+// GRADERS; the backend stores tcg_grader as free text up to 24 chars).
+export const GRADERS = ["PSA", "BGS", "CGC", "Other"] as const;
+/** The condition id that means "professionally graded" for a category (tcg only). */
+export const GRADED_CONDITION_ID = "Graded";
+export const isGradedCondition = (cat: string | null | undefined, cond: string | null | undefined) =>
+  cat === "tcg" && cond === GRADED_CONDITION_ID;
 
 // ── Pre-order release-window helpers (DV4-03a). ──
 export const PO_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;

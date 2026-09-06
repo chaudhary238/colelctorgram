@@ -21,7 +21,9 @@ const TAB_ROOTS = ["/feed", "/market", "/db", "/community", "/profile"];
 // the Instagram post-detail model.
 // /collection/finish is the focused "finish your items" flow (DV8) — same rule as
 // compose/add: the tabs just get in the way of a form.
-const BOTTOMNAV_HIDE_PREFIX = ["/item/", "/listing/", "/db/", "/compose", "/add", "/chat/", "/onboarding", "/collection/finish"];
+// /search behaves like v8's full-screen search overlay (Overlays.jsx:434): it covers
+// the bottom nav — exit is the header's Cancel button, not a tab switch (DV8 P0-1).
+const BOTTOMNAV_HIDE_PREFIX = ["/item/", "/listing/", "/db/", "/compose", "/add", "/chat/", "/onboarding", "/collection/finish", "/search"];
 const isEventDetail = (p: string) => /^\/events\/(?!new$)[^/]+/.test(p); // has the RSVP CTA bar
 
 export function hideAppBar(pathname: string): boolean {

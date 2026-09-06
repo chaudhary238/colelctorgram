@@ -25,8 +25,10 @@ class CreateEventBody(BaseModel):
     categories: list[str] = []
     mode: str = "in_person"
     city: Optional[str] = None
+    country: Optional[str] = None       # DV8 — CityPicker's second output
     pincode: Optional[str] = None
-    venue: Optional[str] = None
+    venue: Optional[str] = None         # DV8 — venue NAME only
+    address: Optional[str] = None       # DV8 — full address details (shown post-RSVP)
     online_url: Optional[str] = None
     cover_image_url: Optional[str] = None
     bring: Optional[str] = None
@@ -47,8 +49,10 @@ class UpdateEventBody(BaseModel):
     categories: Optional[list[str]] = None
     mode: Optional[str] = None
     city: Optional[str] = None
+    country: Optional[str] = None
     pincode: Optional[str] = None
     venue: Optional[str] = None
+    address: Optional[str] = None
     online_url: Optional[str] = None
     cover_image_url: Optional[str] = None
     bring: Optional[str] = None
@@ -194,8 +198,10 @@ async def create_event(
         categories=body.categories,
         mode=body.mode,
         city=body.city,
+        country=body.country,
         pincode=body.pincode,
         venue=body.venue,
+        address=body.address,
         online_url=body.online_url,
         cover_image_url=body.cover_image_url,
         bring=body.bring,
@@ -429,8 +435,12 @@ def _event_dict(
         "categories": e.categories or [],
         "mode": e.mode,
         "city": e.city,
+        "country": e.country,
         "pincode": e.pincode,
         "venue": e.venue,
+        "address": e.address,
+        # DV8 — the joined display form ("venue — address") used by cards/detail.
+        "where": f"{e.venue} — {e.address}" if e.venue and e.address else e.venue,
         "online_url": e.online_url,
         "cover_image_url": e.cover_image_url,
         "bring": e.bring,

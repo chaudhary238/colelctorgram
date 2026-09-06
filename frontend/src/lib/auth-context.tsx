@@ -9,6 +9,7 @@ export interface AuthUser {
   name: string;
   bio: string | null;
   city: string | null;
+  country?: string | null; // DV8 — CityField's second output ("City, Country" labels)
   avatar_url: string | null;
   interests: string[];
   sub_interests?: Record<string, string[]> | null; // per-category chips (DV4-06)

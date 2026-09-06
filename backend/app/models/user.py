@@ -25,7 +25,11 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
-    city: Mapped[str | None] = mapped_column(Text, nullable=True)  # kept; field hidden in UI (DF-05 — location collected separately later)
+    city: Mapped[str | None] = mapped_column(Text, nullable=True)  # DV8: collected in onboarding step 0 via CityPicker (supersedes DF-05 "hidden in UI")
+    # DV8 — CityPicker reports city + country separately; placeLabel renders "City, Country".
+    country: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # DV8 — set once when the signup wizard finishes; routes social sign-ins through it exactly once.
+    onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     gender: Mapped[str | None] = mapped_column(String(8), nullable=True)  # 'f' | 'm' (DF-01)
     birth_year: Mapped[int | None] = mapped_column(Integer, nullable=True)  # from onboarding age slider (DF-05)
     # pg ARRAY (not generic sa.ARRAY) so .overlap() works in /users/me/suggested

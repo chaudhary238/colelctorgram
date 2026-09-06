@@ -45,6 +45,11 @@ class UpdateListingBody(BaseModel):
     status: Optional[str] = None
     notes: Optional[str] = None
     condition_notes: Optional[str] = None
+    # v8 AddListing :407-420 — the edit form saves every listing term, not just price:
+    # condition grade, currency and the shipping/returns term flags.
+    condition: Optional[str] = None
+    currency: Optional[str] = None
+    terms: Optional[list[str]] = None
 
 
 @router.post("", status_code=status.HTTP_201_CREATED,
@@ -257,6 +262,13 @@ async def update_listing(
         await db.execute(
             update(User).where(User.id == current_user.id)
             .values(active_listings_count=func.greatest(User.active_listings_count - 1, 0))
+        )
+    # DV8 sold state — marking the LISTING sold stamps the copy itself, so the
+    # item page/tiles read one truth (item.sold_at) for on- and off-platform sales.
+    if just_sold and listing.item_id:
+        await db.execute(
+            update(Item).where(Item.id == listing.item_id, Item.user_id == current_user.id)
+            .values(sold_at=func.now(), sold_price=listing.price, is_listed=False)
         )
     elif old_status != "available" and listing.status == "available":
         await db.execute(

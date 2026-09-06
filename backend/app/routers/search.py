@@ -199,7 +199,14 @@ async def global_search(
     ]
 
     catalogue_base = (
-        select(Catalogue.sku, Catalogue.title, Catalogue.brand, Catalogue.category, Catalogue.thumbnail_url)
+        select(
+            Catalogue.sku, Catalogue.title, Catalogue.brand, Catalogue.category,
+            Catalogue.thumbnail_url, Catalogue.is_verified,
+            # DV8 — provenance-aware result rows: unverified community entries
+            # credit their contributor ("Intel by @handle · brand").
+            User.handle.label("intel_by"),
+        )
+        .outerjoin(User, User.id == Catalogue.submitted_by)
         .where(
             # Visibility = status != removed (DV6-13); verification is a badge, not a gate.
             Catalogue.status != "removed",
@@ -210,7 +217,11 @@ async def global_search(
         catalogue_base.order_by(_rank(q, Catalogue.title, Catalogue.brand).desc()).limit(limit)
     )
     catalogue = [
-        {"sku": r.sku, "title": r.title, "brand": r.brand, "category": r.category, "thumbnail_url": r.thumbnail_url}
+        {
+            "sku": r.sku, "title": r.title, "brand": r.brand, "category": r.category,
+            "thumbnail_url": r.thumbnail_url, "is_verified": r.is_verified,
+            "intel_by": None if r.is_verified else r.intel_by,
+        }
         for r in catalogue_q
     ]
 

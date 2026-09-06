@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { Upload, X, ImageIcon } from "lucide-react";
+import { Camera, Upload, X, ImageIcon } from "lucide-react";
 import { api } from "@/lib/api";
 
 interface ImageUploaderProps {
@@ -14,6 +14,15 @@ interface ImageUploaderProps {
   multiple?: boolean;
   /** In multiple mode, cap how many files this pick accepts (e.g. remaining slots). */
   maxFiles?: number;
+  /** Fixed tile height (px). Defaults to the classic min-height 100 drop zone. */
+  height?: number;
+  /** DV8 events cover style — solid 1px border, r14, single-row icon+label empty state. */
+  compact?: boolean;
+  /** DV8 add-photo tile — square (height×height, default 72), 2px dashed r10,
+      column camera-20 + "Add" empty state (design_v8 AddListing.jsx:731). */
+  tile?: boolean;
+  /** Tile only — required-photo tried state: border + glyphs go stamp-red. */
+  bad?: boolean;
 }
 
 interface UploadUrlResponse {
@@ -50,7 +59,7 @@ async function compressImage(file: File): Promise<Blob> {
   }
 }
 
-export function ImageUploader({ onUpload, label = "Upload image", accept = "image/*", previewUrl, multiple = false, maxFiles }: ImageUploaderProps) {
+export function ImageUploader({ onUpload, label = "Upload image", accept = "image/*", previewUrl, multiple = false, maxFiles, height, compact = false, tile = false, bad = false }: ImageUploaderProps) {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(previewUrl ?? null);
@@ -117,13 +126,17 @@ export function ImageUploader({ onUpload, label = "Upload image", accept = "imag
         style={{
           position: "relative",
           display: "flex",
-          flexDirection: "column",
+          flexDirection: compact ? "row" : "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: 8,
-          minHeight: 100,
-          borderRadius: 12,
-          border: `2px dashed ${dragging ? "var(--stamp-red)" : "var(--border-strong)"}`,
+          gap: tile ? 4 : 8,
+          ...(tile
+            ? { width: height ?? 72, height: height ?? 72, flexShrink: 0 }
+            : height ? { height } : { minHeight: 100 }),
+          borderRadius: tile ? 10 : compact ? 14 : 12,
+          border: compact
+            ? `1px solid ${dragging ? "var(--stamp-red)" : "var(--border-strong)"}`
+            : `2px dashed ${dragging || (tile && bad) ? "var(--stamp-red)" : "var(--border-strong)"}`,
           background: dragging ? "color-mix(in srgb, var(--stamp-red) 6%, var(--paper))" : "var(--paper-soft)",
           cursor: uploading ? "wait" : "pointer",
           overflow: "hidden",
@@ -155,7 +168,20 @@ export function ImageUploader({ onUpload, label = "Upload image", accept = "imag
         ) : (
           <>
             {uploading ? (
-              <div style={{ color: "var(--ink-faint)", fontSize: 13 }}>Uploading…</div>
+              <div style={{ color: "var(--ink-faint)", fontSize: tile ? 10 : 13 }}>{tile ? "…" : "Uploading…"}</div>
+            ) : tile ? (
+              // v8 add-photo tile — camera 20 over a 10px "Add"; both go stamp-red
+              // when a required photo is still missing after a tried submit.
+              <>
+                <Camera size={20} style={{ color: bad ? "var(--stamp-red)" : "var(--ink-faint)" }} />
+                <span style={{ fontSize: 10, fontWeight: 600, color: bad ? "var(--stamp-red)" : "var(--ink-ghost)" }}>{label}</span>
+              </>
+            ) : compact ? (
+              // v8 EventCreate cover tile — one row, icon beside the label, no browse hint.
+              <>
+                <Camera size={19} style={{ color: "var(--ink-mute)" }} />
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink-mute)" }}>{label}</span>
+              </>
             ) : (
               <>
                 <Upload size={22} style={{ color: "var(--ink-faint)" }} />

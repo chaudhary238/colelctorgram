@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, update
+from sqlalchemy import select, or_, update, func
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -24,12 +24,15 @@ class CreateThreadBody(BaseModel):
     other_user_id: uuid.UUID
     listing_id: Optional[uuid.UUID] = None
     initial_message: Optional[str] = None
+    # DV8 "Ask @owner about it" — catalogue entry the opener is about (inline chip).
+    ref_sku: Optional[str] = None
 
 
 class SendMessageBody(BaseModel):
     body: Optional[str] = None
     image_url: Optional[str] = None
     offer_item_id: Optional[uuid.UUID] = None
+    ref_sku: Optional[str] = None
 
 
 @router.get("")
@@ -148,7 +151,7 @@ async def create_thread(
     # existing conversation (e.g. tapping ISO "I have this" a second time) must
     # NOT keep re-posting the same canned message — just return the thread.
     if body.initial_message and is_new_thread:
-        msg = Message(thread_id=thread.id, sender_id=current_user.id, body=body.initial_message)
+        msg = Message(thread_id=thread.id, sender_id=current_user.id, body=body.initial_message, ref_sku=body.ref_sku)
         db.add(msg)
         await _bump_unread(db, thread, current_user.id)
         thread.last_message_at = datetime.now(timezone.utc)
@@ -200,6 +203,25 @@ async def get_messages(
     else:
         thread.unread_b = 0
 
+    # DV8 — chat header trust subtitle ("N vouches · joined YYYY").
+    other_vouches = 0
+    if other_user:
+        from app.models.deal import Vouch
+        other_vouches = (await db.execute(
+            select(func.count()).select_from(Vouch).where(Vouch.to_user_id == other_user.id)
+        )).scalar_one() or 0
+
+    # DV8 "Ask about it" — resolve the page's tagged entries in ONE batched query
+    # so each context chip renders title+thumb with no per-message lookups.
+    tagged = {m.ref_sku for m in messages if m.ref_sku}
+    refs: dict = {}
+    if tagged:
+        from app.models.catalogue import Catalogue
+        rows = await db.execute(
+            select(Catalogue.sku, Catalogue.title, Catalogue.thumbnail_url).where(Catalogue.sku.in_(tagged))
+        )
+        refs = {sku: {"title": title, "thumbnail_url": thumb} for sku, title, thumb in rows.all()}
+
     return {
         "thread_id": str(thread.id),
         "viewer_id": str(current_user.id),
@@ -209,9 +231,12 @@ async def get_messages(
             "name": other_user.name,
             "avatar_url": other_user.avatar_url,
             "rating": float(other_user.rating),
+            "vouches_count": other_vouches,
+            "joined_year": other_user.created_at.year if other_user.created_at else None,
         } if other_user else None,
         "listing": listing_context,
         "unread": thread.unread_a if thread.participant_a == current_user.id else thread.unread_b,
+        "refs": refs,
         "messages": [_msg_dict(m) for m in messages],
     }
 
@@ -239,6 +264,7 @@ async def send_message(
         body=body.body,
         image_url=body.image_url,
         offer_item_id=body.offer_item_id,
+        ref_sku=body.ref_sku,
     )
     db.add(msg)
     await _bump_unread(db, thread, current_user.id)
@@ -304,5 +330,6 @@ def _msg_dict(m: Message) -> dict:
         "body": m.body,
         "image_url": m.image_url,
         "offer_item_id": str(m.offer_item_id) if m.offer_item_id else None,
+        "ref_sku": m.ref_sku,
         "created_at": m.created_at.isoformat(),
     }

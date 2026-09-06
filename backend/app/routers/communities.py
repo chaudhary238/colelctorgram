@@ -51,17 +51,17 @@ class UpdateCommunityBody(BaseModel):
 
 # DV8 — rules get a character cap (they were unbounded free text; the display is
 # collapsible now, but the cap keeps the Rules tab from becoming a wall of text).
-MAX_RULES = 10
-RULE_MAX_CHARS = 140
+# v8 model: ONE budget of 900 characters TOTAL across all rules, replacing the old
+# 10-rules × 140-chars ladder — founders write rules as prose lines, and per-line
+# quotas fought that (a 150-char rule 6 was "invalid" while ten 140-char rules
+# were fine). The client hard-slices at the same number.
+RULES_TOTAL_MAX_CHARS = 900
 
 
 def _validate_rules(rules: list[str]) -> list[str]:
     cleaned = [r.strip() for r in rules if r and r.strip()]
-    if len(cleaned) > MAX_RULES:
-        raise HTTPException(status_code=422, detail=f"Up to {MAX_RULES} rules.")
-    for r in cleaned:
-        if len(r) > RULE_MAX_CHARS:
-            raise HTTPException(status_code=422, detail=f"Each rule must be {RULE_MAX_CHARS} characters or fewer.")
+    if sum(len(r) for r in cleaned) > RULES_TOTAL_MAX_CHARS:
+        raise HTTPException(status_code=422, detail=f"Rules must be {RULES_TOTAL_MAX_CHARS} characters or fewer in total.")
     return cleaned
 
 

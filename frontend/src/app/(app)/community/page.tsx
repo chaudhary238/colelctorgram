@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, PlusCircle } from "lucide-react";
+import { Search, PlusCircle, Users, Compass } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiCommunity } from "@/components/cards";
 import { CategoryChip, SectionLabel, EmptyNote, Button, Segmented } from "@/components/ui";
@@ -44,12 +44,12 @@ const byActivity = (a: ApiCommunity, b: ApiCommunity) =>
 function CommunityPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // The active tab lives in the URL (?tab=joined) so BackButton (router.back) returns
-  // you to the SAME tab you left from — a joined community's back goes to Joined, not
-  // Discover (QA2). The URL is the single source of truth.
-  const tab: Tab = searchParams.get("tab") === "joined" ? "joined" : "discover";
+  // The active tab lives in the URL so BackButton (router.back) returns you to the
+  // SAME tab you left from (QA2). v8 flips the default: "Your communities" leads and
+  // Discover is the explicit ?tab=discover destination.
+  const tab: Tab = searchParams.get("tab") === "discover" ? "discover" : "joined";
   const selectTab = (t: Tab) =>
-    router.replace(t === "joined" ? "/community?tab=joined" : "/community", { scroll: false });
+    router.replace(t === "discover" ? "/community?tab=discover" : "/community", { scroll: false });
 
   const [cats, setCats] = useState<string[]>([]); // [] = all
   const [communities, setCommunities] = useState<ApiCommunity[]>([]);
@@ -125,9 +125,10 @@ function CommunityPageInner() {
           value={tab}
           onChange={(v) => selectTab(v as Tab)}
           options={[
-            /* v8 §8 — exact labels: "Discover" / "Your communities" (joined tab keeps its count). */
-            { id: "discover", label: "Discover" },
-            { id: "joined", label: mine.length ? `Your communities · ${mine.length}` : "Your communities" },
+            /* v8 (CommunityView.jsx:50-58) — yours first with its count in parentheses,
+               Discover second; each segment carries its glyph. */
+            { id: "joined", label: mine.length ? `Your communities (${mine.length})` : "Your communities", icon: <Users size={14} /> },
+            { id: "discover", label: "Discover", icon: <Compass size={14} /> },
           ]}
         />
       </div>

@@ -10,16 +10,6 @@ const CAT_TONE: Record<string, string> = { figures: "red", designer: "plum", kit
 function toneForCat(category: string | null): string {
   return CAT_TONE[(category ?? "").toLowerCase()] ?? "ink";
 }
-// QA2 — the community result tile paints a solid `var(--…)` directly (unlike ProductPhoto,
-// which has its own tone map). The short tokens "red"/"teal" have NO matching CSS var, so the
-// tile rendered transparent → invisible white initials. Map to the real, defined tokens.
-const CAT_TILE_VAR: Record<string, string> = {
-  figures: "var(--stamp-red)", designer: "var(--plum)", kits: "var(--forest)",
-  diecast: "var(--verified-teal)", tcg: "var(--grail-gold)",
-};
-function communityTileBg(category: string | null): string {
-  return CAT_TILE_VAR[(category ?? "").toLowerCase()] ?? "var(--ink)";
-}
 function skuToneSearch(sku: string | null, category: string | null): string {
   const m = (sku ?? "").match(/SKU-([A-Z]+)-/);
   const byPrefix: Record<string, string> = { FIG: "red", DSN: "plum", KIT: "forest", DCS: "teal" };
@@ -36,19 +26,47 @@ const SCOPES = [
   { id: "events", label: "Events" },
 ];
 
+// DV8 caps — posts show 5 rows, every other group 4 (Overlays.jsx:481/494).
+const POSTS_CAP = 5;
+const GROUP_CAP = 4;
+
 interface TrendTerm { rank: number; term: string; count: number; hot: boolean }
 
 interface SearchResult {
-  users: { id: string; handle: string; name: string; vouches_count: number }[];
-  posts: { id: string; type: string; snippet: string; handle: string; name: string; community: string | null }[];
-  catalogue: { sku: string; title: string; brand: string; category: string; thumbnail_url: string | null }[];
+  users: {
+    id: string; handle: string; name: string; avatar_url?: string | null;
+    // vouches_count comes from /search; the browse fallback (suggested users)
+    // carries followers_count instead — the row renders whichever exists.
+    vouches_count?: number; followers_count?: number;
+  }[];
+  posts: { id: string; type: string; snippet: string; handle: string; name: string; avatar_url?: string | null; community: string | null }[];
+  catalogue: {
+    sku: string; title: string; brand: string; category: string; thumbnail_url: string | null;
+    // DV8 provenance — unverified community entries credit their contributor.
+    is_verified?: boolean; intel_by?: string | null;
+  }[];
   communities: { id: string; name: string; description: string | null; category: string; member_count: number }[];
   events: { id: string; title: string; city: string | null; mode: string; starts_at: string }[];
+  // True totals per type (DV7-06) — present on /search responses, absent on browse.
+  counts?: { users: number; posts: number; catalogue: number; communities: number; events: number };
+}
+
+/* Browse-fallback payload shapes (GET /search requires q, so the empty-query
+   state assembles the same groups from each type's browse endpoint). */
+interface BrowseFeedItem { id: string; type: string; title?: string | null; body: string; iso_item?: string | null; handle: string | null; name: string | null; avatar_url: string | null }
+interface BrowseHit { sku: string; title: string; brand: string; category: string; thumbnail_url: string | null; is_verified: boolean }
+interface BrowseUser { id: string; handle: string; name: string; followers_count: number }
+interface BrowseCommunity { id: string; name: string; description: string | null; category: string; member_count: number }
+interface BrowseEvent { id: string; title: string; city: string | null; mode: string; starts_at: string }
+
+function browseSnippet(p: BrowseFeedItem): string {
+  const t = p.iso_item || p.title || p.body || "";
+  return t.length > 80 ? t.slice(0, 80) + "…" : t;
 }
 
 /* v3 ResRow — plain row, slate meta, subtle hover affordance for web. */
 function ResRow({ media, title, sub, action, onClick }: {
-  media: React.ReactNode; title: string; sub: string; action?: React.ReactNode; onClick?: () => void;
+  media: React.ReactNode; title: string; sub: React.ReactNode; action?: React.ReactNode; onClick?: () => void;
 }) {
   const [hover, setHover] = useState(false);
   return (
@@ -72,10 +90,13 @@ function ResRow({ media, title, sub, action, onClick }: {
   );
 }
 
-function ResGroup({ label, children }: { label: string; children: React.ReactNode }) {
+// DV8 — group headers append "· N" (true total) when the payload's count
+// exceeds what the capped list shows (Overlays gap list: "N results" counts).
+function ResGroup({ label, count, shown, children }: { label: string; count?: number; shown?: number; children: React.ReactNode }) {
+  const showCount = count != null && shown != null && count > shown;
   return (
     <div style={{ marginTop: 14 }}>
-      <SectionLabel>{label}</SectionLabel>
+      <SectionLabel>{showCount ? `${label} · ${count}` : label}</SectionLabel>
       <div style={{ marginTop: 8 }}>{children}</div>
     </div>
   );
@@ -90,6 +111,7 @@ function SearchPageInner() {
   const [scope, setScope] = useState(searchParams.get("scope") ?? "all");
   const [trending, setTrending] = useState<TrendTerm[]>([]);
   const [results, setResults] = useState<SearchResult | null>(null);
+  const [browse, setBrowse] = useState<SearchResult | null>(null);
   const [searching, setSearching] = useState(false);
 
   // Mirror q/scope into the URL with replace (no history spam while typing).
@@ -110,6 +132,38 @@ function SearchPageInner() {
       .catch(console.error);
   }, []);
 
+  // DV8 empty-query = populated browse. GET /search rejects an empty q
+  // (min_length=1), so each group fills from its own browse endpoint once on
+  // mount; Trending stays on top. Groups render with their normal labels and
+  // no "· N" counts (browse payloads have no totals).
+  useEffect(() => {
+    Promise.allSettled([
+      api.get<{ items: BrowseFeedItem[] }>(`/feed?limit=${POSTS_CAP}`),
+      api.get<{ hits: BrowseHit[] }>(`/catalogue/popular?limit=${GROUP_CAP}`),
+      api.get<BrowseUser[]>(`/users/me/suggested?limit=${GROUP_CAP}`),
+      api.get<BrowseCommunity[]>(`/communities?limit=${GROUP_CAP}`),
+      api.get<BrowseEvent[]>(`/events?limit=${GROUP_CAP}`),
+    ]).then(([feed, popular, people, coms, evs]) => {
+      const val = <T,>(r: PromiseSettledResult<T>): T | null => (r.status === "fulfilled" ? r.value : null);
+      const feedItems = val(feed)?.items ?? [];
+      setBrowse({
+        posts: feedItems.map((p) => ({
+          id: p.id, type: p.type, snippet: browseSnippet(p),
+          handle: p.handle ?? "", name: p.name ?? "", avatar_url: p.avatar_url, community: null,
+        })),
+        catalogue: (val(popular)?.hits ?? []).map((h) => ({
+          sku: h.sku, title: h.title, brand: h.brand, category: h.category,
+          thumbnail_url: h.thumbnail_url, is_verified: h.is_verified, intel_by: null,
+        })),
+        users: (val(people) ?? []).map((u) => ({
+          id: u.id, handle: u.handle, name: u.name, followers_count: u.followers_count,
+        })),
+        communities: val(coms) ?? [],
+        events: val(evs) ?? [],
+      });
+    });
+  }, []);
+
   // Debounced search
   useEffect(() => {
     if (!q.trim()) {
@@ -126,6 +180,13 @@ function SearchPageInner() {
     return () => clearTimeout(timer);
   }, [q]);
 
+  // v8 Overlays.jsx:442 — Cancel dismisses the overlay; here that's "leave
+  // /search the way you came in" (history back, /feed when opened cold).
+  const cancel = () => {
+    if (window.history.length > 1) router.back();
+    else router.push("/feed");
+  };
+
   const show = (id: string) => scope === "all" || scope === id;
   // scope-aware: "no results" reflects only the groups visible under the active scope
   const visibleCount = results
@@ -137,19 +198,143 @@ function SearchPageInner() {
     : 0;
   const empty = !!results && visibleCount === 0;
 
+  // Empty query renders the browse groups under Trending; a typed query renders results.
+  const data = q.trim() ? results : browse;
+
+  const renderGroups = (r: SearchResult) => {
+    const posts = r.posts.slice(0, POSTS_CAP);
+    const catalogue = r.catalogue.slice(0, GROUP_CAP);
+    const users = r.users.slice(0, GROUP_CAP);
+    const communities = r.communities.slice(0, GROUP_CAP);
+    const events = r.events.slice(0, GROUP_CAP);
+    return (
+      <>
+        {show("posts") && posts.length > 0 && (
+          <ResGroup label="Posts" count={r.counts?.posts} shown={posts.length}>
+            {posts.map((p) => (
+              <ResRow
+                key={p.id}
+                onClick={() => router.push(`/post/${p.id}`)}
+                media={<Avatar name={p.name ?? p.handle} photo={p.avatar_url} size={40} />}
+                title={p.snippet || "(no text)"}
+                sub={`@${p.handle}${p.community ? ` · ${p.community}` : ""}`}
+              />
+            ))}
+          </ResGroup>
+        )}
+
+        {/* Search finds things; the DB entry page acts on them (add / view / report).
+            Rows navigate like every other result group — no inline "+" action. */}
+        {show("items") && catalogue.length > 0 && (
+          <ResGroup label="Scorred DB" count={r.counts?.catalogue} shown={catalogue.length}>
+            {catalogue.map((c) => (
+              <ResRow
+                key={c.sku}
+                onClick={() => router.push(`/db/${encodeURIComponent(c.sku)}`)}
+                media={<div style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}><ProductPhoto tone={skuToneSearch(c.sku, c.category)} src={c.thumbnail_url} ratio="1/1" rounded={8} /></div>}
+                title={c.title}
+                // DV8 provenance subtitle (Overlays.jsx:498) — community entries credit
+                // their contributor; verified entries show brand only. No SKU (v8 dropped it).
+                sub={c.intel_by ? (
+                  <span>
+                    Intel by{" "}
+                    <span
+                      role="link"
+                      tabIndex={0}
+                      style={{ color: "var(--verified-teal)", cursor: "pointer", fontWeight: 600 }}
+                      onClick={(ev) => { ev.stopPropagation(); router.push(`/profile/${c.intel_by}`); }}
+                      onKeyDown={(ev) => { if (ev.key === "Enter") { ev.stopPropagation(); router.push(`/profile/${c.intel_by}`); } }}
+                    >@{c.intel_by}</span>
+                    {" "}· {c.brand}
+                  </span>
+                ) : c.brand}
+              />
+            ))}
+          </ResGroup>
+        )}
+
+        {show("people") && users.length > 0 && (
+          <ResGroup label="People" count={r.counts?.users} shown={users.length}>
+            {users.map((u) => (
+              <ResRow
+                key={u.id}
+                onClick={() => router.push(`/profile/${u.handle}`)}
+                media={<Avatar name={u.name ?? u.handle} photo={u.avatar_url} size={40} />}
+                title={u.name}
+                sub={`@${u.handle} · ${
+                  u.vouches_count != null
+                    ? `${u.vouches_count} vouches`
+                    : `${(u.followers_count ?? 0).toLocaleString("en-IN")} followers`
+                }`}
+              />
+            ))}
+          </ResGroup>
+        )}
+
+        {show("communities") && communities.length > 0 && (
+          <ResGroup label="Communities" count={r.counts?.communities} shown={communities.length}>
+            {communities.map((c) => (
+              <ResRow
+                key={c.id}
+                onClick={() => router.push(`/community/${c.id}`)}
+                // DV8 — solid ink square, initials in paper (Overlays.jsx:515).
+                media={<div style={{ width: 40, height: 40, borderRadius: 9, background: "var(--ink)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, textTransform: "uppercase" }}>{c.name.replace(/[^a-zA-Z]/g, "").slice(0, 2) || "C"}</div>}
+                title={c.name}
+                sub={`${c.member_count.toLocaleString("en-IN")} members`}
+              />
+            ))}
+          </ResGroup>
+        )}
+
+        {show("events") && events.length > 0 && (
+          <ResGroup label="Events" count={r.counts?.events} shown={events.length}>
+            {events.map((e) => (
+              <ResRow
+                key={e.id}
+                onClick={() => router.push(`/events/${e.id}`)}
+                // DV8 — solid plum date tile, paper month/day (Overlays.jsx:522).
+                media={<div style={{ width: 40, height: 40, borderRadius: 9, background: "var(--plum)", color: "var(--paper)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 1 }}>
+                  <span style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{new Date(e.starts_at).toLocaleString("en-IN", { month: "short" })}</span>
+                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15 }}>{new Date(e.starts_at).getDate()}</span>
+                </div>}
+                title={e.title}
+                sub={`${e.mode === "online" ? "Online" : e.city ?? "In person"} · ${new Date(e.starts_at).toLocaleString("en-IN", { day: "numeric", month: "short" })}`}
+              />
+            ))}
+          </ResGroup>
+        )}
+      </>
+    );
+  };
+
   return (
     <div className="w-full max-w-[680px] flex flex-col">
-      {/* search bar + scopes */}
-      <div className="sticky top-0 z-10" style={{ background: "var(--canvas)", borderBottom: "1px solid var(--slate-200)", padding: "16px 20px 12px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, height: 46, padding: "0 14px", borderRadius: 14, border: "1px solid var(--slate-200)", background: "var(--card-surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-          <Search size={18} style={{ color: "var(--slate-400)", flexShrink: 0 }} />
-          <input
-            autoFocus
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Items, posts, people, communities…"
-            style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)" }}
-          />
+      {/* search bar + Cancel + scopes — safe-area padded like v8's full-screen overlay */}
+      <div
+        className="sticky top-0 z-10"
+        style={{
+          background: "var(--paper)", borderBottom: "1px solid var(--slate-200)",
+          padding: "calc(16px + env(safe-area-inset-top)) 20px 12px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 9, height: 46, padding: "0 14px", borderRadius: 14, border: "1px solid var(--slate-200)", background: "var(--card-surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+            <Search size={18} style={{ color: "var(--slate-400)", flexShrink: 0 }} />
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Items, posts, people, communities…"
+              style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", minWidth: 0 }}
+            />
+          </div>
+          {/* v8 Overlays.jsx:442 — Cancel text button, trailing the field */}
+          <button
+            onClick={cancel}
+            style={{ background: "none", border: "none", color: "var(--ink)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 15, cursor: "pointer", flexShrink: 0, padding: 0 }}
+          >
+            Cancel
+          </button>
         </div>
         <div className="flex gap-[7px] mt-3 overflow-x-auto">
           {SCOPES.map((s) => (
@@ -160,8 +345,8 @@ function SearchPageInner() {
         </div>
       </div>
 
-      <div style={{ padding: "8px 20px 28px", background: "var(--canvas)", minHeight: "60vh" }}>
-        {/* Trending now — empty query */}
+      <div style={{ padding: "8px 20px 28px", background: "var(--paper)", minHeight: "60vh" }}>
+        {/* Trending now — empty query, always on top of the browse groups */}
         {!q && (
           <div style={{ marginTop: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase", color: "var(--slate-400)", marginBottom: 12 }}>Trending now</div>
@@ -187,98 +372,16 @@ function SearchPageInner() {
               </button>
             ))}
             {trending.length === 0 && (
-              <div style={{ textAlign: "center", padding: "40px 0", color: "var(--slate-400)", fontSize: 13.5 }}>No trending topics yet — start searching above.</div>
+              <div style={{ textAlign: "center", padding: "20px 0", color: "var(--slate-400)", fontSize: 13.5 }}>No trending topics yet — start searching above.</div>
             )}
           </div>
         )}
 
-        {/* Search results */}
-        {q && (
-          <>
-            {searching && !results && <div style={{ color: "var(--slate-400)", fontSize: 13, padding: "12px 0" }}>Searching…</div>}
-            {results && (
-              <>
-                {show("posts") && results.posts.length > 0 && (
-                  <ResGroup label="Posts">
-                    {results.posts.map((p) => (
-                      <ResRow
-                        key={p.id}
-                        onClick={() => router.push(`/post/${p.id}`)}
-                        media={<Avatar name={p.name ?? p.handle} size={40} />}
-                        title={p.snippet || "(no text)"}
-                        sub={`@${p.handle}${p.community ? ` · ${p.community}` : ""}`}
-                      />
-                    ))}
-                  </ResGroup>
-                )}
-
-                {/* Search finds things; the DB entry page acts on them (add / view / report).
-                    Rows navigate like every other result group — no inline "+" action. */}
-                {show("items") && results.catalogue.length > 0 && (
-                  <ResGroup label="Scorred DB">
-                    {results.catalogue.map((c) => (
-                      <ResRow
-                        key={c.sku}
-                        onClick={() => router.push(`/db/${encodeURIComponent(c.sku)}`)}
-                        media={<div style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}><ProductPhoto tone={skuToneSearch(c.sku, c.category)} src={c.thumbnail_url} ratio="1/1" rounded={8} /></div>}
-                        title={c.title}
-                        sub={`${c.sku} · ${c.brand}`}
-                      />
-                    ))}
-                  </ResGroup>
-                )}
-
-                {show("people") && results.users.length > 0 && (
-                  <ResGroup label="People">
-                    {results.users.map((u) => (
-                      <ResRow
-                        key={u.id}
-                        onClick={() => router.push(`/profile/${u.handle}`)}
-                        media={<Avatar name={u.name ?? u.handle} size={40} />}
-                        title={u.name}
-                        sub={`@${u.handle} · ${u.vouches_count} vouches`}
-                      />
-                    ))}
-                  </ResGroup>
-                )}
-
-                {show("communities") && results.communities.length > 0 && (
-                  <ResGroup label="Communities">
-                    {results.communities.map((c) => (
-                      <ResRow
-                        key={c.id}
-                        onClick={() => router.push(`/community/${c.id}`)}
-                        media={<div style={{ width: 40, height: 40, borderRadius: 9, background: communityTileBg(c.category), color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, textTransform: "uppercase" }}>{c.name.replace(/[^a-zA-Z]/g, "").slice(0, 2) || "C"}</div>}
-                        title={c.name}
-                        sub={`${c.member_count.toLocaleString("en-IN")} members`}
-                      />
-                    ))}
-                  </ResGroup>
-                )}
-
-                {show("events") && results.events.length > 0 && (
-                  <ResGroup label="Events">
-                    {results.events.map((e) => (
-                      <ResRow
-                        key={e.id}
-                        onClick={() => router.push(`/events/${e.id}`)}
-                        media={<div style={{ width: 40, height: 40, borderRadius: 9, background: "var(--plum-soft)", color: "var(--plum)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0, lineHeight: 1 }}>
-                          <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{new Date(e.starts_at).toLocaleString("en-IN", { month: "short" })}</span>
-                          <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16 }}>{new Date(e.starts_at).getDate()}</span>
-                        </div>}
-                        title={e.title}
-                        sub={`${e.mode === "online" ? "Online" : e.city ?? "In person"} · ${new Date(e.starts_at).toLocaleString("en-IN", { day: "numeric", month: "short" })}`}
-                      />
-                    ))}
-                  </ResGroup>
-                )}
-
-                {empty && (
-                  <div style={{ textAlign: "center", padding: "40px 0", color: "var(--slate-400)" }}>No results for &ldquo;{q}&rdquo;.</div>
-                )}
-              </>
-            )}
-          </>
+        {/* Groups: browse fallback on empty query, live results on a typed one */}
+        {q && searching && !results && <div style={{ color: "var(--slate-400)", fontSize: 13, padding: "12px 0" }}>Searching…</div>}
+        {data && renderGroups(data)}
+        {q && empty && (
+          <div style={{ textAlign: "center", padding: "40px 0", color: "var(--slate-400)" }}>No results for &ldquo;{q}&rdquo;.</div>
         )}
       </div>
 

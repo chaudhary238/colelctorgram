@@ -40,7 +40,7 @@ export function BottomNav() {
     <nav
       className="lg:hidden fixed bottom-0 left-0 right-0 z-20 bg-[var(--paper)]"
       style={{
-        boxShadow: "0 -1px 0 var(--border), 0 -8px 32px rgba(0,0,0,0.07)",
+        boxShadow: "0 -1px 0 var(--slate-200), 0 -8px 32px rgba(0,0,0,0.07)",
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
@@ -57,11 +57,12 @@ export function BottomNav() {
               className="flex-1 flex flex-col items-center gap-[3px] px-0.5 pt-1 pb-0.5"
             >
               <span
-                className="flex items-center justify-center h-8 rounded-2xl transition-all duration-200"
+                className="flex items-center justify-center h-8 rounded-2xl"
                 style={{
                   width: active ? 56 : 44,
                   background: active ? "var(--stamp-red)" : "transparent",
                   boxShadow: active ? "0 2px 12px rgba(255,36,66,0.3)" : "none",
+                  transition: "all 220ms var(--ease-out)",
                 }}
               >
                 {active && isHome ? (
@@ -76,6 +77,8 @@ export function BottomNav() {
                 style={{
                   fontWeight: active ? 700 : 400,
                   color: active ? "var(--stamp-red)" : "var(--slate-400)",
+                  letterSpacing: active ? "-0.01em" : "0.01em",
+                  transition: "color 200ms",
                 }}
               >
                 {label}

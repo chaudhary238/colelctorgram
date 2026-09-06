@@ -20,8 +20,8 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { MessageCircle, Shield, UserPlus, Heart, LayoutGrid, X } from "lucide-react";
-import { Avatar, CategoryChip, Money } from "@/components/ui";
+import { MessageCircle, Shield, User, Heart, LayoutGrid, X } from "lucide-react";
+import { Avatar, CategoryChip } from "@/components/ui";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
 
@@ -51,7 +51,8 @@ interface ApiNotification {
 // tile AND each row's kind badge (v3 has no richer per-kind icon set).
 const CATEGORIES = [
   { id: "likes",   label: "Likes",   icon: Heart,         color: "var(--stamp-red)" },
-  { id: "follows", label: "Follows", icon: UserPlus,      color: "var(--plum)" },
+  /* v8 (Overlays.jsx:557) — the Follows tile carries the plain User glyph, not UserPlus. */
+  { id: "follows", label: "Follows", icon: User,          color: "var(--plum)" },
   { id: "replies", label: "Replies", icon: MessageCircle, color: "var(--verified-teal)" },
   { id: "vouch",   label: "Vouch",   icon: Shield,        color: "var(--forest)" },
   { id: "other",   label: "Other",   icon: LayoutGrid,    color: "var(--grail-gold-deep)" },
@@ -62,9 +63,11 @@ type CategoryId = (typeof CATEGORIES)[number]["id"];
 function categoryOf(kind: string): CategoryId {
   if (kind === "like") return "likes";
   if (kind === "follow") return "follows";
-  if (kind === "comment") return "replies";
+  // v8 (Overlays.jsx:556-561) buckets community activity under Replies —
+  // community notifications are conversation, not "other".
+  if (kind === "comment" || kind === "community") return "replies";
   if (kind === "vouch") return "vouch";
-  return "other"; // deal, wishlist*, event, preorder*, community, …
+  return "other"; // deal, wishlist*, event, preorder*, …
 }
 
 const catMeta = (kind: string) => CATEGORIES.find((c) => c.id === categoryOf(kind))!;
@@ -173,28 +176,30 @@ function ActivityScreen() {
                   href={`/chat/${t.id}`}
                   style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textDecoration: "none", borderBottom: "1px solid var(--border)", padding: "13px 20px" }}
                 >
-                  <Avatar name={t.other_user?.name ?? "?"} photo={t.other_user?.avatar_url} size={42} />
+                  {/* v8 — 48px avatar and the 20px unread pill at the far right, matching /inbox. */}
+                  <Avatar name={t.other_user?.name ?? "?"} photo={t.other_user?.avatar_url} size={48} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {t.other_user?.name ?? "Unknown"}
+                    <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {t.other_user?.name ?? "Unknown"}
+                      </span>
+                      <span style={{ fontSize: 11, color: "var(--ink-faint)", flexShrink: 0 }}>{timeAgo(t.last_message_at)}</span>
                     </div>
+                    {/* v8 (Chat.jsx:24) — body-font catalogue title, ellipsized; no mono, no price. */}
                     {t.listing && (
-                      <div style={{ fontSize: 11, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", margin: "2px 0" }}>
-                        re: {t.listing.title.slice(0, 32)}{t.listing.title.length > 32 ? "…" : ""} · <Money value={Math.round(t.listing.price / 100)} />
+                      <div style={{ fontSize: 11, color: "var(--ink-faint)", margin: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        re: {t.listing.title}
                       </div>
                     )}
                     <div style={{ fontSize: 13, marginTop: 2, color: t.unread > 0 ? "var(--ink)" : "var(--ink-faint)", fontWeight: t.unread > 0 ? 500 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {t.last_message ?? "No messages yet"}
                     </div>
                   </div>
-                  <div style={{ flexShrink: 0, textAlign: "right" }}>
-                    <div style={{ fontSize: 11, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>{timeAgo(t.last_message_at)}</div>
-                    {t.unread > 0 && (
-                      <div style={{ marginTop: 5, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                        {t.unread}
-                      </div>
-                    )}
-                  </div>
+                  {t.unread > 0 && (
+                    <span style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 999, background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {t.unread}
+                    </span>
+                  )}
                 </Link>
               ))}
       </div>

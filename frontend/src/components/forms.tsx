@@ -17,8 +17,10 @@ const poSelectStyle: React.CSSProperties = {
 };
 
 // Money input with a leading currency selector — default INR (v4 MoneyField).
+// `trailing` renders right-aligned inside the field — DV8 uses it for the
+// "MRP ~₹X" anchor on the asking price (design_v8 AddToCollection SellView).
 export function MoneyField({
-  value, onChange, cur, onCur, bad, placeholder = "0", big = false,
+  value, onChange, cur, onCur, bad, placeholder = "0", big = false, trailing,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -27,6 +29,7 @@ export function MoneyField({
   bad?: boolean;
   placeholder?: string;
   big?: boolean;
+  trailing?: React.ReactNode;
 }) {
   return (
     <div style={{
@@ -47,6 +50,11 @@ export function MoneyField({
       <input value={value} onChange={(e) => onChange(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder={placeholder}
         style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", padding: "0 13px",
           fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: big ? 21 : 16, color: "var(--ink)" }} />
+      {trailing && (
+        <span style={{ display: "flex", alignItems: "center", paddingRight: 13, fontSize: 12, color: "var(--ink-faint)", whiteSpace: "nowrap", flexShrink: 0 }}>
+          {trailing}
+        </span>
+      )}
     </div>
   );
 }

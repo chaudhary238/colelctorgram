@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { SealMark, ScorredWordmark } from "@/components/ui";
 
-// Splash (v6 Onboarding.jsx) — the unauthenticated landing.
+// Splash (design_v8/app/Onboarding.jsx) — the unauthenticated landing.
 export default function SplashPage() {
   const router = useRouter();
 
@@ -21,10 +21,10 @@ export default function SplashPage() {
         .scr-fu-3 { animation: scr-fade-up 0.5s 0.6s ease both; }
       `}</style>
 
-      {/* Ambient bg glow */}
+      {/* Ambient bg glow (v8 tint) */}
       <div
         className="absolute inset-0"
-        style={{ pointerEvents: "none", backgroundImage: "radial-gradient(circle at 50% 38%, rgba(255,36,66,0.10), transparent 60%), radial-gradient(circle at 85% 90%, rgba(20,17,15,0.04), transparent 50%)" }}
+        style={{ pointerEvents: "none", backgroundImage: "radial-gradient(circle at 50% 38%, rgba(196,18,48,0.10), transparent 60%), radial-gradient(circle at 85% 90%, rgba(20,17,15,0.04), transparent 50%)" }}
       />
 
       <div className="flex-1 flex flex-col items-center justify-center relative px-8" style={{ gap: 14 }}>
@@ -34,26 +34,33 @@ export default function SplashPage() {
         <div className="scr-fu-1 flex justify-center">
           <ScorredWordmark fontSize={38} />
         </div>
+        {/* v8 two-line lockup: red uppercase eyebrow over the grey tagline */}
+        <p
+          className="scr-fu-2"
+          style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--stamp-red)", margin: "0 0 2px", textAlign: "center" }}
+        >
+          For the collectors, by the collectors
+        </p>
         <p
           className="scr-fu-2"
           style={{ fontSize: 15.5, color: "var(--ink-mute)", lineHeight: 1.55, margin: 0, maxWidth: 264, textAlign: "center" }}
         >
-          For the collectors, by the collectors — Track, trade &amp; network on the #1 collectibles platform.
+          Track, trade &amp; network on the #1 collectibles platform.
         </p>
       </div>
 
-      <div className="scr-fu-3 relative flex flex-col gap-2.5" style={{ padding: "0 24px 44px", maxWidth: 420, width: "100%", marginLeft: "auto", marginRight: "auto" }}>
+      <div className="scr-fu-3 relative flex flex-col" style={{ gap: 10, padding: "0 24px 44px", maxWidth: 420, width: "100%", marginLeft: "auto", marginRight: "auto" }}>
         <button
           onClick={() => router.push("/auth/signup")}
-          className="w-full py-3 rounded-xl font-semibold text-sm"
-          style={{ background: "var(--stamp-red)", color: "#fff" }}
+          className="w-full font-semibold cursor-pointer"
+          style={{ height: 52, borderRadius: 14, fontSize: 16, background: "var(--stamp-red)", color: "#fff", border: "1px solid var(--stamp-red)" }}
         >
           Create account
         </button>
         <button
           onClick={() => router.push("/auth/signin")}
-          className="w-full py-3 rounded-xl font-semibold text-sm"
-          style={{ background: "var(--paper-soft)", color: "var(--ink)", border: "1px solid var(--border-strong)" }}
+          className="w-full font-semibold cursor-pointer"
+          style={{ height: 52, borderRadius: 14, fontSize: 16, background: "var(--bone)", color: "var(--ink-soft)", border: "1px solid var(--border-strong)" }}
         >
           I already have an account
         </button>

@@ -49,6 +49,7 @@ class Post(Base):
     # TEXT[] that every read path collapsed to one string — the composer is a single
     # select, so the list shape was redundant.
     iso_condition: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    iso_city: Mapped[str | None] = mapped_column(Text, nullable=True)  # DV8 — "Mumbai" / "Anywhere in India"; cards render a pin chip
 
     # DF-30h — multi-community posting. community_id stays the PRIMARY community;
     # post_communities holds every target. to_feed gates the global feed.

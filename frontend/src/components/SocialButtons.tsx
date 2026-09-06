@@ -47,7 +47,17 @@ export function SocialButtons({ onError }: { onError?: (msg: string) => void }) 
     try {
       const { access_token, refresh_token } = await api.post<{ access_token: string; refresh_token: string }>(path, { credential });
       storeTokens(access_token, refresh_token);
-      window.location.assign("/feed");
+      // DV8 P0-4: social sign-in must not bypass the wizard — accounts that
+      // haven't finished onboarding (no onboarded_at stamp) land there first.
+      // Full page load either way so AuthProvider refetches with the new token.
+      let dest = "/feed";
+      try {
+        const me = await api.get<{ onboarded_at?: string | null }>("/users/me");
+        if (!me?.onboarded_at) dest = "/onboarding";
+      } catch {
+        // can't tell — default to /feed
+      }
+      window.location.assign(dest);
     } catch (e) {
       onError?.(e instanceof Error ? e.message : "Sign-in failed");
     }
@@ -97,13 +107,15 @@ export function SocialButtons({ onError }: { onError?: (msg: string) => void }) 
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "22px 0" }}>
-        <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-        <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>or continue with</span>
-        <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+        <div style={{ flex: 1, height: 1, background: "var(--slate-200)" }} />
+        <span style={{ fontSize: 12, color: "var(--slate-400)" }}>or continue with</span>
+        <div style={{ flex: 1, height: 1, background: "var(--slate-200)" }} />
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+      {/* DV8: providers sit side-by-side in one row (Onboarding.jsx:152-155);
+          a lone configured provider just takes the full width. */}
+      <div style={{ display: "flex", gap: 11 }}>
         {providers.google && (
-          <div ref={googleWrapRef} style={{ display: "flex", justifyContent: "center", minHeight: 44 }}>
+          <div ref={googleWrapRef} style={{ flex: 1, display: "flex", justifyContent: "center", minHeight: 44 }}>
             <div ref={googleBtnRef} />
           </div>
         )}

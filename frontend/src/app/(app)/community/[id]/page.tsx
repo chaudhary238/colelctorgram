@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Share2, Shield, Globe, CheckCircle2, Check, Settings2, UserPlus, Clock } from "lucide-react";
+import { Share2, Shield, Globe, CheckCircle2, Check, Settings2, UserPlus, Clock, Plus } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
@@ -58,14 +58,15 @@ function displayRole(role: string) {
   return role === "founder" ? "admin" : role;
 }
 
-/* ADMIN = ink-inverted, MOD = bone — shared chip for rosters and post cards. */
+/* v8 RoleBadge (CommunityDetail.jsx:7-13) — ADMIN = stamp-red on paper text,
+   MOD = bone-deep. Shared chip for rosters and post cards. */
 function RoleChip({ role, style }: { role: string; style?: React.CSSProperties }) {
   const admin = role === "founder" || role === "admin";
   return (
     <span style={{
       fontFamily: "var(--font-mono)", fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase",
       padding: "3px 8px", borderRadius: 6, fontWeight: 700, flexShrink: 0,
-      background: admin ? "var(--ink)" : "var(--bone-deep)", color: admin ? "var(--paper)" : "var(--ink-mute)",
+      background: admin ? "var(--stamp-red)" : "var(--bone-deep)", color: admin ? "var(--paper)" : "var(--ink-mute)",
       ...style,
     }}>
       {displayRole(role)}
@@ -139,6 +140,7 @@ export default function CommunityDetailPage() {
   const [shared, setShared] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pendingCount, setPendingCount] = useState(0); // join requests + posts awaiting review (admin only)
+  const [leaveConfirm, setLeaveConfirm] = useState(false); // v8 styled leave modal
 
   async function toggleJoin() {
     if (!community || joinBusy) return;
@@ -196,9 +198,13 @@ export default function CommunityDetailPage() {
   }
 
   // Leave needs a confirm step — rejoining now goes back through admin approval.
+  // v8 (CommunityDetail.jsx:297-310) — a styled modal card, not window.confirm.
   function confirmLeave() {
     if (!community) return;
-    if (!window.confirm(`Leave ${community.name}? You'll need approval to rejoin.`)) return;
+    setLeaveConfirm(true);
+  }
+  function doLeave() {
+    setLeaveConfirm(false);
     toggleJoin();
   }
 
@@ -268,8 +274,9 @@ export default function CommunityDetailPage() {
   if (isMod) {
     headerCta = (
       <Link href={`/community/${id}/manage`} style={{ textDecoration: "none" }}>
+        {/* v8 (CommunityDetail.jsx:110) — the CTA reads "Manage community · N". */}
         <Button size="sm" variant="secondary" icon={<Settings2 size={15} />}>
-          Manage{pendingCount > 0 ? ` · ${pendingCount}` : ""}
+          Manage community{pendingCount > 0 ? ` · ${pendingCount}` : ""}
         </Button>
       </Link>
     );
@@ -403,14 +410,10 @@ export default function CommunityDetailPage() {
 
           {tab === "posts" ? (
             <div>
-              {joined && (accepted ? (
-                <Link href={`/compose?community=${community.id}`} style={{ display: "flex", alignItems: "center", gap: 10, width: "calc(100% - 40px)", margin: "14px 20px 4px", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 12, padding: "11px 14px", cursor: "pointer", textAlign: "left", textDecoration: "none" }}>
-                  <Avatar name="You" size={30} />
-                  <span style={{ fontSize: 14, color: "var(--ink-faint)" }}>
-                    {approval ? `Suggest a post to ${community.name}…` : `Share something with ${community.name}…`}
-                  </span>
-                </Link>
-              ) : (
+              {/* v8 (CommunityDetail.jsx:80-92) — the composer trigger moved to a sticky
+                  footer bar (rendered after the tab content below); only the accept-the-
+                  guidelines card still leads the list. */}
+              {joined && (accepted ? null : (
                 <div style={{ margin: "14px 20px 4px", background: "var(--bone)", border: "1px solid var(--border)", borderRadius: 13, padding: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                     <Shield size={17} style={{ color: "var(--ink-mute)" }} />
@@ -470,6 +473,17 @@ export default function CommunityDetailPage() {
                 ))}
                 {members.length === 0 && <EmptyNote>No members yet.</EmptyNote>}
               </div>
+              {/* v8 (CommunityDetail.jsx:275-277) — a member's exit lives at the list's
+                  foot as a red text link; admins manage, they don't "leave". */}
+              {joined && !isMod && (
+                <button
+                  type="button"
+                  onClick={() => setLeaveConfirm(true)}
+                  style={{ marginTop: 20, width: "100%", textAlign: "center", background: "none", border: "none", cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13 }}
+                >
+                  Leave community
+                </button>
+              )}
             </div>
           ) : (
             <div style={{ padding: "16px 20px" }}>
@@ -484,8 +498,75 @@ export default function CommunityDetailPage() {
                   <CheckCircle2 size={16} />You&rsquo;ve accepted these guidelines.
                 </div>
               )}
+              {/* v8 (CommunityDetail.jsx:292-294) — same red exit link under the rules. */}
+              {joined && !isMod && (
+                <button
+                  type="button"
+                  onClick={() => setLeaveConfirm(true)}
+                  style={{ marginTop: 20, width: "100%", textAlign: "center", background: "none", border: "none", cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13 }}
+                >
+                  Leave community
+                </button>
+              )}
             </div>
           )}
+
+          {/* v8 (CommunityDetail.jsx:80-92) — STICKY FOOTER composer trigger on the
+              Posts tab once you're a member who accepted the guidelines: 48px bar with
+              a 1.5px ink border on paper, bold ink text, 34px dark rounded + square.
+              The bottom offset clears the fixed BottomNav below lg. */}
+          {tab === "posts" && joined && accepted && (
+            <div
+              className="sticky z-20 bottom-[calc(64px+env(safe-area-inset-bottom))] lg:bottom-0"
+              style={{ background: "var(--paper)", borderTop: "1px solid var(--slate-200)", padding: "10px 20px", marginTop: 8 }}
+            >
+              <Link
+                href={`/compose?community=${community.id}`}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10, width: "100%", height: 48,
+                  boxSizing: "border-box", padding: "0 8px 0 16px", borderRadius: 14,
+                  border: "1.5px solid var(--ink)", background: "var(--paper)",
+                  fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)",
+                  textAlign: "left", textDecoration: "none",
+                }}
+              >
+                Write something or create a post…
+                <span style={{ marginLeft: "auto", width: 34, height: 34, borderRadius: 10, background: "var(--ink)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Plus size={18} strokeWidth={2.2} />
+                </span>
+              </Link>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* v8 (CommunityDetail.jsx:297-310) — styled leave-confirm modal card. */}
+      {leaveConfirm && (
+        <>
+          <button
+            type="button"
+            aria-label="Cancel"
+            onClick={() => setLeaveConfirm(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(20,17,15,0.4)", zIndex: 140, border: "none", cursor: "default" }}
+          />
+          <div style={{
+            position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)", zIndex: 141,
+            width: "min(calc(100% - 40px), 380px)", background: "var(--paper)", borderRadius: 18, padding: 20,
+            boxShadow: "var(--shadow-2)", boxSizing: "border-box",
+          }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--ink)" }}>
+              Leave {community.name}?
+            </div>
+            <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5, marginTop: 6 }}>
+              {isPrivate
+                ? "You'll need to request to join again to get back in."
+                : "You can ask to rejoin anytime, but you'll lose your role and any unread activity here."}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+              <Button variant="secondary" style={{ flex: 1, justifyContent: "center" }} onClick={() => setLeaveConfirm(false)}>Cancel</Button>
+              <Button variant="destructive" style={{ flex: 1, justifyContent: "center" }} disabled={joinBusy} onClick={doLeave}>Leave</Button>
+            </div>
+          </div>
         </>
       )}
     </div>

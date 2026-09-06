@@ -10,13 +10,15 @@
  * each page supplies itself.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  ChevronRight, Clock, Eye, MessageCircle, Pencil, Send, Star, Users,
+  ChevronRight, Clock, Eye, Heart, MessageCircle, MoreHorizontal, Pencil, Send, Star, Trash2, User,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { Avatar, IconButton, ProductPhoto, SealMark, SectionLabel } from "@/components/ui";
+import { FeedBadge, goldFrameRing, hasGoldFrame, type FeedBadgeT } from "@/components/gamification";
+import { Avatar, IconButton, ProductPhoto, SealMark } from "@/components/ui";
+import { MentionInput, renderCommentBody } from "@/components/cards";
 import { formatMoney } from "@/lib/catalog";
 import { timeAgo } from "@/lib/utils";
 import { useUser } from "@/lib/auth-context";
@@ -36,17 +38,55 @@ export interface RatingAggregate {
   my_rating: number | null;
 }
 
+/* ── Status tag — v8 shared.jsx Tag, verbatim styles/kinds ─────
+   Uppercase 10px chip; kinds map to v8: default (bone), po (gold), teal
+   (soft teal + border), sale (stamp red), sold (forest). */
+export function ItemTag({ kind = "default", children }: {
+  kind?: "default" | "sale" | "po" | "teal" | "sold";
+  children: React.ReactNode;
+}) {
+  const styles: Record<string, React.CSSProperties> = {
+    sale: { background: "var(--stamp-red)", color: "var(--paper)" },
+    po: { background: "var(--grail-gold)", color: "var(--ink)" },
+    sold: { background: "var(--forest)", color: "var(--paper)" },
+    teal: { background: "var(--verified-teal-soft)", color: "var(--verified-teal)", border: "1px solid var(--verified-teal)" },
+    default: { background: "var(--bone)", color: "var(--ink)" },
+  };
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      padding: "4px 8px", borderRadius: 6, lineHeight: 1,
+      fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 10,
+      letterSpacing: "0.08em", textTransform: "uppercase",
+      ...styles[kind],
+    }}>{children}</span>
+  );
+}
+
 /* ── Photo / carousel ────────────────────────────────────────── */
-export function ItemPhotoCarousel({ images, tone, label }: { images: string[]; tone: string; label?: string }) {
+export function ItemPhotoCarousel({ images, tone, label, countInLabel = false }: {
+  images: string[];
+  tone: string;
+  label?: string;
+  /** v8 :166 — the owner's photo label carries the index: "your photo · 1 of 3". */
+  countInLabel?: boolean;
+}) {
   const [photo, setPhoto] = useState(0);
   if (images.length === 0) {
     return <ProductPhoto tone={tone} ratio="1/1" rounded={0} label={label ?? "catalogue reference"} />;
   }
   return (
     <>
-      <div style={{ aspectRatio: "1/1", overflow: "hidden", background: "var(--bone)" }}>
+      <div style={{ position: "relative", aspectRatio: "1/1", overflow: "hidden", background: "var(--bone)" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={images[Math.min(photo, images.length - 1)]} alt={label ?? "Item photo"} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        {/* Same corner label ProductPhoto stamps on tone renders (ui.tsx :461), with a
+            faint shadow so it survives light photos. */}
+        {label && (
+          <div style={{ position: "absolute", bottom: 8, left: 10, color: "rgba(244,239,230,0.85)", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.05em", textShadow: "0 1px 3px rgba(0,0,0,0.55)" }}>
+            {countInLabel ? `${label} · ${Math.min(photo, images.length - 1) + 1} of ${images.length}` : label}
+          </div>
+        )}
       </div>
       {images.length > 1 && (
         <div style={{ display: "flex", gap: 6, justifyContent: "center", padding: "12px 0 0" }}>
@@ -72,17 +112,20 @@ export function ProvenanceLine({ isVerified, addedBy, isYou }: {
   addedBy: string | null; // contributor handle; null → "Scorred"
   isYou?: boolean;
 }) {
+  // v8 :180 — an entry with NO contributor is the house catalogue's own, so it reads
+  // Reviewed even without the explicit flag; only a user-contributed pending row waits.
+  const reviewed = isVerified || !addedBy;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-      {isVerified ? (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 999, background: "var(--paper-soft)", border: "1px solid var(--border-strong)" }}>
+      {reviewed ? (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 999, background: "oklch(97% 0.01 30)", border: "1px solid oklch(85% 0.04 30)" }}>
           <SealMark size={14} />
           <span style={{ fontSize: 11.5, color: "var(--ink-soft)", fontWeight: 600 }}>Scorred Reviewed</span>
         </span>
       ) : (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 999, background: "var(--bone)", border: "1px solid var(--border-strong)" }}>
           <Clock size={12} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
-          <span style={{ fontSize: 11.5, color: "var(--ink-faint)", fontWeight: 600 }}>Pending review</span>
+          <span style={{ fontSize: 11.5, color: "var(--ink-faint)", fontWeight: 600 }}>Pending Review</span>
         </span>
       )}
       {isYou || !addedBy ? (
@@ -129,7 +172,11 @@ export function OwnershipCard({
   listingPrice = null,
   listingCurrency,
   preorder = null,
+  sold = false,
+  soldPrice = null,
   onEditPreorder,
+  onComplete,
+  onAsk,
 }: {
   status: "owned" | "preorder";
   viewerIsOwner: boolean;
@@ -144,30 +191,86 @@ export function OwnershipCard({
   listingPrice?: number | null; // minor units (listing_price from GET /items/{id})
   listingCurrency?: string | null;
   preorder?: PreorderFacts | null;
+  /** v8 sold treatment (ItemDetail :244-246): sold_at set → the whole card greys
+      out, header reads "Your copy — sold", no gaps/finish CTAs, listing row closed. */
+  sold?: boolean;
+  soldPrice?: number | null;    // minor units; owner-only (sold_price from GET /items/{id})
   onEditPreorder?: () => void;
+  /** v8 complete-items flow: gap rows show "Add →" and the "Finish this item" CTA routes here. */
+  onComplete?: () => void;
+  /** DV8 "Ask about it" — opens (or reuses) the pair DM with the owner. Must THROW
+      on failure: a privacy 403's detail becomes the quiet inline note below. */
+  onAsk?: () => Promise<void>;
 }) {
-  const [open, setOpen] = useState(false);
   const isPo = status === "preorder";
   const condLabel = condition ? CONDITION_LABEL[condition] ?? condition : null;
   const handle = ownerHandle ?? "collector";
+  const hasValue = value != null && value > 0;
 
   const poTotal = preorder?.total ?? null;
   const poDeposit = preorder?.deposit ?? 0;
   const hasTotal = poTotal != null && poTotal > 0;
   const poBalance = Math.max(0, (poTotal ?? 0) - poDeposit);
-  const etaText = preorder?.eta
-    ? preorder.eta
-    : preorder?.precision === "tbd" ? "Date not announced" : "ETA TBD";
 
-  const header = isPo
+  // Gaps only matter on your own copy — a visitor shouldn't be told what you
+  // haven't filled in (v8 itemGaps: preorder → ETA/price, owned → condition/price).
+  // A sold copy is never "incomplete" — its record is closed, so no finish CTAs.
+  const gaps: string[] = viewerIsOwner && !sold
+    ? isPo
+      ? [
+          ...(preorder?.precision !== "tbd" && !preorder?.eta ? ["ETA"] : []),
+          ...(poTotal == null && !hasValue ? ["price"] : []),
+        ]
+      : [
+          ...(!condLabel ? ["condition"] : []),
+          ...(!hasValue ? ["price"] : []),
+        ]
+    : [];
+  const gapSentence = gaps.length
+    ? "Needs " + (gaps.length > 1 ? gaps.slice(0, -1).join(", ") + " & " + gaps[gaps.length - 1] : gaps[0])
+    : "";
+
+  // Every ownership card opens collapsed for consistency; only a pre-order or an
+  // incomplete copy opens expanded, because there the rows are the call to action (v8 :50).
+  const [open, setOpen] = useState(isPo || gaps.length > 0);
+
+  // DV8 "Ask about it" — a privacy 403 swaps the button for this quiet note, once,
+  // in place (no toast spam). A network blip keeps the button so a retry works.
+  const [askBusy, setAskBusy] = useState(false);
+  const [askNote, setAskNote] = useState<string | null>(null);
+
+  async function ask() {
+    if (!onAsk || askBusy) return;
+    setAskBusy(true);
+    try {
+      await onAsk();
+    } catch (e) {
+      if (e instanceof TypeError) { // fetch itself failed — transient, keep the button
+        console.error(e);
+      } else {
+        const detail = e instanceof Error && e.message && e.message !== "Request failed" ? e.message : null;
+        setAskNote(detail ?? `@${handle} only accepts messages from collectors they follow.`);
+      }
+    } finally {
+      setAskBusy(false);
+    }
+  }
+
+  // v8 :216 — a sold copy's header states it plainly; the owner's phrasing matches
+  // the design verbatim, a visitor keeps the possessive form.
+  const header = sold
+    ? viewerIsOwner ? "Your copy — sold" : `@${handle}’s copy — sold`
+    : isPo
     ? viewerIsOwner ? "Your pre-order" : `@${handle} has this on pre-order`
     : viewerIsOwner ? "About your copy" : `In @${handle}’s collection`;
 
   // Price renders ONLY when value != null — the API returns value: null to non-owners.
-  const sub = isPo
-    ? [etaText, viewerIsOwner && hasTotal && poBalance > 0 ? `${formatMoney(poBalance, currency)} due` : null]
+  // Collapsed, a pre-order still shows the two things you'd open it for (v8 :219-223).
+  const sub = gaps.length ? gapSentence : isPo
+    ? [preorder?.eta ? preorder.eta : (preorder?.precision === "tbd" ? "Date not announced" : null),
+       viewerIsOwner && hasTotal && poBalance > 0 ? `${formatMoney(poBalance, currency)} due` : null]
         .filter(Boolean).join(" · ")
-    : ["Owned", condLabel, value != null && value > 0 ? formatMoney(value, currency) : null]
+    : [sold ? "Sold" : "Owned", condLabel, hasValue ? formatMoney(value as number, currency) : null]
         .filter(Boolean).join(" · ");
 
   const rows: CardRow[] = (isPo
@@ -175,26 +278,32 @@ export function OwnershipCard({
         preorder?.orderedAt
           ? { label: "Ordered", value: new Date(preorder.orderedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) }
           : null,
-        { label: "Expected", value: etaText },
+        { label: "Expected", value: preorder?.precision === "tbd" ? "Not announced" : (preorder?.eta || "TBD") },
         viewerIsOwner && preorder?.seller ? { label: "Ordered from", value: preorder.seller } : null,
         viewerIsOwner ? { label: "Total price", value: hasTotal ? formatMoney(poTotal as number, currency) : "—" } : null,
         viewerIsOwner && hasTotal ? { label: "Deposit paid", value: formatMoney(poDeposit, currency) } : null,
         viewerIsOwner && hasTotal ? { label: "Balance due", value: formatMoney(poBalance, currency), accent: true } : null,
       ]
     : [
-        { label: "Status", value: "Owned" },
+        { label: "Status", value: sold ? "Sold" : "Owned" },
         { label: "Condition", value: condLabel ?? "—" },
-        value != null ? { label: "What you paid", value: value > 0 ? formatMoney(value, currency) : "—" } : null,
+        viewerIsOwner ? { label: "What you paid", value: hasValue ? formatMoney(value as number, currency) : "—" } : null,
+        // The closing price of the sale — owner-only (the API strips sold_price for visitors).
+        viewerIsOwner && sold && soldPrice != null && soldPrice > 0
+          ? { label: "Sold for", value: formatMoney(soldPrice, currency) } : null,
         { label: viewerIsOwner ? "Your photos" : "Owner photos", value: photoCount ? String(photoCount) : "None yet" },
-        { label: "Listed for sale", value: isListed ? "Yes" : "No" },
+        { label: "Listed for sale", value: sold ? "Closed" : isListed ? "Yes" : "No" },
       ]
   ).filter((r): r is CardRow => r != null);
 
   return (
+    /* v8 :244-246 — sold: plain border, bone ground, the WHOLE card runs through
+       grayscale(1); the pre-order gold and owned paper-soft treatments otherwise. */
     <div style={{
-      border: `1px solid ${isPo ? "var(--grail-gold)" : "var(--border-strong)"}`,
+      border: `1px solid ${sold ? "var(--border)" : isPo ? "var(--grail-gold)" : "var(--border-strong)"}`,
       borderRadius: 14,
-      background: isPo ? "var(--grail-gold-soft)" : "var(--paper-soft)",
+      background: sold ? "var(--bone)" : isPo ? "var(--grail-gold-soft)" : "var(--paper-soft)",
+      filter: sold ? "grayscale(1)" : "none",
       marginBottom: 14, overflow: "hidden",
     }}>
       <button type="button" onClick={() => setOpen((o) => !o)} style={{
@@ -202,27 +311,38 @@ export function OwnershipCard({
         background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)",
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
             {isPo && <Clock size={15} style={{ color: "var(--grail-gold-deep)", flexShrink: 0 }} />}
             <span style={{ fontSize: 14, fontWeight: 700, color: isPo ? "var(--grail-gold-deep)" : "var(--ink)" }}>{header}</span>
-            {isListed && (
-              <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", padding: "2px 7px", borderRadius: 5, background: "var(--stamp-red)", color: "var(--paper)" }}>
-                Listed
-              </span>
-            )}
           </div>
-          {sub && <div style={{ fontSize: 11.5, color: isPo ? "var(--grail-gold-deep)" : "var(--ink-faint)", marginTop: 2 }}>{sub}</div>}
+          {/* v8 :255 — a gap sentence reads bold gold; the "Listed" tag lives in the page's
+              tags row (and the Sale row below), never as a chip inside this header. */}
+          {sub && (
+            <div style={{ fontSize: 11.5, color: gaps.length ? "var(--grail-gold-deep)" : "var(--ink-faint)", marginTop: 2, fontWeight: gaps.length ? 700 : 400 }}>{sub}</div>
+          )}
         </div>
         <ChevronRight size={16} style={{ color: "var(--ink-faint)", flexShrink: 0, transform: open ? "rotate(90deg)" : "none", transition: "transform 130ms" }} />
       </button>
       {open && (
         <div style={{ padding: "2px 14px 14px", display: "flex", flexDirection: "column", gap: 9 }}>
-          {rows.map((r) => (
-            <div key={r.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, fontSize: 13 }}>
-              <span style={{ color: "var(--ink-faint)" }}>{r.label}</span>
-              <span style={{ fontFamily: "var(--font-mono)", fontWeight: r.accent ? 700 : 600, color: r.accent ? "var(--stamp-red)" : "var(--ink)" }}>{r.value}</span>
-            </div>
-          ))}
+          {rows.map((r) => {
+            // v8 :263 — a missing value renders as an "Add →" jump into the finish flow,
+            // in the slot where the data would have been. Owner only; a sold copy's
+            // record is closed, so a bare "—" stays a dash, never a CTA.
+            const isGap = r.value === "—" || r.value === "TBD";
+            return (
+              <div key={r.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, fontSize: 13 }}>
+                <span style={{ color: "var(--ink-faint)" }}>{r.label}</span>
+                {viewerIsOwner && isGap && onComplete && !sold ? (
+                  <button type="button" onClick={onComplete} style={{
+                    padding: 0, border: "none", background: "none", cursor: "pointer", fontFamily: "var(--font-body)",
+                    fontWeight: 700, fontSize: 12.5, color: "var(--grail-gold-deep)" }}>Add →</button>
+                ) : (
+                  <span style={{ fontFamily: "var(--font-mono)", fontWeight: r.accent ? 700 : 600, color: r.accent ? "var(--stamp-red)" : "var(--ink)" }}>{r.value}</span>
+                )}
+              </div>
+            );
+          })}
           {viewerIsOwner && isPo && onEditPreorder && (
             <button type="button" onClick={onEditPreorder} style={{
               display: "flex", alignItems: "center", gap: 8, marginTop: 3, padding: "10px 12px", borderRadius: 10,
@@ -234,7 +354,18 @@ export function OwnershipCard({
               <ChevronRight size={14} style={{ marginLeft: "auto", color: "var(--ink-faint)" }} />
             </button>
           )}
-          {isListed && (
+          {gaps.length > 0 && onComplete && (
+            /* v8 :287 — one gold CTA into the finish flow; +20 XP is the server's
+               complete_item award for condition + price landing. */
+            <button type="button" onClick={onComplete} style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 3, height: 40, borderRadius: 10,
+              border: "1px solid var(--grail-gold)", background: "var(--grail-gold-soft)", cursor: "pointer",
+              fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13, color: "var(--grail-gold-deep)",
+            }}>
+              Finish this item · +20 XP
+            </button>
+          )}
+          {isListed && !sold && (
             /* A live listing is a row inside this card, never a competing price block.
                GET /items/{id} carries listing_id / listing_price / listing_currency when
                listed, so this row reads "Sale · ₹price · View listing →" and deep-links
@@ -244,7 +375,8 @@ export function OwnershipCard({
               border: "1px solid var(--border-strong)", background: "var(--paper)", textDecoration: "none",
               fontFamily: "var(--font-body)",
             }}>
-              <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", padding: "2px 7px", borderRadius: 5, background: "var(--stamp-red)", color: "var(--paper)" }}>Sale</span>
+              {/* v8 :301 tags the row with the live listing's status label ("Available"). */}
+              <ItemTag kind="sale">Available</ItemTag>
               {listingPrice != null && (
                 <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 13, color: "var(--ink)" }}>{formatMoney(listingPrice, listingCurrency ?? currency)}</span>
               )}
@@ -254,16 +386,36 @@ export function OwnershipCard({
             </Link>
           )}
           {!viewerIsOwner && ownerHandle && (
-            /* Chat threads are listing-scoped in this app — there is no free-form user
-               DM composer to deep-link into, so the owner's profile is the correct
-               fallback destination for "ask about it". */
-            <Link href={`/profile/${ownerHandle}`} style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 3, height: 38, borderRadius: 10,
-              border: "1px solid var(--border-strong)", background: "var(--paper)", textDecoration: "none",
-              fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, color: "var(--ink)",
-            }}>
-              <MessageCircle size={14} /> Ask @{handle} about it
-            </Link>
+            /* DV8 "Ask about it" — opens the pair DM with the owner (POST /threads via
+               onAsk), landing in the chat composer pre-filled about this item. A privacy
+               403 becomes the quiet note; without onAsk wiring the owner's profile stays
+               the fallback destination. */
+            askNote ? (
+              <div style={{
+                marginTop: 3, padding: "10px 12px", borderRadius: 10,
+                border: "1px solid var(--border)", background: "var(--bone)",
+                fontSize: 12, lineHeight: 1.5, color: "var(--ink-faint)", textAlign: "center",
+              }}>
+                {askNote}
+              </div>
+            ) : onAsk ? (
+              <button type="button" onClick={ask} disabled={askBusy} style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 3, height: 38, borderRadius: 10,
+                border: "1px solid var(--border-strong)", background: "var(--paper)", cursor: askBusy ? "wait" : "pointer",
+                fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, color: "var(--ink)",
+                width: "100%", opacity: askBusy ? 0.6 : 1,
+              }}>
+                <MessageCircle size={14} /> Ask @{handle} about it
+              </button>
+            ) : (
+              <Link href={`/profile/${ownerHandle}`} style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 3, height: 38, borderRadius: 10,
+                border: "1px solid var(--border-strong)", background: "var(--paper)", textDecoration: "none",
+                fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, color: "var(--ink)",
+              }}>
+                <MessageCircle size={14} /> Ask @{handle} about it
+              </Link>
+            )
           )}
         </div>
       )}
@@ -278,14 +430,6 @@ export function CommunityStatsRow({ owners, wishlisted, onOpen }: {
   wishlisted: number;
   onOpen: (mode: "owners" | "wishlist") => void;
 }) {
-  if (owners === 0 && wishlisted === 0) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bone)", borderRadius: 12, padding: "10px 12px", marginBottom: 14 }}>
-        <Users size={14} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
-        <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>No collectors have this on their shelf yet — be the first.</span>
-      </div>
-    );
-  }
   const half = (n: number, label: string, icon: React.ReactNode, mode: "owners" | "wishlist") => (
     <button type="button" onClick={() => onOpen(mode)} style={{
       flex: 1, cursor: "pointer", border: "none", background: "none", padding: "10px 12px",
@@ -298,59 +442,59 @@ export function CommunityStatsRow({ owners, wishlisted, onOpen }: {
     </button>
   );
   return (
-    <div style={{ display: "flex", alignItems: "stretch", background: "var(--bone)", borderRadius: 12, marginBottom: 14, overflow: "hidden" }}>
-      {half(owners, "own this", <Users size={14} style={{ color: "var(--ink-mute)", flexShrink: 0 }} />, "owners")}
+    <div style={{ display: "flex", alignItems: "stretch", background: "var(--bone)", borderRadius: 12, marginBottom: 4, overflow: "hidden" }}>
+      {half(owners, "own this", <User size={14} style={{ color: "var(--ink-mute)", flexShrink: 0 }} />, "owners")}
       <div style={{ width: 1, background: "var(--border)" }} />
       {half(wishlisted, "wishlisted", <Star size={14} style={{ color: "var(--ink-mute)", flexShrink: 0 }} />, "wishlist")}
     </div>
   );
 }
 
-/* ── About this item — collapsible, with the specs grid absorbed inside (DV8 §2) ── */
-export interface SpecEntry { label: string; value: string }
-
-export function AboutSection({ description, specs }: { description?: string | null; specs: SpecEntry[] }) {
-  const [open, setOpen] = useState(true);
-  const [more, setMore] = useState(false);
-  const desc = description?.trim() || null;
-  const clampable = (desc?.length ?? 0) > 220;
-  if (!desc && specs.length === 0) return null;
+/* ── About this item — the DESCRIPTION ONLY (v8 :344-348) ──────
+   Brand/scale/year already sit under the title in the mono meta line — this section
+   is never a second spec sheet. v8's Disclosure primitive (shared.jsx :434): borderTop
+   from the primitive + borderBottom passed in, 13px header rhythm, chevron at the far
+   right, defaultOpen. Body is ClampText (4 lines, measured overflow, Read more/less). */
+export function AboutSection({ description, brand, year, title }: {
+  description?: string | null;
+  brand?: string | null;
+  year?: string | null;
+  title: string;
+}) {
+  const [open, setOpen] = useState(true);       // Disclosure defaultOpen (v8 :346)
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  // v8 :348 — the fallback composes brand + the title's tail into catalogue boilerplate.
+  const tail = title.split("·").slice(1).join("·").trim() || title;
+  const desc = description?.trim()
+    || `${[brand, tail].filter(Boolean).join(" ")}. Catalogue entry from the Scorred database${year ? `, ${year}` : ""}.`;
+  useEffect(() => {
+    const el = ref.current;
+    if (el) setOverflows(el.scrollHeight > el.clientHeight + 2);
+  }, [desc, open, expanded]);
   return (
     <div style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
       <button type="button" onClick={() => setOpen((o) => !o)} style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "13px 0",
-        background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-display)",
-        fontWeight: 700, fontSize: 15.5, letterSpacing: "-0.015em", color: "var(--ink)", textAlign: "left",
+        display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "13px 0",
+        background: "none", border: "none", cursor: "pointer", textAlign: "left", fontFamily: "var(--font-body)",
       }}>
-        About this item
-        <ChevronRight size={16} style={{ color: "var(--ink-faint)", transform: open ? "rotate(90deg)" : "none", transition: "transform 130ms" }} />
+        <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, letterSpacing: "-0.015em", color: "var(--ink)" }}>About this item</span>
+        <ChevronRight size={15} style={{ marginLeft: "auto", color: "var(--ink-faint)", flexShrink: 0, transform: open ? "rotate(90deg)" : "none", transition: "transform 130ms" }} />
       </button>
       {open && (
-        <div style={{ paddingBottom: 14 }}>
-          {desc && (
-            <>
-              <div style={{
-                fontSize: 14.5, lineHeight: 1.6, color: "var(--ink-soft)",
-                ...(clampable && !more ? { display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical" as const, overflow: "hidden" } : {}),
-              }}>
-                {desc}
-              </div>
-              {clampable && (
-                <button type="button" onClick={() => setMore((m) => !m)} style={{ marginTop: 6, padding: 0, border: "none", background: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12.5, color: "var(--ink-mute)" }}>
-                  {more ? "Show less" : "Read more"}
-                </button>
-              )}
-            </>
-          )}
-          {specs.length > 0 && (
-            <div style={{ marginTop: desc ? 12 : 0 }}>
-              {specs.map((s) => (
-                <div key={s.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderTop: "1px solid var(--border)" }}>
-                  <span style={{ fontSize: 13, color: "var(--ink-faint)" }}>{s.label}</span>
-                  <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 13.5, color: "var(--ink)" }}>{s.value}</span>
-                </div>
-              ))}
-            </div>
+        <div style={{ paddingBottom: 16 }}>
+          <div ref={ref} style={{
+            fontSize: 15, lineHeight: 1.6, color: "var(--ink-soft)",
+            ...({ textWrap: "pretty" } as React.CSSProperties),
+            ...(expanded ? {} : { display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }),
+          }}>
+            {desc}
+          </div>
+          {(overflows || expanded) && (
+            <button type="button" onClick={() => setExpanded((m) => !m)} style={{ marginTop: 5, padding: 0, border: "none", background: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12.5, color: "var(--ink-mute)" }}>
+              {expanded ? "Read less" : "Read more"}
+            </button>
           )}
         </div>
       )}
@@ -376,9 +520,10 @@ export function StarMeter({ value, size = 13 }: { value: number; size?: number }
   const pct = Math.max(0, Math.min(100, (value / 5) * 100));
   return (
     <div style={{ position: "relative", display: "inline-block", lineHeight: 0 }}>
-      <StaticStars size={size} color="var(--bone-deep)" fill="var(--bone)" />
+      {/* v8 StarMeter (shared.jsx :520): outline row in border-strong, gold-deep fill clipped on top */}
+      <StaticStars size={size} color="var(--border-strong)" fill="none" />
       <div style={{ position: "absolute", inset: 0, width: `${pct}%`, overflow: "hidden" }}>
-        <StaticStars size={size} color="var(--grail-gold-deep)" fill="var(--grail-gold)" />
+        <StaticStars size={size} color="var(--grail-gold-deep)" fill="var(--grail-gold-deep)" />
       </div>
     </div>
   );
@@ -415,8 +560,9 @@ export function RatingBlock({ sku, initial }: { sku: string; initial: RatingAggr
     <div style={{ display: "flex", alignItems: "stretch", gap: 14, padding: "16px 0 8px" }}>
       <div style={{ flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+          {/* v8 :358 — avg.toFixed(1) always, so an unrated entry reads "0.0", not a dash */}
           <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: "-0.02em", color: "var(--ink)" }}>
-            {agg.rating_avg != null ? avg.toFixed(1) : "—"}
+            {avg.toFixed(1)}
           </span>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--ink-faint)" }}>/5</span>
         </div>
@@ -427,8 +573,9 @@ export function RatingBlock({ sku, initial }: { sku: string; initial: RatingAggr
       </div>
       <div style={{ width: 1, background: "var(--border)", flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        {/* v8 :366 — a plain "Your rating" label; replace/clear semantics live in the toast */}
         <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink-mute)", marginBottom: 6 }}>
-          {mine ? `Your rating: ${mine}/5 · tap to change · tap your score to clear` : "Rate this item"}
+          {mine ? "Your rating" : "Rate this item"}
         </div>
         <div style={{ display: "flex", gap: 4 }}>
           {[1, 2, 3, 4, 5].map((n) => (
@@ -457,15 +604,11 @@ interface CatComment {
   name: string | null;
   avatar_url?: string | null;
   is_mine?: boolean;
+  likes_count?: number;
+  is_liked?: boolean;
+  badge?: FeedBadgeT | null;
   created_at: string;
 }
-
-const COMPOSER_INPUT: React.CSSProperties = {
-  flex: 1, minWidth: 0, height: 38, padding: "0 13px", borderRadius: 999,
-  border: "1px solid var(--border-strong)", background: "var(--paper-soft)",
-  fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)",
-  outline: "none", boxSizing: "border-box",
-};
 
 export function CatalogueComments({ sku }: { sku: string }) {
   const { user } = useUser();
@@ -474,6 +617,51 @@ export function CatalogueComments({ sku }: { sku: string }) {
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
+  // v8 Cards.jsx :304-309 — own-comment ··· menu with in-place Edit / Delete.
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+
+  // v8 :356-359 — heart toggle (optimistic; server returns the fresh aggregate).
+  async function like(c: CatComment) {
+    const wasLiked = c.is_liked ?? false;
+    setComments((cs) => cs.map((x) => x.id === c.id
+      ? { ...x, is_liked: !wasLiked, likes_count: Math.max(0, (x.likes_count ?? 0) + (wasLiked ? -1 : 1)) }
+      : x));
+    try {
+      const fresh = await api.post<{ is_liked: boolean; likes_count: number }>(
+        `/catalogue/${encodeURIComponent(sku)}/comments/${c.id}/like`);
+      setComments((cs) => cs.map((x) => x.id === c.id ? { ...x, ...fresh } : x));
+    } catch {
+      setComments((cs) => cs.map((x) => x.id === c.id
+        ? { ...x, is_liked: wasLiked, likes_count: c.likes_count ?? 0 } : x));
+    }
+  }
+
+  async function saveEdit(id: string) {
+    const text = editDraft.trim();
+    if (!text) return;
+    setEditingId(null);
+    const prev = comments.find((c) => c.id === id)?.body;
+    setComments((cs) => cs.map((c) => (c.id === id ? { ...c, body: text } : c)));
+    try {
+      await api.patch(`/catalogue/${encodeURIComponent(sku)}/comments/${id}`, { body: text });
+    } catch {
+      setComments((cs) => cs.map((c) => (c.id === id && prev != null ? { ...c, body: prev } : c)));
+    }
+  }
+
+  async function remove(id: string) {
+    setMenuId(null);
+    const prev = comments;
+    // Replies cascade server-side; drop them locally too.
+    setComments((cs) => cs.filter((c) => c.id !== id && c.parent_id !== id));
+    try {
+      await api.delete(`/catalogue/${encodeURIComponent(sku)}/comments/${id}`);
+    } catch {
+      setComments(prev);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -517,64 +705,107 @@ export function CatalogueComments({ sku }: { sku: string }) {
     }
   }
 
+  // v8 Cards.jsx :311-365 — the same Row post comments use: slate bubble card
+  // (name · badge pill · time · own-··· menu, then the body), heart+Reply BELOW it.
   function Row({ c, reply }: { c: CatComment; reply?: boolean }) {
     const who = c.name ?? (c.handle ? `@${c.handle}` : "Collector");
+    const isOwn = c.is_mine ?? false;
+    const isEditing = editingId === c.id;
+    const menuOpen = menuId === c.id;
     return (
       <div style={{ display: "flex", gap: 9 }}>
-        <Avatar name={who} photo={c.avatar_url} color="var(--ink)" size={reply ? 26 : 30} />
+        {/* v8 :319 avatarFrame — Pioneer/Early Believer commenters get the gold ring */}
+        <span style={{ display: "inline-flex", flexShrink: 0, alignSelf: "flex-start", ...(hasGoldFrame(c.badge) ? goldFrameRing : {}) }}>
+          <Avatar name={who} photo={c.avatar_url} color="var(--ink)" size={reply ? 26 : 30} />
+        </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 7 }}>
-            {c.handle ? (
-              <Link href={`/profile/${c.handle}`} style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", textDecoration: "none" }}>
-                {who}
-              </Link>
+          <div style={{ background: "var(--slate-50)", border: "1px solid var(--slate-200)", borderRadius: 14, padding: "10px 13px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{who}</span>
+              {/* v8 :325 — the commenter's rewards badge pill beside the name */}
+              <FeedBadge badge={c.badge} />
+              <div style={{ flex: 1 }} />
+              <span style={{ fontSize: 11, color: "var(--ink-faint)", flexShrink: 0 }}>{timeAgo(c.created_at)}</span>
+              {isOwn && (
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <button type="button" onClick={() => setMenuId(menuOpen ? null : c.id)} style={{ background: "none", border: "none", padding: "0 3px", cursor: "pointer", color: "var(--ink-faint)", display: "flex", alignItems: "center" }}>
+                    <MoreHorizontal size={15} />
+                  </button>
+                  {menuOpen && (
+                    <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 30, background: "var(--paper)", border: "1px solid var(--border-strong)", borderRadius: 11, boxShadow: "0 4px 18px rgba(0,0,0,0.13)", overflow: "hidden", minWidth: 112 }}>
+                      <button type="button" onClick={() => { setEditingId(c.id); setEditDraft(c.body); setMenuId(null); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "none", border: "none", borderBottom: "1px solid var(--border)", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--ink)", textAlign: "left" }}>
+                        <Pencil size={14} />Edit
+                      </button>
+                      <button type="button" onClick={() => remove(c.id)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--stamp-red)", textAlign: "left" }}>
+                        <Trash2 size={14} />Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            {isEditing ? (
+              <div style={{ marginTop: 6, display: "flex", gap: 7, alignItems: "center" }}>
+                <input
+                  value={editDraft}
+                  onChange={(e) => setEditDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") saveEdit(c.id); if (e.key === "Escape") setEditingId(null); }}
+                  autoFocus
+                  style={{ flex: 1, height: 32, padding: "0 10px", borderRadius: 8, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--ink)", outline: "none", boxSizing: "border-box" }}
+                />
+                <button type="button" onClick={() => saveEdit(c.id)} style={{ flexShrink: 0, background: "var(--ink)", border: "none", borderRadius: 7, padding: "5px 10px", cursor: "pointer", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12 }}>Save</button>
+                <button type="button" onClick={() => setEditingId(null)} style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)", fontFamily: "var(--font-body)", fontSize: 12 }}>Cancel</button>
+              </div>
             ) : (
-              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{who}</span>
+              <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.45, marginTop: 2, overflowWrap: "anywhere" }}>{renderCommentBody(c.body)}</div>
             )}
-            <span style={{ fontSize: 11, color: "var(--ink-faint)", flexShrink: 0 }}>{timeAgo(c.created_at)}</span>
           </div>
-          <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.45, marginTop: 2, overflowWrap: "anywhere" }}>{c.body}</div>
-          {!reply && (
-            <button
-              type="button"
-              onClick={() => { setReplyTo(replyTo === c.id ? null : c.id); setReplyDraft(""); }}
-              style={{ background: "none", border: "none", padding: "4px 0 0", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12, color: "var(--ink-faint)" }}
-            >
-              Reply
+          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "5px 12px 0", fontSize: 12 }}>
+            <button type="button" onClick={() => like(c)} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", padding: 0, cursor: "pointer", color: c.is_liked ? "var(--stamp-red)" : "var(--ink-faint)", fontWeight: 600 }}>
+              <Heart size={14} fill={c.is_liked ? "var(--stamp-red)" : "none"} />{(c.likes_count ?? 0) > 0 ? c.likes_count : "Like"}
             </button>
-          )}
+            {!reply && (
+              <button
+                type="button"
+                onClick={() => { setReplyTo(replyTo === c.id ? null : c.id); setReplyDraft(""); }}
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12, color: "var(--ink-faint)" }}
+              >
+                Reply
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ borderTop: "1px solid var(--border)", marginTop: 8, padding: "16px 0 4px" }}>
-      <div style={{ marginBottom: 14 }}>
-        <SectionLabel>Comments · {comments.length}</SectionLabel>
+    <div style={{ padding: "12px 0 4px" }}>
+      {/* v8 :373-376 — display-font "Comments" with a mono count beside it, no rule above */}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 14 }}>
+        <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15.5, letterSpacing: "-0.015em", color: "var(--ink)" }}>Comments</div>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-faint)" }}>{comments.length}</span>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* v8 CommentThread :369-391 — gap 16 between threads, replies indented 30 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {parents.map((c) => (
           <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <Row c={c} />
             {repliesOf(c.id).length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingLeft: 39 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingLeft: 30 }}>
                 {repliesOf(c.id).map((r) => <Row key={r.id} c={r} reply />)}
               </div>
             )}
             {replyTo === c.id && (
-              <div style={{ display: "flex", gap: 8, alignItems: "center", paddingLeft: 39 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", paddingLeft: 30 }}>
                 <Avatar name={user?.name ?? "You"} photo={user?.avatar_url} color="var(--ink)" size={26} />
-                <input
+                <MentionInput
                   autoFocus
+                  size="sm"
                   value={replyDraft}
-                  onChange={(e) => setReplyDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") send(c.id);
-                    if (e.key === "Escape") setReplyTo(null);
-                  }}
+                  onChange={setReplyDraft}
+                  onSubmit={() => send(c.id)}
                   placeholder={`Reply to ${c.handle ? `@${c.handle}` : c.name ?? "collector"}…`}
-                  style={{ ...COMPOSER_INPUT, height: 34, fontSize: 13.5, padding: "0 12px" }}
                 />
                 <IconButton icon={<Send size={15} />} active={!!replyDraft.trim()} onClick={() => send(c.id)} />
               </div>
@@ -582,17 +813,19 @@ export function CatalogueComments({ sku }: { sku: string }) {
           </div>
         ))}
         {loaded && comments.length === 0 && (
-          <div style={{ fontSize: 13, color: "var(--ink-faint)" }}>No comments yet — start the conversation.</div>
+          /* v8 :392 copy */
+          <div style={{ fontSize: 13, color: "var(--ink-faint)" }}>No comments yet — say something.</div>
         )}
       </div>
-      <div style={{ display: "flex", gap: 9, alignItems: "center", marginTop: 16 }}>
+      <div style={{ display: "flex", gap: 9, alignItems: "center", marginTop: 14 }}>
         <Avatar name={user?.name ?? "You"} photo={user?.avatar_url} color="var(--ink)" size={30} />
-        <input
+        {/* v8 Cards.jsx MentionInput — typing @ opens the user picker (was a plain input,
+            so @-tagging silently did nothing here while working on post comments) */}
+        <MentionInput
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") send(); }}
-          placeholder="Add a comment…"
-          style={COMPOSER_INPUT}
+          onChange={setDraft}
+          onSubmit={() => send()}
+          placeholder="Add a comment… type @ to tag"
         />
         <IconButton icon={<Send size={17} />} active={!!draft.trim()} onClick={() => send()} />
       </div>
@@ -605,10 +838,12 @@ export function ItemPageBody({
   images,
   tone,
   photoLabel,
+  photoCountInLabel,
   tags,
   title,
   metaLine,
   provenance,
+  estValue,
   ownershipCard,
   stats,
   about,
@@ -618,20 +853,26 @@ export function ItemPageBody({
   images: string[];
   tone: string;
   photoLabel?: string;
-  tags?: React.ReactNode;                 // status tags above the title (item page)
+  /** v8 :166 — owner photos carry "· {i} of {n}" in the corner label. */
+  photoCountInLabel?: boolean;
+  tags?: React.ReactNode;                 // status tags above the title (own copy only, v8 :170-174)
   title: string;
-  metaLine?: string | null;               // "brand · scale · year"
+  metaLine?: string | null;               // "brand · scale · year" — category never shows here
   provenance?: { isVerified: boolean; addedBy: string | null; isYou?: boolean } | null;
+  /** v8 :200 — "Est. value" ValueCard between provenance and the ownership card.
+      Minor units; pass null when the ownership card already carries a private price
+      or the copy is a wishlist row (v8 suppresses it there). */
+  estValue?: number | null;
   ownershipCard?: React.ReactNode;        // the ONLY variable region (DV8 §1)
   stats?: { owners: number; wishlisted: number; onOpen: (m: "owners" | "wishlist") => void } | null;
-  about: { description?: string | null; specs: SpecEntry[] };
+  about: { description?: string | null; brand?: string | null; year?: string | null };
   rating?: { sku: string; initial: RatingAggregate } | null;
   /** Catalogue sku — enables the shared comment thread (DV8-18). Null → no thread. */
   sku?: string | null;
 }) {
   return (
     <>
-      <ItemPhotoCarousel images={images} tone={tone} label={photoLabel} />
+      <ItemPhotoCarousel images={images} tone={tone} label={photoLabel} countInLabel={photoCountInLabel} />
       <div style={{ padding: "14px 20px 0" }}>
         {tags && <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8, alignItems: "center" }}>{tags}</div>}
         <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 23, letterSpacing: "-0.025em", lineHeight: 1.15, margin: "0 0 4px" }}>
@@ -641,9 +882,20 @@ export function ItemPageBody({
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 8 }}>{metaLine}</div>
         )}
         {provenance && <ProvenanceLine {...provenance} />}
+        {estValue != null && estValue > 0 && (
+          /* v8 ValueCard (ProfileCollection.jsx :414) — label over a mono figure */
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: "12px 14px" }}>
+              <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 5 }}>Est. value</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 19, color: "var(--ink)", fontFeatureSettings: '"tnum" 1' }}>
+                {formatMoney(estValue)}
+              </div>
+            </div>
+          </div>
+        )}
         {ownershipCard}
         {stats && <CommunityStatsRow {...stats} />}
-        <AboutSection {...about} />
+        <AboutSection {...about} title={title} />
         {rating && <RatingBlock key={`rating-${rating.sku}`} sku={rating.sku} initial={rating.initial} />}
         {sku && <CatalogueComments key={`comments-${sku}`} sku={sku} />}
       </div>

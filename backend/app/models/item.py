@@ -43,7 +43,8 @@ class Item(Base):
     tcg_language: Mapped[str | None] = mapped_column(String(8), nullable=True)        # EN | JP | KR | TW | Other
     tcg_product_type: Mapped[str | None] = mapped_column(Text, nullable=True)         # Single Card | Booster Box | …
     tcg_graded: Mapped[bool] = mapped_column(Boolean, default=False)
-    tcg_grader: Mapped[str | None] = mapped_column(String(8), nullable=True)          # PSA | BGS | CGC
+    tcg_grader: Mapped[str | None] = mapped_column(String(24), nullable=True)         # PSA | BGS | CGC | free-text "Other" company (DV8)
+    tcg_cert_no: Mapped[str | None] = mapped_column(String(32), nullable=True)        # DV8 grading card — slab cert number
     tcg_grade: Mapped[str | None] = mapped_column(String(8), nullable=True)           # e.g. "9", "10", "9.5"
 
     preorder_ordered_at: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -54,6 +55,11 @@ class Item(Base):
     preorder_total: Mapped[int | None] = mapped_column(Integer, nullable=True)        # paise
     preorder_deposit: Mapped[int | None] = mapped_column(Integer, nullable=True)      # paise (balance = total - deposit)
     wishlist_alert_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # DV8 sold state — a sale keeps the copy as history (v8 item-page sold
+    # treatment + undo-sold). status stays "owned"; sold = sold_at IS NOT NULL.
+    sold_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sold_price: Mapped[int | None] = mapped_column(Integer, nullable=True)  # minor units, optional
 
     privacy: Mapped[str] = mapped_column(String(16), default="public")
 
@@ -67,6 +73,9 @@ class Item(Base):
         Index("idx_items_user", "user_id"),
         Index("idx_items_sku", "sku"),
         Index("idx_items_status", "status"),
+        # viewer_item / quick-add-guard point read (migration a1b4d7e9c2f5) —
+        # (user_id, sku) is hit on every catalogue-entry view.
+        Index("idx_items_user_sku", "user_id", "sku"),
     )
 
 
@@ -93,6 +102,9 @@ def item_is_complete(item) -> bool:
     ETA + total). An explicit "not announced" window counts as an answer, not a
     gap (v8 bug list). Wishlist/intel rows are never 'incomplete'. Duck-typed so
     both full Item entities and column-row results work."""
+    # A sold copy is history — it is never "incomplete" and never nags.
+    if getattr(item, "sold_at", None):
+        return True
     if item.status == "preorder":
         has_eta = bool(item.preorder_eta) or item.preorder_window_precision == "tbd"
         return has_eta and bool(item.preorder_total)

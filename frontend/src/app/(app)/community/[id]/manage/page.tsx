@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Check, X, Shield, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, X, Shield } from "lucide-react";
 import { api } from "@/lib/api";
-import { ApiCommunity } from "@/components/cards";
+import { PostImages, type ApiCommunity } from "@/components/cards";
 import { Avatar, Segmented, SectionLabel, EmptyNote, PostTypeTag } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
 import { timeAgo } from "@/lib/utils";
@@ -22,10 +22,9 @@ interface Member { handle: string; name: string; avatar_url: string | null; role
 
 type Tab = "requests" | "posts" | "members" | "settings";
 
-// DV8-14 — rules cap (server 422s beyond it): max 10 rules × 140 chars.
-// Duplicated from community/new (page files can't export extras).
-const RULES_MAX_COUNT = 10;
-const RULE_MAX_CHARS = 140;
+// DV8 design pass — v8's rules cap is ONE budget of 900 characters TOTAL (the
+// server enforces the same; the old 10×140 ladder is gone). Mirrors community/new.
+const RULES_TOTAL_MAX_CHARS = 900;
 function ruleLinesOf(text: string): string[] {
   return text.split("\n").map((r) => r.trim()).filter(Boolean);
 }
@@ -68,29 +67,31 @@ function RadioRow({ title, sub, on, onClick }: { title: string; sub: string; on:
   );
 }
 
+/* v8 ManageStat — centred tile, mono 22 figure, uppercase micro-label. */
 function Stat({ n, label, accent }: { n: number; label: string; accent: string }) {
   return (
-    <div style={{ flex: 1, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: "11px 13px" }}>
-      <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 20, color: accent }}>{n}</div>
-      <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 1 }}>{label}</div>
+    <div style={{ flex: 1, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: "12px 10px", textAlign: "center" }}>
+      <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 22, color: accent, lineHeight: 1 }}>{n}</div>
+      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--ink-faint)", marginTop: 5 }}>{label}</div>
     </div>
   );
 }
 
-/* "Founder" renders as "Admin" everywhere (DV8-15) — the API still says founder. */
+/* v8 RoleBadge — "Founder" renders as "Admin" everywhere (DV8-15; the API still
+   says founder), and the admin badge is stamp-red, not ink. */
 function memberRoleChip(role: string) {
   if (role === "member") return null;
   const admin = role === "founder" || role === "admin";
   return (
-    <span style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", padding: "2px 6px", borderRadius: 6, background: admin ? "var(--ink)" : "var(--bone-deep)", color: admin ? "var(--paper)" : "var(--ink-mute)", fontWeight: 700 }}>
+    <span style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", padding: "2px 7px", borderRadius: 6, background: admin ? "var(--stamp-red)" : "var(--bone-deep)", color: admin ? "var(--paper)" : "var(--ink-mute)", fontWeight: 700, flexShrink: 0 }}>
       {admin ? "admin" : role}
     </span>
   );
 }
 
-// Matching right-aligned pill style for the members tab (role picker + Remove).
+// v8 member-row control metrics — role segments and Remove share the same 32px pill.
 const pillBase: React.CSSProperties = {
-  height: 30, fontSize: 11.5, fontWeight: 600, padding: "0 12px",
+  height: 32, fontSize: 11.5, fontWeight: 600, padding: "0 12px",
   fontFamily: "var(--font-body)", cursor: "pointer", whiteSpace: "nowrap",
 };
 
@@ -212,11 +213,10 @@ export default function CommunityManagePage() {
     setCommunity((c) => c ? { ...c, [field]: url } : c);
   };
 
-  // Rules cap — same rules as the create form; Save blocked while over.
+  // Rules cap — same 900-char total budget as the create form; Save blocked while over.
   const ruleLines = ruleLinesOf(rulesText);
-  const rulesTooMany = ruleLines.length > RULES_MAX_COUNT;
-  const firstLongRule = ruleLines.findIndex((r) => r.length > RULE_MAX_CHARS);
-  const rulesInvalid = rulesTooMany || firstLongRule !== -1;
+  const rulesChars = ruleLines.reduce((s, r) => s + r.length, 0);
+  const rulesInvalid = rulesChars > RULES_TOTAL_MAX_CHARS;
   const detailsInvalid = !name.trim() || rulesInvalid;
 
   const saveDetails = async () => {
@@ -304,7 +304,7 @@ export default function CommunityManagePage() {
         {!isAdmin && (
           <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "9px 12px", background: "var(--bone)", border: "1px solid var(--border)", borderRadius: 11, fontSize: 12, color: "var(--ink-mute)", marginBottom: 14, lineHeight: 1.45 }}>
             <Shield size={14} style={{ flexShrink: 0 }} />
-            You&rsquo;re a mod here — you can approve requests and posts. Removing members and editing settings needs the admin.
+            You&rsquo;re a mod here — you can approve requests and posts. Removing members/posts and editing community settings needs an admin.
           </div>
         )}
 
@@ -323,8 +323,8 @@ export default function CommunityManagePage() {
                       <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{r.handle} · {r.vouches} vouches</div>
                     </div>
                   </Link>
-                  <button onClick={(e) => { e.stopPropagation(); actReq(r.handle, "reject"); }} disabled={busy === r.handle} aria-label="Decline" style={{ width: 34, height: 34, borderRadius: 9, border: "1px solid var(--border-strong)", background: "var(--paper)", color: "var(--ink-mute)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><X size={15} /></button>
-                  <button onClick={(e) => { e.stopPropagation(); actReq(r.handle, "approve"); }} disabled={busy === r.handle} aria-label="Approve" style={{ width: 34, height: 34, borderRadius: 9, border: "1px solid var(--forest)", background: "var(--forest)", color: "var(--paper)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Check size={16} /></button>
+                  <button onClick={(e) => { e.stopPropagation(); actReq(r.handle, "reject"); }} disabled={busy === r.handle} aria-label="Decline" style={{ width: 34, height: 34, borderRadius: 9, border: "1px solid var(--border-strong)", background: "var(--paper)", color: "var(--ink-mute)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><X size={15} strokeWidth={2.4} /></button>
+                  <button onClick={(e) => { e.stopPropagation(); actReq(r.handle, "approve"); }} disabled={busy === r.handle} aria-label="Approve" style={{ width: 34, height: 34, borderRadius: 9, border: "1px solid var(--forest)", background: "var(--forest)", color: "var(--paper)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Check size={16} strokeWidth={2.6} /></button>
                 </div>
               ))}
             </div>
@@ -345,23 +345,24 @@ export default function CommunityManagePage() {
                   style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", cursor: "pointer" }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 13px 0" }}>
-                    <Avatar name={p.name} photo={p.avatar_url} size={32} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.name}</div>
-                      <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>@{p.handle} · {timeAgo(p.created_at)}</div>
-                    </div>
+                    {/* v8 header clicks through to the author's profile; the card body still opens the post. */}
+                    <Link href={`/profile/${p.handle}`} onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0, textDecoration: "none", color: "inherit" }}>
+                      <Avatar name={p.name} photo={p.avatar_url} size={32} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.name}</div>
+                        <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>@{p.handle} · {timeAgo(p.created_at)}</div>
+                      </div>
+                    </Link>
                     <PostTypeTag type={(p.type === "poll" ? "discussion" : p.type) as "showcase" | "discussion" | "review"} />
                   </div>
-                  <div style={{ display: "flex", gap: 11, alignItems: "flex-start", padding: "10px 13px 12px" }}>
-                    <div style={{ flex: 1, minWidth: 0, fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.55 }}>{p.body}</div>
-                    {p.images.length > 0 && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.images[0]} alt="" style={{ width: 64, height: 64, borderRadius: 10, objectFit: "cover", flexShrink: 0, border: "1px solid var(--border)" }} />
-                    )}
-                  </div>
-                  <div style={{ display: "flex", gap: 9, padding: "0 13px 13px" }}>
-                    <button onClick={(e) => { e.stopPropagation(); actPost(p.id, "reject"); }} disabled={busy === p.id} style={{ flex: 1, height: 38, borderRadius: 9, border: "1px solid var(--border-strong)", background: "transparent", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Decline</button>
-                    <button onClick={(e) => { e.stopPropagation(); actPost(p.id, "approve"); }} disabled={busy === p.id} style={{ flex: 1, height: 38, borderRadius: 9, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Approve</button>
+                  <div style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.55, padding: "10px 13px 0" }}>{p.body}</div>
+                  {p.images.length > 0 && (
+                    <div style={{ padding: "10px 13px 0" }}><PostImages images={p.images} /></div>
+                  )}
+                  {/* v8 Button sm pair — Decline is the bone secondary with red ink; Approve is dark with the check. */}
+                  <div style={{ display: "flex", gap: 9, padding: "12px 13px 13px" }}>
+                    <button onClick={(e) => { e.stopPropagation(); actPost(p.id, "reject"); }} disabled={busy === p.id} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", height: 34, borderRadius: 9, border: "1px solid var(--border-strong)", background: "var(--bone)", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Decline</button>
+                    <button onClick={(e) => { e.stopPropagation(); actPost(p.id, "approve"); }} disabled={busy === p.id} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 34, borderRadius: 9, border: "1px solid var(--ink)", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}><Check size={15} />Approve</button>
                   </div>
                 </div>
               ))}
@@ -376,19 +377,25 @@ export default function CommunityManagePage() {
               const removing = removeTarget === m.handle;
               return (
                 <div key={m.handle} style={{ display: "flex", flexDirection: "column", gap: 9, padding: 10, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 11, flexWrap: "wrap" }}>
+                  {/* v8 member header links to the profile; badge sits at the end of the name line. */}
+                  <Link href={`/profile/${m.handle}`} style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", textDecoration: "none", color: "inherit" }}>
                     <Avatar name={m.name} photo={m.avatar_url} size={38} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontWeight: 600, fontSize: 14 }}>{m.name}</span>
+                        <span style={{ fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{m.name}</span>
                         {memberRoleChip(m.role)}
                       </div>
                       <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{m.handle}</div>
                     </div>
-                    {/* Role picker + Remove as matching right-aligned pills (DV8-15) — admin only. */}
-                    {!founderRow && isAdmin && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
-                        <div style={{ display: "inline-flex", border: "1px solid var(--border-strong)", borderRadius: 999, overflow: "hidden" }}>
+                  </Link>
+                  {/* v8 second row — Role picker under its micro-label, Remove pill bottom-right,
+                      both the same 32px control. (Only member/mod here — the API has no
+                      grantable admin role; the founder IS the admin.) */}
+                  {!founderRow && isAdmin && (
+                    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                      <div>
+                        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--ink-faint)", marginBottom: 6 }}>Role</div>
+                        <div style={{ display: "inline-flex", border: "1px solid var(--border-strong)", borderRadius: 9, overflow: "hidden" }}>
                           {(["member", "mod"] as const).map((role, i) => {
                             const on = m.role === role;
                             return (
@@ -399,16 +406,16 @@ export default function CommunityManagePage() {
                             );
                           })}
                         </div>
-                        <button onClick={() => { setRemoveTarget(removing ? null : m.handle); setRemoveReason(""); }} disabled={busy === m.handle} style={{
-                          ...pillBase, borderRadius: 999, border: "1px solid var(--stamp-red)", background: removing ? "var(--stamp-red)" : "var(--paper)", color: removing ? "var(--paper)" : "var(--stamp-red)",
-                        }}>Remove</button>
                       </div>
-                    )}
-                  </div>
+                      <button onClick={() => { setRemoveTarget(removing ? null : m.handle); setRemoveReason(""); }} disabled={busy === m.handle} style={{
+                        ...pillBase, borderRadius: 9, border: "1px solid var(--stamp-red)", background: removing ? "var(--stamp-red)" : "var(--paper)", color: removing ? "var(--paper)" : "var(--stamp-red)",
+                      }}>Remove member</button>
+                    </div>
+                  )}
                   {/* Removal needs a reason — sent as the {reason} body (DV8-14). */}
                   {removing && (
                     <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--stamp-red)", marginBottom: 7 }}>Remove @{m.handle} — why?</div>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--stamp-red-deep)", marginBottom: 7 }}>Remove @{m.handle} — why?</div>
                       <textarea
                         value={removeReason}
                         onChange={(e) => setRemoveReason(e.target.value.slice(0, 300))}
@@ -433,68 +440,7 @@ export default function CommunityManagePage() {
         {/* SETTINGS — the full editor, admin only (DV8-14). */}
         {tab === "settings" && isAdmin && (
           <div>
-            <SectionLabel>Photos</SectionLabel>
-            <div style={{ margin: "11px 0 20px" }}>
-              <ImageUploader onUpload={(url) => savePhoto("banner_url", url)} previewUrl={community.banner_url ?? undefined} label="Add a banner image" />
-              <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginTop: 10 }}>
-                <div style={{ width: 148, flexShrink: 0 }}>
-                  <ImageUploader onUpload={(url) => savePhoto("avatar_url", url)} previewUrl={community.avatar_url ?? undefined} label="Add a photo" />
-                </div>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.5, paddingTop: 6 }}>
-                  Square photo — shown on the community tile. Photos save as soon as they upload.
-                </div>
-              </div>
-            </div>
-
-            <SectionLabel>Community details</SectionLabel>
-            <div style={{ margin: "11px 0 20px" }}>
-              <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink-faint)", marginBottom: 6 }}>Name</div>
-              <input
-                value={name}
-                onChange={(e) => { setName(e.target.value); setDetailsError(null); setDetailsSaved(false); }}
-                style={{ width: "100%", boxSizing: "border-box", height: 44, padding: "0 13px", borderRadius: 11, border: `1px solid ${detailsError ? "var(--stamp-red)" : "var(--border-strong)"}`, background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14.5, color: "var(--ink)", outline: "none" }}
-              />
-              {detailsError && <div style={{ fontSize: 12.5, color: "var(--stamp-red)", marginTop: 6 }}>{detailsError}</div>}
-
-              <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink-faint)", margin: "14px 0 6px" }}>Short description</div>
-              <textarea
-                value={desc}
-                onChange={(e) => { setDesc(e.target.value.slice(0, 140)); setDetailsSaved(false); }}
-                rows={2}
-                style={{ width: "100%", boxSizing: "border-box", padding: "10px 13px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none", resize: "none", lineHeight: 1.5 }}
-              />
-              <div style={{ fontSize: 11, color: "var(--ink-faint)", textAlign: "right", marginTop: 4 }}>{desc.length}/140</div>
-
-              <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink-faint)", margin: "10px 0 6px" }}>Rules — one per line</div>
-              <textarea
-                value={rulesText}
-                onChange={(e) => { setRulesText(e.target.value); setDetailsSaved(false); }}
-                rows={6}
-                style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 11, border: `1px solid ${rulesInvalid ? "var(--stamp-red)" : "var(--border-strong)"}`, background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--ink)", outline: "none", resize: "vertical", lineHeight: 1.6 }}
-              />
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11.5, color: rulesInvalid ? "var(--stamp-red)" : "var(--ink-faint)", marginTop: 5, lineHeight: 1.5 }}>
-                <span>
-                  {firstLongRule !== -1 && `Rule ${firstLongRule + 1} is over ${RULE_MAX_CHARS} characters (${ruleLines[firstLongRule].length}/${RULE_MAX_CHARS}).`}
-                  {firstLongRule === -1 && rulesTooMany && `Too many rules — keep it to ${RULES_MAX_COUNT}.`}
-                </span>
-                <span style={{ flexShrink: 0, fontFamily: "var(--font-mono)" }}>{ruleLines.length}/{RULES_MAX_COUNT} rules</span>
-              </div>
-
-              <button onClick={saveDetails} disabled={savingDetails || detailsInvalid} style={{
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", height: 42,
-                marginTop: 12, borderRadius: 11, border: "none", background: "var(--ink)", color: "var(--paper)",
-                fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5,
-                cursor: savingDetails || detailsInvalid ? "default" : "pointer", opacity: detailsInvalid ? 0.5 : 1,
-              }}>
-                {savingDetails ? "Saving…" : "Save details"}
-              </button>
-              {detailsSaved && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, color: "var(--forest)", fontSize: 12.5, fontWeight: 600 }}>
-                  <Check size={14} /> Saved.
-                </div>
-              )}
-            </div>
-
+            {/* v8 section order — Privacy, Who can post, then the details editor. */}
             <SectionLabel>Privacy</SectionLabel>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, margin: "11px 0 20px" }}>
               {/* Joining is gated everywhere now — public only controls discovery (DV8-14). */}
@@ -509,13 +455,76 @@ export default function CommunityManagePage() {
             </div>
             {savingSettings && <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 14 }}>Saving…</div>}
 
-            <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
-              <button onClick={deleteCommunity} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 46, borderRadius: 12, border: "1px solid var(--stamp-red)", background: "transparent", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-                <Trash2 size={16} />Delete community
-              </button>
-              <div style={{ fontSize: 11.5, color: "var(--ink-faint)", textAlign: "center", marginTop: 8, lineHeight: 1.5 }}>
-                Removes the community for everyone. This can&rsquo;t be undone.
+            {/* Details editor — v8's EditCommunitySheet fields (Photos, name, description,
+                rules) rendered inline; we have no overlay sheet here. */}
+            <SectionLabel>Photos</SectionLabel>
+            <div style={{ margin: "10px 0 20px" }}>
+              <ImageUploader onUpload={(url) => savePhoto("banner_url", url)} previewUrl={community.banner_url ?? undefined} label="Add a banner image" />
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginTop: 10 }}>
+                <div style={{ width: 148, flexShrink: 0 }}>
+                  <ImageUploader onUpload={(url) => savePhoto("avatar_url", url)} previewUrl={community.avatar_url ?? undefined} label="Add a photo" />
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.5, paddingTop: 6 }}>
+                  Square photo — shown on the community tile. Photos save as soon as they upload.
+                </div>
               </div>
+            </div>
+
+            <SectionLabel>Community name</SectionLabel>
+            <input
+              value={name}
+              onChange={(e) => { setName(e.target.value); setDetailsError(null); setDetailsSaved(false); }}
+              style={{ width: "100%", boxSizing: "border-box", height: 46, padding: "0 13px", borderRadius: 11, border: `1px solid ${detailsError ? "var(--stamp-red)" : "var(--border-strong)"}`, background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", outline: "none", margin: detailsError ? "10px 0 0" : "10px 0 20px" }}
+            />
+            {/* A 409 duplicate-name comes back as the error detail — shown inline by the field. */}
+            {detailsError && <div style={{ fontSize: 12.5, color: "var(--stamp-red)", margin: "6px 0 20px" }}>{detailsError}</div>}
+
+            <SectionLabel>Description</SectionLabel>
+            <textarea
+              value={desc}
+              onChange={(e) => { setDesc(e.target.value.slice(0, 140)); setDetailsSaved(false); }}
+              rows={2}
+              style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none", resize: "none", margin: "10px 0 20px" }}
+            />
+
+            <SectionLabel>Community rules</SectionLabel>
+            <textarea
+              value={rulesText}
+              onChange={(e) => { setRulesText(e.target.value); setDetailsSaved(false); }}
+              rows={7}
+              style={{ width: "100%", boxSizing: "border-box", padding: "12px 13px", borderRadius: 11, border: `1px solid ${rulesInvalid ? "var(--stamp-red)" : "var(--border-strong)"}`, background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--ink)", outline: "none", resize: "vertical", margin: "10px 0 4px" }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11.5, color: rulesInvalid ? "var(--stamp-red)" : "var(--ink-faint)", lineHeight: 1.5 }}>
+              <span>
+                {rulesInvalid && `Rules must be ${RULES_TOTAL_MAX_CHARS} characters or fewer in total.`}
+              </span>
+              <span style={{ flexShrink: 0 }}>{rulesChars}/{RULES_TOTAL_MAX_CHARS}</span>
+            </div>
+
+            {/* v8's sheet saves via a small primary Save button — same control, inline. */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, marginTop: 12 }}>
+              {detailsSaved && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--forest)", fontSize: 12.5, fontWeight: 600 }}>
+                  <Check size={14} /> Saved.
+                </span>
+              )}
+              <button onClick={saveDetails} disabled={savingDetails || detailsInvalid} style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center", height: 34,
+                padding: "0 14px", borderRadius: 9, border: "1px solid var(--stamp-red)",
+                background: "var(--stamp-red)", color: "var(--paper)",
+                fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, lineHeight: 1,
+                cursor: savingDetails || detailsInvalid ? "not-allowed" : "pointer", opacity: savingDetails || detailsInvalid ? 0.4 : 1,
+              }}>
+                {savingDetails ? "Saving…" : "Save"}
+              </button>
+            </div>
+
+            {/* v8 destructive treatment — secondary block button in stamp-red. Our API only
+                deletes (no close/pause), and the confirm is the browser dialog. */}
+            <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
+              <button onClick={deleteCommunity} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 52, borderRadius: 14, border: "1px solid var(--stamp-red)", background: "var(--bone)", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 16, lineHeight: 1, cursor: "pointer" }}>
+                <X size={16} strokeWidth={2.4} />Delete community
+              </button>
             </div>
           </div>
         )}

@@ -82,6 +82,15 @@ const DEFAULT_SORT: SortId = "owned";
 const PAGE_SIZE = 8;
 const OWNS = (s: string | null) => s === "owned" || s === "preorder";
 
+// DV8 — the placeholder tone is a stable hash of the SKU over v8's photo tones, no longer
+// keyed off verification state (a photo tone is not a trust signal).
+const TILE_TONES = ["ink", "red", "teal", "gold", "plum", "forest"] as const;
+const toneOf = (sku: string) => {
+  let h = 0;
+  for (let i = 0; i < sku.length; i++) h = (h * 31 + sku.charCodeAt(i)) >>> 0;
+  return TILE_TONES[h % TILE_TONES.length];
+};
+
 /** Sort scales the way a collector reads them: 1/6 before 1/12 before 1/144, text last. */
 const scaleRank = (s: string) => {
   const m = /^1\s*\/\s*(\d+)$/.exec(s.trim());
@@ -229,6 +238,26 @@ export default function DatabasePage() {
     return sortScales(dbScales);
   }, [scaleless, dCats, dbScales]);
 
+  // DV8 — the Apply button reads "Show N items" (v8 ExploreView.jsx:210). When the draft
+  // equals the applied filters the grid's own total is already the answer; otherwise ONE
+  // debounced limit=1 browse request fetches the draft's total.
+  const draftMatchesApplied =
+    dScale === scale && dCats.length === cats.length && dCats.every((c) => cats.includes(c));
+  const [sheetCount, setSheetCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!sheetOpen || draftMatchesApplied) return;
+    const t = setTimeout(() => {
+      const s = new URLSearchParams({ sort: dSort, page: "1", limit: "1" });
+      if (debouncedQ) s.set("q", debouncedQ);
+      if (dCats.length) s.set("category", dCats.join(","));
+      if (dScale) s.set("scale", dScale);
+      api.get<{ items: DbItem[]; total: number }>(`/catalogue/browse?${s.toString()}`)
+        .then((d) => setSheetCount(d.total))
+        .catch(() => setSheetCount(null));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [sheetOpen, draftMatchesApplied, dCats, dScale, dSort, debouncedQ]);
+
   // Close the filter panel on an outside click / Escape (it's an anchored dropdown now,
   // not a modal sheet, so there's no backdrop to catch the click).
   useEffect(() => {
@@ -290,7 +319,8 @@ export default function DatabasePage() {
   // at the moment it's earned; a second, staggered toast sells the finish-later flow.
   // A wishlist row silently converts server-side; an owned copy 409s ("Already in your
   // collection"), which is also pre-empted client-side for tiles we know are owned.
-  // The pre-order path is NOT here — the /db/[sku] entry page CTA still opens the form.
+  // The /db/[sku] entry page CTA quick-adds the same way (v8 ItemDetail :63-89, founder
+  // 2026-09-06); pre-order tracking starts from Create → Add item.
   async function quickAdd(it: DbItem) {
     if (OWNS(it.viewer_status)) {
       fireToast("Already in your collection");
@@ -331,7 +361,7 @@ export default function DatabasePage() {
   const activeFilters = cats.length + (scale ? 1 : 0) + (sort !== DEFAULT_SORT ? 1 : 0);
   const filtersOn = activeFilters > 0;
   const draftDirty = dCats.length > 0 || !!dScale || dSort !== DEFAULT_SORT;
-  const openSheet = () => { setDCats(cats); setDScale(scale); setDSort(sort); setSheetOpen(true); };
+  const openSheet = () => { setDCats(cats); setDScale(scale); setDSort(sort); setSheetCount(null); setSheetOpen(true); };
   const applySheet = () => { setCats(dCats); setScale(dScale); setSort(dSort); setSheetOpen(false); };
   // Clear empties the selection outright — it does NOT restore the sign-up defaults, which
   // would make "unrestricted" unreachable for anyone who picked interests (§4.3).
@@ -483,7 +513,9 @@ export default function DatabasePage() {
                 </>
               )}
 
-              <Button variant="dark" size="block" style={{ marginTop: 18 }} onClick={applySheet}>Apply</Button>
+              <Button variant="dark" size="block" style={{ marginTop: 18 }} onClick={applySheet}>
+                Show {(draftMatchesApplied ? total : sheetCount ?? total).toLocaleString("en-IN")} items
+              </Button>
             </div>
           )}
         </div>
@@ -528,9 +560,10 @@ export default function DatabasePage() {
             onClick={showMore}
             disabled={loadingMore}
             style={{
-              width: "100%", marginTop: 14, height: 46, borderRadius: 13, cursor: loadingMore ? "wait" : "pointer",
+              /* DV8 — v8 pagination metrics: h44 r12, 13.5/600 (ExploreView.jsx:144-149). */
+              width: "100%", marginTop: 14, height: 44, borderRadius: 12, cursor: loadingMore ? "wait" : "pointer",
               border: "1px solid var(--border-strong)", background: "var(--paper-soft)", color: "var(--ink)",
-              fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14,
+              fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13.5,
             }}
           >
             {loadingMore ? "Loading…" : `Show ${nextBatch} more`}
@@ -541,29 +574,31 @@ export default function DatabasePage() {
             button. Dashed border so it never reads as another result tile. Third and final
             entry point into the add-to-database flow (search row · here · profile). */}
         {items !== null && (
+          /* DV8 — v8's dashed card verbatim (ExploreView.jsx:153-163): r14, paper-soft,
+             14.5 display title, 12.5 sub, h38 r10 button. */
           <div
             style={{
-              marginTop: 20, padding: "20px 18px", borderRadius: 16, textAlign: "center",
-              border: "1.5px dashed var(--border-strong)", background: "transparent",
+              marginTop: 20, padding: "16px 16px 15px", borderRadius: 14, textAlign: "center",
+              border: "1px dashed var(--border-strong)", background: "var(--paper-soft)",
             }}
           >
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16.5, letterSpacing: "-0.01em", color: "var(--ink)" }}>
-              Didn&apos;t find what you were looking for?
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14.5, letterSpacing: "-0.01em", color: "var(--ink)" }}>
+              Can&rsquo;t find what you&rsquo;re looking for?
             </div>
-            <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 6, lineHeight: 1.5 }}>
-              Add it to the Scorred DB — you earn XP once it passes review.
+            <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 4, lineHeight: 1.45 }}>
+              Add it to the database and earn XP once it&rsquo;s reviewed.
             </div>
             <button
               type="button"
               onClick={() => setGuidelines(true)}
               style={{
-                display: "inline-flex", alignItems: "center", gap: 7, marginTop: 14,
-                height: 42, padding: "0 18px", borderRadius: 12, cursor: "pointer", border: "none",
-                background: "var(--stamp-red)", color: "var(--paper)",
-                fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14,
+                display: "inline-flex", alignItems: "center", gap: 6, marginTop: 12,
+                height: 38, padding: "0 16px", borderRadius: 10, cursor: "pointer", border: "none",
+                background: "var(--stamp-red)", color: "#fff",
+                fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13, letterSpacing: "-0.01em",
               }}
             >
-              <Plus size={17} strokeWidth={2.4} />Add an item
+              <Plus size={15} strokeWidth={2.4} />Add an item
             </button>
           </div>
         )}
@@ -588,7 +623,7 @@ function DbTile({ item, onWishlist, onQuickAdd }: { item: DbItem; onWishlist: ()
     <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ position: "relative" }}>
         <Link href={`/db/${encodeURIComponent(item.sku)}`} aria-label={item.title} style={{ display: "block" }}>
-          <ProductPhoto tone={item.is_verified ? "ink" : "bone"} src={item.thumbnail_url} ratio="1/1" rounded={0} label="catalogue reference" />
+          <ProductPhoto tone={toneOf(item.sku)} src={item.thumbnail_url} ratio="1/1" rounded={0} label="catalogue reference" />
         </Link>
 
         {/* ── Overlay column, RIGHT edge — exactly as design_v7 has it ─────────────
@@ -614,7 +649,7 @@ function DbTile({ item, onWishlist, onQuickAdd }: { item: DbItem; onWishlist: ()
           title={owned ? "Already in your collection" : wishlisted ? "Remove from your wishlist" : "Add to your wishlist"}
           style={{
             position: "absolute", top: 8, right: 8, width: 30, height: 30, borderRadius: 999, border: "none", cursor: "pointer",
-            background: "rgba(255,255,255,0.92)",
+            background: "rgba(255,255,255,0.92)", backdropFilter: "blur(2px)",
             display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
           }}
         >
@@ -641,11 +676,13 @@ function DbTile({ item, onWishlist, onQuickAdd }: { item: DbItem; onWishlist: ()
           style={{
             position: "absolute", bottom: 8, right: 8, width: 32, height: 32, borderRadius: 999,
             border: "none", cursor: "pointer",
-            background: "var(--stamp-red)", color: "var(--paper)", boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+            /* DV8 — owned state reads FOREST with the Scorred seal (v8 ExploreView.jsx:124-126),
+               not a red check: red is the "add" action, forest+seal is "it's on your shelf". */
+            background: owned ? "var(--forest)" : "var(--stamp-red)", color: "var(--paper)", boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >
-          {owned ? <Check size={16} strokeWidth={2.6} /> : <PlusCircle size={17} strokeWidth={2} />}
+          {owned ? <SealMark size={17} /> : <PlusCircle size={17} strokeWidth={2} />}
         </button>
       </div>
 

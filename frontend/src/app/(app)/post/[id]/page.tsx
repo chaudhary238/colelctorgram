@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { Heart, MessageCircle, Share2, Bookmark, Tag as TagIcon, MapPin, MessageSquare, Flag } from "lucide-react";
+import { useParams } from "next/navigation";
+import { Heart, MessageCircle, Share2, Bookmark, Flag } from "lucide-react";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
-import { ApiPost, PollBlock, CommentThread, PostImages, refTone } from "@/components/cards";
+import { ApiPost, PollBlock, CommentThread, ISOCard, PostImages, refTone } from "@/components/cards";
 import { BackButton } from "@/components/BackButton";
 import { ReportSheet } from "@/components/ReportSheet";
 import { useUser } from "@/lib/auth-context";
-import { Avatar, Stars, PostTypeTag, ProductPhoto, SealMark, Badge } from "@/components/ui";
+import { Avatar, Stars, ProductPhoto, SealMark, Badge } from "@/components/ui";
 import { patchFeedSnapshotPost } from "@/lib/feedSnapshot";
 
 interface Comment {
@@ -31,10 +31,8 @@ interface PostDetail extends ApiPost {
 
 export default function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const { user } = useUser();
   const [post, setPost] = useState<PostDetail | null>(null);
-  const [dmBusy, setDmBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -107,24 +105,6 @@ export default function PostDetailPage() {
     }
   }
 
-  // "I have this" — open a DM to the ISO author with the wanted item as context.
-  async function haveThis() {
-    if (dmBusy || !post) return;
-    setDmBusy(true);
-    const item = post.iso_item ?? post.title ?? "the item you're looking for";
-    try {
-      const thread = await api.post<{ id: string }>("/threads", {
-        other_user_id: post.user_id,
-        initial_message: `Hi! I saw your ISO for "${item}" — I have one. Still looking?`,
-      });
-      router.push(`/chat/${thread.id}`);
-    } catch {
-      router.push("/inbox");
-    } finally {
-      setDmBusy(false);
-    }
-  }
-
   if (loading || !post) {
     return (
       <div className="w-full max-w-[680px]" style={{ padding: 20 }}>
@@ -164,135 +144,119 @@ export default function PostDetailPage() {
         <ReportSheet targetType="post" targetId={post.id} title="Report post" onClose={() => setReporting(false)} />
       )}
 
-      <div style={{ padding: "16px 20px 0" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          {/* Staff posts speak as Scorred (QA 2026-08-04 §4) — seal, Official tag, no
-              handle and no link through to the admin's personal profile. */}
-          {post.is_official ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <SealMark size={40} />
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontWeight: 600, fontSize: 14 }}>Scorred</span>
-                  <Badge style={{ background: "var(--slate-800)", color: "var(--paper)", borderRadius: 5, fontWeight: 700, fontSize: 10.5, letterSpacing: "0.04em", textTransform: "uppercase", padding: "2px 7px" }}>
-                    Official
-                  </Badge>
+      {post.type === "iso" ? (
+        /* v8 PostDetail:18 — an ISO detail IS the real ISOCard (teal "Wanted" ribbon,
+           plum border, Looking-for block, chips, "I have this"), thread below. */
+        <>
+          <div style={{ paddingTop: 16 }}>
+            <ISOCard post={post} detail />
+          </div>
+          <CommentThread postId={id} onCountChange={setCommentCount} />
+        </>
+      ) : (
+        <>
+          <div style={{ padding: "16px 20px 0" }}>
+            {/* v8 PostDetail — the author row carries NO post-type tag; the page
+                header already names the surface. */}
+            {/* Staff posts speak as Scorred (QA 2026-08-04 §4) — seal, Official tag, no
+                handle and no link through to the admin's personal profile. */}
+            {post.is_official ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <SealMark size={40} />
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>Scorred</span>
+                    <Badge style={{ background: "var(--slate-800)", color: "var(--paper)", borderRadius: 5, fontWeight: 700, fontSize: 10.5, letterSpacing: "0.04em", textTransform: "uppercase", padding: "2px 7px" }}>
+                      Official
+                    </Badge>
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{timeAgo(post.created_at)}</div>
                 </div>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{timeAgo(post.created_at)}</div>
               </div>
-            </div>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Link href={`/profile/${post.handle}`}>
-                <Avatar name={post.name ?? "?"} size={40} />
-              </Link>
-              <div>
-                <Link href={`/profile/${post.handle}`} style={{ textDecoration: "none", color: "inherit" }} className="hover:underline">
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{post.name}</div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <Link href={`/profile/${post.handle}`}>
+                  <Avatar name={post.name ?? "?"} size={40} />
                 </Link>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{post.handle} · {timeAgo(post.created_at)}</div>
+                <div>
+                  <Link href={`/profile/${post.handle}`} style={{ textDecoration: "none", color: "inherit" }} className="hover:underline">
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{post.name}</div>
+                  </Link>
+                  <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{post.handle} · {timeAgo(post.created_at)}</div>
+                </div>
               </div>
-            </div>
-          )}
-          <PostTypeTag type={post.type as "showcase" | "discussion" | "review" | "iso"} />
-        </div>
-
-        {post.type === "iso" && (
-          <>
-            {/* v8 — neutral "Looking for" block; the gold WANTED watermark panel is gone. */}
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink-faint)", marginBottom: 4 }}>Looking for</div>
-              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17, letterSpacing: "-0.025em", color: "var(--ink)", lineHeight: 1.22, marginBottom: 9 }}>{post.iso_item ?? post.title ?? post.body.slice(0, 60)}</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {post.iso_budget != null && (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, background: "var(--bone)", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>
-                    <TagIcon size={11} />Up to ₹{Math.round(Number(post.iso_budget) / 100).toLocaleString("en-IN")}
-                  </span>
-                )}
-                {post.iso_cond && post.iso_cond !== "Any" && (
-                  <span style={{ display: "inline-flex", alignItems: "center", padding: "4px 9px", borderRadius: 6, background: "var(--bone)", fontSize: 12, fontWeight: 600, color: "var(--ink-mute)" }}>{post.iso_cond}</span>
-                )}
-                {post.iso_city && (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, background: "var(--bone)", fontSize: 12, fontWeight: 500, color: "var(--ink-mute)" }}>
-                    <MapPin size={11} />{post.iso_city}
-                  </span>
-                )}
-              </div>
-            </div>
-            {user?.id !== post.user_id && (
-              <button onClick={haveThis} disabled={dmBusy} style={{ display: "inline-flex", alignItems: "center", gap: 7, height: 40, padding: "0 16px", borderRadius: 10, border: "none", background: "var(--verified-teal)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, cursor: dmBusy ? "wait" : "pointer", marginBottom: 14 }}>
-                <MessageSquare size={15} />{dmBusy ? "Opening…" : "I have this"}
-              </button>
             )}
-          </>
-        )}
 
-        {post.type === "review" && post.review_rating && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <Stars n={post.review_rating} />
-            <span style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>{post.review_rating}/5 build quality</span>
-          </div>
-        )}
-
-        <div style={{ fontSize: 16, lineHeight: 1.6, color: "var(--ink-soft)", marginBottom: 14, whiteSpace: "pre-wrap" }}>{post.body}</div>
-
-        {/* QA 5.1 — same swipeable carousel as the feed for multi-photo posts. */}
-        {post.images.length > 0 && (
-          <div style={{ marginBottom: 14 }}>
-            <PostImages images={post.images} />
-          </div>
-        )}
-        {post.images.length === 0 && post.type === "showcase" && (
-          <div style={{ marginBottom: 14 }}>
-            <ProductPhoto tone="teal" ratio="3/2" />
-          </div>
-        )}
-
-        {post.type === "poll" && post.poll_options && (
-          <div style={{ margin: "0 -16px 14px" }}>
-            <PollBlock postId={post.id} options={post.poll_options} initialVote={post.my_poll_vote} />
-          </div>
-        )}
-
-        {post.ref && (
-          <Link
-            href={post.ref.kind === "listing" ? `/listing/${post.ref.id}` : `/item/${post.ref.id}`}
-            style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textDecoration: "none", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 12, padding: 10, marginBottom: 14 }}
-          >
-            <div style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
-              <ProductPhoto tone={refTone(post.ref.sku)} ratio="1/1" rounded={8} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.ref.title}</div>
-              <div style={{ fontSize: 11.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>
-                {post.ref.sku ? `${post.ref.sku} · ` : ""}{post.ref.kind === "listing" ? "view listing" : "view item"}
+            {post.type === "review" && post.review_rating && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <Stars n={post.review_rating} />
+                <span style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>{post.review_rating}/5 build quality</span>
               </div>
-            </div>
-          </Link>
-        )}
-      </div>
+            )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "12px 20px", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
-        <button onClick={toggleLike} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: liked ? "var(--stamp-red)" : "var(--ink-mute)" }}>
-          <Heart size={21} fill={liked ? "currentColor" : "none"} />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{likes}</span>
-        </button>
-        <button style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: "var(--ink-mute)" }}>
-          <MessageCircle size={21} />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{commentCount}</span>
-        </button>
-        <button onClick={sharePost} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: shared ? "var(--ink)" : "var(--ink-mute)" }}>
-          <Share2 size={20} />
-          {shared && <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>Copied</span>}
-        </button>
-        <div style={{ flex: 1 }} />
-        <button onClick={toggleSave} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: saved ? "var(--ink)" : "var(--ink-mute)" }}>
-          <Bookmark size={21} fill={saved ? "currentColor" : "none"} />
-        </button>
-      </div>
+            <div style={{ fontSize: 16, lineHeight: 1.6, color: "var(--ink-soft)", marginBottom: 14, whiteSpace: "pre-wrap" }}>{post.body}</div>
 
-      {/* Rich thread — likes, replies & @mentions on each comment (QA 5.2). */}
-      <CommentThread postId={id} onCountChange={setCommentCount} />
+            {/* QA 5.1 — same swipeable carousel as the feed for multi-photo posts. */}
+            {post.images.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <PostImages images={post.images} />
+              </div>
+            )}
+            {post.images.length === 0 && post.type === "showcase" && (
+              <div style={{ marginBottom: 14 }}>
+                {/* v8 PostDetail:36 — the placeholder's watermark is the brand. */}
+                <ProductPhoto tone="teal" ratio="3/2" label={post.ref_sku_brand ?? undefined} />
+              </div>
+            )}
+
+            {post.type === "poll" && post.poll_options && (
+              <div style={{ margin: "0 -16px 14px" }}>
+                <PollBlock postId={post.id} options={post.poll_options} initialVote={post.my_poll_vote} />
+              </div>
+            )}
+
+            {post.ref && (
+              <Link
+                href={post.ref.kind === "listing" ? `/listing/${post.ref.id}` : `/item/${post.ref.id}`}
+                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textDecoration: "none", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 12, padding: 10, marginBottom: 14 }}
+              >
+                <div style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
+                  <ProductPhoto tone={refTone(post.ref.sku)} ratio="1/1" rounded={8} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.ref.title}</div>
+                  {/* v8 PostDetail:45 — plain "view item" line; SKUs never surface. */}
+                  <div style={{ fontSize: 11.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>
+                    {post.ref.kind === "listing" ? "view listing" : "view item"}
+                  </div>
+                </div>
+              </Link>
+            )}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "12px 20px", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
+            <button onClick={toggleLike} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: liked ? "var(--stamp-red)" : "var(--ink-mute)" }}>
+              <Heart size={21} fill={liked ? "currentColor" : "none"} />
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{likes}</span>
+            </button>
+            <button style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: "var(--ink-mute)" }}>
+              <MessageCircle size={21} />
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{commentCount}</span>
+            </button>
+            <button onClick={sharePost} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: shared ? "var(--ink)" : "var(--ink-mute)" }}>
+              <Share2 size={20} />
+              {shared && <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>Copied</span>}
+            </button>
+            <div style={{ flex: 1 }} />
+            <button onClick={toggleSave} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: saved ? "var(--ink)" : "var(--ink-mute)" }}>
+              <Bookmark size={21} fill={saved ? "currentColor" : "none"} />
+            </button>
+          </div>
+
+          {/* Rich thread — likes, replies & @mentions on each comment (QA 5.2). */}
+          <CommentThread postId={id} onCountChange={setCommentCount} />
+        </>
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     UUID, Boolean, DateTime, Integer, String, Text,
-    ForeignKey, Index,
+    ForeignKey, Index, text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
@@ -27,7 +27,9 @@ class Event(Base):
     mode: Mapped[str] = mapped_column(String(16), default="in_person", nullable=False)  # in_person | online
     city: Mapped[str | None] = mapped_column(Text, nullable=True)
     pincode: Mapped[str | None] = mapped_column(String(6), nullable=True)  # DV4-07b: 6-digit PIN resolves to canonical city (dedup Bengaluru/Bangalore)
-    venue: Mapped[str | None] = mapped_column(Text, nullable=True)
+    venue: Mapped[str | None] = mapped_column(Text, nullable=True)         # DV8: venue NAME ("Phoenix Marketcity, Kurla")
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)       # DV8: full address details ("3rd floor atrium…") — shown post-RSVP
+    country: Mapped[str | None] = mapped_column(Text, nullable=True)       # DV8: CityPicker's second output
     online_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     cover_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     bring: Mapped[str | None] = mapped_column(Text, nullable=True)  # "what to bring" note
@@ -49,6 +51,10 @@ class Event(Base):
     __table_args__ = (
         Index("idx_events_community", "community_id"),
         Index("idx_events_categories", "categories", postgresql_using="gin"),
+        # Browse default is upcoming-only, ordered by date (a1b4d7e9c2f5) — the
+        # horizon index matches the filter expression verbatim.
+        Index("idx_events_starts", "starts_at"),
+        Index("idx_events_horizon", text("COALESCE(ends_at, starts_at)")),
     )
 
 

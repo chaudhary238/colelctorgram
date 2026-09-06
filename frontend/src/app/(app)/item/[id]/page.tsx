@@ -4,20 +4,19 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
-  ArrowLeft, Bell, Check, Clock, Flag, MoreHorizontal, Pencil, Star, Tag, Trash2,
+  ArrowLeft, ArrowLeftRight, Check, Clock, Flag, Lock, Pencil, PlusCircle, Send, SlidersHorizontal, Star, Tag, Trash2, X,
 } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { ReportCatalogueSheet } from "@/components/ReportCatalogueSheet";
-import { DbPeopleModal, type DbPeopleMode } from "@/components/DbPeopleModal";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { SectionLabel } from "@/components/ui";
 import { ReleaseWindowPicker } from "@/components/forms";
 import { fireToast, fireXpToast } from "@/components/gamification";
 import {
-  ItemPageBody, OwnershipCard, type RatingAggregate, type SpecEntry,
+  ItemPageBody, ItemTag, OwnershipCard, type RatingAggregate,
 } from "@/components/ItemPageBody";
-import { formatMoney, buildPoEta, ADD_CATEGORIES, type PoPrecision } from "@/lib/catalog";
+import { buildPoEta, formatMoney, type PoPrecision } from "@/lib/catalog";
 
 // DV8-05/06/07 — the collection-item page renders the SAME body as /db/[sku]
 // (ItemPageBody); only the ownership card variant + footer CTA differ. SKU is no
@@ -48,6 +47,14 @@ interface ApiItem {
   listing_id?: string | null;
   listing_price?: number | null;   // minor units
   listing_currency?: string | null;
+  // v8 "Relist for sale" — the newest CLOSED listing's terms (owner-only, unlisted copies).
+  closed_listing_id?: string | null;
+  closed_listing_price?: number | null;
+  closed_listing_currency?: string | null;
+  // v8 sold treatment — sold_at stamps a closed copy (stays on the shelf, greyed);
+  // sold_price is the closing price in minor units, owner-only (stripped for visitors).
+  sold_at?: string | null;
+  sold_price?: number | null;
   photo_count: number;
   images?: string[];
   preorder_ordered_at: string | null;
@@ -76,9 +83,13 @@ interface CatEntry {
   collectors_count: number;
   wishlists_count: number;
   description: string | null;
+  est_retail_price: number;
   rating_avg: number | null;
   rating_count: number;
   my_rating: number | null;
+  /** The VIEWER's best copy of this sku (owned > preorder > wishlist) — powers the
+      v8 "In your collection" visitor CTA (:70-73). */
+  viewer_item: { id: string; status: string } | null;
 }
 
 // DV4-04: remove-from-collection reasons (design_v4 ItemDetail "Remove from collection?" sheet).
@@ -91,19 +102,15 @@ const REMOVE_REASONS: { id: string; label: string }[] = [
   { id: "other", label: "Other reason" },
 ];
 
+// v8 shared.jsx STATUS_LABEL vocabulary — "Owned", never "In collection".
 const STATUS_LABEL: Record<string, string> = {
-  owned: "In collection",
+  owned: "Owned",
   wishlist: "Wishlist",
   preorder: "Pre-order",
   intel: "DB Contribution",
 };
 
 const TONES = ["teal", "plum", "forest", "gold", "red", "ink"];
-
-// One wording per category app-wide (Change Spec §4.2) — read from the shared list.
-const CAT_LABEL: Record<string, string> = Object.fromEntries(
-  ADD_CATEGORIES.map((c) => [c.id, c.label]),
-);
 
 // DV4-04: "Remove from collection?" reason sheet.
 
@@ -218,6 +225,55 @@ function EditPreorderSheet({ item, onClose, onSaved }: { item: ApiItem; onClose:
   );
 }
 
+// v8 ItemDetail :379-410 — "Mark as sold?" one-tap confirm that says what changes,
+// plus an OPTIONAL closing price ("What did it go for?") the design's mock skipped.
+function MarkSoldSheet({ isListed, busy, onConfirm, onClose }: {
+  isListed: boolean; busy: boolean; onConfirm: (priceRupees: number | null) => void; onClose: () => void;
+}) {
+  const [price, setPrice] = useState("");
+  const bullets: { text: string; icon: React.ReactNode }[] = [
+    ...(isListed ? [{ text: "Your listing closes and leaves the market", icon: <X size={15} /> }] : []),
+    { text: "The item stays in your collection with a Sold tag", icon: <Check size={15} /> },
+    { text: "It stops counting toward your portfolio value", icon: <Lock size={15} /> },
+  ];
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-4)] p-5 pb-6">
+        <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, letterSpacing: "-0.02em", textAlign: "center", color: "var(--ink)", margin: 0 }}>
+          Mark as sold?
+        </h2>
+        <p style={{ fontSize: 13, color: "var(--ink-faint)", textAlign: "center", margin: "5px 0 0", lineHeight: 1.5 }}>
+          For a sale you settled in chat or offline — no buyer details needed.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 9, margin: "18px 0 2px" }}>
+          {bullets.map((b) => (
+            <div key={b.text} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--ink-soft)" }}>
+              <span style={{ color: "var(--ink-faint)", flexShrink: 0, display: "flex" }}>{b.icon}</span>{b.text}
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink-mute)" }}>What did it go for? <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(optional)</span></div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, height: 44, marginTop: 7, padding: "0 13px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 15, color: "var(--ink-faint)" }}>₹</span>
+            <input value={price} onChange={(e) => setPrice(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="0"
+              style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 15, color: "var(--ink)" }} />
+          </div>
+        </div>
+        <button onClick={() => onConfirm(price ? Number(price) : null)} disabled={busy}
+          style={{ width: "100%", height: 46, marginTop: 18, borderRadius: 12, border: "none", background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14.5, cursor: busy ? "wait" : "pointer", opacity: busy ? 0.6 : 1 }}>
+          {busy ? "Marking…" : "Mark as sold"}
+        </button>
+        <button onClick={onClose} disabled={busy}
+          style={{ width: "100%", height: 46, marginTop: 8, borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper)", color: "var(--ink)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14.5, cursor: "pointer" }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function ItemDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -225,7 +281,6 @@ export default function ItemDetailPage() {
   const [item, setItem] = useState<ApiItem | null>(null);
   const [cat, setCat] = useState<CatEntry | null>(null);
   const [loading, setLoading] = useState(true);
-  const [wishAlert, setWishAlert] = useState(false);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   // remove-from-collection sheet (DV4-04)
@@ -235,7 +290,9 @@ export default function ItemDetailPage() {
   // DV8-07 — the owner's kebab / manage sheet
   const [manageOpen, setManageOpen] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
-  const [people, setPeople] = useState<DbPeopleMode | null>(null);
+  // v8 sold treatment — the Mark-as-sold confirm sheet + its POST/DELETE round trips
+  const [soldOpen, setSoldOpen] = useState(false);
+  const [soldBusy, setSoldBusy] = useState(false);
 
   const [reporting, setReporting] = useState(false); // DV6-13 — report this catalogue entry
   // Star = wishlist (taxonomy 2026-07-11) — non-owner only; lands in Saved → Wishlist.
@@ -254,6 +311,41 @@ export default function ItemDetailPage() {
   // edit pre-order details (DV4-03b)
   const [poEdit, setPoEdit] = useState(false);
 
+  // v8 "Mark as sold" — the server stamps sold_at, closes any live listing as sold
+  // and unlists it; the optional closing price travels as minor units.
+  async function markSold(priceRupees: number | null) {
+    if (!item || soldBusy) return;
+    setSoldBusy(true);
+    try {
+      await api.post(`/items/${item.id}/sold`, priceRupees != null && priceRupees > 0 ? { price: priceRupees * 100 } : {});
+      setSoldOpen(false);
+      fireToast("Marked as sold — greyed out in your collection, undo any time");
+      const fresh = await api.get<ApiItem>(`/items/${item.id}`);
+      setItem(fresh);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSoldBusy(false);
+    }
+  }
+
+  // v8 "Still have it — undo sold" → DELETE clears the stamp; back to a normal owned copy.
+  async function undoSold() {
+    if (!item || soldBusy) return;
+    setSoldBusy(true);
+    try {
+      await api.delete(`/items/${item.id}/sold`);
+      setManageOpen(false);
+      fireToast("Back on your shelf as owned");
+      const fresh = await api.get<ApiItem>(`/items/${item.id}`);
+      setItem(fresh);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSoldBusy(false);
+    }
+  }
+
   async function removeItem() {
     if (!item || removing) return;
     setRemoving(true);
@@ -265,6 +357,20 @@ export default function ItemDetailPage() {
       console.error(e);
       setRemoving(false);
     }
+  }
+
+  // DV8 "Ask about it" — POST /threads returns the existing pair thread or creates
+  // one (privacy-gated on NEW threads only); then land in the chat composer in draft
+  // mode so the FIRST send carries ref_sku. Errors deliberately propagate: the
+  // ownership card turns a 403 detail into its quiet inline note.
+  async function askOwner() {
+    if (!item) return;
+    const thread = await api.post<{ id: string }>("/threads", { other_user_id: item.user_id });
+    const askTitle = item.title ?? item.custom_title ?? item.sku ?? "Item";
+    const qs = item.sku
+      ? `?draft=1&sku=${encodeURIComponent(item.sku)}&title=${encodeURIComponent(askTitle)}`
+      : "";
+    router.push(`/chat/${thread.id}${qs}`);
   }
 
   async function addToCollection() {
@@ -300,6 +406,74 @@ export default function ItemDetailPage() {
     }
   }
 
+  // v8 :121 "Add another copy" — a second row of the same sku (different condition,
+  // a resale copy, a gift). Non-quick POST: the duplicate guard only protects the
+  // one-tap quick-add, so a deliberate second copy is allowed.
+  async function addAnotherCopy() {
+    if (!item?.sku || statusBusy) return;
+    setStatusBusy(true);
+    try {
+      const res = await api.post<{ id: string; add_xp?: number }>("/items", {
+        sku: item.sku, status: item.status === "preorder" ? "preorder" : "owned",
+      });
+      if (res.add_xp && res.add_xp > 0) {
+        fireXpToast(res.add_xp, "Added a second copy");
+        setTimeout(() => fireToast("Give it its own condition & price"), 2400);
+      } else {
+        fireToast("Added a second copy", "Give it its own condition & price");
+      }
+      setManageOpen(false);
+      router.push(`/item/${res.id}`);
+    } catch (e) {
+      fireToast(e instanceof Error && e.message ? e.message : "Could not add a copy");
+      setStatusBusy(false);
+    }
+  }
+
+  // v8 :127 "Unlist from market" — the listing row stays (status closed), which is
+  // exactly what makes one-tap Relist possible later.
+  async function unlist() {
+    if (!item?.listing_id || statusBusy) return;
+    setStatusBusy(true);
+    try {
+      await api.patch(`/listings/${item.listing_id}`, { status: "closed" });
+      // v8 flashToast(title, sub) — one toast, two lines.
+      fireToast("Unlisted — stays in your collection", "Relist puts it back at these terms");
+      setItem(await api.get<ApiItem>(`/items/${item.id}`));
+    } catch (e) {
+      fireToast(e instanceof Error && e.message ? e.message : "Could not unlist");
+    } finally {
+      setStatusBusy(false);
+      setManageOpen(false);
+    }
+  }
+
+  // v8 :114 "Relist for sale" — reopen the archived listing at its saved terms.
+  async function relist() {
+    if (!item?.closed_listing_id || statusBusy) return;
+    setStatusBusy(true);
+    try {
+      await api.patch(`/listings/${item.closed_listing_id}`, { status: "available" });
+      fireToast("Relisted at your previous terms");
+      setItem(await api.get<ApiItem>(`/items/${item.id}`));
+    } catch (e) {
+      fireToast(e instanceof Error && e.message ? e.message : "Could not relist");
+    } finally {
+      setStatusBusy(false);
+      setManageOpen(false);
+    }
+  }
+
+  // v8 :129 offers "Change to pre-order" even on a LISTED copy — we close the
+  // listing first so the market never carries a not-in-hand copy as available.
+  async function changeToPreorder() {
+    if (!item || statusBusy) return;
+    if (item.is_listed && item.listing_id) {
+      try { await api.patch(`/listings/${item.listing_id}`, { status: "closed" }); } catch { /* the status flip below still applies */ }
+    }
+    await setStatus("preorder");
+  }
+
   useEffect(() => {
     api.get<ApiItem>(`/items/${id}`)
       .then((i) => {
@@ -333,21 +507,13 @@ export default function ItemDetailPage() {
   const isPreorder = item.status === "preorder";
   const isIntel = item.status === "intel"; // DV6-11h — DB Contribution (unowned catalogue seed)
   const isOwnItem = !!user && user.id === item.user_id;
+  // v8 sold — a closed copy: stays on the shelf greyed out, excluded from portfolio
+  // value, never "incomplete". Manage collapses to Undo sold + Remove.
+  const isSold = item.sold_at != null;
 
   // DV8 §1 — intel/DB-contribution rows get NO ownership card (nobody owns them;
   // the "Added by" contributor line covers it). Wishlist rows get none either.
   const showCard = (isOwned || isPreorder) && !isIntel;
-
-  const specs: SpecEntry[] = [
-    item.brand ? { label: "Brand", value: item.brand } : null,
-    item.category ? { label: "Category", value: CAT_LABEL[item.category] ?? item.category } : null,
-    item.scale ? { label: "Scale", value: item.scale } : null,
-    item.release_year != null ? { label: "Year", value: String(item.release_year) } : null,
-    // A wishlist row has no ownership card; its cloned est. value lives in the specs.
-    isWish && item.value != null && item.value > 0
-      ? { label: "Est. market value", value: formatMoney(item.value, item.value_currency) }
-      : null,
-  ].filter((s): s is SpecEntry => s != null);
 
   const rating: RatingAggregate | null = cat
     ? { rating_avg: cat.rating_avg, rating_count: cat.rating_count, my_rating: cat.my_rating }
@@ -358,115 +524,148 @@ export default function ItemDetailPage() {
 
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-20">
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <BackButton fallback="/profile" />
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>Item detail</span>
+      {/* v8 :162-166 — the header floats transparent over the photo: a scrimmed back
+          button, no "Item detail" title bar and no kebab (Manage lives in the footer
+          CTA). The report flag keeps the same scrim chrome. */}
+      <div style={{ position: "relative" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 3, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px" }}>
+          <BackButton fallback="/profile" transparent />
           {item.sku && (
             <button type="button" onClick={() => setReporting(true)} title="Report this entry" aria-label="Report this entry"
-              style={{ display: "inline-flex", alignItems: "center", background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)", padding: 6 }}>
-              <Flag size={14} />
-            </button>
-          )}
-          {isOwnItem && (
-            <button type="button" onClick={() => setManageOpen(true)} title="Manage this item" aria-label="Manage this item"
-              style={{ display: "inline-flex", alignItems: "center", background: "none", border: "none", cursor: "pointer", color: "var(--ink)", padding: 6 }}>
-              <MoreHorizontal size={19} />
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, borderRadius: 12, border: "none",
+                background: "rgba(20,17,15,0.5)", backdropFilter: "blur(6px)", color: "var(--paper)", cursor: "pointer" }}>
+              <Flag size={16} />
             </button>
           )}
         </div>
-      </div>
 
-      <ItemPageBody
-        images={item.images ?? []}
-        tone={tone}
-        photoLabel={item.photo_count > 0 ? "your photo" : "catalogue reference"}
-        tags={
-          item.status !== "owned" ? (
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: 5, background: isIntel ? "var(--verified-teal)" : isWish ? "var(--plum)" : "var(--grail-gold)", color: "var(--paper)" }}>
-              {STATUS_LABEL[item.status] ?? item.status}
-            </span>
-          ) : undefined
-        }
-        title={title}
-        metaLine={[item.brand, item.scale, item.release_year != null ? String(item.release_year) : null].filter(Boolean).join(" · ")}
-        provenance={
-          item.sku
-            ? {
-                isVerified: cat ? cat.is_verified : !!item.catalogue_is_verified,
-                addedBy,
-                isYou: !!user?.handle && !!addedBy && user.handle === addedBy,
-              }
-            : null
-        }
-        ownershipCard={
-          showCard ? (
-            <OwnershipCard
-              status={isPreorder ? "preorder" : "owned"}
-              viewerIsOwner={isOwnItem}
-              ownerHandle={item.owner_handle}
-              condition={item.condition}
-              value={item.value}
-              currency={item.value_currency}
-              photoCount={item.photo_count}
-              isListed={item.is_listed}
-              listingHref={item.listing_id ? `/listing/${item.listing_id}` : "/market"}
-              listingPrice={item.listing_price ?? null}
-              listingCurrency={item.listing_currency ?? null}
-              preorder={isPreorder ? {
-                orderedAt: item.preorder_ordered_at,
-                eta: item.preorder_eta,
-                precision: item.preorder_window_precision ?? null,
-                seller: item.preorder_seller ?? null,
-                total: item.preorder_total ?? null,
-                deposit: item.preorder_deposit ?? null,
-              } : null}
-              onEditPreorder={isOwnItem ? () => setPoEdit(true) : undefined}
-            />
-          ) : null
-        }
-        stats={cat ? { owners: cat.collectors_count, wishlisted: cat.wishlists_count, onOpen: (m) => setPeople(m) } : null}
-        about={{ description: item.description ?? cat?.description, specs }}
-        rating={item.sku && rating ? { sku: item.sku, initial: rating } : null}
-        sku={item.sku}
-      />
+        <ItemPageBody
+          images={item.images ?? []}
+          tone={tone}
+          // v8 :166 — "your photo · {i} of {n}" is the OWNER's label (mine.photos);
+          // a visitor keeps "catalogue reference" even over the owner's photos.
+          photoLabel={isOwnItem && item.photo_count > 0 ? "your photo" : "catalogue reference"}
+          photoCountInLabel={isOwnItem && item.photo_count > 0}
+          tags={
+            /* v8 :170-174 — tags describe YOUR copy only (status + Listed); a visitor
+               sees a clean title. */
+            isOwnItem ? (
+              isSold ? (
+                /* v8 sold — the forest Sold tag REPLACES Owned/Listed: the copy's one
+                   state is "sold", nothing else about it is live. */
+                <ItemTag kind="sold">Sold</ItemTag>
+              ) : (
+                <>
+                  <ItemTag kind={isPreorder ? "po" : (isWish || isIntel) ? "teal" : "default"}>
+                    {STATUS_LABEL[item.status] ?? item.status}
+                  </ItemTag>
+                  {item.is_listed && isOwned && <ItemTag kind="sale">Listed</ItemTag>}
+                </>
+              )
+            ) : undefined
+          }
+          title={title}
+          metaLine={[item.brand, item.scale !== "—" ? item.scale : null, item.release_year != null ? String(item.release_year) : null].filter(Boolean).join(" · ")}
+          provenance={
+            item.sku
+              ? {
+                  isVerified: cat ? cat.is_verified : !!item.catalogue_is_verified,
+                  addedBy,
+                  isYou: !!user?.handle && !!addedBy && user.handle === addedBy,
+                }
+              : null
+          }
+          // v8 :200 — Est. value shows unless the copy is a wish or your card already
+          // carries a private price (a visitor's payload has value nulled by the API).
+          estValue={!isWish && !(isOwnItem && item.value) ? cat?.est_retail_price ?? null : null}
+          ownershipCard={
+            showCard ? (
+              <OwnershipCard
+                status={isPreorder ? "preorder" : "owned"}
+                viewerIsOwner={isOwnItem}
+                ownerHandle={item.owner_handle}
+                condition={item.condition}
+                value={item.value}
+                currency={item.value_currency}
+                photoCount={item.photo_count}
+                isListed={item.is_listed}
+                listingHref={item.listing_id ? `/listing/${item.listing_id}` : "/market"}
+                listingPrice={item.listing_price ?? null}
+                listingCurrency={item.listing_currency ?? null}
+                sold={isSold}
+                soldPrice={item.sold_price ?? null}
+                preorder={isPreorder ? {
+                  orderedAt: item.preorder_ordered_at,
+                  eta: item.preorder_eta,
+                  precision: item.preorder_window_precision ?? null,
+                  seller: item.preorder_seller ?? null,
+                  total: item.preorder_total ?? null,
+                  deposit: item.preorder_deposit ?? null,
+                } : null}
+                onEditPreorder={isOwnItem ? () => setPoEdit(true) : undefined}
+                // v8 complete-items: gap "Add →" rows and the Finish CTA land on the
+                // copy's editor — owned → the edit form, pre-order → its ETA sheet.
+                onComplete={
+                  isOwnItem
+                    ? () => { if (isPreorder) setPoEdit(true); else router.push(`/item/${item.id}/sell`); }
+                    : undefined
+                }
+                // DV8 "Ask about it" — visitor-only DM into the owner's pair thread.
+                onAsk={!isOwnItem ? askOwner : undefined}
+              />
+            ) : null
+          }
+          // v8 pushes the full db-people SCREEN (ExploreView.jsx:529), not a modal.
+          stats={cat && item.sku ? { owners: cat.collectors_count, wishlisted: cat.wishlists_count, onOpen: (m) => router.push(`/db/${encodeURIComponent(item.sku!)}/people?mode=${m}`) } : null}
+          about={{
+            description: item.description ?? cat?.description,
+            brand: item.brand,
+            year: item.release_year != null ? String(item.release_year) : null,
+          }}
+          rating={item.sku && rating ? { sku: item.sku, initial: rating } : null}
+          sku={item.sku}
+        />
+      </div>
 
       <div className="ch-cta-bar">
         {/* QA 6.5 / 7.2 — the primary action depends on whether the VIEWER owns the
-            item, never on its status alone. Management/edit actions are for the
-            owner only; everyone else gets "Add to my collection" (+ wishlist). */}
+            item, never on its status alone. v8 :63-99: owner of an in-hand/pre-order
+            copy gets ONE Manage button into the sheet; a wish/intel row gets
+            "I own this now"; a visitor gets "I own this too" (or "In your collection"
+            when they already hold the sku) plus the wishlist star. */}
         {isOwnItem ? (
-          isOwned ? (
-            <div style={{ display: "flex", gap: 10 }}>
-              {/* DV8-12 — one edit page: condition, price and the listing toggle live together. */}
-              <Link
-                href={`/item/${item.id}/sell`}
-                style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--stamp-red)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
-                <Pencil size={17} /> Edit item
-              </Link>
-              {item.is_listed && (
-                <Link href={item.listing_id ? `/listing/${item.listing_id}` : "/market"} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--bone)", border: "1px solid var(--border-strong)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, color: "var(--ink)", textDecoration: "none" }}>
-                  <Tag size={17} /> Manage listing
-                </Link>
-              )}
-            </div>
-          ) : isPreorder ? (
-            // Your own preorder → edit its details, not "Add to collection" (QA 6.5).
-            <button onClick={() => setPoEdit(true)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--stamp-red)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
-              <Pencil size={17} /> Edit preorder details
+          isOwned || isPreorder ? (
+            /* v8 :81-83 — a sold copy's CTA drops to the SECONDARY treatment: nothing
+               about it is urgent any more, but its record still opens the sheet. */
+            <button onClick={() => setManageOpen(true)} style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13,
+              background: isSold ? "var(--paper)" : "var(--stamp-red)",
+              color: isSold ? "var(--ink)" : "var(--paper)",
+              border: isSold ? "1px solid var(--border-strong)" : "none",
+              fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer",
+            }}>
+              <SlidersHorizontal size={17} />
+              {isSold ? "Manage — sold" : isPreorder ? "Manage pre-order" : item.is_listed ? "Manage — listed" : "Manage this item"}
             </button>
-          ) : isWish ? (
-            <button onClick={() => setWishAlert((v) => !v)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: wishAlert ? "var(--bone)" : "var(--verified-teal)", color: wishAlert ? "var(--ink)" : "var(--paper)", border: wishAlert ? "1px solid var(--border-strong)" : "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-              <Bell size={17} />
-              {wishAlert ? "Alert on" : "Notify when listed"}
+          ) : (
+            // v8 :86-89 — your own wish (or intel seed) converts with one tap.
+            <button onClick={() => setStatus("owned")} disabled={statusBusy} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--ink)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: statusBusy ? "wait" : "pointer" }}>
+              <PlusCircle size={18} /> I own this now
             </button>
-          ) : null
+          )
         ) : (
           <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={addToCollection} disabled={adding || added} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: added ? "var(--bone)" : "var(--ink)", color: added ? "var(--ink)" : "var(--paper)", border: added ? "1px solid var(--border-strong)" : "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: adding || added ? "default" : "pointer" }}>
-              {added ? "Added to collection ✓" : adding ? "Adding…" : "Add to my collection"}
-            </button>
-            {/* Star = wishlist (icon law 2026-07-11) */}
+            {cat?.viewer_item && (cat.viewer_item.status === "owned" || cat.viewer_item.status === "preorder") ? (
+              /* v8 :70-73 — you already hold this sku yourself; don't offer to add it twice. */
+              <Link href={`/item/${cat.viewer_item.id}`} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--bone)", border: "1px solid var(--border-strong)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, color: "var(--ink)", textDecoration: "none" }}>
+                <Check size={17} /> In your collection
+              </Link>
+            ) : (
+              <button onClick={addToCollection} disabled={adding || added} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: added ? "var(--bone)" : "var(--ink)", color: added ? "var(--ink)" : "var(--paper)", border: added ? "1px solid var(--border-strong)" : "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: adding || added ? "default" : "pointer" }}>
+                {added ? "Added to collection ✓" : adding ? "Adding…" : "I own this too"}
+              </button>
+            )}
+            {/* Star = wishlist (icon law 2026-07-11); v8 :92-98 active = soft red tint, red star */}
             <button
               type="button"
               onClick={toggleWishlist}
@@ -474,14 +673,14 @@ export default function ItemDetailPage() {
               title={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
               aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
               style={{
-                width: 48, height: 48, borderRadius: 13, flexShrink: 0, cursor: wishBusy ? "wait" : "pointer",
-                border: `1px solid ${wishlisted ? "var(--stamp-red)" : "var(--border-strong)"}`,
-                background: wishlisted ? "var(--stamp-red)" : "var(--paper)",
-                color: wishlisted ? "var(--paper)" : "var(--ink)",
+                width: 52, height: 48, borderRadius: 12, flexShrink: 0, cursor: wishBusy ? "wait" : "pointer",
+                border: "1px solid var(--border-strong)",
+                background: wishlisted ? "var(--stamp-red-soft)" : "var(--paper)",
+                color: wishlisted ? "var(--stamp-red)" : "var(--ink-faint)",
                 display: "flex", alignItems: "center", justifyContent: "center", transition: "all 140ms",
               }}
             >
-              <Star size={19} fill={wishlisted ? "currentColor" : "none"} />
+              <Star size={21} fill={wishlisted ? "var(--stamp-red)" : "none"} />
             </button>
           </div>
         )}
@@ -490,33 +689,85 @@ export default function ItemDetailPage() {
       {/* ── DV8-07 — Manage this item (owner kebab): every action for this copy in one
           sheet, each with a "what does this do" line. ── */}
       {manageOpen && isOwnItem && (() => {
+        // v8 ItemDetail :109-134 — EXACT row set and order:
+        // undo-sold / arrived / relist / list-for-sale / edit / add-another-copy /
+        // mark-as-sold / share-to-feed / unlist / change-to-preorder / remove.
         const rows: { icon: React.ReactNode; label: string; desc: string; danger?: boolean; onClick: () => void }[] = [];
-        if (isPreorder) {
+        const canRelist = isOwned && !isSold && !item.is_listed && !!item.closed_listing_id;
+        if (isSold) {
+          rows.push({
+            icon: <ArrowLeftRight size={16} />, label: "Still have it — undo sold",
+            desc: "Back to a normal owned item, counting toward your value",
+            onClick: undoSold,
+          });
+        }
+        if (isPreorder && !isSold) {
           rows.push({
             icon: <Check size={16} />, label: "It arrived — mark as owned",
-            desc: "Moves it out of your pre-order calendar; the server clears the order details",
+            desc: "Moves it out of your pre-order calendar",
             onClick: () => setStatus("owned"),
           });
+        }
+        if (canRelist) {
           rows.push({
+            icon: <Tag size={16} />, label: "Relist for sale",
+            desc: `Back on the market at ${formatMoney(item.closed_listing_price ?? 0, item.closed_listing_currency ?? "INR")}`,
+            onClick: relist,
+          });
+        }
+        if (isOwned && !isSold && !item.is_listed && !canRelist) {
+          rows.push({
+            icon: <Tag size={16} />, label: "List for sale",
+            desc: "Set a price and put it on the market",
+            // v8 :266 forSale:true — the sell form arrives with the toggle pre-ON.
+            onClick: () => { setManageOpen(false); router.push(`/item/${item.id}/sell?list=1`); },
+          });
+        }
+        if (!isSold && (isOwned || isPreorder)) {
+          rows.push(isPreorder ? {
             icon: <Pencil size={16} />, label: "Edit pre-order details",
             desc: "ETA, total, deposit and where you ordered from",
             onClick: () => { setManageOpen(false); setPoEdit(true); },
-          });
-        }
-        if (isOwned) {
-          rows.push({
+          } : {
             icon: <Pencil size={16} />, label: "Edit item",
-            desc: item.is_listed ? "Condition, price paid and listing" : "Condition, price paid — and list it for sale",
+            desc: item.is_listed ? "Condition, price, photos and listing terms" : "Condition, price paid and photos",
             onClick: () => { setManageOpen(false); router.push(`/item/${item.id}/sell`); },
           });
-          if (!item.is_listed) {
-            // A listed copy is promised to the market in-hand — unlist it first.
+          if (item.sku) {
             rows.push({
-              icon: <Clock size={16} />, label: "Change to pre-order",
-              desc: "You don’t have it in hand yet",
-              onClick: () => setStatus("preorder"),
+              icon: <PlusCircle size={16} />, label: "Add another copy",
+              desc: "A second one you own — different condition, a resale copy, a gift",
+              onClick: addAnotherCopy,
             });
           }
+        }
+        if (isOwned && !isSold) {
+          // v8 :123 gates this to listed copies; ours covers offline sales of unlisted
+          // copies too (founder-approved sold-state spec) — the desc adapts.
+          rows.push({
+            icon: <Check size={16} />, label: "Mark as sold",
+            desc: item.is_listed ? "Closes the listing; the item stays here with a Sold tag" : "The item stays here with a Sold tag",
+            onClick: () => { setManageOpen(false); setSoldOpen(true); },
+          });
+        }
+        if (isOwned && !isSold && item.is_listed && item.listing_id) {
+          rows.push({
+            icon: <Send size={16} />, label: "Share to Feed",
+            desc: "Post this listing to your feed with a caption",
+            onClick: () => { setManageOpen(false); router.push(`/listing/${item.listing_id}?share=1`); },
+          });
+          rows.push({
+            icon: <X size={16} />, label: "Unlist from market",
+            desc: "Stop selling it — Relist later at these same terms",
+            onClick: unlist,
+          });
+        }
+        if (!isSold && !isPreorder && isOwned) {
+          rows.push({
+            icon: <Clock size={16} />, label: "Change to pre-order",
+            desc: "You don’t have it in hand yet",
+            onClick: changeToPreorder,
+          });
         }
         rows.push({
           icon: <Trash2 size={16} />, danger: true,
@@ -528,16 +779,18 @@ export default function ItemDetailPage() {
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setManageOpen(false)} />
             <div className="relative z-10 w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-4)] pb-4">
-              <div style={{ padding: "18px 20px 12px" }}>
+              {/* v8 :139 — the sheet's 36×4 drag handle */}
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 0" }} />
+              <div style={{ padding: "10px 20px 12px" }}>
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17 }}>Manage this item</div>
                 <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {isPreorder ? "On pre-order" : item.is_listed ? "Owned · listed for sale" : "Owned"} · {title}
+                  {isSold ? "Sold" : isPreorder ? "On pre-order" : item.is_listed ? "Owned · listed for sale" : "Owned"} · {title}
                 </div>
               </div>
               {rows.map((row) => (
-                <button key={row.label} onClick={row.onClick} disabled={statusBusy} style={{
+                <button key={row.label} onClick={row.onClick} disabled={statusBusy || soldBusy} style={{
                   width: "100%", display: "flex", alignItems: "center", gap: 13, padding: "13px 20px", textAlign: "left",
-                  background: "none", border: "none", borderTop: "1px solid var(--border)", cursor: statusBusy ? "wait" : "pointer",
+                  background: "none", border: "none", borderTop: "1px solid var(--border)", cursor: statusBusy || soldBusy ? "wait" : "pointer",
                 }}>
                   <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: row.danger ? "var(--stamp-red-soft)" : "var(--paper-soft)", color: row.danger ? "var(--stamp-red)" : "var(--ink-mute)" }}>
                     {row.icon}
@@ -556,11 +809,11 @@ export default function ItemDetailPage() {
       {removeOpen && (
         <RemoveSheet reason={removeReason} setReason={setRemoveReason} onConfirm={removeItem} onClose={() => setRemoveOpen(false)} removing={removing} />
       )}
+      {soldOpen && isOwnItem && (
+        <MarkSoldSheet isListed={item.is_listed} busy={soldBusy} onConfirm={markSold} onClose={() => setSoldOpen(false)} />
+      )}
       {reporting && item.sku && (
         <ReportCatalogueSheet sku={item.sku} onClose={() => setReporting(false)} />
-      )}
-      {people && item.sku && (
-        <DbPeopleModal sku={item.sku} title={title} mode={people} onClose={() => setPeople(null)} />
       )}
       {poEdit && (
         <EditPreorderSheet item={item} onClose={() => setPoEdit(false)}

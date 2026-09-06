@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -34,6 +35,7 @@ class ProfileOut(BaseModel):
     name: str
     bio: Optional[str]
     city: Optional[str]
+    country: Optional[str] = None
     avatar_url: Optional[str]
     interests: list[str]
     sub_interests: Optional[dict] = None  # per-category chips from onboarding (DV4-06)
@@ -65,6 +67,9 @@ class ProfileOut(BaseModel):
     notif_prefs: Optional[dict] = None
     privacy_prefs: Optional[dict] = None
     email_verified: Optional[bool] = None
+    # DV8 — onboarding-wizard completion stamp; social sign-in routes to the
+    # wizard when this is null (see frontend SocialButtons).
+    onboarded_at: Optional[datetime] = None
     # admin flag — the frontend /admin gate keys off this (data access is still
     # enforced server-side via get_current_admin)
     is_admin: Optional[bool] = None
@@ -111,6 +116,11 @@ class EditProfileBody(BaseModel):
     name: Optional[str] = None
     bio: Optional[str] = None
     city: Optional[str] = None
+    country: Optional[str] = None       # DV8 — CityPicker's second output ("City, Country" labels)
+    # DV8 — @username becomes editable (onboarding step 0 + Edit profile); validated below.
+    handle: Optional[str] = None
+    # DV8 — true exactly once, when the signup wizard finishes (Skip included).
+    onboarded: Optional[bool] = None
     avatar_url: Optional[str] = None
     interests: Optional[list[str]] = None
     sub_interests: Optional[dict] = None  # per-category sub-interest chips (DV4-06)
@@ -312,13 +322,51 @@ async def get_saved_posts(
     }
 
 
+HANDLE_RE = re.compile(r"^[a-z0-9_]{3,20}$")
+
+
+async def _handle_taken(db: AsyncSession, handle: str, exclude_id=None) -> bool:
+    q = select(User.id).where(func.lower(User.handle) == handle)
+    if exclude_id is not None:
+        q = q.where(User.id != exclude_id)
+    return (await db.execute(q.limit(1))).scalar_one_or_none() is not None
+
+
+@router.get("/handle-available")
+async def handle_available(
+    handle: str = Query(..., min_length=1, max_length=64),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """DV8 — live @username availability for onboarding step 0 / Edit profile.
+    A user's own current handle counts as available (no-op rename)."""
+    h = handle.strip().lstrip("@").lower()
+    if not HANDLE_RE.match(h):
+        return {"available": False, "reason": "format"}
+    taken = await _handle_taken(db, h, exclude_id=current_user.id)
+    return {"available": not taken, "reason": "taken" if taken else None}
+
+
 @router.patch("/me", response_model=ProfileOut)
 async def edit_me(
     body: EditProfileBody,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    for field, value in body.model_dump(exclude_none=True).items():
+    patch = body.model_dump(exclude_none=True)
+    # DV8 — editable @username: normalized, format-checked, unique. Changing it
+    # changes profile URLs; the client warns, the server just enforces.
+    if "handle" in patch:
+        h = patch["handle"].strip().lstrip("@").lower()
+        if not HANDLE_RE.match(h):
+            raise HTTPException(status_code=422, detail="3–20 characters · letters, numbers and _ only")
+        if h != current_user.handle.lower() and await _handle_taken(db, h, exclude_id=current_user.id):
+            raise HTTPException(status_code=409, detail="Already taken — try another")
+        patch["handle"] = h
+    # DV8 — one-way onboarding flag: stamps the timestamp the first time only.
+    if patch.pop("onboarded", None) and current_user.onboarded_at is None:
+        current_user.onboarded_at = datetime.now(timezone.utc)
+    for field, value in patch.items():
         setattr(current_user, field, value)
     db.add(current_user)
     await db.flush()
@@ -397,6 +445,7 @@ async def get_profile(
         out.notif_prefs = None
         out.privacy_prefs = None
         out.email_verified = None
+        out.onboarded_at = None
         out.is_admin = None
         # Presence is opt-out via privacy_prefs.show_online (default on).
         show_online = (user.privacy_prefs or {}).get("show_online", DEFAULT_PRIVACY_PREFS["show_online"])
@@ -885,10 +934,13 @@ async def get_collection(
     # (The old client-side sum read per-item `value`, which is now owner-only.)
     port_rows = (await db.execute(
         select(
-            Item.status, Item.condition, Item.value,
+            Item.status, Item.condition, Item.value, Item.sold_at,
             Item.preorder_eta, Item.preorder_window_precision, Item.preorder_total,
         ).where(Item.user_id == target_user.id, Item.status.in_(["owned", "preorder"]))
     )).all()
+    # DV8 sold state — sold copies are history: out of the value, out of the
+    # completeness denominator (item_is_complete also short-circuits on sold_at).
+    port_rows = [r for r in port_rows if r.sold_at is None]
     incomplete_count = sum(1 for r in port_rows if not item_is_complete(r))
     owned_value = sum((r.value or 0) for r in port_rows if r.status == "owned")
     value_shared = len(port_rows) > 0 and incomplete_count == 0
@@ -920,6 +972,8 @@ async def get_collection(
                 "is_listed": i.is_listed,
                 # available | sold | None — drives Listed/Sold tags + owned filter.
                 "listing_status": listing_by_item.get(i.id),
+                # DV8 sold state — item-level sold stamp (off-platform sales too).
+                "sold_at": i.sold_at.isoformat() if i.sold_at else None,
                 "photo_count": i.photo_count,
                 "image_url": covers.get(i.id),
                 "preorder_eta": i.preorder_eta,

@@ -10,6 +10,29 @@ import { Segmented, SectionLabel, EmptyNote, Tag, ProductPhoto, CategoryChip } f
 import { shortDate } from "@/lib/utils";
 import { useUser } from "@/lib/auth-context";
 import { ADD_CATEGORIES } from "@/lib/catalog";
+import { formatTime12FromDate } from "@/components/CityField";
+
+// v8 chips read the SINGULAR chipLabel (data.jsx) — only figures differs from label.
+const CHIP_LABEL: Record<string, string> = { figures: "Action Figure" };
+
+/* v8 shared.jsx IconLabel — rose-tint icon box beside a mono micro-label. */
+function IconLabel({ icon: Icon, children, style }: { icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties }>; children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 7, ...style }}>
+      <div style={{
+        width: 26, height: 26, borderRadius: 8,
+        background: "var(--rose-tint-bg)", border: "1px solid var(--rose-tint-border)",
+        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+      }}>
+        <Icon size={14} strokeWidth={2} style={{ color: "var(--rose-tint-text)" }} />
+      </div>
+      <span style={{
+        fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.11em",
+        textTransform: "uppercase", fontWeight: 700, color: "var(--slate-500)",
+      }}>{children}</span>
+    </div>
+  );
+}
 
 // v4 EventsView tabs: Upcoming · Going · Past · My Events.
 const TABS = [
@@ -87,32 +110,33 @@ export default function EventsPage() {
 
   return (
     <div className="w-full max-w-[680px] flex flex-col">
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
-        {/* row 0 (mobile only): back + title. DV7-02 — Events lost its bottom-nav tab
+      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]" style={{ padding: "12px 16px 10px" }}>
+        {/* row 0: back (mobile-only) + title. DV7-02 — Events lost its bottom-nav tab
             to Database, so on mobile it's a pushed screen off the AppBar calendar icon
-            and carries its own back affordance (R-06 pattern). Desktop keeps the Sidebar. */}
-        <div className="lg:hidden" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <BackButton fallback="/feed" />
+            and carries its own back affordance (R-06 pattern). v8 keeps the title
+            visible at EVERY width, so only the back arrow is width-gated. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <span className="lg:hidden" style={{ display: "flex" }}><BackButton fallback="/feed" /></span>
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Events</span>
         </div>
-        {/* row 1: search + list button (v4 EventsView) */}
+        {/* row 1: search + list button (v8 EventsView metrics) */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, height: 38, padding: "0 12px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>
-            <Search size={16} style={{ color: "var(--ink-ghost)", flexShrink: 0 }} />
+          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, height: 40, padding: "0 12px", borderRadius: 12, border: "1px solid var(--slate-200)", background: "var(--card-surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+            <Search size={16} style={{ color: "var(--slate-400)", flexShrink: 0 }} />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search events…" style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)" }} />
-            {q && <button onClick={() => setQ("")} style={{ background: "none", border: "none", padding: 2, cursor: "pointer", color: "var(--ink-ghost)", display: "flex" }}><X size={14} strokeWidth={2} /></button>}
+            {q && <button onClick={() => setQ("")} style={{ background: "none", border: "none", padding: 2, cursor: "pointer", color: "var(--slate-400)", display: "flex" }}><X size={14} strokeWidth={2} /></button>}
           </div>
-          <Link href="/events/new" style={{ display: "flex", alignItems: "center", gap: 6, height: 38, padding: "0 13px", borderRadius: 11, border: "none", background: "var(--ink)", color: "var(--paper)", textDecoration: "none", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, flexShrink: 0, whiteSpace: "nowrap" }}>
+          <Link href="/events/new" style={{ display: "flex", alignItems: "center", gap: 6, height: 40, padding: "0 13px", borderRadius: 12, border: "none", background: "var(--slate-900)", color: "var(--paper)", textDecoration: "none", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, flexShrink: 0, whiteSpace: "nowrap" }}>
             <Plus size={15} strokeWidth={2.2} />List an event
           </Link>
         </div>
         {/* row 2: tabs */}
         <Segmented options={TABS as unknown as { id: string; label: string }[]} value={tab} onChange={(v) => openTab(v as TabId)} />
-        {/* row 3: category filter — upcoming / past only (v4) */}
+        {/* row 3: category filter — upcoming / past only; singular chipLabel (v8) */}
         {(tab === "upcoming" || tab === "past") && (
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 7, marginTop: 10, paddingBottom: 2 }}>
             {ADD_CATEGORIES.map((c) => (
-              <CategoryChip key={c.id} active={evCats.includes(c.id)} onClick={() => toggleEvCat(c.id)}>{c.label}</CategoryChip>
+              <CategoryChip key={c.id} active={evCats.includes(c.id)} onClick={() => toggleEvCat(c.id)}>{CHIP_LABEL[c.id] ?? c.label}</CategoryChip>
             ))}
             {evCats.length > 0 && (
               <button onClick={() => setEvCats([])} style={{ background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5 }}>Clear</button>
@@ -139,42 +163,41 @@ export default function EventsPage() {
                   <ProductPhoto tone={featured.community?.tone ?? "plum"} ratio="2/1" rounded={0} />
                 )}
                 <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 30%, rgba(20,17,15,0.88) 100%)" }} />
-                <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 6 }}>
-                  <Tag kind={featured.mode === "online" ? "vouch" : "event"}>{featured.mode === "online" ? "Online" : "In person"}</Tag>
-                </div>
+                {/* v8 — no mode Tag overlay; the subtitle reads "{when} · {city}". */}
                 <div style={{ position: "absolute", bottom: 12, left: 14, right: 14, color: "var(--paper)" }}>
                   <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{featured.title}</div>
                   <div style={{ fontSize: 13, color: "rgba(244,239,230,0.85)", marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
                     <Calendar size={14} strokeWidth={2} />
-                    {new Date(featured.starts_at).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+                    {featuredWhen(featured)}
                   </div>
                 </div>
               </Link>
             </div>
           )}
 
-          {user?.city && !q && cityCount === 0 && filteredUpcoming.length > 0 && (
-            <div style={{ margin: "14px 20px 0", display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", background: "var(--bone)", border: "1px solid var(--border)", borderRadius: 13 }}>
+          {user?.city && !q && cityCount === 0 && (
+            <div style={{ margin: "14px 20px 0", display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", background: "var(--slate-100)", border: "1px solid var(--slate-200)", borderRadius: 13 }}>
               <MapPin size={16} style={{ color: "var(--ink-faint)", flexShrink: 0, marginTop: 1 }} />
               <span style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
-                No events in <b>{user.city}</b> yet — showing national &amp; online events.{" "}
+                No events in <b>{user.city}</b> yet — showing events from nearby cities.{" "}
                 <Link href="/events/new" style={{ color: "var(--stamp-red)", fontWeight: 600, textDecoration: "none" }}>List one →</Link>
               </span>
             </div>
           )}
 
           <div style={{ padding: "20px 20px 0" }}>
-            <SectionLabel>All upcoming</SectionLabel>
+            {/* v8 — the "All upcoming" icon-label renders only when there's more than one result */}
+            {filteredUpcoming.length > 1 && <IconLabel icon={Calendar} style={{ marginBottom: 10 }}>All upcoming</IconLabel>}
             <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 10 }}>
               {filteredUpcoming.slice(1).map((ev) => <EventCard key={ev.id} event={ev} />)}
-              {filteredUpcoming.length <= 1 && (
-                <EmptyNote>{q ? `No events match "${q}".` : evCats.length ? "No upcoming events in this category." : "That’s every upcoming event for now."}</EmptyNote>
+              {filteredUpcoming.length === 0 && (
+                <EmptyNote>{q ? `No events match "${q}".` : "No upcoming events for now."}</EmptyNote>
               )}
             </div>
           </div>
 
-          <div style={{ padding: "20px 20px 28px", textAlign: "center", fontSize: 11.5, color: "var(--ink-faint)" }}>
-            Events are reviewed by Scorred before they go live.
+          <div style={{ padding: "12px 20px 28px", textAlign: "center", fontSize: 11.5, color: "var(--ink-faint)" }}>
+            Events are reviewed by Scorred before going live.
           </div>
         </>
       ) : tab === "going" ? (
@@ -221,6 +244,15 @@ export default function EventsPage() {
   );
 }
 
+// v8 FeaturedEvent subtitle — "{when} · {city}" where when reads "Sat · 12 Jul · 4:00 pm".
+function featuredWhen(ev: ApiEvent): string {
+  const d = new Date(ev.starts_at);
+  const { day, month } = shortDate(ev.starts_at);
+  const weekday = d.toLocaleString("en-IN", { weekday: "short" });
+  const when = `${weekday} · ${day} ${month} · ${formatTime12FromDate(d)}`;
+  return ev.city ? `${when} · ${ev.city}` : when;
+}
+
 function HostingRow({ event }: { event: ApiEvent }) {
   const { day, month } = shortDate(event.starts_at);
   const pending = event.status === "pending_approval";
@@ -228,7 +260,8 @@ function HostingRow({ event }: { event: ApiEvent }) {
   return (
     <Link href={`/events/${event.id}/manage`} style={{
       display: "flex", gap: 12, width: "100%", textDecoration: "none", alignItems: "center",
-      background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 14, padding: 12,
+      background: "var(--card-surface)", border: "1px solid var(--slate-200)", borderRadius: 16, padding: 14,
+      boxShadow: "var(--card-shadow)",
     }}>
       <div style={{
         width: 50, height: 50, borderRadius: 11, flexShrink: 0,
@@ -243,9 +276,10 @@ function HostingRow({ event }: { event: ApiEvent }) {
         <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.25, color: "var(--ink)" }}>{event.title}</div>
         <div style={{ marginTop: 5 }}>
           {pending ? (
-            <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: "var(--grail-gold-soft)", color: "var(--grail-gold-deep)" }}>Pending approval</span>
+            // v8 — the pending state is the shared Tag primitive, "po" (gold) kind.
+            <Tag kind="po">Pending approval</Tag>
           ) : cancelled ? (
-            <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>{event.status === "rejected" ? "Not approved" : "Cancelled"}</span>
+            <Tag kind="default">{event.status === "rejected" ? "Not approved" : "Cancelled"}</Tag>
           ) : (
             <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>{event.going_count ?? 0} going · tap to manage</span>
           )}

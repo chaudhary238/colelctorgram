@@ -84,3 +84,13 @@ class CatalogueComment(Base):
     __table_args__ = (
         Index("idx_catalogue_comments_sku", "sku", "created_at"),
     )
+
+
+class CatalogueCommentLike(Base):
+    """v8 Cards.jsx :356-359 — per-comment hearts on the catalogue thread (post
+    comments have CommentLike; the entry thread had none). One like per user."""
+    __tablename__ = "catalogue_comment_likes"
+
+    comment_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("catalogue_comments.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

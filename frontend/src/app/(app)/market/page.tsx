@@ -2,14 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, Filter, Heart, X, Plus, Send, ShoppingBag, Edit3 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Search, Filter, Heart, X, Plus, ShoppingBag, Eye, Tag, MessageSquare } from "lucide-react";
 import { api } from "@/lib/api";
-import { ApiListing, ApiPost, MarketCard, PostCard } from "@/components/cards";
-import { Segmented } from "@/components/ui";
+import { useUser } from "@/lib/auth-context";
+import { timeAgo } from "@/lib/utils";
+import { ApiListing, ApiPost, MarketCard, refTone } from "@/components/cards";
+import { Avatar, Button, ProductPhoto } from "@/components/ui";
 import { ADD_CATEGORIES, conditionsFor } from "@/lib/catalog";
 
 // Category multi-select (design: [] = All). ids match the substring stored on listings.
-// v4 MarketView renders these from the global CATEGORIES using chipLabel, in this
+// v8 MarketView renders these from the global CATEGORIES using chipLabel, in this
 // order (figures → diecast → kits → designer → tcg). Read from the shared list rather
 // than re-typed here — a local copy is how "Action Figure" and "Action Figures" ended up
 // naming the same category on two screens (Change Spec §4.2).
@@ -18,8 +21,8 @@ const CATEGORIES = ADD_CATEGORIES;
 // QA 2026-08-04 §6 — the keep-for-later action is a LIKE that lives exactly as long
 // as the listing (the browse query is pinned to status == "available"). Saving-for-later
 // across time is what the catalogue wishlist is for. DV8 §6 settled the surface WORD:
-// the heart reads "Saved" everywhere (filter, sort, header, empty state) while the
-// mechanism stays the like endpoint. "Most Watched" is gone — watching_count is dead.
+// the heart reads "Saved" everywhere (quick filter, sort, header, empty state) while
+// the mechanism stays the like endpoint.
 const SORTS = [
   { id: "new", label: "Newest" },
   { id: "low", label: "Price ↑" },
@@ -27,6 +30,10 @@ const SORTS = [
   { id: "liked", label: "Most saved" },
 ] as const;
 type SortId = (typeof SORTS)[number]["id"];
+
+type IsoSort = "new" | "budgetHigh" | "budgetLow";
+
+const PAGE_SIZE = 24;
 
 function FilterLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -36,24 +43,28 @@ function FilterLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function FilterChip({ active, onClick, children, icon: Icon, center }: {
-  active?: boolean; onClick: () => void; children: React.ReactNode; icon?: React.ElementType; center?: boolean;
+// `red` = the v8 quick-filter treatment (Saved / Listed by me light up stamp-red);
+// every other chip keeps the slate-900 active state from the Database sheet.
+function FilterChip({ active, onClick, children, icon: Icon, red, fillIcon }: {
+  active?: boolean; onClick: () => void; children: React.ReactNode;
+  icon?: React.ElementType; red?: boolean; fillIcon?: boolean;
 }) {
+  const activeBg = red ? "var(--stamp-red)" : "var(--slate-900)";
   return (
     <button type="button" onClick={onClick} style={{
-      display: "inline-flex", alignItems: "center", justifyContent: center ? "center" : "flex-start", gap: 5,
+      display: "inline-flex", alignItems: "center", gap: red ? 6 : 5,
       padding: "7px 13px", borderRadius: 10, cursor: "pointer", transition: "all 120ms",
-      border: `1px solid ${active ? "var(--slate-900)" : "var(--slate-200)"}`,
-      background: active ? "var(--slate-900)" : "var(--slate-50)", color: active ? "var(--paper)" : "var(--slate-700)",
-      fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 12.5, whiteSpace: "nowrap", lineHeight: 1,
+      border: `1px solid ${active ? activeBg : "var(--slate-200)"}`,
+      background: active ? activeBg : "var(--slate-50)", color: active ? "var(--paper)" : "var(--slate-700)",
+      fontFamily: "var(--font-body)", fontWeight: active && red ? 700 : 500, fontSize: 12.5, whiteSpace: "nowrap", lineHeight: 1,
     }}>
-      {Icon && <Icon size={13} strokeWidth={1.75} />}
+      {Icon && <Icon size={red ? 14 : 13} strokeWidth={1.75} fill={fillIcon && active ? "currentColor" : "none"} />}
       {children}
     </button>
   );
 }
 
-// Boxed ₹ numeric input for the From/To price range (v3 dropped the dual-thumb slider).
+// Boxed ₹ numeric input (From/To price range + the ISO Max budget field).
 function PriceInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   return (
     <div style={{ flex: 1, minWidth: 0, boxSizing: "border-box", display: "flex", alignItems: "center", gap: 6, height: 44, padding: "0 12px", borderRadius: 11, border: "1px solid var(--slate-200)", background: "var(--card-surface)" }}>
@@ -64,76 +75,147 @@ function PriceInput({ value, onChange, placeholder }: { value: string; onChange:
   );
 }
 
-const PAGE_SIZE = 24;
+// ── Search field with the filter trigger living INSIDE it (v8 Database pattern),
+// plus the board's red primary action to its right (v8 MarketView MarketSearchRow).
+function MarketSearchRow({ q, onQ, placeholder, activeCount, onFilter, actionLabel, actionHref, actionIcon: ActionIcon }: {
+  q: string; onQ: (v: string) => void; placeholder: string;
+  activeCount: number; onFilter: () => void;
+  actionLabel: string; actionHref: string; actionIcon: React.ElementType;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px" }}>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 9, height: 44, padding: "0 14px", borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>
+        <Search size={18} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
+        <input value={q} onChange={(e) => onQ(e.target.value)} placeholder={placeholder}
+          style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-body)", fontSize: 14.5, color: "var(--ink)" }} />
+        {q && (
+          <button type="button" onClick={() => onQ("")} aria-label="Clear search" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--ink-faint)", display: "flex", flexShrink: 0 }}>
+            <X size={15} />
+          </button>
+        )}
+        <button type="button" onClick={onFilter} aria-label={`Filters${activeCount ? ` · ${activeCount} active` : ""}`} style={{
+          display: "flex", alignItems: "center", gap: 4, flexShrink: 0, padding: 0, marginRight: -2,
+          background: "none", border: "none", cursor: "pointer",
+          color: activeCount ? "var(--stamp-red)" : "var(--ink-faint)",
+        }}>
+          <Filter size={18} strokeWidth={2} />
+          {activeCount > 0 && <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700 }}>{activeCount}</span>}
+        </button>
+      </div>
+      <Link href={actionHref} style={{
+        display: "flex", alignItems: "center", gap: 5, height: 44, padding: "0 13px", flexShrink: 0,
+        borderRadius: 12, background: "var(--stamp-red)", textDecoration: "none",
+        fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 700, color: "#fff", letterSpacing: "-0.01em", whiteSpace: "nowrap",
+      }}>
+        <ActionIcon size={15} strokeWidth={2.4} />
+        {actionLabel}
+      </Link>
+    </div>
+  );
+}
 
-// ── ISO Board — v3 ISOBoardContent: all live ISO posts ("N collectors looking" + Post ISO).
-// Sources from the feed with type=iso; renders via PostCard (→ ISOCard for type 'iso').
-function IsoBoard() {
-  const [isos, setIsos] = useState<ApiPost[]>([]);
-  const [loading, setLoading] = useState(true);
+// ── Wanted card — an ISO shown as a product tile, mirroring MarketCard (v8 WantedCard).
+// "I have this" opens a DM to the author with the wanted item as context — the exact
+// mechanism ISOCard uses on the feed (POST /threads → /chat/{id}); hidden on own posts.
+function WantedCard({ post }: { post: ApiPost }) {
+  const router = useRouter();
+  const { user } = useUser();
+  const [dmBusy, setDmBusy] = useState(false);
+  const isOwn = !!user && user.id === post.user_id;
 
-  useEffect(() => {
-    let cancelled = false;
-    api.get<{ items: ApiPost[] }>("/feed?type=iso&sort=latest&limit=50")
-      .then((d) => { if (!cancelled) setIsos(d?.items ?? []); })
-      .catch(console.error)
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
+  const title = post.iso_item ?? post.title ?? post.body.slice(0, 60);
+  const conds = (post.iso_cond ?? "").split(",").map((x) => x.trim()).filter((x) => x && x.toLowerCase() !== "any");
+  const firstName = (post.name ?? post.handle ?? "Collector").split(" ")[0];
+
+  async function haveThis() {
+    if (dmBusy) return;
+    setDmBusy(true);
+    try {
+      const thread = await api.post<{ id: string }>("/threads", {
+        other_user_id: post.user_id,
+        initial_message: `Hi! I saw your ISO for "${title}" — I have one. Still looking?`,
+      });
+      router.push(`/chat/${thread.id}`);
+    } catch {
+      router.push("/inbox");
+    } finally {
+      setDmBusy(false);
+    }
+  }
 
   return (
-    // QA 9.1 — sits directly inside Market's 680px column (like the Browse grid),
-    // not a nested column of its own, so the ISO board reads consistently with Market.
-    <div className="w-full" style={{ paddingBottom: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px 10px" }}>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-faint)", letterSpacing: "0.04em" }}>
-          {isos.length} {isos.length === 1 ? "COLLECTOR" : "COLLECTORS"} LOOKING
-        </span>
-        <Link href="/compose?type=iso" style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 36, padding: "0 14px", borderRadius: 10, background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13 }}>
-          <Edit3 size={14} strokeWidth={2.2} />Post ISO
+    <div style={{ background: "var(--card-surface)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <Link href={`/post/${post.id}`} style={{ display: "block", width: "100%" }}>
+        <ProductPhoto tone={refTone(post.ref_sku ?? null)} src={post.images[0]} ratio="1/1" rounded={0} />
+      </Link>
+
+      <div style={{ padding: "9px 11px 11px", display: "flex", flexDirection: "column", gap: 7, flex: 1 }}>
+        <Link href={`/post/${post.id}`} style={{ textDecoration: "none" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: "var(--ink)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{title}</div>
         </Link>
+
+        <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ink-faint)", letterSpacing: "0.04em" }}>BUDGET</span>
+          {/* iso_budget arrives in PAISE (same as ISOCard) — divide before rendering. */}
+          <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 14.5, color: "#9A6010" }}>
+            {post.iso_budget ? `₹${Math.round(Number(post.iso_budget) / 100).toLocaleString("en-IN")}` : "Open"}
+          </span>
+        </div>
+
+        {(conds.length > 0 || post.iso_city) && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {conds.map((x) => (
+              <span key={x} style={{ padding: "2px 6px", borderRadius: 5, background: "var(--bone)", fontSize: 10.5, fontWeight: 600, color: "var(--ink-mute)" }}>{x}</span>
+            ))}
+            {post.iso_city && <span style={{ padding: "2px 6px", borderRadius: 5, background: "var(--bone)", fontSize: 10.5, color: "var(--ink-mute)" }}>{post.iso_city}</span>}
+          </div>
+        )}
+
+        <Link href={`/profile/${post.handle ?? "unknown"}`} style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
+          <Avatar name={post.name ?? "?"} photo={post.avatar_url} size={20} />
+          <span style={{ fontSize: 11.5, color: "var(--ink-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{firstName} · {timeAgo(post.created_at)}</span>
+        </Link>
+
+        <div style={{ flex: 1 }} />
+        {!isOwn && (
+          <button type="button" onClick={haveThis} disabled={dmBusy} style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", height: 36, marginTop: 1,
+            borderRadius: 10, border: "1px solid var(--verified-teal)", background: "var(--verified-teal-soft)",
+            color: "var(--verified-teal)", cursor: dmBusy ? "default" : "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12.5,
+          }}>
+            <MessageSquare size={14} />{dmBusy ? "Opening…" : "I have this"}
+          </button>
+        )}
       </div>
-      {loading ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "0 14px" }}>
-          {Array.from({ length: 3 }).map((_, i) => <div key={i} style={{ borderRadius: 20, background: "var(--slate-100)", height: 132 }} />)}
-        </div>
-      ) : isos.length === 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "56px 32px", textAlign: "center", gap: 12, color: "var(--ink-faint)" }}>
-          <Search size={28} style={{ opacity: 0.3 }} />
-          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>No ISOs yet</div>
-          <div style={{ fontSize: 13, lineHeight: 1.55, maxWidth: 260 }}>Be the first — let collectors know what you&apos;re hunting.</div>
-          <Link href="/compose?type=iso" style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 4, height: 44, padding: "0 18px", borderRadius: 12, background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14.5 }}>
-            <Edit3 size={16} strokeWidth={2.2} />Post an ISO
-          </Link>
-        </div>
-      ) : (
-        <div>{isos.map((p) => <PostCard key={p.id} post={p} />)}</div>
-      )}
     </div>
   );
 }
 
 export default function MarketPage() {
-  const [tab, setTab] = useState<"browse" | "iso">("browse");
+  const [board, setBoard] = useState<"sale" | "wanted">("sale");
 
+  // ── For-sale board state ──
   const [list, setList] = useState<ApiListing[]>([]);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [likedCount, setLikedCount] = useState(0);
+  const [saleTabCount, setSaleTabCount] = useState(0);
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [showLiked, setShowLiked] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [sort, setSort] = useState<SortId>("new");
   const [cats, setCats] = useState<string[]>([]);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [conds, setConds] = useState<string[]>([]);
-  const [shipOnly, setShipOnly] = useState(false);
+  // DV8 quick filters — Saved rides the like endpoint (liked=true, server-side);
+  // "Listed by me" has no /listings query param, so it filters the fetched pages
+  // client-side on the is_mine flag the browse payload already carries.
+  const [savedOnly, setSavedOnly] = useState(false);
+  const [mineOnly, setMineOnly] = useState(false);
 
   // Debounce the search box so each keystroke doesn't hit the API.
   useEffect(() => {
@@ -153,10 +235,9 @@ export default function MarketPage() {
     conds.forEach((c) => p.append("condition", c));
     if (minPrice) p.set("min_price", String(Number(minPrice) * 100));
     if (maxPrice) p.set("max_price", String(Number(maxPrice) * 100));
-    if (shipOnly) p.set("ship", "true");
-    if (showLiked) p.set("liked", "true");
+    if (savedOnly) p.set("liked", "true");
     return p.toString();
-  }, [sort, debouncedQuery, cats, conds, minPrice, maxPrice, shipOnly, showLiked]);
+  }, [sort, debouncedQuery, cats, conds, minPrice, maxPrice, savedOnly]);
 
   // Refetch from page 1 whenever a filter/search/sort changes.
   useEffect(() => {
@@ -169,9 +250,9 @@ export default function MarketPage() {
     return () => { cancelled = true; };
   }, [buildParams]);
 
-  // Liked-count badge (best-effort, fetched once).
+  // Board-tab count — the UNFILTERED listing total (v8 shows it beside "For sale").
   useEffect(() => {
-    api.get<{ total: number }>("/listings?liked=true&limit=1").then((d) => setLikedCount(d?.total ?? 0)).catch(() => {});
+    api.get<{ total: number }>("/listings?limit=1").then((d) => setSaleTabCount(d?.total ?? 0)).catch(() => {});
   }, []);
 
   const loadMore = () => {
@@ -187,15 +268,15 @@ export default function MarketPage() {
   const toggleArr = (set: React.Dispatch<React.SetStateAction<string[]>>, val: string) =>
     set((a) => (a.includes(val) ? a.filter((x) => x !== val) : [...a, val]));
 
-  // DV8-10 — condition chips exist only within a category's vocabulary: union of the
-  // selected categories' options, deduped by stored id (labels can repeat across cats).
-  const condOptions = useMemo(() => {
-    const out: { id: string; label: string }[] = [];
-    cats.forEach((cid) => conditionsFor(cid).forEach((c) => {
-      if (!out.some((x) => x.id === c.id)) out.push({ id: c.id, label: c.label });
-    }));
-    return out;
-  }, [cats]);
+  // Condition vocabulary is category-specific (figures use MISB/MIB, TCG uses
+  // Mint/Played) — chips only appear once a category narrows them down, and with
+  // ≥2 categories selected each category gets its own sub-headed group (v8
+  // MarketView.jsx:296-311) instead of one deduped soup.
+  const condsByCat = useMemo(() => cats.map((id) => ({
+    cat: id,
+    label: CATEGORIES.find((c) => c.id === id)?.label ?? id,
+    options: conditionsFor(id),
+  })), [cats]);
 
   // Deselecting a category drops its now-orphaned condition picks (v8 MarketView) —
   // done in the toggle handler, not an effect, so state settles in one render.
@@ -210,70 +291,118 @@ export default function MarketPage() {
 
   const activeCount = [
     sort !== "new", cats.length > 0, minPrice !== "", maxPrice !== "",
-    conds.length > 0, shipOnly,
+    conds.length > 0, savedOnly, mineOnly,
   ].filter(Boolean).length;
 
   const resetAll = () => {
     setSort("new"); setCats([]); setMinPrice(""); setMaxPrice("");
-    setConds([]); setShipOnly(false); setQuery("");
+    setConds([]); setSavedOnly(false); setMineOnly(false); setQuery("");
   };
 
   const filtersActive = activeCount > 0 || debouncedQuery.trim() !== "";
-  const isEmpty = !loading && total === 0 && !filtersActive && !showLiked;
+  const isEmpty = !loading && total === 0 && !filtersActive;
 
-  // 44×44 slate icon button; liked active = stamp-red, filter active = slate-900.
-  const iconBtn = (active: boolean, activeBg: string): React.CSSProperties => ({
-    position: "relative", width: 44, height: 44, borderRadius: 13, flexShrink: 0,
-    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-    border: `1px solid ${active ? activeBg : "var(--slate-200)"}`,
-    background: active ? activeBg : "var(--card-surface)", color: active ? "var(--paper)" : "var(--slate-700)",
-    boxShadow: active ? "none" : "0 1px 4px rgba(0,0,0,0.04)",
-  });
-  const badge = (n: number) => (
-    <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, padding: "0 3px", borderRadius: 999, background: "var(--stamp-red)", color: "var(--paper)", fontSize: 9, fontWeight: 700, fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", justifyContent: "center", border: "1.5px solid var(--paper)" }}>{n}</span>
-  );
+  // "Listed by me" is a client-side pass over the fetched pages (no server param).
+  const shown = useMemo(() => (mineOnly ? list.filter((l) => l.is_mine) : list), [list, mineOnly]);
+  const shownCount = mineOnly ? shown.length : total;
+
+  // ── Wanted (ISO) board state ──
+  // Data source: the feed with its server-side type filter (routers/feed.py takes
+  // `type` and pins Post.type == "iso"); there is no /posts list endpoint. Search,
+  // category, sort and budget then run client-side over that page (v8 parity).
+  const [allIso, setAllIso] = useState<ApiPost[]>([]);
+  const [isoLoading, setIsoLoading] = useState(true);
+  const [isoQuery, setIsoQuery] = useState("");
+  const [isoFilterOpen, setIsoFilterOpen] = useState(false);
+  const [isoCats, setIsoCats] = useState<string[]>([]);
+  const [isoSort, setIsoSort] = useState<IsoSort>("new");
+  const [isoMaxBudget, setIsoMaxBudget] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get<{ items: ApiPost[] }>("/feed?type=iso&sort=latest&limit=50")
+      .then((d) => { if (!cancelled) setAllIso(d?.items ?? []); })
+      .catch(console.error)
+      .finally(() => { if (!cancelled) setIsoLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const isoActiveCount = [isoCats.length > 0, isoSort !== "new", isoMaxBudget !== ""].filter(Boolean).length;
+  const isoReset = () => { setIsoCats([]); setIsoSort("new"); setIsoMaxBudget(""); setIsoQuery(""); };
+
+  const isoList = useMemo(() => {
+    let l = allIso;
+    if (isoQuery.trim()) {
+      const q = isoQuery.toLowerCase();
+      l = l.filter((p) => `${p.iso_item ?? ""} ${p.body} ${p.name ?? ""} ${p.handle ?? ""} ${p.iso_city ?? ""}`.toLowerCase().includes(q));
+    }
+    if (isoCats.length > 0) l = l.filter((p) => isoCats.includes(p.category ?? ""));
+    // Budget input is rupees; iso_budget is paise. Open-budget posts (no figure)
+    // pass a max-budget filter — v8 treats them as 0.
+    if (isoMaxBudget !== "") l = l.filter((p) => (p.iso_budget ?? 0) / 100 <= Number(isoMaxBudget));
+    if (isoSort === "budgetHigh") l = [...l].sort((a, b) => (b.iso_budget ?? 0) - (a.iso_budget ?? 0));
+    else if (isoSort === "budgetLow") l = [...l].sort((a, b) => (a.iso_budget ?? 0) - (b.iso_budget ?? 0));
+    return l;
+  }, [allIso, isoQuery, isoCats, isoSort, isoMaxBudget]);
+
+  const BOARDS = [
+    { id: "sale" as const, label: "For sale", icon: ShoppingBag, count: saleTabCount },
+    { id: "wanted" as const, label: "Wanted", icon: Eye, count: allIso.length },
+  ];
 
   return (
     // Unified 680px column (founder, 2026-07-11) — was the 1100px grid width,
     // which made Market read wider than every sibling page.
     <div className="w-full max-w-[680px] flex flex-col">
-      {/* Both tabs share the unified 680px column, so the header spans it always. */}
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]">
-        <div style={{ padding: "12px 16px 0", boxSizing: "border-box" }}>
-          <Segmented
-            options={[{ id: "browse", label: "Browse" }, { id: "iso", label: "ISO Board" }]}
-            value={tab}
-            onChange={(t) => setTab(t)}
-          />
+
+        {/* Board tabs — selling vs looking (v8 MarketView.jsx:197). Not the shared
+            Segmented: v8 gives Market its own slate-100 pill group with icon+count. */}
+        <div style={{ display: "flex", gap: 4, margin: "12px 16px 0", background: "var(--slate-100)", borderRadius: 14, padding: 4 }}>
+          {BOARDS.map((b) => {
+            const on = board === b.id;
+            const BIcon = b.icon;
+            return (
+              <button key={b.id} type="button" onClick={() => setBoard(b.id)} style={{
+                flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                border: "none", cursor: "pointer", borderRadius: 10, padding: "8px 6px",
+                background: on ? "var(--paper)" : "transparent",
+                color: on ? "var(--ink)" : "var(--slate-500)",
+                fontFamily: "var(--font-body)", fontWeight: on ? 700 : 500, fontSize: 13.5,
+                boxShadow: on ? "var(--shadow-2)" : "none", transition: "all 130ms", whiteSpace: "nowrap",
+              }}>
+                <BIcon size={16} strokeWidth={on ? 2.3 : 1.9} />
+                {b.label}
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: on ? "var(--ink-faint)" : "var(--slate-400)" }}>{b.count}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {tab === "browse" && (
-          <div style={{ display: "flex", gap: 8, padding: "12px 16px" }}>
-            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 9, height: 44, padding: "0 14px", borderRadius: 13, border: "1px solid var(--slate-200)", background: "var(--card-surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-              <Search size={17} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search listings, brands, sellers…"
-                style={{ flex: 1, border: "none", background: "none", outline: "none", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)" }} />
-              {query && (
-                <button type="button" onClick={() => setQuery("")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--ink-faint)", display: "flex" }}>
-                  <X size={15} />
-                </button>
-              )}
-            </div>
-            <button type="button" onClick={() => { setShowLiked((v) => !v); setShowFilter(false); }} style={iconBtn(showLiked, "var(--stamp-red)")} aria-label="Saved listings" title="Saved listings">
-              <Heart size={18} fill={showLiked ? "currentColor" : "none"} />
-              {likedCount > 0 && !showLiked && badge(likedCount)}
-            </button>
-            {/* Funnel, not sliders — v7 uses Icons.filter here and on the Database tab;
-                sliders is the Home-feed "customise" glyph and must not double up. */}
-            <button type="button" onClick={() => { setShowFilter((v) => !v); setShowLiked(false); }} style={iconBtn(showFilter || activeCount > 0, "var(--slate-900)")} aria-label="Filters">
-              <Filter size={18} />
-              {activeCount > 0 && badge(activeCount)}
-            </button>
-          </div>
+        {/* One search row per board: funnel INSIDE the field + red primary action.
+            "Sell item" → your own profile (opens on the Collection tab — our sell
+            flow starts from an item's List-for-sale toggle, not a standalone form). */}
+        {board === "sale" ? (
+          <MarketSearchRow q={query} onQ={setQuery} placeholder="Search listings, brands, sellers…"
+            activeCount={activeCount} onFilter={() => setShowFilter((v) => !v)}
+            actionLabel="Sell item" actionIcon={Tag} actionHref="/profile" />
+        ) : (
+          <MarketSearchRow q={isoQuery} onQ={setIsoQuery} placeholder="Search what collectors want…"
+            activeCount={isoActiveCount} onFilter={() => setIsoFilterOpen((v) => !v)}
+            actionLabel="Post wanted" actionIcon={Plus} actionHref="/compose?type=iso" />
         )}
 
-        {tab === "browse" && showFilter && (
+        {board === "sale" && showFilter && (
           <div style={{ borderTop: "1px solid var(--slate-200)", padding: "16px 16px 20px", display: "flex", flexDirection: "column", gap: 20, maxHeight: 460, overflowY: "auto" }}>
+            {/* Quick filters lead the sheet (v8) — Saved replaces the old header
+                heart button; "Listed by me" replaces nothing (new in v8). */}
+            <div>
+              <FilterLabel>Quick filters</FilterLabel>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <FilterChip red fillIcon active={savedOnly} onClick={() => setSavedOnly((v) => !v)} icon={Heart}>Saved</FilterChip>
+                <FilterChip red active={mineOnly} onClick={() => setMineOnly((v) => !v)} icon={Tag}>Listed by me</FilterChip>
+              </div>
+            </div>
             <div>
               <FilterLabel>Category</FilterLabel>
               <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
@@ -305,26 +434,93 @@ export default function MarketPage() {
                   <span style={{ fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.4 }}>Pick a category above — conditions differ by category.</span>
                 </div>
               ) : (
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {condOptions.map((c) => <FilterChip key={c.id} active={conds.includes(c.id)} onClick={() => toggleArr(setConds, c.id)}>{c.label}</FilterChip>)}
+                <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+                  {condsByCat.map((group) => (
+                    <div key={group.cat}>
+                      {condsByCat.length > 1 && (
+                        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-faint)", marginBottom: 6 }}>{group.label}</div>
+                      )}
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {group.options.map((o) => (
+                          <FilterChip key={group.cat + o.id} active={conds.includes(o.id)} onClick={() => toggleArr(setConds, o.id)}>{o.label}</FilterChip>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
-            </div>
-            <div>
-              <FilterLabel>Quick filters</FilterLabel>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <FilterChip active={shipOnly} onClick={() => setShipOnly((v) => !v)} icon={Send}>Shipping incl.</FilterChip>
-              </div>
             </div>
             {activeCount > 0 && (
               <button type="button" onClick={resetAll} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, textAlign: "left" }}>Reset all filters</button>
             )}
           </div>
         )}
+
+        {board === "wanted" && isoFilterOpen && (
+          <div style={{ borderTop: "1px solid var(--slate-200)", padding: "16px 16px 20px", display: "flex", flexDirection: "column", gap: 20, maxHeight: 420, overflowY: "auto" }}>
+            <div>
+              <FilterLabel>Category</FilterLabel>
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                {CATEGORIES.map((c) => <FilterChip key={c.id} active={isoCats.includes(c.id)} onClick={() => toggleArr(setIsoCats, c.id)}>{c.label}</FilterChip>)}
+              </div>
+            </div>
+            <div>
+              <FilterLabel>Sort by</FilterLabel>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <FilterChip active={isoSort === "new"} onClick={() => setIsoSort("new")}>Newest</FilterChip>
+                <FilterChip active={isoSort === "budgetHigh"} onClick={() => setIsoSort("budgetHigh")}>Budget ↓</FilterChip>
+                <FilterChip active={isoSort === "budgetLow"} onClick={() => setIsoSort("budgetLow")}>Budget ↑</FilterChip>
+              </div>
+            </div>
+            <div>
+              <FilterLabel>Max budget</FilterLabel>
+              <div style={{ display: "flex" }}>
+                <PriceInput value={isoMaxBudget} onChange={setIsoMaxBudget} placeholder="Any" />
+              </div>
+            </div>
+            {isoActiveCount > 0 && (
+              <button type="button" onClick={isoReset} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, textAlign: "left" }}>Reset all filters</button>
+            )}
+          </div>
+        )}
       </div>
 
-      {tab === "iso" ? (
-        <IsoBoard />
+      {/* ── Content ── */}
+      {board === "wanted" ? (
+        <>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px 10px" }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-faint)", letterSpacing: "0.04em" }}>
+              {isoList.length} {isoList.length === 1 ? "ITEM WANTED" : "ITEMS WANTED"}
+            </span>
+            {isoActiveCount > 0 && (
+              <button type="button" onClick={isoReset} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5 }}>Clear filters</button>
+            )}
+          </div>
+          {isoLoading ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, padding: "0 14px 32px" }}>
+              {Array.from({ length: 4 }).map((_, i) => <div key={i} style={{ borderRadius: 16, background: "var(--slate-100)", aspectRatio: "1/1.5" }} />)}
+            </div>
+          ) : isoList.length === 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "48px 32px", textAlign: "center", gap: 11, color: "var(--ink-faint)" }}>
+              <Eye size={28} style={{ opacity: 0.3 }} />
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{allIso.length === 0 ? "Nobody’s hunting yet" : "Nothing matches these filters"}</div>
+              <div style={{ fontSize: 13, lineHeight: 1.55, maxWidth: 260 }}>
+                {allIso.length === 0 ? "Post an ISO and collectors with the piece will reach out." : "Try widening the category or budget."}
+              </div>
+              {allIso.length === 0 ? (
+                <Link href="/compose?type=iso" style={{ textDecoration: "none" }}>
+                  <Button variant="primary" icon={<Plus size={16} />}>Post an ISO</Button>
+                </Link>
+              ) : (
+                <button type="button" onClick={isoReset} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--stamp-red)", fontWeight: 600, fontFamily: "var(--font-body)", fontSize: 13 }}>Clear filters</button>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, padding: "0 14px 32px" }}>
+              {isoList.map((p) => <WantedCard key={p.id} post={p} />)}
+            </div>
+          )}
+        </>
       ) : loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 px-4 py-5">
           {Array.from({ length: 6 }).map((_, i) => <div key={i} style={{ borderRadius: 20, background: "var(--slate-100)", aspectRatio: "1/1.4" }} />)}
@@ -336,29 +532,31 @@ export default function MarketPage() {
           </div>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.01em" }}>Nothing listed yet</div>
           <div style={{ fontSize: 13.5, color: "var(--ink-faint)", marginTop: 7, maxWidth: 270, lineHeight: 1.55 }}>
-            Add an item and flip <b style={{ color: "var(--ink-soft)" }}>List for sale</b> — it shows up here instantly.
+            Pick something from your collection and flip <b style={{ color: "var(--ink-soft)" }}>List for sale</b> — it shows up here instantly.
           </div>
-          <Link href="/add/catalogue" style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 20, height: 44, padding: "0 18px", borderRadius: 12, background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14.5 }}>
-            <Plus size={17} strokeWidth={2.4} />Add an item
+          <Link href="/profile" style={{ textDecoration: "none", marginTop: 20 }}>
+            <Button variant="primary" icon={<Tag size={17} />}>Sell an item</Button>
           </Link>
         </div>
       ) : (
         <>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px 10px" }}>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-faint)", letterSpacing: "0.04em" }}>
-              {showLiked ? `${total} SAVED` : `${total} ${total === 1 ? "LISTING" : "LISTINGS"}`}
+              {savedOnly ? `${shownCount} SAVED` : mineOnly ? `${shownCount} LISTED BY YOU` : `${shownCount} ${shownCount === 1 ? "LISTING" : "LISTINGS"}`}
             </span>
-            {filtersActive && !showLiked && (
+            {filtersActive && (
               <button type="button" onClick={resetAll} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5 }}>Clear filters</button>
             )}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 px-4 pb-3">
-            {list.map((l) => <MarketCard key={l.id} listing={l} />)}
-            {list.length === 0 && (
+            {shown.map((l) => <MarketCard key={l.id} listing={l} />)}
+            {shown.length === 0 && (
               <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", alignItems: "center", padding: "44px 0", color: "var(--ink-faint)", textAlign: "center" }}>
-                {showLiked ? <Heart size={26} style={{ opacity: 0.35 }} /> : <Filter size={26} style={{ opacity: 0.35 }} />}
-                <div style={{ fontSize: 13.5, marginTop: 10 }}>{showLiked ? "Nothing saved yet." : "No listings match these filters."}</div>
-                {showLiked ? (
+                {savedOnly ? <Heart size={26} style={{ opacity: 0.35 }} /> : mineOnly ? <Tag size={26} style={{ opacity: 0.35 }} /> : <Filter size={26} style={{ opacity: 0.35 }} />}
+                <div style={{ fontSize: 13.5, marginTop: 10 }}>
+                  {savedOnly ? "Nothing saved yet." : mineOnly ? "You have nothing listed right now." : "No listings match these filters."}
+                </div>
+                {savedOnly && !mineOnly ? (
                   <div style={{ fontSize: 12.5, marginTop: 4, color: "var(--ink-ghost)" }}>Tap the heart on any listing to keep it here while it&rsquo;s live.</div>
                 ) : (
                   <button type="button" onClick={resetAll} style={{ marginTop: 10, background: "none", border: "none", cursor: "pointer", color: "var(--stamp-red)", fontWeight: 600, fontFamily: "var(--font-body)", fontSize: 13 }}>Clear filters</button>

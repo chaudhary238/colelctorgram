@@ -35,6 +35,7 @@ def _iso_fields(post: Post) -> dict:
         "iso_item": post.iso_item,
         "iso_budget": post.iso_budget,
         "iso_cond": post.iso_condition,
+        "iso_city": post.iso_city,
     }
 
 
@@ -61,6 +62,7 @@ class CreatePostBody(BaseModel):
     iso_budget: Optional[int] = None  # max budget, paise
     # Single choice; "any" (or omitted) means no condition restriction.
     iso_condition: Optional[str] = None
+    iso_city: Optional[str] = None    # DV8 — "Mumbai" / "Anywhere in India" / "Worldwide"
 
 
 class CreateCommentBody(BaseModel):
@@ -160,6 +162,7 @@ async def create_post(
         iso_item=(body.iso_item or None) if is_iso else None,
         iso_budget=body.iso_budget if is_iso else None,
         iso_condition=iso_condition if is_iso else None,
+        iso_city=(body.iso_city or "").strip() or None if is_iso else None,
         status=post_status,
     )
     db.add(post)
@@ -316,6 +319,9 @@ async def get_post(
                 "likes_count": c.likes_count,
                 "is_liked": c.id in liked_comment_ids,
                 "is_mine": c.user_id == current_user.id,
+                # v8 Cards.jsx :325 — the rewards badge pill sits beside the commenter's
+                # name too, not just on post authors.
+                "badge": feed_badge(authors_by_id.get(c.user_id)) if c.user_id in authors_by_id else None,
                 "created_at": c.created_at.isoformat(),
             }
             for c in comments
@@ -339,6 +345,7 @@ class EditPostBody(BaseModel):
     iso_item: Optional[str] = None
     iso_budget: Optional[int] = None
     iso_condition: Optional[str] = None
+    iso_city: Optional[str] = None
 
 
 @router.patch("/{post_id}")

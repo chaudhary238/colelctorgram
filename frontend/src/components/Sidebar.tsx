@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Home, Search, ShoppingBag, Users, Calendar, LayoutGrid,
-  Bell, Plus, Settings, User, Bookmark,
+  Bell, Plus, Settings, User, Bookmark, Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SealMark, ScorredWordmark } from "@/components/ui";
 import { useUnread } from "@/components/useUnread";
+import { useUser } from "@/lib/auth-context";
 
 // Desktop nav. DV7-04/05/06 apply here too — the handoff is written against the mobile
 // AppBar, but "one Activity inbox" and "Create is the only coloured control" are product
@@ -94,7 +95,17 @@ export function Sidebar() {
   const pathname = usePathname();
   // Live unread counts (DF-38) — replaces the old hardcoded badge:3.
   const unread = useUnread();
-  const items = NAV;
+  const { user } = useUser();
+  // Admin console rides beside Stash for staff (founder 2026-09-06 — the drawer-only
+  // placement buried it two taps deep for the people who use it daily). Staff-only:
+  // everyone else keeps the exact v7/v8 nav.
+  const items = user?.is_admin
+    ? NAV.flatMap((item) =>
+        item.href === "/saved"
+          ? [item, { href: "/admin", label: "Admin", icon: Shield } as NavDef]
+          : [item],
+      )
+    : NAV;
   // Activity badges notifications only — DMs are badged on My Space (v7, 2026-08-09).
   const badgeFor = (key: NavDef["badgeKey"]) =>
     (key === "activity" ? unread.notifs : key ? unread[key] : 0) || undefined;

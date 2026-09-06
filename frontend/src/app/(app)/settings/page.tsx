@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ChevronLeft, ChevronRight, Eye, EyeOff, Lock, UserCog, Image as ImageIcon,
+  ChevronLeft, ChevronRight, Eye, EyeOff, UserCog, Image as ImageIcon,
   ShieldCheck, UserPlus, MessageCircle, Heart, ArrowLeftRight, CalendarClock,
   Users, Tag as TagIcon, ShoppingBag, Ban, Info, Flag, FileText, ShieldQuestion,
   Star, LogOut, Trash2, KeyRound,
@@ -24,8 +24,9 @@ const DEFAULT_PRIVACY: PrivacyPrefs = { messaging: "everyone", wishlist: "follow
    the relevant block instead of dead-ending at the top of a long screen (v7 points both at
    the bare settings route). scrollMarginTop clears the sticky header. */
 function SectionHeader({ children, id }: { children: React.ReactNode; id?: string }) {
+  /* v8 (ProfileSettings.jsx:31-35) — body font 10.5/0.09em, not the mono SectionLabel. */
   return (
-    <div id={id} style={{ padding: "22px 20px 7px", scrollMarginTop: 64, fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-faint)" }}>
+    <div id={id} style={{ padding: "20px 20px 7px", scrollMarginTop: 64, fontFamily: "var(--font-body)", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase", color: "var(--ink-faint)" }}>
       {children}
     </div>
   );
@@ -120,6 +121,16 @@ export default function SettingsPage() {
   const [pwError, setPwError] = useState("");
 
   const [toast, setToast] = useState("");
+  // v8 — the vouch row's "{n} vouches" sub. The profile payload carries the count;
+  // fetched once (the settings screen doesn't otherwise load the profile).
+  const [vouchCount, setVouchCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user?.handle) return;
+    api.get<{ vouches_received_count?: number }>(`/users/${user.handle}`)
+      .then((p) => setVouchCount(p?.vouches_received_count ?? 0))
+      .catch(() => {});
+  }, [user?.handle]);
 
   useEffect(() => {
     if (!user) return;
@@ -201,9 +212,15 @@ export default function SettingsPage() {
       {/* v4 parity (ProfileSettings.jsx:88-92): Edit profile · Edit avatar · Vouches & endorsements.
           "Change password" is kept as a web-only necessity (no email-reset flow yet — B-71). */}
       <SectionHeader>Account</SectionHeader>
-      <Row icon={<UserCog size={17} />} label="Edit profile" sub={user ? `@${user.handle}` : undefined} onClick={() => router.push("/profile?edit=profile")} />
+      {/* v8 — Edit profile carries no @handle sub; the vouch row subtitles its count. */}
+      <Row icon={<UserCog size={17} />} label="Edit profile" onClick={() => router.push("/profile?edit=profile")} />
       <Row icon={<ImageIcon size={17} />} label="Edit avatar" onClick={() => router.push("/profile?edit=avatar")} />
-      <Row icon={<ShieldCheck size={17} />} label="Vouches & endorsements" onClick={() => router.push("/profile?vouch=request")} />
+      <Row
+        icon={<ShieldCheck size={17} />}
+        label="Vouches & endorsements"
+        sub={vouchCount != null ? `${vouchCount} ${vouchCount === 1 ? "vouch" : "vouches"}` : undefined}
+        onClick={() => router.push("/profile?vouch=request")}
+      />
       <Row icon={<KeyRound size={17} />} label="Change password" onClick={() => setShowPwForm((v) => !v)} />
       {showPwForm && (
         <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10, background: "var(--paper-soft)" }}>
@@ -267,7 +284,7 @@ export default function SettingsPage() {
       <Row icon={<Flag size={17} />} label="Report a bug" onClick={() => flash("Bug report — coming soon")} />
       <Row icon={<FileText size={17} />} label="Terms of service" onClick={() => flash("Terms of service — coming soon")} />
       <Row icon={<ShieldQuestion size={17} />} label="Privacy policy" onClick={() => flash("Privacy policy — coming soon")} />
-      <Row icon={<Star size={17} />} label="Rate Scorred" onClick={() => flash("Thanks for the love! ⭐")} />
+      <Row icon={<Star size={17} />} label="Rate the app" onClick={() => flash("Thanks for the love! ⭐")} />
 
       {/* ── Account actions ───────────────────────────────── */}
       <SectionHeader>Account</SectionHeader>
@@ -280,8 +297,9 @@ export default function SettingsPage() {
         onClick={() => flash("Please contact support to delete your account.")}
       />
 
-      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "12px 20px", fontSize: 12.5, color: "var(--ink-faint)" }}>
-        <Lock size={13} /> {user?.email ?? "—"}
+      {/* v8 footer (ProfileSettings.jsx:141-143) — centred version line replaces the email row. */}
+      <div style={{ textAlign: "center", padding: "22px 20px 4px", fontSize: 11.5, color: "var(--ink-ghost)" }}>
+        Scorred · v0.9.1
       </div>
 
       {toast && (

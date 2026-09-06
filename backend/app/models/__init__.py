@@ -1,5 +1,5 @@
 from app.models.user import User, Follow
-from app.models.catalogue import Catalogue, CatalogueRating, CatalogueComment
+from app.models.catalogue import Catalogue, CatalogueRating, CatalogueComment, CatalogueCommentLike
 from app.models.item import Item, ItemPhoto
 from app.models.post import Post, PostLike, PostSave, Comment, CommentLike
 from app.models.listing import Listing, ListingSave
@@ -10,11 +10,12 @@ from app.models.thread import Thread, Message
 from app.models.notification import Notification
 from app.models.trust import UserBlock, Report
 from app.models.search import SavedSearch
+from app.models.place import City
 from app.models.gamification import XpEvent, SeasonBadge
 
 __all__ = [
     "User", "Follow",
-    "Catalogue", "CatalogueRating", "CatalogueComment",
+    "Catalogue", "CatalogueRating", "CatalogueComment", "CatalogueCommentLike",
     "Item", "ItemPhoto",
     "Post", "PostLike", "PostSave", "Comment", "CommentLike",
     "Listing", "ListingSave",
@@ -25,5 +26,6 @@ __all__ = [
     "Notification",
     "UserBlock", "Report",
     "SavedSearch",
+    "City",
     "XpEvent", "SeasonBadge",
 ]

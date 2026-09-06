@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Clock, Calendar, MapPin, Globe, Tag, ChevronRight, X, Pencil, Share2, MessageCircle, Check } from "lucide-react";
+import { Clock, Calendar, MapPin, Globe, ChevronRight, X, Pencil, Share2, MessageCircle, Settings2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiEvent } from "@/components/cards";
 import { shortDate } from "@/lib/utils";
@@ -12,21 +12,23 @@ import { BackButton } from "@/components/BackButton";
 import { ImageUploader } from "@/components/ImageUploader";
 import { CityField, formatTime12 } from "@/components/CityField";
 import { MoneyField } from "@/components/forms";
+import { fireToast } from "@/components/gamification";
 import { ADD_CATEGORIES } from "@/lib/catalog";
 
 interface Guest { handle: string; name: string; avatar_url: string | null; city: string | null; status: "going" | "interested" }
 
 // DV8-16 pricing/ticketing fields now live on the shared ApiEvent (DV8-17).
 
-// v3 category short-labels (design_v3 data.jsx CATEGORIES.short).
-const CAT_LABEL: Record<string, string> = {
-  figures: "Action Figures", designer: "Designer Toys", kits: "Model Kits", diecast: "Diecast",
-};
+// (CAT_LABEL retired here — v8's pending rows dropped the categories row; the
+// detail page keeps its own map, incl. tcg.)
+// v8 chip labels are the SINGULAR chipLabel variants — only figures differs.
+const CHIP_LABEL: Record<string, string> = { figures: "Action Figure" };
 
+// v8 edit-sheet field metrics — h46 / r11 / 15px.
 const fieldStyle: React.CSSProperties = {
-  width: "100%", boxSizing: "border-box", height: 44, padding: "0 12px",
-  borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper-soft)",
-  fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none",
+  width: "100%", boxSizing: "border-box", height: 46, padding: "0 13px",
+  borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)",
+  fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", outline: "none",
 };
 
 function EditLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
@@ -52,14 +54,16 @@ function DetailRow({ icon: Icon, title, sub, last }: { icon: React.ComponentType
   );
 }
 
-function GuestRow({ guest }: { guest: Guest }) {
+// v8 GuestRow — real avatar photo, trailing chevron, muted rendering for "interested".
+function GuestRow({ guest, muted }: { guest: Guest; muted?: boolean }) {
   return (
     <Link href={`/profile/${guest.handle}`} style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", padding: 10, textDecoration: "none", borderRadius: 12, background: "var(--paper-soft)", border: "1px solid var(--border)" }}>
-      <Avatar name={guest.name} size={38} />
+      <Avatar name={guest.name} photo={guest.avatar_url ?? undefined} size={38} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{guest.name}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: muted ? "var(--ink-soft)" : "var(--ink)" }}>{guest.name}</div>
         <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{guest.handle}{guest.city ? ` · ${guest.city}` : ""}</div>
       </div>
+      <ChevronRight size={17} strokeWidth={2} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
     </Link>
   );
 }
@@ -104,8 +108,9 @@ export default function EventManagePage() {
   const [eEndTime, setEEndTime] = useState("");
   const [eCity, setECity] = useState("");
   const [eVenue, setEVenue] = useState("");
+  const [eAddress, setEAddress] = useState("");
   const [eAbout, setEAbout] = useState("");
-  const [eBring, setEBring] = useState("");
+  // "What to bring" removed in v8 — no edit field, and `bring` is never patched.
   const [ePricing, setEPricing] = useState<"free" | "paid">("free");
   const [ePrice, setEPrice] = useState("");
   const [ePriceCur, setEPriceCur] = useState("INR");
@@ -149,8 +154,8 @@ export default function EventManagePage() {
     }
     setECity(event.city ?? "");
     setEVenue(event.venue ?? "");
+    setEAddress(event.address ?? "");
     setEAbout(event.description ?? "");
-    setEBring(event.bring ?? "");
     setEPricing(event.is_free === false ? "paid" : "free");
     setEPrice(event.is_free === false && event.price ? String(Math.round(event.price / 100)) : "");
     setEPriceCur(event.currency ?? "INR");
@@ -195,8 +200,8 @@ export default function EventManagePage() {
       if (newEnd !== oldEnd) patch.ends_at = ends_at;
       if (!online && eCity.trim() !== (event.city ?? "")) patch.city = eCity.trim();
       if (eVenue.trim() !== (event.venue ?? "")) patch.venue = eVenue.trim();
+      if ((eAddress.trim() || null) !== (event.address ?? null)) patch.address = eAddress.trim() || null;
       if (eAbout.trim() !== (event.description ?? "")) patch.description = eAbout.trim();
-      if ((eBring.trim() || null) !== (event.bring ?? null)) patch.bring = eBring.trim() || null;
       if (isFree !== (event.is_free ?? true)) patch.is_free = isFree;
       if (!isFree && priceMinor !== (event.price ?? 0)) patch.price = priceMinor;
       if (!isFree && ePriceCur !== (event.currency ?? "INR")) patch.currency = ePriceCur;
@@ -215,11 +220,16 @@ export default function EventManagePage() {
 
   const cancelEvent = async () => {
     if (!event || busy) return;
-    if (!confirm(event.status === "pending_approval" ? "Withdraw this event?" : "Cancel this event? Attendees will be notified.")) return;
+    const isPending = event.status === "pending_approval";
+    // v8 confirms nothing and toasts after the fact. We keep ONE lightweight confirm
+    // for the live-event cancel (destructive: attendees get notified); withdrawing a
+    // pending event is low-stakes, so it just happens.
+    if (!isPending && !window.confirm("Cancel this event? Attendees will be notified.")) return;
     setBusy(true);
     try {
       await api.post(`/events/${event.id}/cancel`);
       router.push("/events");
+      fireToast(isPending ? "Event withdrawn" : "Event cancelled — attendees notified");
     } finally {
       setBusy(false);
     }
@@ -288,11 +298,27 @@ export default function EventManagePage() {
                 <div style={{ fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.5, marginTop: 5 }}>Only you can see this event until Scorred approves it. We review for safety and accuracy — usually within a day.</div>
               </div>
             </div>
+            {/* v8 pending rows — when/city · where/"Venue" · bound community (when present) */}
             <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden", margin: "16px 0" }}>
               <DetailRow icon={Calendar} title={`${dayName}, ${month} ${day} · ${timeStr}`} sub={event.city ?? undefined} />
-              <DetailRow icon={online ? Globe : MapPin} title={event.venue ?? "TBA"} sub={online ? "Online" : "In person"} />
-              <DetailRow icon={Tag} title={event.categories.length ? event.categories.map((c) => CAT_LABEL[c] ?? c).join(" · ") : "—"} sub={event.community ? `Community: ${event.community.name}` : "No community"} last />
+              <DetailRow icon={online ? Globe : MapPin} title={event.where ?? event.venue ?? "TBA"} sub="Venue" last={!event.community} />
+              {event.community && <DetailRow icon={MessageCircle} title={event.community.name} sub="Bound community" last />}
             </div>
+
+            {/* v8 — while you wait: manage the bound community from here. */}
+            {event.community && (
+              <Link href={`/community/${event.community.id}/manage`} style={{
+                display: "flex", alignItems: "center", gap: 12, width: "100%", textDecoration: "none", marginBottom: 16, padding: 13,
+                background: "var(--ink)", color: "var(--paper)", borderRadius: 13,
+              }}>
+                <Settings2 size={19} style={{ flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Manage {event.community.name}</div>
+                  <div style={{ fontSize: 12.5, color: "rgba(244,239,230,0.7)" }}>Edit details, rules and members while you wait</div>
+                </div>
+                <ChevronRight size={18} style={{ opacity: 0.7 }} />
+              </Link>
+            )}
           </>
         )}
 
@@ -333,8 +359,10 @@ export default function EventManagePage() {
           </>
         )}
 
-        {/* Edit details — DV8-16 full surface, mirrors the create-event fields */}
-        {!cancelled && (
+        {/* Edit details — DV8-16 full surface, mirrors the create-event fields.
+            v8 shows NO edit surface while pending (withdraw-and-resubmit is the path);
+            the inline panel (vs v8's modal sheet) stays a deliberate divergence. */}
+        {!pending && !cancelled && (
           editing ? (
             <div style={{ border: "1px solid var(--border)", borderRadius: 14, padding: "2px 14px 14px", marginBottom: 18, background: "var(--paper-soft)" }}>
               <EditLabel hint="optional">Cover photo</EditLabel>
@@ -348,13 +376,14 @@ export default function EventManagePage() {
                 {ADD_CATEGORIES.map((c) => {
                   const on = eCats.includes(c.id);
                   return (
+                    // v8 — label-only pills (no check glyph), 7px/13px, singular chipLabel.
                     <button key={c.id} type="button" onClick={() => toggleECat(c.id)} style={{
-                      display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 999, cursor: "pointer",
+                      display: "inline-flex", alignItems: "center", padding: "7px 13px", borderRadius: 999, cursor: "pointer",
                       background: on ? "var(--ink)" : "var(--paper)", color: on ? "var(--paper)" : "var(--ink)",
                       border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
-                      fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, lineHeight: 1,
+                      fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, lineHeight: 1, whiteSpace: "nowrap",
                     }}>
-                      {on && <Check size={13} strokeWidth={2.6} />}{c.label}
+                      {CHIP_LABEL[c.id] ?? c.label}
                     </button>
                   );
                 })}
@@ -370,21 +399,17 @@ export default function EventManagePage() {
                   <input type="date" value={eEndDate} min={eDate || undefined} onChange={(e) => setEEndDate(e.target.value)} style={{ ...fieldStyle, fontFamily: "var(--font-mono)", fontSize: 13 }} />
                 </div>
               </div>
+              {/* v8 — time inputs at 14px mono; no "Shows as…" echo. */}
               <div style={{ display: "flex", gap: 10 }}>
                 <div style={{ flex: 1 }}>
                   <EditLabel>Start time</EditLabel>
-                  <input type="time" value={eTime} onChange={(e) => setETime(e.target.value)} style={{ ...fieldStyle, fontFamily: "var(--font-mono)", fontSize: 13 }} />
+                  <input type="time" value={eTime} onChange={(e) => setETime(e.target.value)} style={{ ...fieldStyle, fontFamily: "var(--font-mono)", fontSize: 14 }} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <EditLabel hint="optional">End time</EditLabel>
-                  <input type="time" value={eEndTime} onChange={(e) => setEEndTime(e.target.value)} style={{ ...fieldStyle, fontFamily: "var(--font-mono)", fontSize: 13 }} />
+                  <input type="time" value={eEndTime} onChange={(e) => setEEndTime(e.target.value)} style={{ ...fieldStyle, fontFamily: "var(--font-mono)", fontSize: 14 }} />
                 </div>
               </div>
-              {eTime && (
-                <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>
-                  Shows as {formatTime12(eTime)}{eEndTime ? ` – ${formatTime12(eEndTime)}` : ""}
-                </div>
-              )}
 
               {!online && (
                 <>
@@ -393,15 +418,21 @@ export default function EventManagePage() {
                 </>
               )}
 
-              <EditLabel>{online ? "Stream / link name" : "Venue"}</EditLabel>
-              <textarea value={eVenue} onChange={(e) => setEVenue(e.target.value)} rows={2} placeholder={online ? "Stream / link name" : "Full address"}
-                style={{ ...fieldStyle, height: "auto", padding: "10px 12px", lineHeight: 1.5, resize: "none" }} />
+              {/* v8 — venue NAME + optional address DETAILS, like the create form. */}
+              <EditLabel>{online ? "Stream / link name" : "Venue name"}</EditLabel>
+              <input value={eVenue} onChange={(e) => setEVenue(e.target.value)} placeholder={online ? "Stream / link name" : "e.g. Phoenix Marketcity, LBS Marg, Kurla West"} style={fieldStyle} />
+
+              {!online && (
+                <>
+                  <EditLabel hint="optional">Address details</EditLabel>
+                  <textarea value={eAddress} onChange={(e) => setEAddress(e.target.value)} rows={2} placeholder="e.g. 3rd floor atrium, near the food court"
+                    style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none" }} />
+                  <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0", lineHeight: 1.5 }}>Attendees see this exact address once they RSVP.</div>
+                </>
+              )}
 
               <EditLabel>Description</EditLabel>
-              <textarea value={eAbout} onChange={(e) => setEAbout(e.target.value)} rows={3} placeholder="Description" style={{ ...fieldStyle, height: "auto", padding: "10px 12px", lineHeight: 1.5, resize: "none" }} />
-
-              <EditLabel hint="optional">What to bring</EditLabel>
-              <input value={eBring} onChange={(e) => setEBring(e.target.value)} placeholder="e.g. Up to 3 pieces to display or trade" style={fieldStyle} />
+              <textarea value={eAbout} onChange={(e) => setEAbout(e.target.value)} rows={3} placeholder="Description" style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none" }} />
 
               <EditLabel>Entry</EditLabel>
               <Segmented value={ePricing} onChange={(v) => setEPricing(v)} options={[{ id: "free", label: "Free" }, { id: "paid", label: "Paid" }]} />
@@ -441,7 +472,7 @@ export default function EventManagePage() {
               <>
                 <SectionLabel>Interested · {interestedGuests.length}</SectionLabel>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, margin: "10px 0 18px" }}>
-                  {interestedGuests.map((g) => <GuestRow key={g.handle} guest={g} />)}
+                  {interestedGuests.map((g) => <GuestRow key={g.handle} guest={g} muted />)}
                 </div>
               </>
             )}

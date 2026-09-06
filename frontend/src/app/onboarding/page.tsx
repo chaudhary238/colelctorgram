@@ -1,15 +1,20 @@
 "use client";
 
-// Onboarding wizard — design feedback round 1 (DF-01..DF-04):
-// 3 steps: profile (bio/gender/age) → categories → communities.
-// "Get specific" step removed; line-by-line checkbox rows, no photo tiles.
+// Onboarding wizard (design_v8/app/Onboarding.jsx Onboard) — DV8 P0-2/P0-4:
+// 3 steps: profile (name → @username → bio → city → gender → age) →
+// categories → communities. Skip commits whatever was typed (+ onboarded flag)
+// instead of discarding it; @username is checked live against
+// GET /users/handle-available and auto-suggested from the display name.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Camera, Check } from "lucide-react";
+import { ArrowLeft, Camera, Check, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser, AuthUser } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
+import { CityField } from "@/components/CityField";
+import { Avatar, EmptyNote } from "@/components/ui";
+import { authLabelStyle, authInputStyle, BlockButton } from "@/app/auth/_ui";
 
 // v4 order (CATEGORIES in data.jsx): figures → diecast → kits → designer → tcg.
 const CATEGORIES = [
@@ -20,15 +25,30 @@ const CATEGORIES = [
   { id: "tcg", label: "Trading Cards (TCG)" },
 ];
 
-// Per-category sub-interest chips (DV4-06; v4 design_v4/Onboarding.jsx SUBINTERESTS map).
-// Revealed under a category once it's picked, for finer feed tuning (BRD §6.2/§9.2).
-const SUBINTERESTS: Record<string, string[]> = {
-  figures: ["Hot Toys", "SH Figuarts", "Sideshow", "Marvel Legends", "McFarlane", "Premium Format"],
-  designer: ["Pop Mart", "Skullpanda", "Labubu", "KAWS", "Soft vinyl", "Sonny Angel"],
-  kits: ["LEGO", "Gunpla", "MOC builds", "Bandai", "Scale models"],
-  diecast: ["Tomica", "Mini GT", "Hot Wheels", "Inno64", "Kyosho"],
-  tcg: ["Pokémon", "One Piece TCG", "Magic: The Gathering", "Yu-Gi-Oh!", "Dragon Ball Super TCG", "Digimon TCG"],
-};
+// Sub-interest chip rows removed per DV8_DESIGN_GAPS ("Step 1: v8 has NO
+// sub-interest chips") — the backend sub_interests field stays untouched; we
+// just stop rendering and sending it here.
+
+// Gender options — v8 shared.jsx GenderPicker: one list so signup and profile
+// editing can never diverge. "Prefer not to say" spans both grid columns.
+const GENDERS = [
+  ["f", "Female"],
+  ["m", "Male"],
+  ["x", "Prefer not to say"],
+] as const;
+
+type HandleStatus = "" | "available" | "taken" | "invalid";
+
+// v8 auto-suggestion rule: display name → lowercase, runs of other characters
+// collapse to "_", trimmed, capped at the 20-char handle limit.
+function suggestFrom(displayName: string): string {
+  return displayName
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 20);
+}
 
 interface ApiCommunity {
   id: string;
@@ -98,26 +118,81 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<0 | 1 | 2>(0); // 0 profile · 1 categories · 2 communities
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
-  const [gender, setGender] = useState<"" | "f" | "m">("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
+  const [gender, setGender] = useState<"" | "f" | "m" | "x">("");
   const [age, setAge] = useState(24);
   // only persist birth_year if the user actually moved the slider
   const [ageTouched, setAgeTouched] = useState(false);
   const [interests, setInterests] = useState<string[]>([]);
-  // category → selected sub-interest chips (DV4-06)
-  const [subInterests, setSubInterests] = useState<Record<string, string[]>>({});
   const [joins, setJoins] = useState<string[]>([]);
   const [communities, setCommunities] = useState<ApiCommunity[]>([]);
-  const [loading, setLoading] = useState(false);
+  // loading flag so step 2 never shows the "pick a category" note mid-fetch
+  const [commLoading, setCommLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  // Prefill display name from signup
+  // @username — auto-suggested from display name; uniqueness checked live
+  // against GET /users/handle-available (DV8 P0-2).
+  const [handle, setHandle] = useState("");
+  const [handleStatus, setHandleStatus] = useState<HandleStatus>("");
+  const [handleManual, setHandleManual] = useState(false); // true once user edits the field
+
+  // Debounced live availability. The input already strips illegal characters,
+  // so the only client-side invalid case is "too short"; the server re-checks
+  // format anyway and answers taken/format.
   useEffect(() => {
-    if (user?.name) setName((n) => n || user.name);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- derived async-validation state keyed to the current handle value
+    if (!handle) { setHandleStatus(""); return; }
+    if (handle.length < 3) { setHandleStatus("invalid"); return; }
+    setHandleStatus("");
+    let stale = false;
+    const t = setTimeout(() => {
+      api
+        .get<{ available: boolean; reason: "format" | "taken" | null }>(
+          `/users/handle-available?handle=${encodeURIComponent(handle)}`
+        )
+        .then((r) => {
+          if (stale) return;
+          setHandleStatus(r.available ? "available" : r.reason === "format" ? "invalid" : "taken");
+        })
+        .catch(() => {
+          if (!stale) setHandleStatus("");
+        });
+    }, 350);
+    return () => {
+      stale = true;
+      clearTimeout(t);
+    };
+  }, [handle]);
+
+  function onNameChange(v: string) {
+    setName(v);
+    // Auto-suggest the handle from the display name until the user edits it.
+    if (!handleManual) setHandle(suggestFrom(v));
+  }
+
+  function onHandleChange(raw: string) {
+    const v = raw.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 20);
+    setHandle(v);
+    setHandleManual(true);
+  }
+
+  // Prefill display name from signup/OAuth — but not the provisional name
+  // (slim signup sets name = derived handle, which isn't a real name). The
+  // prefilled name also seeds the @username suggestion, like typing would.
+  useEffect(() => {
+    if (user?.name && user.name !== user.handle) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot prefill from the fetched account
+      setName((n) => n || user.name);
+      setHandle((h) => h || suggestFrom(user.name));
+    }
   }, [user]);
 
   useEffect(() => {
     api.get<ApiCommunity[]>("/communities?limit=50")
       .then((c) => setCommunities(c ?? []))
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setCommLoading(false));
   }, []);
 
   const suggested = useMemo(
@@ -125,31 +200,19 @@ export default function OnboardingPage() {
     [communities, interests]
   );
 
-  function toggleInterest(id: string) {
-    setInterests((prev) => {
-      const removing = prev.includes(id);
-      if (removing) {
-        // Drop the category's sub-interests too so we never persist orphans.
-        setSubInterests((subs) => {
-          const next = { ...subs };
-          delete next[id];
-          return next;
-        });
-        return prev.filter((x) => x !== id);
-      }
-      return [...prev, id];
-    });
-  }
+  // v8 pre-selects the first suggested community ({itm: true}) — once, and only
+  // if the user hasn't made their own picks yet.
+  const preselected = useRef(false);
+  useEffect(() => {
+    if (step !== 2 || commLoading || preselected.current || suggested.length === 0) return;
+    preselected.current = true;
+    setJoins((j) => (j.length ? j : [suggested[0].id]));
+  }, [step, commLoading, suggested]);
 
-  function toggleSub(cat: string, chip: string) {
-    setSubInterests((prev) => {
-      const cur = prev[cat] ?? [];
-      const nextChips = cur.includes(chip) ? cur.filter((c) => c !== chip) : [...cur, chip];
-      const next = { ...prev };
-      if (nextChips.length === 0) delete next[cat];
-      else next[cat] = nextChips;
-      return next;
-    });
+  function toggleInterest(id: string) {
+    setInterests((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   }
 
   function toggleJoin(id: string) {
@@ -160,20 +223,32 @@ export default function OnboardingPage() {
 
   const canNext = step === 1 ? interests.length > 0 : true;
 
+  // The one PATCH both exits share: whatever was typed + the onboarded stamp.
+  // Handle is sent only when the live availability check passed.
+  async function saveProfile(includeInterests: boolean) {
+    const patch: Record<string, unknown> = { onboarded: true };
+    if (name.trim()) patch.name = name.trim();
+    if (handle.trim() && handleStatus === "available") patch.handle = handle.trim();
+    if (bio.trim()) patch.bio = bio.trim();
+    if (city) {
+      patch.city = city;
+      patch.country = country;
+    }
+    if (gender) patch.gender = gender;
+    if (ageTouched) patch.birth_year = currentYear - age;
+    if (includeInterests && interests.length) {
+      patch.interests = interests;
+      // Customize-feed defaults (DF-08): tuned to picks, listings hidden
+      patch.feed_prefs = { categories: interests, hide_listings: true };
+    }
+    const updated = await api.patch<AuthUser>("/users/me", patch);
+    if (updated) setUser(updated);
+  }
+
   async function handleFinish() {
-    setLoading(true);
+    setSaving(true);
     try {
-      const updated = await api.patch<AuthUser>("/users/me", {
-        name: name || undefined,
-        bio: bio || undefined,
-        gender: gender || undefined,
-        birth_year: ageTouched ? currentYear - age : undefined,
-        interests,
-        sub_interests: Object.keys(subInterests).length ? subInterests : undefined,
-        // Customize-feed defaults (DF-08): tuned to picks, listings hidden
-        feed_prefs: { categories: interests, hide_listings: true },
-      });
-      if (updated) setUser(updated);
+      await saveProfile(true);
       await Promise.allSettled(joins.map((id) => api.post(`/communities/${id}/join`)));
     } catch {
       // non-fatal — proceed to feed
@@ -182,10 +257,17 @@ export default function OnboardingPage() {
     }
   }
 
-  // Skip = abandon the wizard WITHOUT writing anything. (It previously called
-  // handleFinish, which silently PATCHed prefilled/default values onto the account.)
-  function skip() {
-    router.push("/feed");
+  // DV8 P0-4 (the v7→v8 fix): Skip COMMITS whatever was typed — profile fields
+  // + onboarded:true — it never silently discards the user's answers.
+  async function skip() {
+    setSaving(true);
+    try {
+      await saveProfile(false);
+    } catch {
+      // non-fatal — proceed to feed
+    } finally {
+      router.push("/feed");
+    }
   }
 
   function next() {
@@ -222,7 +304,8 @@ export default function OnboardingPage() {
           </div>
           <button
             onClick={skip}
-            className="w-[50px] text-right text-[13.5px] font-semibold text-[var(--ink-faint)] hover:text-[var(--ink)] cursor-pointer bg-transparent border-none"
+            disabled={saving}
+            className="w-[50px] text-right text-[13.5px] font-semibold text-[var(--ink-faint)] hover:text-[var(--ink)] cursor-pointer bg-transparent border-none disabled:opacity-50"
           >
             Skip
           </button>
@@ -239,63 +322,143 @@ export default function OnboardingPage() {
               {/* avatar */}
               <div className="flex justify-center my-6">
                 <div className="relative">
-                  <div className="w-[84px] h-[84px] rounded-full bg-[var(--ink)] text-[var(--paper)] flex items-center justify-center text-2xl font-bold select-none">
-                    {(name || "You")[0].toUpperCase()}
-                  </div>
+                  <Avatar name={name || "You"} color="var(--ink)" size={84} />
                   <div className="absolute -bottom-0.5 -right-0.5 w-[30px] h-[30px] rounded-full bg-[var(--stamp-red)] text-white border-[3px] border-[var(--paper)] flex items-center justify-center">
                     <Camera size={15} />
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3.5">
+              <div className="flex flex-col" style={{ gap: 14 }}>
                 <label className="block">
-                  <span className="text-[12.5px] font-semibold text-[var(--ink-mute)] tracking-wide">
-                    Display name
-                  </span>
+                  <span style={authLabelStyle}>Display name</span>
                   <input
                     type="text"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => onNameChange(e.target.value)}
                     placeholder="e.g. Aman Iyer"
-                    className="block w-full mt-[7px] px-3.5 py-[11px] rounded-xl border border-[var(--border-strong)] bg-[var(--paper-soft)] text-[15px] text-[var(--ink)] outline-none focus:border-[var(--stamp-red)] transition-colors"
+                    style={{ ...authInputStyle, marginTop: 7 }}
                   />
                 </label>
 
+                {/* @username — unique identifier, auto-suggested from name,
+                    uniqueness checked live (Onboarding.jsx:276-303) */}
+                <div>
+                  <span style={authLabelStyle}>@Username</span>
+                  <div style={{ position: "relative", marginTop: 7 }}>
+                    <span
+                      style={{
+                        position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
+                        color: "var(--ink-faint)", fontFamily: "var(--font-mono)", fontWeight: 600,
+                        fontSize: 16, pointerEvents: "none",
+                      }}
+                    >
+                      @
+                    </span>
+                    <input
+                      type="text"
+                      value={handle}
+                      onChange={(e) => onHandleChange(e.target.value)}
+                      maxLength={20}
+                      placeholder="your_handle"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      style={{
+                        ...authInputStyle,
+                        padding: "0 42px 0 32px",
+                        fontFamily: "var(--font-mono)",
+                        border: `1px solid ${
+                          handleStatus === "available"
+                            ? "var(--forest)"
+                            : handleStatus === "taken" || handleStatus === "invalid"
+                              ? "var(--stamp-red)"
+                              : "var(--border-strong)"
+                        }`,
+                      }}
+                    />
+                    {(handleStatus === "available" || handleStatus === "taken" || handleStatus === "invalid") && (
+                      <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", display: "flex" }}>
+                        {handleStatus === "available" ? (
+                          <Check size={18} strokeWidth={2.5} style={{ color: "var(--forest)" }} />
+                        ) : (
+                          <X size={18} strokeWidth={2.5} style={{ color: "var(--stamp-red)" }} />
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11.5, marginTop: 5, lineHeight: 1.4,
+                      color:
+                        handleStatus === "available"
+                          ? "var(--forest)"
+                          : handleStatus
+                            ? "var(--stamp-red)"
+                            : "var(--ink-faint)",
+                    }}
+                  >
+                    {handleStatus === "available"
+                      ? "✓ Available"
+                      : handleStatus === "taken"
+                        ? "✗ Already taken — try another"
+                        : handleStatus === "invalid"
+                          ? "✗ 3–20 characters · letters, numbers and _ only"
+                          : "Lowercase · letters, numbers and _ only · 3–20 characters"}
+                  </div>
+                </div>
+
                 <label className="block">
-                  <span className="text-[12.5px] font-semibold text-[var(--ink-mute)] tracking-wide">
-                    Bio
-                  </span>
+                  <span style={authLabelStyle}>Bio</span>
                   <textarea
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
                     rows={3}
                     maxLength={150}
-                    placeholder="Who you are and what you collect — e.g. “Gunpla builder chasing 90s grails.”"
-                    className="block w-full mt-[7px] px-3.5 py-[11px] rounded-xl border border-[var(--border-strong)] bg-[var(--paper-soft)] text-[15px] leading-[1.45] text-[var(--ink)] outline-none resize-none focus:border-[var(--stamp-red)] transition-colors"
+                    placeholder="Who you are and what you collect — e.g. “Sneakerhead & Gunpla builder, chasing 90s Jordans.”"
+                    style={{
+                      display: "block", width: "100%", boxSizing: "border-box", marginTop: 7,
+                      padding: "11px 14px", borderRadius: 12, border: "1px solid var(--border-strong)",
+                      background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 15,
+                      lineHeight: 1.45, color: "var(--ink)", outline: "none", resize: "none",
+                    }}
                   />
-                  <span className="block text-[11.5px] text-[var(--ink-faint)] text-right mt-[5px]">
+                  <span className="block text-[11.5px] text-[var(--ink-faint)] text-right" style={{ margin: "5px 2px 0" }}>
                     {bio.length}/150
                   </span>
                 </label>
 
+                {/* City is a picked value from a fed list — see CityField for why.
+                    Stores city and country separately (DV8 P0-2). */}
+                <CityField
+                  label="City"
+                  value={city}
+                  onChange={(c, ct) => {
+                    setCity(c);
+                    setCountry(ct);
+                  }}
+                />
+
+                {/* GenderPicker port (shared.jsx:404-426): two even columns —
+                    "Prefer not to say" spans both so it never wraps. */}
                 <div>
-                  <span className="text-[12.5px] font-semibold text-[var(--ink-mute)] tracking-wide">
-                    Gender
-                  </span>
-                  <div className="flex gap-2 mt-[7px]">
-                    {([["f", "Female"], ["m", "Male"]] as const).map(([val, lbl]) => {
+                  <span style={authLabelStyle}>Gender</span>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 7 }}>
+                    {GENDERS.map(([val, lbl], i) => {
                       const on = gender === val;
                       return (
                         <button
                           key={val}
+                          type="button"
                           onClick={() => setGender(on ? "" : val)}
-                          className={cn(
-                            "flex-1 h-12 rounded-xl border-[1.5px] font-semibold text-[14.5px] cursor-pointer transition-colors",
-                            on
-                              ? "bg-[var(--ink)] border-[var(--ink)] text-[var(--paper)]"
-                              : "bg-[var(--paper-soft)] border-[var(--border-strong)] text-[var(--ink)]"
-                          )}
+                          style={{
+                            gridColumn: i === 2 ? "span 2" : "auto",
+                            height: 48, borderRadius: 12, cursor: "pointer", padding: "0 10px",
+                            border: `1.5px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
+                            background: on ? "var(--ink)" : "var(--paper-soft)",
+                            color: on ? "var(--paper)" : "var(--ink)",
+                            fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14.5,
+                            whiteSpace: "nowrap",
+                          }}
                         >
                           {lbl}
                         </button>
@@ -306,9 +469,7 @@ export default function OnboardingPage() {
 
                 <div>
                   <div className="flex items-baseline justify-between">
-                    <span className="text-[12.5px] font-semibold text-[var(--ink-mute)] tracking-wide">
-                      How old are you?
-                    </span>
+                    <span style={authLabelStyle}>How old are you?</span>
                     <span className="font-mono font-semibold text-base text-[var(--ink)]">
                       {age >= 80 ? "80+" : age}
                     </span>
@@ -341,50 +502,19 @@ export default function OnboardingPage() {
               <div className="flex flex-col gap-2.5 mt-5">
                 {CATEGORIES.map((c) => {
                   const on = interests.includes(c.id);
-                  const chips = SUBINTERESTS[c.id] ?? [];
-                  const picked = subInterests[c.id] ?? [];
                   return (
-                    <div key={c.id} className="flex flex-col gap-2.5">
-                      <CheckRow on={on} onClick={() => toggleInterest(c.id)}>
-                        <span
-                          className="flex-1 font-bold text-[16.5px] text-[var(--ink)]"
-                          style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
-                        >
-                          {c.label}
-                        </span>
-                        <CheckBox on={on} />
-                      </CheckRow>
-                      {on && chips.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pl-1 pb-1">
-                          {chips.map((chip) => {
-                            const chipOn = picked.includes(chip);
-                            return (
-                              <button
-                                key={chip}
-                                type="button"
-                                onClick={() => toggleSub(c.id, chip)}
-                                style={{
-                                  display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px",
-                                  borderRadius: 999, cursor: "pointer", lineHeight: 1,
-                                  fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 12.5,
-                                  background: chipOn ? "var(--ink)" : "var(--paper-soft)",
-                                  color: chipOn ? "var(--paper)" : "var(--ink-soft)",
-                                  border: `1px solid ${chipOn ? "var(--ink)" : "var(--border-strong)"}`,
-                                }}
-                              >
-                                {chipOn && <Check size={12} strokeWidth={2.6} />}{chip}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                    <CheckRow key={c.id} on={on} onClick={() => toggleInterest(c.id)}>
+                      <span
+                        className="flex-1 font-bold text-[16.5px] text-[var(--ink)]"
+                        style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
+                      >
+                        {c.label}
+                      </span>
+                      <CheckBox on={on} />
+                    </CheckRow>
                   );
                 })}
               </div>
-              <p className="text-[12.5px] text-[var(--ink-faint)] leading-relaxed mt-3 mb-0">
-                Optional: tap what you collect within each to fine-tune your feed.
-              </p>
             </>
           )}
 
@@ -395,29 +525,33 @@ export default function OnboardingPage() {
                 sub="Recommended from what you collect. Pick all you like — you can join more anytime."
               />
               <div className="flex flex-col gap-2.5 mt-[18px]">
-                {suggested.map((c) => {
-                  const on = joins.includes(c.id);
-                  return (
-                    <CheckRow key={c.id} on={on} onClick={() => toggleJoin(c.id)}>
-                      <span className="flex-1 min-w-0">
-                        <span
-                          className="block font-bold text-base text-[var(--ink)]"
-                          style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
-                        >
-                          {c.name}
-                        </span>
-                        <span className="block text-[12.5px] font-mono text-[var(--ink-faint)] mt-0.5">
-                          {c.member_count.toLocaleString("en-IN")} members
-                        </span>
-                      </span>
-                      <CheckBox on={on} />
-                    </CheckRow>
-                  );
-                })}
-                {suggested.length === 0 && (
-                  <p className="text-sm text-[var(--ink-faint)] text-center py-8">
-                    Pick a category first to see recommended communities.
-                  </p>
+                {commLoading ? (
+                  <EmptyNote>Finding communities for you…</EmptyNote>
+                ) : (
+                  <>
+                    {suggested.map((c) => {
+                      const on = joins.includes(c.id);
+                      return (
+                        <CheckRow key={c.id} on={on} onClick={() => toggleJoin(c.id)}>
+                          <span className="flex-1 min-w-0">
+                            <span
+                              className="block font-bold text-base text-[var(--ink)]"
+                              style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
+                            >
+                              {c.name}
+                            </span>
+                            <span className="block text-[12.5px] font-mono text-[var(--ink-faint)] mt-0.5">
+                              {c.member_count.toLocaleString("en-IN")} members
+                            </span>
+                          </span>
+                          <CheckBox on={on} />
+                        </CheckRow>
+                      );
+                    })}
+                    {suggested.length === 0 && (
+                      <EmptyNote>Pick a category first to see recommended communities.</EmptyNote>
+                    )}
+                  </>
                 )}
               </div>
             </>
@@ -425,19 +559,15 @@ export default function OnboardingPage() {
         </div>
 
         <div className="pt-5 shrink-0">
-          <button
-            onClick={next}
-            disabled={!canNext || loading}
-            className="w-full py-3 rounded-xl bg-[var(--stamp-red)] text-white font-semibold text-sm hover:bg-[var(--stamp-red-deep)] transition-colors disabled:opacity-50 cursor-pointer"
-          >
-            {loading
+          <BlockButton onClick={next} disabled={!canNext || saving}>
+            {saving
               ? "Setting up…"
               : step === 0
                 ? "Continue"
                 : step === 1
                   ? `Continue${interests.length ? ` · ${interests.length} picked` : ""}`
                   : "Enter Scorred"}
-          </button>
+          </BlockButton>
         </div>
       </div>
     </div>

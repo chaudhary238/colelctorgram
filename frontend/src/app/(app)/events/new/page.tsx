@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X, Shield, Check, Info, Plus, ChevronRight } from "lucide-react";
+import { Shield, Check, Info, Plus, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiCommunity, ApiEvent } from "@/components/cards";
 import { Segmented, SectionLabel } from "@/components/ui";
+import { BackButton } from "@/components/BackButton";
 import { ImageUploader } from "@/components/ImageUploader";
-import { CityField, formatTime12 } from "@/components/CityField";
+import { CityField } from "@/components/CityField";
 import { MoneyField } from "@/components/forms";
 import { fireToast } from "@/components/gamification";
 import { ADD_CATEGORIES } from "@/lib/catalog";
@@ -16,6 +16,8 @@ import { ADD_CATEGORIES } from "@/lib/catalog";
 // v8 EventCreate maps the global 5-category CATEGORIES (incl. TCG) as plain chipLabel
 // pills, no icons. ADD_CATEGORIES is that exact list in v8 order. Kept in lockstep.
 const CATEGORIES = ADD_CATEGORIES;
+// v8 chip labels are the SINGULAR chipLabel variants (data.jsx) — only figures differs.
+const CHIP_LABEL: Record<string, string> = { figures: "Action Figure" };
 
 const DRAFT_KEY = "ch_event_draft";
 
@@ -26,7 +28,7 @@ interface ModCommunity extends ApiCommunity { member_role?: string }
 interface Draft {
   cover: string | null; title: string; cats: string[];
   date: string; endDate: string; time: string; endTime: string;
-  city: string; venue: string; about: string; bring: string;
+  city: string; country: string; venue: string; address: string; about: string;
   pricing: Pricing; price: string; priceCur: string;
   ticketUrl: string; contact: string;
   comMode: ComMode; existingCom: string;
@@ -75,9 +77,12 @@ export default function CreateEventPage() {
   const [time, setTime] = useState(d?.time ?? "");
   const [endTime, setEndTime] = useState(d?.endTime ?? "");
   const [city, setCity] = useState(d?.city ?? "");
+  const [country, setCountry] = useState(d?.country ?? "");
   const [venue, setVenue] = useState(d?.venue ?? "");
+  const [address, setAddress] = useState(d?.address ?? "");
   const [about, setAbout] = useState(d?.about ?? "");
-  const [bring, setBring] = useState(d?.bring ?? "");
+  // "What to bring" removed in v8 — the field is gone from the form and we no longer
+  // send `bring` (the backend column stays for legacy events).
   const [pricing, setPricing] = useState<Pricing>(d?.pricing ?? "free");
   const [price, setPrice] = useState(d?.price ?? "");
   const [priceCur, setPriceCur] = useState(d?.priceCur ?? "INR");
@@ -96,7 +101,7 @@ export default function CreateEventPage() {
   const [draftRestored, setDraftRestored] = useState(!!d && !boot.newCommunityId);
 
   const dirty = !!(cover || title || cats.length || date || endDate || time || endTime ||
-    city || venue || about || bring || ticketUrl || contact || price ||
+    city || venue || address || about || ticketUrl || contact || price ||
     pricing !== "free" || existingCom || comMode !== "none");
 
   // Persist continuously (v8 pattern) so ANY exit — the community detour or a plain
@@ -104,17 +109,17 @@ export default function CreateEventPage() {
   useEffect(() => {
     if (submitting) return;
     if (dirty) {
-      const snap: Draft = { cover, title, cats, date, endDate, time, endTime, city, venue, about, bring, pricing, price, priceCur, ticketUrl, contact, comMode, existingCom };
+      const snap: Draft = { cover, title, cats, date, endDate, time, endTime, city, country, venue, address, about, pricing, price, priceCur, ticketUrl, contact, comMode, existingCom };
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify(snap));
     } else {
       sessionStorage.removeItem(DRAFT_KEY);
     }
-  }, [dirty, submitting, cover, title, cats, date, endDate, time, endTime, city, venue, about, bring, pricing, price, priceCur, ticketUrl, contact, comMode, existingCom]);
+  }, [dirty, submitting, cover, title, cats, date, endDate, time, endTime, city, country, venue, address, about, pricing, price, priceCur, ticketUrl, contact, comMode, existingCom]);
 
   const discardDraft = () => {
     sessionStorage.removeItem(DRAFT_KEY);
     setCover(null); setTitle(""); setCats([]); setDate(""); setEndDate(""); setTime(""); setEndTime("");
-    setCity(""); setVenue(""); setAbout(""); setBring("");
+    setCity(""); setCountry(""); setVenue(""); setAddress(""); setAbout("");
     setPricing("free"); setPrice(""); setPriceCur("INR"); setTicketUrl(""); setContact("");
     setComMode("none"); setExistingCom(""); setCreatedCom(null);
     setTried(false); setDraftRestored(false);
@@ -159,7 +164,7 @@ export default function CreateEventPage() {
   const launchCreateCommunity = () => {
     // The continuous-persistence effect already keeps the draft current; this is
     // just a belt-and-braces flush before we leave the page.
-    const snap: Draft = { cover, title, cats, date, endDate, time, endTime, city, venue, about, bring, pricing, price, priceCur, ticketUrl, contact, comMode, existingCom };
+    const snap: Draft = { cover, title, cats, date, endDate, time, endTime, city, country, venue, address, about, pricing, price, priceCur, ticketUrl, contact, comMode, existingCom };
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(snap));
     const qs = new URLSearchParams({ forEvent: "1" });
     if (title.trim()) qs.set("prefillName", title.trim());
@@ -168,7 +173,12 @@ export default function CreateEventPage() {
   };
 
   const submit = async () => {
-    if (invalid) { setTried(true); return; }
+    // v8 — an invalid submit talks back: a toast, with a dup-title variant.
+    if (invalid) {
+      setTried(true);
+      fireToast(dupEvent ? "An event with this name already exists" : "Fill the required fields marked *");
+      return;
+    }
     if (submitting) return;
     setSubmitting(true);
     setError(null);
@@ -191,10 +201,14 @@ export default function CreateEventPage() {
         // v8 EventCreate is physical-only — no online mode on the create surface.
         mode: "in_person",
         city: city.trim(),
+        country: country.trim() || null,
+        // DV8 — venue NAME and address DETAILS travel separately; the server joins
+        // them into the "where" display form. `bring` is no longer sent (v8 removed
+        // "What to bring"; the column stays for legacy events).
         venue: venue.trim(),
+        address: address.trim() || null,
         online_url: null,
         cover_image_url: cover,
-        bring: bring.trim() || null,
         community_id: communityId,
         starts_at: startsAt,
         ends_at: endsAt,
@@ -217,19 +231,16 @@ export default function CreateEventPage() {
   };
 
   return (
-    <div className="w-full max-w-[680px] flex flex-col pb-8">
+    <div className="w-full max-w-[680px] flex flex-col pb-32">
+      {/* v8 — back-arrow pop (not X→/events) and NO header Submit pill: the single CTA
+          lives in the sticky footer. */}
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link href="/events" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)" }}>
-            <X size={18} />
-          </Link>
+          <BackButton fallback="/events" />
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>List an event</div>
             <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Reviewed before it goes live</div>
           </div>
-          <button onClick={submit} disabled={submitting} style={{ height: 36, padding: "0 16px", borderRadius: 9, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, cursor: submitting ? "wait" : "pointer", opacity: invalid ? 0.5 : 1 }}>
-            {submitting ? "Submitting…" : "Submit"}
-          </button>
         </div>
       </div>
 
@@ -244,14 +255,14 @@ export default function CreateEventPage() {
           </div>
         )}
 
-        {/* DV8-16 — cover shrunk to a 96px banner-style uploader */}
+        {/* v8 — fixed 96px solid-border cover tile with the single-row empty state */}
         <Label hint="optional">Cover photo</Label>
-        <ImageUploader onUpload={(url) => setCover(url)} previewUrl={cover ?? undefined} label="Add a cover photo" />
+        <ImageUploader onUpload={(url) => setCover(url)} previewUrl={cover ?? undefined} label="Add a cover photo" height={96} compact />
 
         <Label required missing={tried && miss.title}>Event title</Label>
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Mumbai Collector Meet · Vol 5" style={{ ...fieldStyle, borderColor: (tried && miss.title) || dupEvent ? "var(--stamp-red)" : "var(--border-strong)" }} />
         {dupEvent && (
-          <div style={{ display: "flex", gap: 7, alignItems: "flex-start", margin: "8px 2px 0", fontSize: 12, color: "var(--stamp-red)", lineHeight: 1.45 }}>
+          <div style={{ display: "flex", gap: 7, alignItems: "flex-start", margin: "8px 2px 0", fontSize: 12, color: "var(--stamp-red-deep)", lineHeight: 1.45 }}>
             <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />
             <span>&ldquo;{dupEvent.title}&rdquo; already exists. Use a more specific name (add a volume, date or city).</span>
           </div>
@@ -262,13 +273,14 @@ export default function CreateEventPage() {
           {CATEGORIES.map((c) => {
             const on = cats.includes(c.id);
             return (
+              // v8 — label-only pills (no check glyph), 7px/13px, singular chipLabel.
               <button key={c.id} type="button" onClick={() => toggleCat(c.id)} style={{
-                display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 999, cursor: "pointer",
+                display: "inline-flex", alignItems: "center", padding: "7px 13px", borderRadius: 999, cursor: "pointer",
                 background: on ? "var(--ink)" : "var(--paper-soft)", color: on ? "var(--paper)" : "var(--ink)",
                 border: `1px solid ${on ? "var(--ink)" : tried && miss.cats ? "var(--stamp-red)" : "var(--border-strong)"}`,
-                fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, lineHeight: 1,
+                fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, lineHeight: 1, whiteSpace: "nowrap",
               }}>
-                {on && <Check size={13} strokeWidth={2.6} />}{c.label}
+                {CHIP_LABEL[c.id] ?? c.label}
               </button>
             );
           })}
@@ -284,35 +296,34 @@ export default function CreateEventPage() {
             <input type="date" value={endDate} min={date || undefined} onChange={(e) => setEndDate(e.target.value)} style={{ ...fieldStyle, fontFamily: "var(--font-mono)", fontSize: 13, borderColor: tried && miss.endDate ? "var(--stamp-red)" : "var(--border-strong)" }} />
           </div>
         </div>
+        {/* v8 — time inputs at 14px; no "Shows as…" echo below them. */}
         <div style={{ display: "flex", gap: 10 }}>
           <div style={{ flex: 1 }}>
             <Label required missing={tried && miss.time}>Start time</Label>
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ ...fieldStyle, fontFamily: "var(--font-mono)", fontSize: 13, borderColor: tried && miss.time ? "var(--stamp-red)" : "var(--border-strong)" }} />
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ ...fieldStyle, fontFamily: "var(--font-mono)", fontSize: 14, borderColor: tried && miss.time ? "var(--stamp-red)" : "var(--border-strong)" }} />
           </div>
           <div style={{ flex: 1 }}>
             <Label hint="optional">End time</Label>
-            <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={{ ...fieldStyle, fontFamily: "var(--font-mono)", fontSize: 13 }} />
+            <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={{ ...fieldStyle, fontFamily: "var(--font-mono)", fontSize: 14 }} />
           </div>
         </div>
-        {time.trim() && (
-          <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>
-            Shows as {formatTime12(time.trim())}{endTime.trim() ? ` – ${formatTime12(endTime.trim())}` : ""}
-          </div>
-        )}
 
         <Label required missing={tried && miss.city}>City</Label>
-        <CityField value={city} onChange={(c) => setCity(c)} missing={tried && miss.city} />
+        <CityField value={city} onChange={(c, ct) => { setCity(c); setCountry(ct); }} missing={tried && miss.city} />
 
-        <Label required missing={tried && miss.venue}>Venue</Label>
-        <textarea value={venue} onChange={(e) => setVenue(e.target.value)} rows={2} placeholder="Full address — e.g. Phoenix Marketcity, LBS Marg, Kurla West, 3rd floor atrium"
-          style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none", borderColor: tried && miss.venue ? "var(--stamp-red)" : "var(--border-strong)" }} />
+        {/* v8 — location splits into a required venue NAME and optional address DETAILS */}
+        <Label required missing={tried && miss.venue}>Venue name</Label>
+        <input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="e.g. Phoenix Marketcity, LBS Marg, Kurla West"
+          style={{ ...fieldStyle, borderColor: tried && miss.venue ? "var(--stamp-red)" : "var(--border-strong)" }} />
+
+        <Label hint="optional">Address details</Label>
+        <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={2} placeholder="e.g. 3rd floor atrium, near the food court"
+          style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none" }} />
+        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0", lineHeight: 1.5 }}>Attendees see this exact address once they RSVP.</div>
 
         <Label required missing={tried && miss.about}>Description</Label>
         <textarea value={about} onChange={(e) => setAbout(e.target.value)} rows={3} placeholder="What's happening, who it's for, what to expect…"
           style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none", borderColor: tried && miss.about ? "var(--stamp-red)" : "var(--border-strong)" }} />
-
-        <Label hint="optional">What to bring</Label>
-        <input value={bring} onChange={(e) => setBring(e.target.value)} placeholder="e.g. Up to 3 pieces to display or trade" style={fieldStyle} />
 
         {/* DV8-16 — Free/Paid entry with multi-currency price */}
         <Label required>Entry</Label>
@@ -399,10 +410,13 @@ export default function CreateEventPage() {
         )}
 
         {error && <div style={{ marginTop: 16, fontSize: 13, color: "var(--stamp-red)" }}>{error}</div>}
+      </div>
 
+      {/* v8 — the ONE submit affordance: a sticky footer CTA with the review caption. */}
+      <div className="ch-cta-bar">
         <button onClick={submit} disabled={submitting} type="button" style={{
           display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
-          height: 48, marginTop: 22, borderRadius: 12, border: "none",
+          height: 48, borderRadius: 12, border: "none",
           background: "var(--ink)", color: "var(--paper)",
           fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15,
           cursor: submitting ? "wait" : "pointer", opacity: invalid ? 0.5 : 1,

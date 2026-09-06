@@ -24,14 +24,14 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Camera, Check, ShieldCheck, Clock, X } from "lucide-react";
+import { Info, ShieldCheck, Clock, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { BackButton } from "@/components/BackButton";
-import { ProductPhoto, SectionLabel, Segmented } from "@/components/ui";
+import { CategoryChip, ProductPhoto, SectionLabel, Segmented } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
 import { fireToast, fireXpToast } from "@/components/gamification";
-import { ReleaseWindowPicker } from "@/components/forms";
-import { buildPoEta, conditionsFor, type PoPrecision } from "@/lib/catalog";
+import { MoneyField, ReleaseWindowPicker } from "@/components/forms";
+import { buildPoEta, conditionsFor, GRADERS, isGradedCondition, type PoPrecision } from "@/lib/catalog";
 
 interface Entry {
   sku: string;
@@ -59,10 +59,18 @@ function AddToCollectionInner() {
 
   const [photos, setPhotos] = useState<string[]>([]);
   const [status, setStatus] = useState<"owned" | "preorder">("owned");
-  // DV8-10 — condition ids come from the entry's CATEGORY vocabulary (CAT_CONDITIONS),
-  // seeded to the category's first grade once the entry loads.
+  // DV8 — condition ids come from the entry's CATEGORY vocabulary (CAT_CONDITIONS).
+  // REQUIRED, not seeded: silently defaulting to the first grade let items save with a
+  // condition the collector never chose (and the +20 XP "complete" reads unearned).
   const [cond, setCond] = useState("");
+  // v8 AddToCollection.jsx:81-85 — grading details appear when a TCG copy is Graded.
+  const [grader, setGrader] = useState<string>("PSA");
+  const [graderOther, setGraderOther] = useState("");
+  const [grade, setGrade] = useState("");
+  const [certNo, setCertNo] = useState("");
   const [paid, setPaid] = useState("");
+  const [paidCur, setPaidCur] = useState("INR");
+  const [tried, setTried] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Pre-order tracking (v7 shows these only once Status = Pre-order).
@@ -81,14 +89,19 @@ function AddToCollectionInner() {
     if (!sku) return;
     let alive = true;
     api.get<Entry>(`/catalogue/${encodeURIComponent(sku)}`)
-      .then((d) => { if (alive) { setEntry(d); setCond(conditionsFor(d.category)[0]?.id ?? ""); } })
+      .then((d) => { if (alive) setEntry(d); })
       .catch(() => { if (alive) setError("That catalogue entry could not be found."); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [sku]);
 
+  // DV8 — condition is required for an Owned copy (red * + tried treatment, invalid toast).
+  const missCond = status === "owned" && !cond;
+  const isGraded = status === "owned" && isGradedCondition(entry?.category, cond);
+
   async function submit() {
     if (saving || !entry) return;
+    if (missCond) { setTried(true); fireToast("Fill the required fields marked *"); return; }
     setSaving(true);
     setError(null);
     try {
@@ -99,8 +112,13 @@ function AddToCollectionInner() {
         status,
         // DV8-10 — the stored id from the category's CAT_CONDITIONS vocabulary.
         condition: status === "owned" ? (cond || null) : null,
+        // v8 grading card — only a Graded TCG copy carries slab facts.
+        tcg_graded: isGraded,
+        tcg_grader: isGraded ? (grader === "Other" ? (graderOther.trim() || null) : grader) : null,
+        tcg_grade: isGraded ? (grade || null) : null,
+        tcg_cert_no: isGraded ? (certNo.trim() || null) : null,
         value: status === "owned" && paid ? Number(paid) * 100 : 0,
-        value_currency: "INR",
+        value_currency: paidCur,
         ...(status === "preorder" ? {
           preorder_eta: buildPoEta(poPrec, { date: poDate, monthIdx: poMonth, quarter: poQuarter, year: poYear }),
           preorder_window_precision: poPrec,
@@ -122,7 +140,10 @@ function AddToCollectionInner() {
         const xp = item.complete_xp;
         setTimeout(() => fireXpToast(xp, "Item details complete"), 2400);
       }
-      router.replace(`/item/${item.id}`);
+      // v8 pops back to the database context after adding (AddToCollection.jsx:118) —
+      // the entry page refetches and now reads "In your collection". (v8's pop(2)
+      // to the grid was a stale-state workaround its prototype nav needed; ours isn't.)
+      router.replace(`/db/${encodeURIComponent(entry.sku)}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not add this item");
       setSaving(false);
@@ -130,7 +151,7 @@ function AddToCollectionInner() {
   }
 
   return (
-    <div className="w-full max-w-[680px] flex flex-col pb-8">
+    <div className="w-full max-w-[680px] flex flex-col pb-24">
       {/* Header renders THROUGH the load — the entry arrives from a client fetch, and a
           bare skeleton with no title reads as a broken page for that beat. */}
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
@@ -170,8 +191,9 @@ function AddToCollectionInner() {
                   ? <ShieldCheck size={13} style={{ color: "var(--verified-teal)", flexShrink: 0 }} aria-label="Scorred Verified" />
                   : <Clock size={13} style={{ color: "var(--ink-ghost)", flexShrink: 0 }} aria-label="Pending verification" />}
               </div>
+              {/* DV8 — mono meta drops the SKU (v8 PickedForm shows brand · scale only). */}
               <div style={{ fontSize: 11.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {[entry.brand, entry.scale, entry.sku].filter(Boolean).join(" · ")}
+                {[entry.brand, entry.scale && entry.scale !== "—" ? entry.scale : null, entry.year].filter(Boolean).join(" · ")}
               </div>
             </div>
           </div>
@@ -220,19 +242,24 @@ function AddToCollectionInner() {
 
           {status === "owned" ? (
             <>
-              <div style={{ marginTop: 18 }}><SectionLabel>Condition</SectionLabel></div>
-              {/* DV8-10 — per-category vocabulary. Options are {id,label,hint} objects:
-                  render the LABEL (the v8 crash fix), store the id. */}
+              {/* DV8 — condition is REQUIRED: red * + inline "Required" + tried red borders. */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 18 }}>
+                <SectionLabel>Condition</SectionLabel>
+                <span style={{ color: tried && missCond ? "var(--stamp-red)" : "var(--ink-ghost)", fontSize: 13, fontWeight: 700 }}>*</span>
+                {tried && missCond && <span style={{ fontSize: 11, color: "var(--stamp-red)", marginLeft: "auto", fontWeight: 600 }}>Required</span>}
+              </div>
+              {/* DV8 — v8 wrapping chips (r10, active --ink fill wt700), hint line BELOW the row.
+                  Options are {id,label,hint} objects: render the LABEL, store the id. */}
               <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 9 }}>
                 {conditionsFor(entry.category).map((c) => {
                   const on = cond === c.id;
                   return (
                     <button key={c.id} type="button" onClick={() => setCond(c.id)} style={{
-                      padding: "8px 14px", borderRadius: 999, cursor: "pointer",
-                      border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
+                      display: "inline-flex", alignItems: "center", padding: "8px 13px", borderRadius: 10, cursor: "pointer",
                       background: on ? "var(--ink)" : "var(--paper-soft)",
                       color: on ? "var(--paper)" : "var(--ink)",
-                      fontFamily: "var(--font-body)", fontWeight: on ? 600 : 500, fontSize: 13,
+                      border: `1px solid ${on ? "var(--ink)" : tried && missCond ? "var(--stamp-red)" : "var(--border-strong)"}`,
+                      fontFamily: "var(--font-body)", fontWeight: on ? 700 : 500, fontSize: 13, whiteSpace: "nowrap", lineHeight: 1,
                     }}>{c.label}</button>
                   );
                 })}
@@ -244,49 +271,78 @@ function AddToCollectionInner() {
                   : null;
               })()}
 
-              <div style={{ marginTop: 18 }}><SectionLabel>What you paid (₹)</SectionLabel></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, height: 46, padding: "0 13px", marginTop: 9, borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 17, color: "var(--ink-faint)" }}>₹</span>
-                <input value={paid} onChange={(e) => setPaid(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="0"
-                  style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 16, color: "var(--ink)" }} />
+              {/* v8 grading details card (AddToCollection.jsx:175-199) — TCG + Graded. */}
+              {isGraded && (
+                <div style={{ marginTop: 12, padding: 13, borderRadius: 13, border: "1px solid var(--border-strong)", background: "var(--bone)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--ink-faint)" }}>Grading details</div>
+                  <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 10 }}>
+                    {GRADERS.map((g) => (
+                      <CategoryChip key={g} active={grader === g} onClick={() => setGrader(g)}>{g}</CategoryChip>
+                    ))}
+                  </div>
+                  {grader === "Other" && (
+                    <input value={graderOther} onChange={(e) => setGraderOther(e.target.value.slice(0, 24))} placeholder="Grading company"
+                      style={{ width: "100%", boxSizing: "border-box", marginTop: 10, height: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none" }} />
+                  )}
+                  <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                    <div style={{ width: 96, flexShrink: 0 }}>
+                      <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 5 }}>Grade</div>
+                      <input value={grade} onChange={(e) => setGrade(e.target.value.replace(/[^0-9.]/g, "").slice(0, 4))} inputMode="decimal" placeholder="10"
+                        style={{ width: "100%", boxSizing: "border-box", height: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--ink)", outline: "none" }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 5 }}>Cert number</div>
+                      <input value={certNo} onChange={(e) => setCertNo(e.target.value.toUpperCase())} placeholder="e.g. 78412095"
+                        style={{ width: "100%", boxSizing: "border-box", height: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-mono)", fontSize: 14, letterSpacing: "0.03em", color: "var(--ink)", outline: "none" }} />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 9, lineHeight: 1.45 }}>The cert number lets buyers verify the slab on the grader&rsquo;s site.</div>
+                </div>
+              )}
+
+              {/* DV8 — currency selector joins "What you paid" here too (MoneyField pattern). */}
+              <div style={{ marginTop: 18 }}><SectionLabel>What you paid</SectionLabel></div>
+              <div style={{ marginTop: 9 }}>
+                <MoneyField value={paid} onChange={setPaid} cur={paidCur} onCur={setPaidCur} placeholder="Purchase price" />
               </div>
               <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>Only you see this — it tracks your collection&rsquo;s value.</div>
             </>
           ) : (
+            /* DV8 — v8 field order (AddToCollection.jsx:211-278): Order date → Release window →
+               Seller/Store → Total | Deposit side-by-side → Balance due; small sentence-case
+               labels (11.5 ink-faint), not uppercase SectionLabels. */
             <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: 14, marginTop: 14, display: "flex", flexDirection: "column", gap: 13 }}>
               <div>
-                <SectionLabel>Release window</SectionLabel>
-                <div style={{ marginTop: 9 }}>
-                  <ReleaseWindowPicker prec={poPrec} onPrec={setPoPrec} date={poDate} onDate={setPoDate}
-                    monthIdx={poMonth} onMonth={setPoMonth} quarter={poQuarter} onQuarter={setPoQuarter} year={poYear} onYear={setPoYear} />
-                </div>
+                <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 6 }}>Order date</div>
+                <input type="date" value={poOrderDate} onChange={(e) => setPoOrderDate(e.target.value)}
+                  style={{ width: "100%", boxSizing: "border-box", height: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--ink)", outline: "none" }} />
               </div>
               <div>
-                <SectionLabel>Ordered from</SectionLabel>
-                <input value={poSeller} onChange={(e) => setPoSeller(e.target.value)} placeholder="Store, distributor or seller"
-                  style={{ width: "100%", boxSizing: "border-box", height: 42, marginTop: 9, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none" }} />
+                <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 6 }}>Release window</div>
+                <ReleaseWindowPicker prec={poPrec} onPrec={setPoPrec} date={poDate} onDate={setPoDate}
+                  monthIdx={poMonth} onMonth={setPoMonth} quarter={poQuarter} onQuarter={setPoQuarter} year={poYear} onYear={setPoYear} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 6 }}>Seller / Store</div>
+                <input value={poSeller} onChange={(e) => setPoSeller(e.target.value)} placeholder="e.g. BBToyStore, Bangalore"
+                  style={{ width: "100%", boxSizing: "border-box", height: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none" }} />
               </div>
               <div style={{ display: "flex", gap: 11 }}>
                 <div style={{ flex: 1 }}>
-                  <SectionLabel>Order date</SectionLabel>
-                  <input type="date" value={poOrderDate} onChange={(e) => setPoOrderDate(e.target.value)}
-                    style={{ width: "100%", boxSizing: "border-box", height: 42, marginTop: 9, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--ink)", outline: "none" }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <SectionLabel>Total (₹)</SectionLabel>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, height: 42, marginTop: 9, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)" }}>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 6 }}>Total price</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, height: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)" }}>
                     <span style={{ fontFamily: "var(--font-mono)", fontSize: 15, color: "var(--ink-faint)" }}>₹</span>
                     <input value={poTotal} onChange={(e) => setPoTotal(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="0"
                       style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 15, color: "var(--ink)" }} />
                   </div>
                 </div>
-              </div>
-              <div>
-                <SectionLabel>Deposit paid (₹)</SectionLabel>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, height: 42, marginTop: 9, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)" }}>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 15, color: "var(--ink-faint)" }}>₹</span>
-                  <input value={poDeposit} onChange={(e) => setPoDeposit(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="0"
-                    style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 15, color: "var(--ink)" }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 6 }}>Deposit paid</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, height: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)" }}>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 15, color: "var(--ink-faint)" }}>₹</span>
+                    <input value={poDeposit} onChange={(e) => setPoDeposit(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder="0"
+                      style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 15, color: "var(--ink)" }} />
+                  </div>
                 </div>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 11, borderTop: "1px solid var(--border)" }}>
@@ -298,22 +354,33 @@ function AddToCollectionInner() {
 
           {error && <div style={{ marginTop: 14, fontSize: 13, color: "var(--stamp-red)" }}>{error}</div>}
 
+          {/* DV8 — Info glyph, not Camera (this note has nothing to do with photos). */}
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 16, fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.45 }}>
+            <Info size={14} style={{ flexShrink: 0 }} />
+            <span>Want to sell it? Add it first, then use <b style={{ color: "var(--ink-soft)" }}>Sell / Trade</b> on the item.</span>
+          </div>
+        </div>
+      )}
+
+      {/* v8 PickedForm keeps the CTA in a sticky FOOTER bar (AddToCollection.jsx:124-129),
+          not at the end of the scroll. "Add to Owned" / "Add to Pre-order"; invalid state
+          at half opacity but still tappable → toast. */}
+      {entry && (
+        <div className="ch-cta-bar">
           <button
             onClick={submit}
             disabled={saving}
+            type="button"
             style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
-              height: 50, marginTop: 22, borderRadius: 13, border: "none", cursor: saving ? "wait" : "pointer",
+              height: 48, borderRadius: 13, border: "none", cursor: saving ? "wait" : "pointer",
               background: "var(--stamp-red)", color: "var(--paper)",
               fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15,
+              opacity: missCond ? 0.55 : 1,
             }}
           >
-            {saving ? "Adding…" : <><Check size={17} strokeWidth={2.6} />Add to {status === "owned" ? "my collection" : "pre-orders"}</>}
+            {saving ? "Adding…" : `Add to ${status === "owned" ? "Owned" : "Pre-order"}`}
           </button>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 12, fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.45 }}>
-            <Camera size={14} style={{ flexShrink: 0 }} />
-            <span>Want to sell it? Add it first, then use <b style={{ color: "var(--ink-soft)" }}>Sell / Trade</b> on the item.</span>
-          </div>
         </div>
       )}
     </div>

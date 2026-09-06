@@ -54,11 +54,12 @@ function catForItem(it: CollectionItem) {
 }
 const titleOf = (it: CollectionItem) => it.title || it.custom_title || it.sku || "Item";
 
-/* The per-item draft. `price` is RUPEES as typed; converted to paise on save.
-   For pre-orders `price` is the order total. */
+/* The per-item draft. `price`/`deposit` are RUPEES as typed; converted to paise on
+   save. For pre-orders `price` is the order total. */
 interface Draft {
   cond: string;
   price: string;
+  deposit: string;
   prec: PoPrecision;
   monthIdx: string;
   quarter: string;
@@ -68,6 +69,9 @@ function draftFromItem(it: CollectionItem | undefined): Draft {
   return {
     cond: it?.condition ?? "",
     price: it?.value ? String(Math.round(it.value / 100)) : "",
+    // The collection payload doesn't carry preorder_deposit — always seeds blank,
+    // and commit() only sends it when typed (so an unseen existing deposit survives).
+    deposit: "",
     prec: "month",
     monthIdx: "",
     quarter: "",
@@ -91,11 +95,12 @@ const fieldStyle: React.CSSProperties = {
   fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 15, color: "var(--ink)", outline: "none",
 };
 
-function ChipButton({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+/* `small` = the v8 pre-order precision chip (8px/12px, 12.5) vs the condition chip (9px/13px, 13). */
+function ChipButton({ on, onClick, small = false, children }: { on: boolean; onClick: () => void; small?: boolean; children: React.ReactNode }) {
   return (
     <button type="button" onClick={onClick} style={{
-      padding: "9px 13px", borderRadius: 999, cursor: "pointer", fontFamily: "var(--font-body)",
-      fontSize: 13, fontWeight: on ? 700 : 500, whiteSpace: "nowrap",
+      padding: small ? "8px 12px" : "9px 13px", borderRadius: 999, cursor: "pointer", fontFamily: "var(--font-body)",
+      fontSize: small ? 12.5 : 13, fontWeight: on ? 700 : 500, whiteSpace: "nowrap",
       border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
       background: on ? "var(--ink)" : "var(--paper)", color: on ? "var(--paper)" : "var(--ink-mute)",
     }}>
@@ -151,20 +156,33 @@ function FinishItemsInner() {
   // Nothing to finish (or the whole batch is done) — the “complete” state.
   if (queue.length === 0 || (finished && !singleId)) {
     return (
-      <div style={{ padding: "40px 24px", textAlign: "center" }}>
-        <Check size={30} style={{ color: "var(--forest)", margin: "0 auto" }} />
-        <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, marginTop: 12 }}>
-          {done > 0 ? `${done} item${done === 1 ? "" : "s"} completed` : "Every item has its details"}
+      <div className="w-full flex flex-col pb-10">
+        {/* v8 gives this state a DetailHeader too — "Nothing to finish". */}
+        <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <BackButton fallback="/profile" />
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>
+              {done > 0 ? "Finish your items" : "Nothing to finish"}
+            </div>
+          </div>
         </div>
-        <div style={{ fontSize: 13.5, color: "var(--ink-faint)", marginTop: 6, lineHeight: 1.5 }}>
-          Your portfolio value is now counting everything you own.
+        <div style={{ padding: "40px 24px", textAlign: "center" }}>
+          <Check size={30} style={{ color: "var(--forest)", margin: "0 auto" }} />
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, marginTop: 12 }}>
+            {done > 0 ? `${done} item${done === 1 ? "" : "s"} completed` : "Every item has its details"}
+          </div>
+          <div style={{ fontSize: 13.5, color: "var(--ink-faint)", marginTop: 6, lineHeight: 1.5 }}>
+            Your portfolio value is public and counting everything you own.
+          </div>
+          <div style={{ marginTop: 22 }}>
+            <button
+              onClick={() => router.back()}
+              style={{ width: "100%", height: 52, padding: "0 22px", borderRadius: 14, border: "1px solid var(--ink)", cursor: "pointer", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 16, lineHeight: 1 }}
+            >
+              Back to my collection
+            </button>
+          </div>
         </div>
-        <button
-          onClick={() => router.back()}
-          style={{ marginTop: 22, height: 46, padding: "0 20px", borderRadius: 12, border: "none", cursor: "pointer", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14.5 }}
-        >
-          Back to my collection
-        </button>
       </div>
     );
   }
@@ -193,6 +211,8 @@ function FinishItemsInner() {
             preorder_window_precision: draft.prec,
             preorder_total: paise,
             value: paise,
+            // Optional — only sent when typed (PATCH is exclude_none; blank ≠ clear).
+            ...(draft.deposit ? { preorder_deposit: (parseInt(draft.deposit, 10) || 0) * 100 } : {}),
           }
         : { condition: draft.cond, value: paise });
       if (res?.complete_xp && res.complete_xp > 0) fireXpToast(res.complete_xp, "Item details complete");
@@ -207,7 +227,7 @@ function FinishItemsInner() {
   }
 
   return (
-    <div className="w-full flex flex-col pb-10">
+    <div className="w-full flex flex-col">
       {/* header */}
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -229,9 +249,6 @@ function FinishItemsInner() {
           <div style={{ height: 5, borderRadius: 3, background: "var(--bone)", overflow: "hidden" }}>
             <div style={{ width: `${(done / Math.max(queue.length, 1)) * 100}%`, height: "100%", background: "var(--forest)", borderRadius: 3, transition: "width 240ms" }} />
           </div>
-          <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 6, fontFamily: "var(--font-mono)" }}>
-            {done} of {queue.length}
-          </div>
         </div>
       )}
 
@@ -242,7 +259,10 @@ function FinishItemsInner() {
             <ProductPhoto tone={c.tone} src={item.image_url ?? undefined} ratio="1/1" rounded={0} />
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            {isPo && <div style={{ display: "flex", gap: 6, marginBottom: 4 }}><Tag kind="po">Pre-order</Tag></div>}
+            {/* v8 always stamps the status tag — Owned as well as Pre-order. */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+              <Tag kind={isPo ? "po" : "default"}>{isPo ? "Pre-order" : "Owned"}</Tag>
+            </div>
             <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titleOf(item)}</div>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--ink-faint)", marginTop: 2 }}>
               {[item.brand, c.label].filter(Boolean).join(" · ")}
@@ -274,7 +294,7 @@ function FinishItemsInner() {
             <SectionLabel>Expected release</SectionLabel>
             <div style={{ display: "flex", gap: 7, marginTop: 9, flexWrap: "wrap" }}>
               {([["month", "Month"], ["quarter", "Quarter"], ["year", "Year"], ["tbd", "Not announced"]] as [PoPrecision, string][]).map(([id, label]) => (
-                <ChipButton key={id} on={draft.prec === id} onClick={() => setDraft((d) => ({ ...d, prec: id }))}>
+                <ChipButton key={id} small on={draft.prec === id} onClick={() => setDraft((d) => ({ ...d, prec: id }))}>
                   {label}
                 </ChipButton>
               ))}
@@ -320,7 +340,7 @@ function FinishItemsInner() {
         {/* price — rupees in the field, paise on the wire */}
         <div>
           <SectionLabel>{isPo ? "Total price" : "What you paid"}</SectionLabel>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, height: 46, padding: "0 13px", marginTop: 9, borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, height: 46, padding: "0 13px", marginTop: 9, borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper)" }}>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, fontWeight: 600, color: "var(--ink-faint)" }}>₹</span>
             <input
               value={draft.price}
@@ -336,31 +356,49 @@ function FinishItemsInner() {
           </div>
         </div>
 
-        {/* actions */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 24 }}>
+        {/* Deposit is optional, but it's what makes "balance due" real on a pre-order (v8). */}
+        {isPo && (
+          <div style={{ marginTop: 18 }}>
+            <SectionLabel>Deposit paid <span style={{ textTransform: "none", letterSpacing: 0, color: "var(--ink-faint)" }}>· optional</span></SectionLabel>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, height: 46, padding: "0 13px", marginTop: 9, borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper)" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, fontWeight: 600, color: "var(--ink-faint)" }}>₹</span>
+              <input
+                value={draft.deposit}
+                onChange={(e) => setDraft((d) => ({ ...d, deposit: e.target.value.replace(/[^0-9]/g, "") }))}
+                inputMode="numeric"
+                placeholder="0"
+                aria-label="Deposit paid in rupees"
+                style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 16, color: "var(--ink)" }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* actions — v8 keeps these in a pinned footer under a hairline */}
+      <div style={{ position: "sticky", bottom: 0, marginTop: 24, borderTop: "1px solid var(--border)", background: "var(--paper)", padding: "12px 20px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <button
+          type="button"
+          onClick={commit}
+          disabled={!ready || saving}
+          style={{
+            width: "100%", height: 52, borderRadius: 14, border: "1px solid var(--ink)",
+            cursor: !ready || saving ? "not-allowed" : "pointer",
+            background: "var(--ink)", color: "var(--paper)", opacity: !ready || saving ? 0.4 : 1,
+            fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 16, lineHeight: 1,
+          }}
+        >
+          {saving ? "Saving…" : singleId ? "Save" : last ? "Save & finish" : "Save & next"}
+        </button>
+        {!singleId && !last && (
           <button
             type="button"
-            onClick={commit}
-            disabled={!ready || saving}
-            style={{
-              width: "100%", height: 48, borderRadius: 13, border: "none",
-              cursor: !ready || saving ? "default" : "pointer",
-              background: ready ? "var(--ink)" : "var(--bone)", color: ready ? "var(--paper)" : "var(--ink-ghost)",
-              fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15,
-            }}
+            onClick={advance}
+            style={{ height: 40, borderRadius: 11, border: "none", background: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13.5, color: "var(--ink-faint)" }}
           >
-            {saving ? "Saving…" : singleId ? "Save" : last ? "Save & finish" : "Save & next"}
+            Skip this one
           </button>
-          {!singleId && !last && (
-            <button
-              type="button"
-              onClick={advance}
-              style={{ height: 40, borderRadius: 11, border: "none", background: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13.5, color: "var(--ink-faint)" }}
-            >
-              Skip this one
-            </button>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

@@ -47,8 +47,12 @@ def _issue_otp(user: User) -> str:
 
 
 class SignUpBody(BaseModel):
-    handle: str
-    name: str
+    # DV8 — signup slims to email/password/referral; name + @username move to
+    # onboarding step 0. Both stay accepted for back-compat; absent → a
+    # provisional handle is derived from the email (same rule as OAuth) and the
+    # wizard's live-availability field replaces it.
+    handle: str | None = None
+    name: str | None = None
     email: EmailStr
     password: str
     # DV6-05 referral: the inviter's SCOR-XXXXX code, from a ?ref=<code> link or
@@ -87,22 +91,30 @@ async def signup(body: SignUpBody, db: AsyncSession = Depends(get_db)):
     # Normalise BEFORE the duplicate check — checking the raw input while storing
     # lowercased let "Test@X.com" slip past the check and 500 on the unique index.
     email = body.email.lower().strip()
-    handle = body.handle.lower().strip().lstrip("@")  # tolerate "@handle" input
-    if not handle:
-        raise HTTPException(status_code=422, detail="Handle is required")
+    handle = (body.handle or "").lower().strip().lstrip("@")  # tolerate "@handle" input
     if len(body.password) < 8:
         raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
 
-    existing = await db.execute(
-        select(User).where((User.email == email) | (User.handle == handle))
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Email or handle already taken")
+    if handle:
+        existing = await db.execute(
+            select(User).where((User.email == email) | (User.handle == handle))
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Email or handle already taken")
+    else:
+        # DV8 slim signup — derive a provisional handle from the email local part
+        # (same rule as OAuth); the onboarding wizard's @username field renames it.
+        if (await db.execute(select(User.id).where(User.email == email))).scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Email or handle already taken")
+        base = "".join(c for c in email.split("@")[0].lower() if c.isalnum()) or "collector"
+        handle = base
+        while (await db.execute(select(User.id).where(User.handle == handle))).scalar_one_or_none():
+            handle = f"{base}{secrets.randbelow(10000)}"
 
     user = User(
         id=uuid.uuid4(),
         handle=handle,
-        name=body.name,
+        name=(body.name or "").strip() or handle,
         email=email,
         password_hash=hash_password(body.password),
     )

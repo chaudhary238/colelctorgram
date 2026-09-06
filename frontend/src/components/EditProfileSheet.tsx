@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { X, Check, Shield } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { X, Check, Shield, Info } from "lucide-react";
 import { api } from "@/lib/api";
 import { AuthUser } from "@/lib/auth-context";
 import { AvatarUploader } from "@/components/ImageUploader";
+import { CityField } from "@/components/CityField";
 
 interface EditProfileSheetProps {
   user: AuthUser;
@@ -22,18 +23,53 @@ const CURRENT_YEAR = new Date().getFullYear();
 const ageFromBirthYear = (by?: number | null) =>
   by && by > 1900 ? Math.min(80, Math.max(13, CURRENT_YEAR - by)) : 24;
 
-// ProfileEdit (DF-22) — converted from design app/ProfileEdit.jsx. Fields mirror
-// onboarding step 0: avatar, name, bio (150), city, gender (3-way), age slider.
-// Interests were dropped here to match design v2 (they live in onboarding).
+/* DV8 (ProfileEdit.jsx:94-127) — the four @username helper states. `checking`
+   renders the neutral helper (no glyph) while the availability probe is in flight. */
+type HandleStatus = "" | "checking" | "available" | "taken" | "invalid";
+
+// ProfileEdit (DF-22 → DV8) — mirrors onboarding step 0: avatar, name, @username
+// (live availability), bio (150), CityField (city+country), gender (2-col grid),
+// age slider. Fields are h48 per the v8 field spec.
 export function EditProfileSheet({ user, onClose, onSaved }: EditProfileSheetProps) {
   const [name, setName] = useState(user.name === "You" ? "" : user.name ?? "");
   const [bio, setBio] = useState(user.bio ?? "");
   const [city, setCity] = useState(user.city ?? "");
+  const [country, setCountry] = useState(user.country ?? "");
   const [gender, setGender] = useState(user.gender ?? "");
   const [age, setAge] = useState(ageFromBirthYear(user.birth_year));
   const [avatarUrl, setAvatarUrl] = useState(user.avatar_url ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // @username — sanitized as typed; availability checked against the live API
+  // (GET /users/handle-available treats your own current handle as available).
+  const myHandle = (user.handle ?? "").toLowerCase();
+  const [handle, setHandle] = useState(user.handle ?? "");
+  const [handleStatus, setHandleStatus] = useState<HandleStatus>("");
+  const [handleChanged, setHandleChanged] = useState(false);
+  const handleDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function onHandleChange(raw: string) {
+    const v = raw.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 20);
+    setHandle(v);
+    setHandleChanged(true);
+    if (handleDebounce.current) clearTimeout(handleDebounce.current);
+    if (!v || v.length < 3) { setHandleStatus("invalid"); return; }
+    setHandleStatus("checking");
+    handleDebounce.current = setTimeout(async () => {
+      try {
+        const res = await api.get<{ available: boolean; reason: string | null }>(
+          `/users/handle-available?handle=${encodeURIComponent(v)}`
+        );
+        setHandleStatus(res.available ? "available" : res.reason === "format" ? "invalid" : "taken");
+      } catch {
+        setHandleStatus("");
+      }
+    }, 350);
+  }
+  useEffect(() => () => { if (handleDebounce.current) clearTimeout(handleDebounce.current); }, []);
+
+  const handleIsNew = handle.trim() !== "" && handle.trim().toLowerCase() !== myHandle;
 
   async function handleSave() {
     setSaving(true);
@@ -43,14 +79,21 @@ export function EditProfileSheet({ user, onClose, onSaved }: EditProfileSheetPro
         name: name.trim() || undefined,
         bio: bio.trim(),
         city: city.trim(),
+        country: country.trim(),
         avatar_url: avatarUrl || undefined,
         gender: gender || undefined,
         birth_year: CURRENT_YEAR - age,
+        // The handle rides along only when it actually changed AND the live check
+        // cleared it — a taken/invalid draft never blocks saving the rest.
+        ...(handleIsNew && handleStatus === "available" ? { handle: handle.trim() } : {}),
       });
       onSaved(updated);
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to save");
+      const msg = err instanceof Error ? err.message : "Failed to save";
+      // 409 from PATCH (raced a rename) — surface it on the field, not just the footer.
+      if (/taken/i.test(msg)) setHandleStatus("taken");
+      setError(msg);
     } finally {
       setSaving(false);
     }
@@ -60,10 +103,24 @@ export function EditProfileSheet({ user, onClose, onSaved }: EditProfileSheetPro
     fontSize: 12.5, fontWeight: 600, color: "var(--ink-mute)", letterSpacing: "0.02em",
   };
   const fieldStyle: React.CSSProperties = {
-    display: "block", width: "100%", boxSizing: "border-box", height: 46, marginTop: 7, padding: "0 14px",
+    display: "block", width: "100%", boxSizing: "border-box", height: 48, marginTop: 7, padding: "0 14px",
     borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper-soft)",
     fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", outline: "none",
   };
+
+  const handleBorder =
+    handleStatus === "available" ? "var(--forest)"
+    : handleStatus === "taken" || handleStatus === "invalid" ? "var(--stamp-red)"
+    : "var(--border-strong)";
+  const handleHelp =
+    handleStatus === "available" ? "✓ Username available"
+    : handleStatus === "taken" ? "✗ Already taken — try another"
+    : handleStatus === "invalid" ? "✗ 3–20 characters · letters, numbers and _ only"
+    : "Lowercase letters, numbers and _ only · 3–20 characters";
+  const handleHelpColor =
+    handleStatus === "available" ? "var(--forest)"
+    : handleStatus === "taken" || handleStatus === "invalid" ? "var(--stamp-red)"
+    : "var(--ink-faint)";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -100,6 +157,48 @@ export function EditProfileSheet({ user, onClose, onSaved }: EditProfileSheetPro
               <input style={fieldStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Aman Iyer" />
             </label>
 
+            {/* @username — unique identifier, live availability (DV8 ProfileEdit.jsx:94-127) */}
+            <div>
+              <span style={labelStyle}>@Username</span>
+              <div style={{ position: "relative", marginTop: 7 }}>
+                <span style={{
+                  position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
+                  color: "var(--ink-faint)", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 16, pointerEvents: "none",
+                }}>@</span>
+                <input
+                  type="text"
+                  value={handle}
+                  onChange={(e) => onHandleChange(e.target.value)}
+                  maxLength={20}
+                  placeholder={user.handle || "your_handle"}
+                  style={{
+                    display: "block", width: "100%", boxSizing: "border-box", height: 48,
+                    padding: "0 42px 0 32px", borderRadius: 12,
+                    border: `1px solid ${handleBorder}`,
+                    background: "var(--paper-soft)", fontFamily: "var(--font-mono)", fontSize: 15, color: "var(--ink)", outline: "none",
+                  }}
+                />
+                {(handleStatus === "available" || handleStatus === "taken" || handleStatus === "invalid") && (
+                  <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", display: "flex" }}>
+                    {handleStatus === "available"
+                      ? <Check size={18} strokeWidth={2.5} style={{ color: "var(--forest)" }} />
+                      : <X size={18} strokeWidth={2.5} style={{ color: "var(--stamp-red)" }} />}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: 11.5, marginTop: 5, lineHeight: 1.4, color: handleHelpColor }}>
+                {handleHelp}
+              </div>
+              {handleChanged && handleIsNew && (
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 7, padding: "8px 10px", background: "var(--grail-gold-soft)", borderRadius: 9 }}>
+                  <Info size={14} style={{ color: "var(--grail-gold-deep)", flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ fontSize: 11.5, color: "var(--grail-gold-deep)", lineHeight: 1.45 }}>
+                    Changing your username may break links to your profile shared elsewhere.
+                  </span>
+                </div>
+              )}
+            </div>
+
             {/* Bio */}
             <label style={{ display: "block" }}>
               <span style={labelStyle}>Bio</span>
@@ -113,17 +212,19 @@ export function EditProfileSheet({ user, onClose, onSaved }: EditProfileSheetPro
               <div style={{ fontSize: 11.5, color: "var(--ink-faint)", textAlign: "right", margin: "5px 2px 0" }}>{bio.length}/150</div>
             </label>
 
-            {/* City */}
-            <label style={{ display: "block" }}>
-              <span style={labelStyle}>City</span>
-              <input style={fieldStyle} value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Mumbai" />
-            </label>
+            {/* City — canonical picker, stores city + country separately (DV8) */}
+            <CityField
+              label="City"
+              height={48}
+              value={country && city ? `${city}, ${country}` : city}
+              onChange={(c, ct) => { setCity(c); setCountry(ct); }}
+            />
 
-            {/* Gender */}
+            {/* Gender — 2-col grid, "Prefer not to say" spans both (DV8 GenderPicker) */}
             <div>
               <span style={labelStyle}>Gender</span>
-              <div style={{ display: "flex", gap: 8, marginTop: 7 }}>
-                {GENDERS.map(([val, lbl]) => {
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 7 }}>
+                {GENDERS.map(([val, lbl], i) => {
                   const on = gender === val;
                   return (
                     <button
@@ -131,10 +232,11 @@ export function EditProfileSheet({ user, onClose, onSaved }: EditProfileSheetPro
                       type="button"
                       onClick={() => setGender(on ? "" : val)}
                       style={{
-                        flex: 1, height: 46, borderRadius: 12, cursor: "pointer", padding: "0 6px",
+                        gridColumn: i === 2 ? "span 2" : "auto",
+                        height: 48, borderRadius: 12, cursor: "pointer", padding: "0 10px",
                         border: `1.5px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
                         background: on ? "var(--ink)" : "var(--paper-soft)", color: on ? "var(--paper)" : "var(--ink)",
-                        fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13.5, lineHeight: 1.1,
+                        fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14.5, whiteSpace: "nowrap",
                       }}
                     >
                       {lbl}

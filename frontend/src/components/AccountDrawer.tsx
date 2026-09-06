@@ -22,16 +22,17 @@ import { Avatar } from "@/components/ui";
  * other home on the profile once those squares are gone, and keeping the drawer phone-only
  * would leave desktop a different flow — the exact thing founder QA rejected on 2026-08-01.
  *
- * Rows follow v7's order. Two are web-only additions: Stash (the web has a saved-items
- * surface the prototype doesn't) and Admin console (staff). v7's "Privacy & visibility" and
- * "Help & support" both dead-end at the settings screen in the prototype; here they deep-link
- * to the sections that already exist, so they aren't duplicates of "Settings & privacy".
+ * Rows follow v8's order and are label-only (v8 ProfileView :205-226 carries no sub-lines).
+ * Two web-only rows sit AFTER the v8 set so it stays contiguous: Stash (the web has a
+ * saved-items surface the prototype doesn't) and Admin console (staff). v8's "Privacy &
+ * visibility" and "Help & support" both dead-end at the settings screen in the prototype;
+ * here they deep-link to the sections that already exist, so they aren't duplicates of
+ * "Settings & privacy".
  */
 type Row = {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
-  sub?: string;
 };
 
 export function AccountDrawer({
@@ -65,13 +66,17 @@ export function AccountDrawer({
   }, [open, onClose]);
 
   const rows: Row[] = [
-    { href: "/saved", label: "Stash", icon: Bookmark, sub: "Saved posts & items" },
-    { href: "/settings", label: "Settings & privacy", icon: Settings, sub: "Account, notifications & more" },
-    { href: "/settings#privacy", label: "Privacy & visibility", icon: Lock, sub: "Who can see and message you" },
+    // v8 order: Edit profile (rendered above as a callback) → Settings & privacy →
+    // Privacy & visibility → Refer a friend → Earn points → Badges & trophies →
+    // Help & support. Web-only rows follow.
+    { href: "/settings", label: "Settings & privacy", icon: Settings },
+    { href: "/settings#privacy", label: "Privacy & visibility", icon: Lock },
     { href: "/refer", label: "Refer a friend", icon: Gift },
     { href: "/rewards", label: "Earn points", icon: Zap },
     ...(user?.handle ? [{ href: `/profile/${user.handle}/badges`, label: "Badges & trophies", icon: Award } as Row] : []),
     { href: "/settings#support", label: "Help & support", icon: Info },
+    // Web-only (not in v8's drawer) — kept deliberately.
+    { href: "/saved", label: "Stash", icon: Bookmark },
     ...(user?.is_admin ? [{ href: "/admin", label: "Admin console", icon: Shield } as Row] : []),
   ];
 
@@ -88,7 +93,7 @@ export function AccountDrawer({
         role="dialog"
         aria-modal="true"
         aria-label="Account menu"
-        className="fixed top-0 right-0 z-50 h-full w-[82%] max-w-[320px] bg-[var(--paper)] shadow-2xl flex flex-col"
+        className="fixed top-0 right-0 z-50 h-full w-[78%] max-w-[320px] bg-[var(--paper)] shadow-2xl flex flex-col"
         style={{
           transform: open ? "translateX(0)" : "translateX(100%)",
           transition: "transform 250ms var(--ease-out, cubic-bezier(0.16,1,0.3,1))",
@@ -98,7 +103,7 @@ export function AccountDrawer({
       >
         {/* Identity header (v7) — the drawer names whose account it is, replacing the
             generic "Menu" title. */}
-        <div className="flex items-center gap-3 px-[18px] pt-4 pb-4 border-b border-[var(--border)]">
+        <div className="flex items-center gap-[11px] px-[18px] pt-4 pb-4 border-b border-[var(--border)]">
           {user?.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={user.avatar_url} alt={user.name} className="rounded-full object-cover shrink-0" style={{ width: 42, height: 42 }} />
@@ -106,7 +111,7 @@ export function AccountDrawer({
             <Avatar name={user?.name ?? "?"} size={42} />
           )}
           <span className="flex-1 min-w-0">
-            <span className="block truncate font-semibold text-[15px] text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
+            <span className="block truncate font-bold text-[15px] text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
               {user?.name ?? " "}
             </span>
             <span className="block text-[12px] text-[var(--ink-faint)] truncate">@{user?.handle ?? ""}</span>
@@ -129,14 +134,11 @@ export function AccountDrawer({
               className="flex items-center gap-[13px] px-[18px] py-[13px] text-left active:bg-[var(--bone)]"
             >
               <RowIcon icon={Pencil} />
-              <span className="flex-1 min-w-0">
-                <span className="block text-[14.5px] font-medium text-[var(--ink)]">Edit profile</span>
-                <span className="block text-[12px] text-[var(--ink-faint)] truncate">Name, bio, city &amp; photo</span>
-              </span>
+              <span className="flex-1 min-w-0 block truncate text-[14.5px] font-medium text-[var(--ink)]">Edit profile</span>
               <ChevronRight size={15} className="text-[var(--ink-ghost)] shrink-0" />
             </button>
           )}
-          {rows.map(({ href, label, icon, sub }) => (
+          {rows.map(({ href, label, icon }) => (
             <Link
               key={href}
               href={href}
@@ -144,10 +146,7 @@ export function AccountDrawer({
               className="flex items-center gap-[13px] px-[18px] py-[13px] active:bg-[var(--bone)]"
             >
               <RowIcon icon={icon} />
-              <span className="flex-1 min-w-0">
-                <span className="block text-[14.5px] font-medium text-[var(--ink)]">{label}</span>
-                {sub && <span className="block text-[12px] text-[var(--ink-faint)] truncate">{sub}</span>}
-              </span>
+              <span className="flex-1 min-w-0 block truncate text-[14.5px] font-medium text-[var(--ink)]">{label}</span>
               <ChevronRight size={15} className="text-[var(--ink-ghost)] shrink-0" />
             </Link>
           ))}

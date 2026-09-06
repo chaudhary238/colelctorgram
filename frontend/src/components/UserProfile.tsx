@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Fragment, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   LayoutGrid, BarChart3, CalendarDays, Eye, EyeOff, Clock,
-  MessageCircle, Plus, ShieldCheck, Star, Pencil, Lock,
+  MessageCircle, CirclePlus, ShieldCheck, Star, Camera, Lock,
   MoreHorizontal, Check, ChevronRight, Menu, SlidersHorizontal,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { placeLabel } from "@/lib/utils";
 import { AuthUser, useUser } from "@/lib/auth-context";
 import {
   Avatar, Money, Segmented, ProductPhoto,
@@ -21,7 +22,7 @@ import { VouchGiveSheet, VouchListModal, VouchRequestModal } from "@/components/
 import { ProfileMoreMenu } from "@/components/ProfileMoreMenu";
 import { AccountDrawer } from "@/components/AccountDrawer";
 import { useUnread } from "@/components/useUnread";
-import { RewardCard, BadgeShelf, TopSeasonBadge, AvatarFrame } from "@/components/gamification";
+import { RewardCard, BadgeShelf, TopSeasonBadge, AvatarFrame, fireToast } from "@/components/gamification";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -31,6 +32,7 @@ interface ProfileUser {
   name: string;
   bio: string | null;
   city: string | null;
+  country: string | null; // DV8 — "City, Country" labels via placeLabel
   avatar_url: string | null;
   interests: string[];
   rating: number;
@@ -65,12 +67,26 @@ interface CollectionItem {
   photo_count: number;
   image_url?: string | null;
   preorder_eta?: string | null;
+  /** date | month | quarter | year | tbd — owner-only (nulled for visitors). "tbd"
+      is an ANSWER, not a gap: v8 buckets it under "Date to be announced". */
+  preorder_window_precision?: string | null;
+  /** paise — owner-only. Drives the PO calendar's "Balance due" line + price gap. */
+  preorder_total?: number | null;
+  /** v8 :451 — teal NEW DB chip on a DB-contribution tile whose entry the user
+      created. NOT sent by the API yet (see NEEDS BACKEND); renders once it is. */
+  is_new_to_db?: boolean;
   is_wishlisted?: boolean;
   // DV8-03 completeness + DV8-11 filter fields
   condition?: string | null;
   is_complete?: boolean;
   listing_status?: "available" | "sold" | null;
+  /** v8 sold treatment — set by POST /items/{id}/sold (with or without a listing). */
+  sold_at?: string | null;
 }
+
+/** Sold check (v8): the item's own sold_at stamp OR a listing that closed as sold —
+    an offline sale never had a listing, so listing_status alone under-counts. */
+const isSoldItem = (i: CollectionItem) => i.sold_at != null || i.listing_status === "sold";
 
 /** DV8-03 — server-computed portfolio summary on GET /users/{h}/collection. */
 interface Portfolio {
@@ -92,6 +108,17 @@ interface RawPost {
   comments_count: number;
   saves_count: number;
   created_at: string;
+  // Not sent by GET /users/{h}/posts yet (see NEEDS BACKEND) — passed through so
+  // ISO cards ("Looking for") and tagged-item chips light up the moment they are.
+  title?: string | null;
+  iso_item?: string | null;
+  iso_budget?: number | null;
+  iso_cond?: string | null;
+  iso_city?: string | null;
+  ref_sku?: string | null;
+  ref_sku_title?: string | null;
+  ref_sku_brand?: string | null;
+  review_rating?: number | null;
 }
 
 
@@ -136,9 +163,15 @@ function titleForItem(it: CollectionItem): string {
   return it.title || it.custom_title || it.sku || "Item";
 }
 const paiseToRupees = (p: number) => Math.round(p / 100);
-// Compact stat counts (1.2k) like v3's compactNum; small counts stay exact.
-const compactNum = (n: number) =>
-  n >= 10000 ? (n / 1000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/, "") + "k" : (n || 0).toLocaleString("en-IN");
+// v8 shared.jsx compactNum — 1284 → 1.3K, 3.45M → 3.4M (capital K/M/B, compacts from
+// 1000 up; <10 keeps one decimal, ≥10 rounds). Keeps the stat tiles uniform at any size.
+const compactNum = (n: number): string => {
+  n = n || 0;
+  if (n < 1000) return n.toLocaleString("en-IN");
+  if (n < 1000000) { const v = n / 1000; return (v < 10 ? v.toFixed(1).replace(/\.0$/, "") : String(Math.round(v))) + "K"; }
+  if (n < 1000000000) { const v = n / 1000000; return (v < 10 ? v.toFixed(1).replace(/\.0$/, "") : String(Math.round(v))) + "M"; }
+  const v = n / 1000000000; return (v < 10 ? v.toFixed(1).replace(/\.0$/, "") : String(Math.round(v))) + "B";
+};
 
 /* ── Main component ─────────────────────────────────────────────── */
 
@@ -183,6 +216,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   }, [handle]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadProfile flips its own loading flag synchronously; fetch-on-mount
     loadProfile();
   }, [loadProfile]);
 
@@ -193,6 +227,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
     if (!isOwn || typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("edit")) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot deep-link read on mount
       setShowEdit(true);
       window.history.replaceState(null, "", window.location.pathname);
     } else if (params.get("vouch") === "request") {
@@ -229,6 +264,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   }, [handle, posts, collection]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadTab awaits the API before setting state; lazy per-tab fetch
     if (!loading) loadTab(tab);
   }, [tab, loading, loadTab]);
 
@@ -282,7 +318,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
     return (
       <div style={{ padding: "18px 16px" }}>
         <div className="flex items-start gap-3.5 animate-pulse">
-          <div className="w-[68px] h-[68px] rounded-full bg-[var(--bone-deep)]" />
+          <div className="w-[76px] h-[76px] rounded-full bg-[var(--bone-deep)]" />
           <div className="flex-1 space-y-2 pt-1">
             <div className="h-5 w-40 rounded bg-[var(--bone-deep)]" />
             <div className="h-3.5 w-28 rounded bg-[var(--bone)]" />
@@ -326,7 +362,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
       <div style={{ padding: "18px 16px 0" }}>
         {/* avatar + 3 key stat tiles */}
         <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
-          <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }}>
+          <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
             <div style={{ position: "relative" }}>
               {isOwn ? (
                 <button
@@ -335,9 +371,9 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
                   style={{ position: "relative", background: "none", border: "none", padding: 0, cursor: "pointer", display: "block" }}
                 >
                   {avatarEl}
-                  {/* QA 6.6 — edit (pencil) icon rather than camera. */}
+                  {/* v8 ProfileView :256 — camera pip (supersedes QA 6.6's pencil; v8 wins). */}
                   <span style={{ position: "absolute", bottom: -2, right: -2, width: 26, height: 26, borderRadius: "50%", background: "var(--stamp-red)", color: "var(--paper)", border: "2.5px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Pencil size={12} />
+                    <Camera size={13} />
                   </span>
                 </button>
               ) : avatarEl}
@@ -359,19 +395,22 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
               { label: "Following", n: profile.following_count, onClick: () => setShowFollowModal("following") },
               { label: "Vouches", n: profile.vouches_received_count + profile.vouches_given_count, onClick: () => setShowVouchList("received") },
             ].map(({ label, n, onClick }, i) => (
-              <div key={label} style={{ display: "flex", flex: 1, minWidth: 0 }}>
+              // v8 :274 — divider and button are SIBLINGS in the row (Fragment), so the
+              // three stat buttons share the width equally; nesting them skewed the first.
+              <Fragment key={label}>
                 {i > 0 && <span style={{ width: 1, alignSelf: "center", height: 30, background: "var(--border)", flexShrink: 0 }} />}
                 <button
                   onClick={onClick}
                   title={n.toLocaleString("en-IN")}
-                  style={{ flex: 1, minWidth: 0, background: "none", border: "none", padding: 4, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
+                  style={{ flex: 1, minWidth: 0, background: "none", border: "none", padding: "4px 4px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
                 >
+                  {/* v8 writes color var(--s900) — an undefined token (typo of --slate-900); we render the intended slate-900. */}
                   <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: "var(--slate-900)", lineHeight: 1, letterSpacing: "-0.03em", fontFeatureSettings: '"tnum" 1', whiteSpace: "nowrap" }}>
                     {compactNum(n)}
                   </span>
                   <span style={{ fontSize: 9, fontWeight: 600, color: "var(--slate-400)", letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap" }}>{label}</span>
                 </button>
-              </div>
+              </Fragment>
             ))}
           </div>
         </div>
@@ -387,18 +426,30 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
               // ≡ → the account drawer. NOT mobile-only any more: v7's latest batch deleted
               // the Refer/Settings squares beside the rank card and moved that whole set in
               // here, so hiding it above lg would strand Refer / Earn points / Badges / Log
-              // out on desktop.
-              <IconButton icon={<Menu size={19} />} onClick={() => setShowAccountMenu(true)} />
+              // out on desktop. v8 :296 — a 38×34 soft square, not the 40×40 IconButton.
+              <button
+                onClick={() => setShowAccountMenu(true)}
+                aria-label="Menu"
+                style={{
+                  width: 38, height: 34, borderRadius: 10, flexShrink: 0, cursor: "pointer",
+                  border: "1px solid var(--border-strong)", background: "var(--paper-soft)", color: "var(--ink)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+              >
+                <Menu size={18} strokeWidth={2} />
+              </button>
             ) : (
+              // Judgment: v8 puts the visitor ⋯ in the DetailHeader's trailing slot; our web
+              // pages have no such chrome on desktop, so it lives here next to the name.
               <IconButton icon={<MoreHorizontal size={18} />} onClick={() => setShowMore(true)} />
             )}
           </div>
           {/* Season-badge shelf (GM-14) — renders null when the user has no badges,
               so no reserved row appears for badge-less profiles. */}
-          <BadgeShelf handle={profile.handle} style={{ marginTop: 7 }} />
+          <BadgeShelf handle={profile.handle} style={{ marginTop: 8 }} />
           <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 3, flexWrap: "wrap" }}>
             <span style={{ fontSize: 13, color: "var(--slate-400)" }}>
-              @{profile.handle}{profile.city ? ` · ${profile.city}` : ""}
+              @{profile.handle}{placeLabel(profile) ? ` · ${placeLabel(profile)}` : ""}
             </span>
             {presence && (
               <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -464,7 +515,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
             <Button
               variant={profile.my_vouch ? "secondary" : "teal"}
               style={{ width: "100%", justifyContent: "center", ...(profile.my_vouch ? { borderColor: "var(--verified-teal)", color: "var(--verified-teal)" } : null) }}
-              icon={profile.my_vouch ? <Check size={17} /> : <ShieldCheck size={17} />}
+              icon={profile.my_vouch ? <Check size={17} strokeWidth={2.6} /> : <ShieldCheck size={17} strokeWidth={2} />}
               onClick={() => setShowVouchGive(true)}
             >
               {profile.my_vouch ? "Vouched · Edit" : `Vouch for ${firstName}`}
@@ -481,8 +532,8 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
           zIndex: 3,
           background: "var(--paper)",
           padding: "16px 16px 10px",
-          marginTop: 14,
-          borderBottom: "1px solid var(--border)",
+          marginTop: 8,
+          borderBottom: "1px solid var(--slate-200)",
         }}
       >
         <Segmented<Tab> value={tab} onChange={setTab} options={TABS} />
@@ -581,13 +632,17 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
   const owned = items.filter((i) => i.status !== "wishlist" && i.status !== "intel");
   // DV8-03 — the SERVER's portfolio object is the source of truth (it knows completeness
   // and privacy); the client-side sum stays only as a fallback for older payloads.
-  const clientSum = items.filter((i) => i.status === "owned").reduce((s, i) => s + (i.value ?? 0), 0);
+  // v8 ProfileCollection :21 — a sold copy is no longer value you hold.
+  const clientSum = items.filter((i) => i.status === "owned" && !isSoldItem(i)).reduce((s, i) => s + (i.value ?? 0), 0);
   const portfolioValue = portfolio ? portfolio.value : clientSum;
   const incompleteCount = portfolio?.incomplete_count ?? 0;
   const completeCount = portfolio?.complete_count ?? owned.length;
   const itemCount = portfolio?.item_count ?? owned.length;
   // Visitors only get a number when the owner's collection shares it (complete).
   const valueShared = portfolio ? portfolio.value_shared : true;
+  // v8 :54 `valuePublic` = allComplete — drives the pills row's bottom margin for
+  // EVERY viewer (the meter that follows is owner-only, but the tighter gap isn't).
+  const allComplete = (portfolio?.incomplete_count ?? 0) === 0;
   // Owned folds in pre-orders (DV7-01); the other two segments match their status exactly.
   // DV8-11 — single-select views over the owned set. Listed/Sold read the listing_status
   // the server now sends; "Just owned" = in hand, not listed, not sold.
@@ -595,15 +650,15 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
   const filteredOwned =
     ownedFilter === "preorder" ? owned.filter((i) => i.status === "preorder")
     : ownedFilter === "listed" ? owned.filter((i) => i.listing_status === "available")
-    : ownedFilter === "sold" ? owned.filter((i) => i.listing_status === "sold")
-    : ownedFilter === "plain" ? owned.filter((i) => i.status === "owned" && !i.listing_status)
+    : ownedFilter === "sold" ? owned.filter(isSoldItem)
+    : ownedFilter === "plain" ? owned.filter((i) => i.status === "owned" && i.listing_status !== "available" && !isSoldItem(i))
     : owned;
   const filtered = seg === "owned" ? filteredOwned : items.filter((i) => i.status === seg);
 
-  const views: { id: CollView; icon: React.ReactNode; label: string }[] = [
-    { id: "grid", icon: <LayoutGrid size={17} />, label: "Grid" },
-    { id: "chart", icon: <BarChart3 size={17} />, label: "Chart" },
-    { id: "calendar", icon: <CalendarDays size={17} />, label: "PO Calendar" },
+  const views: { id: CollView; Icon: React.ComponentType<{ size?: number; strokeWidth?: number }>; label: string }[] = [
+    { id: "grid", Icon: LayoutGrid, label: "Grid" },
+    { id: "chart", Icon: BarChart3, label: "Chart" },
+    { id: "calendar", Icon: CalendarDays, label: "PO Calendar" },
   ];
   const isPrivate = vis[view] === "private";
   const hiddenFromViewer = !isOwn && isPrivate;
@@ -613,7 +668,7 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
       {/* portfolio value + item count — v7 slims these to two pills. DV8-03: the value is
           private until every item is complete — the owner still sees the number (with a
           lock while incomplete), a visitor sees the slot with nothing in it. */}
-      <div style={{ display: "flex", gap: 8, marginBottom: isOwn && incompleteCount > 0 ? 8 : 14 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: allComplete ? 14 : 8 }}>
         <div style={{ flex: 1.3, minWidth: 0, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 999, padding: "9px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <span style={{ fontSize: 12, color: "var(--ink-faint)", whiteSpace: "nowrap" }}>
             {!isOwn && !valueShared ? "Value not shared" : "Portfolio Value"}
@@ -623,7 +678,8 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
             {!isOwn && !valueShared ? (
               <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--ink-faint)" }}>—</span>
             ) : (
-              <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--stamp-red)", fontFeatureSettings: '"tnum" 1' }}>
+              /* v8 — the value reads in plain ink, not stamp-red (ProfileCollection.jsx:61). */
+              <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--ink)", fontFeatureSettings: '"tnum" 1' }}>
                 <Money value={paiseToRupees(portfolioValue ?? 0)} />
               </span>
             )}
@@ -631,7 +687,12 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
         </div>
         <div style={{ flex: 1, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 999, padding: "9px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Items</span>
-          <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--ink)", fontFeatureSettings: '"tnum" 1' }}>{itemCount}</span>
+          {/* v8 :66 — Items counts everything on the shelf INCLUDING sold records. The
+              server's portfolio.item_count excludes sold (it feeds completeness), so add
+              the sold records we can see; exact once the server counts them itself. */}
+          <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--ink)", fontFeatureSettings: '"tnum" 1' }}>
+            {portfolio ? portfolio.item_count + owned.filter(isSoldItem).length : owned.length}
+          </span>
         </div>
       </div>
 
@@ -682,7 +743,8 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
                   background: on ? "var(--ink)" : "var(--paper-soft)", color: on ? "var(--paper)" : "var(--ink)",
                 }}
               >
-                {v.icon}
+                {/* v8 :105 — the active view's glyph draws a hair heavier. */}
+                <v.Icon size={17} strokeWidth={on ? 2 : 1.75} />
               </button>
             );
           })}
@@ -697,7 +759,8 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
                 fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, whiteSpace: "nowrap", textDecoration: "none",
               }}
             >
-              <Plus size={16} strokeWidth={2.1} />Add item
+              {/* v8 :115 — plusCircle glyph, stroke 1.9 (not the bare plus). */}
+              <CirclePlus size={16} strokeWidth={1.9} />Add item
             </Link>
           )}
         </div>
@@ -706,6 +769,8 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
             onClick={() => {
               const next: "public" | "private" = isPrivate ? "public" : "private";
               setVis((s) => ({ ...s, [view]: next })); // optimistic
+              // v8 :120 — the toggle confirms itself in a toast.
+              fireToast(`${views.find((x) => x.id === view)?.label ?? "This"} view ${isPrivate ? "now public" : "now private"}`);
               api.patch("/users/me/collection-privacy", { view, visibility: next }).catch(() => {
                 setVis((s) => ({ ...s, [view]: isPrivate ? "private" : "public" })); // revert
               });
@@ -765,11 +830,14 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
                         composes; one tap picks a view and closes. "Sold" is ALWAYS shown
                         (it used to hide until something had sold, making the view
                         undiscoverable). */}
+                    {/* v8 :157 `animation: fadeIn 140ms ease` — the keyframes live in v8's
+                        index.html, not our globals, so they're scoped here. */}
+                    <style>{"@keyframes ch-profile-fadein { from { opacity: 0 } to { opacity: 1 } }"}</style>
                     <div
                       style={{
                         position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 31, width: "min(360px, 100%)",
-                        background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 16,
-                        boxShadow: "0 12px 34px rgba(0,0,0,0.14)", padding: 10,
+                        background: "var(--paper)", border: "1px solid var(--slate-200)", borderRadius: 16,
+                        boxShadow: "var(--shadow-4)", padding: 10, animation: "ch-profile-fadein 140ms ease",
                       }}
                     >
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -777,8 +845,8 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
                           { id: "all" as OwnedView, label: "All" },
                           { id: "preorder" as OwnedView, label: `Pre-order · ${owned.filter((i) => i.status === "preorder").length}` },
                           { id: "listed" as OwnedView, label: `Listed · ${owned.filter((i) => i.listing_status === "available").length}` },
-                          { id: "sold" as OwnedView, label: `Sold · ${owned.filter((i) => i.listing_status === "sold").length}` },
-                          { id: "plain" as OwnedView, label: `Just owned · ${owned.filter((i) => i.status === "owned" && !i.listing_status).length}` },
+                          { id: "sold" as OwnedView, label: `Sold · ${owned.filter(isSoldItem).length}` },
+                          { id: "plain" as OwnedView, label: `Just owned · ${owned.filter((i) => i.status === "owned" && i.listing_status !== "available" && !isSoldItem(i)).length}` },
                         ]).map((f) => {
                           const on = ownedFilter === f.id;
                           return (
@@ -805,15 +873,14 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11, marginTop: 14 }}>
                 {filtered.map((it) => <ItemTile key={it.id} item={it} isOwn={isOwn} />)}
               </div>
+              {/* v8 :184 — ONE empty-state pair for every segment: owner gets the filter
+                  line or the add-from-database nudge, a visitor always reads "Private or
+                  empty." (the per-segment copy this used to carry was pre-v8). */}
               {filtered.length === 0 && (
                 <EmptyNote>
-                  {seg === "intel"
-                    ? (isOwn ? "No DB contributions yet — add an item that's new to Scorred to help the community." : "No DB contributions yet.")
-                    : seg === "wishlist"
-                    ? (isOwn ? "Nothing on your wishlist yet — star anything in the Scorred database." : "Private or empty.")
-                    : seg === "owned" && anyOwnedFilter
-                    ? "Nothing matches this filter."
-                    : (isOwn ? "Nothing here yet — add from the Scorred database." : "Private or empty.")}
+                  {isOwn
+                    ? (seg === "owned" && anyOwnedFilter ? "Nothing matches this filter." : "Nothing here yet — add from the Scorred database.")
+                    : "Private or empty."}
                 </EmptyNote>
               )}
             </>
@@ -835,8 +902,10 @@ function gapLabelFor(item: CollectionItem): string | null {
   if (item.is_complete !== false) return null;
   const gaps: string[] = [];
   if (item.status === "preorder") {
-    if (!item.preorder_eta) gaps.push("Add ETA");
-    if (!item.value) gaps.push("Add price");
+    // v8 itemGaps: an explicit "not announced yet" (tbd) is an answer, not a gap;
+    // a pre-order's price is its TOTAL (value stays the fallback for old rows).
+    if (!item.preorder_eta && item.preorder_window_precision !== "tbd") gaps.push("Add ETA");
+    if (!item.preorder_total && !item.value) gaps.push("Add price");
   } else {
     if (!item.condition) gaps.push("Add condition");
     if (!item.value) gaps.push("Add price");
@@ -850,7 +919,9 @@ function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
   const c = catForItem(item);
   const [wishlisted, setWishlisted] = useState(!!item.is_wishlisted);
   const [busy, setBusy] = useState(false);
-  const gapText = isOwn ? gapLabelFor(item) : null;
+  const sold = isSoldItem(item);
+  // A sold copy shows its struck-through value, never a "finish it" marker.
+  const gapText = isOwn && !sold ? gapLabelFor(item) : null;
 
   async function toggleWishlist(e: React.MouseEvent) {
     e.stopPropagation();
@@ -870,7 +941,17 @@ function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
 
   return (
     <div
-      onClick={() => router.push(`/item/${item.id}`)}
+      onClick={() => {
+        // v8 :440 — a tile without a catalogue destination goes nowhere: DB
+        // Contributions have "no catalogue detail page yet" when the entry is
+        // still missing. Wishlist/intel rows render on the catalogue entry
+        // (/db/{sku}), owned/pre-order/sold copies on the item page.
+        if (item.status === "intel" || item.status === "wishlist") {
+          if (item.sku) router.push(`/db/${item.sku}`);
+          return;
+        }
+        router.push(`/item/${item.id}`);
+      }}
       role="button"
       tabIndex={0}
       style={{
@@ -878,17 +959,31 @@ function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
         overflow: "hidden", display: "flex", flexDirection: "column", cursor: "pointer",
       }}
     >
-      <div style={{ position: "relative" }}>
+      {/* v8 :449 — the WHOLE media block (photo AND its tag) dims for a sold copy:
+          grayscale(1) at 62% opacity, so even the Sold tag reads as a record. */}
+      <div style={{ position: "relative", filter: sold ? "grayscale(1)" : "none", opacity: sold ? 0.62 : 1 }}>
         {item.image_url ? (
           <div style={{ aspectRatio: "1/1", overflow: "hidden" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={item.image_url} alt={titleForItem(item)} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </div>
         ) : (
-          <ProductPhoto tone={c.tone} ratio="1/1" rounded={0} label={c.label} />
+          /* v8 :450 — bare placeholder, no brand caption on collection tiles. */
+          <ProductPhoto tone={c.tone} ratio="1/1" rounded={0} />
         )}
-        {item.is_listed && <div style={{ position: "absolute", top: 7, right: 7 }}><Tag kind="sale">Listed</Tag></div>}
-        {item.status === "preorder" && <div style={{ position: "absolute", bottom: 7, left: 7 }}><Tag kind="po">PO</Tag></div>}
+        {/* v8 :451 — "NEW DB" chip, top-LEFT, on a contribution that created its entry. */}
+        {item.status === "intel" && item.is_new_to_db && (
+          <div style={{ position: "absolute", top: 7, left: 7, fontSize: 10, fontWeight: 700, color: "var(--paper)", background: "var(--verified-teal)", padding: "2px 6px", borderRadius: 5 }}>NEW DB</div>
+        )}
+        {/* ONE top-right tag, mutually exclusive by priority: Sold → Listed → PO.
+            Listed reads the server's listing_status (not the stale is_listed flag). */}
+        {sold ? (
+          <div style={{ position: "absolute", top: 7, right: 7 }}><Tag kind="sold">Sold</Tag></div>
+        ) : item.listing_status === "available" ? (
+          <div style={{ position: "absolute", top: 7, right: 7 }}><Tag kind="sale">Listed</Tag></div>
+        ) : item.status === "preorder" ? (
+          <div style={{ position: "absolute", top: 7, right: 7 }}><Tag kind="po">PO</Tag></div>
+        ) : null}
         {/* Wishlist-for-others button — only on someone else's collection (DF-24).
             Icon law (2026-07-11): Star = wishlist; Bookmark is save-content only. */}
         {!isOwn && (
@@ -910,7 +1005,7 @@ function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
       <div style={{ padding: "8px 9px 10px" }}>
         <div
           style={{
-            fontSize: 12.5, fontWeight: 600, lineHeight: 1.25, color: "var(--ink)",
+            fontSize: 12.5, fontWeight: 600, lineHeight: 1.25, color: sold ? "var(--ink-faint)" : "var(--ink)",
             display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", minHeight: 31,
           }}
         >
@@ -919,9 +1014,14 @@ function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
         {/* No price on wishlist / DB-contribution tiles — you don't own them, so the
             number would read as portfolio value it isn't (DV7-01). DV8-03: an incomplete
             owned tile's value line becomes the gold "Add … →" marker into the finish
-            flow; visitors (null value) get no number and no marker. */}
+            flow; visitors (null value) get no number and no marker. v8: a sold tile's
+            value is struck through in faint ink — no longer value you hold. */}
         {item.status !== "wishlist" && item.status !== "intel" && (
-          gapText ? (
+          sold && item.value != null ? (
+            <div style={{ fontSize: 12.5, marginTop: 5, color: "var(--ink-faint)" }}>
+              <Money value={paiseToRupees(item.value)} strike />
+            </div>
+          ) : gapText ? (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); router.push(`/collection/finish?item=${encodeURIComponent(item.id)}`); }}
@@ -1039,100 +1139,126 @@ function PortfolioChart({ items, inHand, preorder }: { items: CollectionItem[]; 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MONTH_SHORT = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
-// Best-effort parse of a free-text ETA ("March 2026", "Q1 2026", "12 Mar 2026") into a
-// {monthIdx, year, day} so pre-orders can be grouped by month like the design. Falls
-// back to an "Upcoming" bucket when no month is recognisable.
-function parseEta(eta?: string | null): { key: string; label: string; monthIdx: number | null; day: string | null } {
-  if (!eta) return { key: "zzz-upcoming", label: "Upcoming", monthIdx: null, day: null };
-  const lower = eta.toLowerCase();
-  // DV4-03c: TBD pre-orders group under "Date to be announced", sorted last.
-  if (lower.includes("to be announced") || lower === "tbd" || lower === "tba") {
-    return { key: "zzz-tbd", label: "Date to be announced", monthIdx: null, day: null };
+/* v8 ProfileCollection.jsx `poWindow` — a pre-order's release window as one shape:
+   bucket (label + numeric sort), the 48px mini tile's two lines, and the eta sentence.
+   v8 reads structured parts (etaPrecision/etaYear/etaMonth/etaDay/etaQuarter); our API
+   stores free text + an owner-only precision, so this parses "12 Mar 2026" / "March
+   2026" / "Q3 2026" / "2026" / "TBD" into the same buckets. */
+interface PoWindow {
+  bucketKey: string;
+  bucketLabel: string;
+  sort: number;
+  tileTop: string;
+  tileBottom: string;
+  eta: string;
+}
+function poWindow(it: CollectionItem): PoWindow {
+  const raw = (it.preorder_eta ?? "").trim();
+  const lower = raw.toLowerCase();
+  // v8: precision "tbd" is an explicit answer; no eta at all lands in the same bucket.
+  if (it.preorder_window_precision === "tbd" || !raw || lower.includes("to be announced") || lower === "tbd" || lower === "tba") {
+    return { bucketKey: "zzzz", bucketLabel: "Date to be announced", sort: 99999999, tileTop: "TBD", tileBottom: "·", eta: "Release date not announced yet" };
   }
+  const yearMatch = raw.match(/(20\d{2})/);
+  const y = yearMatch ? Number(yearMatch[1]) : null;
   const monthIdx = MONTH_NAMES.findIndex((m, i) => lower.includes(m.toLowerCase()) || lower.includes(MONTH_SHORT[i].toLowerCase()));
-  const yearMatch = eta.match(/(20\d{2})/);
-  const year = yearMatch ? yearMatch[1] : "";
-  const dayMatch = eta.match(/\b([0-3]?\d)\b/);
   if (monthIdx >= 0) {
+    const yy = y ?? 2026; // v8 defaults an unstated year to 2026
+    const dayMatch = raw.match(/\b([0-3]?\d)\b/);
+    const day = dayMatch ? Number(dayMatch[1]) : null;
+    const hasDay = day != null && day >= 1 && day <= 31;
     return {
-      key: `${year || "0000"}-${String(monthIdx).padStart(2, "0")}`,
-      label: `${MONTH_NAMES[monthIdx]}${year ? " " + year : ""}`,
-      monthIdx,
-      day: dayMatch ? dayMatch[1] : null,
+      bucketKey: `${yy}-${String(monthIdx).padStart(2, "0")}`,
+      bucketLabel: `${MONTH_NAMES[monthIdx]} ${yy}`,
+      sort: yy * 10000 + monthIdx * 100 + (hasDay ? day : 0),
+      tileTop: MONTH_SHORT[monthIdx],
+      tileBottom: hasDay ? String(day) : "~",
+      eta: hasDay ? `Ships ~ ${day} ${MONTH_SHORT[monthIdx]} ${yy}` : `Expected ${MONTH_NAMES[monthIdx]} ${yy}`,
     };
   }
-  // Quarter window ("Q3 2026") — bucket by its first month so it sorts chronologically.
   const qMatch = lower.match(/q([1-4])/);
   if (qMatch) {
     const q = Number(qMatch[1]);
+    const yy = y ?? 2026;
+    const am = (q - 1) * 3;
     return {
-      key: `${year || "0000"}-${String((q - 1) * 3).padStart(2, "0")}q`,
-      label: `Q${q}${year ? " " + year : ""}`,
-      monthIdx: null,
-      day: null,
+      bucketKey: `${yy}-Q${q}`, bucketLabel: `Q${q} ${yy}`, sort: yy * 10000 + am * 100 + 50,
+      tileTop: `Q${q}`, tileBottom: `'${String(yy).slice(2)}`, eta: `Expected Q${q} ${yy}`,
     };
   }
-  // Bare year ("2026") — sorts after that year's dated windows.
-  if (year) {
-    return { key: `${year}-99`, label: year, monthIdx: null, day: null };
+  if (y != null) {
+    return {
+      bucketKey: `${y}-13`, bucketLabel: `${y} · window TBD`, sort: y * 10000 + 1300,
+      tileTop: "YEAR", tileBottom: String(y).slice(2), eta: `Expected sometime in ${y}`,
+    };
   }
-  // Anything else keeps its own bucket (don't merge distinct free-text ETAs).
-  return { key: `zzz-${lower}`, label: eta, monthIdx: null, day: null };
+  // Unrecognisable free text keeps its own bucket just ahead of TBD (don't merge distinct ETAs).
+  return { bucketKey: `zz-${lower}`, bucketLabel: raw, sort: 99999998, tileTop: "PO", tileBottom: "~", eta: raw };
 }
 
-// Pre-orders grouped by month — converted from design ProfileCollection PortfolioCalendar.
+// Pre-orders grouped by release window — v8 ProfileCollection PortfolioCalendar.
 function PortfolioCalendar({ items }: { items: CollectionItem[] }) {
   const pos = items.filter((i) => i.status === "preorder");
-  if (pos.length === 0) return <EmptyNote>No pre-orders on the calendar.</EmptyNote>;
 
-  const grouped: Record<string, { label: string; monthIdx: number | null; items: { it: CollectionItem; day: string | null }[] }> = {};
+  const grouped: Record<string, { label: string; sort: number; items: { it: CollectionItem; w: PoWindow }[] }> = {};
   pos.forEach((it) => {
-    const p = parseEta(it.preorder_eta);
-    grouped[p.key] = grouped[p.key] || { label: p.label, monthIdx: p.monthIdx, items: [] };
-    grouped[p.key].items.push({ it, day: p.day });
+    const w = poWindow(it);
+    grouped[w.bucketKey] = grouped[w.bucketKey] || { label: w.bucketLabel, sort: w.sort, items: [] };
+    grouped[w.bucketKey].items.push({ it, w });
   });
-  const keys = Object.keys(grouped).sort();
+  // v8 :317 — buckets sort chronologically by the numeric key, TBD last.
+  const buckets = Object.values(grouped).sort((a, b) => a.sort - b.sort);
+  if (buckets.length === 0) return <EmptyNote>No pre-orders on the calendar.</EmptyNote>;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      {keys.map((key) => {
-        const g = grouped[key];
-        return (
-          <div key={key}>
-            {/* Month header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-              <div style={{ background: "var(--grail-gold)", color: "var(--ink)", borderRadius: 7, padding: "4px 11px", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
-                {g.label}
-              </div>
-              <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-              <span style={{ fontSize: 11, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
-                {g.items.length} item{g.items.length !== 1 ? "s" : ""}
-              </span>
+      {buckets.map((g) => (
+        <div key={g.label}>
+          {/* Window header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <div style={{ background: "var(--grail-gold)", color: "var(--ink)", borderRadius: 7, padding: "4px 11px", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
+              {g.label}
             </div>
-            {/* Items */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-              {g.items.map(({ it, day }) => (
+            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+            <span style={{ fontSize: 11, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
+              {g.items.length} item{g.items.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          {/* Items in window */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            {g.items.map(({ it, w }) => {
+              const bigDay = /^\d+$/.test(w.tileBottom);
+              // v8 :343 — balance = (total ?? value) − deposit; the API has no deposit
+              // field yet, so the balance reads as the full total (owner-only fields).
+              const balancePaise = it.preorder_total ?? it.value;
+              return (
                 <div key={it.id} style={{ display: "flex", gap: 12, alignItems: "center", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: 12 }}>
+                  {/* Mini window tile */}
                   <div style={{ width: 48, height: 48, borderRadius: 10, flexShrink: 0, overflow: "hidden", border: "1px solid var(--grail-gold)", display: "flex", flexDirection: "column" }}>
-                    <div style={{ background: "var(--grail-gold)", textAlign: "center", fontSize: 8, fontWeight: 700, color: "var(--ink)", letterSpacing: "0.07em", padding: "3px 0", lineHeight: 1 }}>
-                      {g.monthIdx != null ? MONTH_SHORT[g.monthIdx] : "PO"}
+                    <div style={{ background: "var(--grail-gold)", textAlign: "center", fontSize: w.tileTop.length > 3 ? 7 : 8, fontWeight: 700, color: "var(--ink)", letterSpacing: "0.06em", padding: "3px 0", lineHeight: 1 }}>
+                      {w.tileTop}
                     </div>
-                    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--grail-gold-soft)", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: day ? 17 : 13, color: "var(--grail-gold-deep)", lineHeight: 1 }}>
-                      {day || "~"}
+                    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--grail-gold-soft)", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: bigDay ? 17 : 13, color: "var(--grail-gold-deep)", lineHeight: 1 }}>
+                      {w.tileBottom}
                     </div>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titleForItem(it)}</div>
                     <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 3 }}>On order</div>
-                    <div style={{ fontSize: 11.5, color: "var(--grail-gold-deep)", fontFamily: "var(--font-mono)", marginTop: 2 }}>{it.preorder_eta || "ETA TBD"}</div>
+                    <div style={{ fontSize: 11.5, color: "var(--grail-gold-deep)", fontFamily: "var(--font-mono)", marginTop: 2 }}>{w.eta}</div>
+                    {balancePaise != null && (
+                      <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 3 }}>
+                        Balance due <b style={{ fontFamily: "var(--font-mono)", color: "var(--stamp-red)" }}>₹{Math.max(0, paiseToRupees(balancePaise)).toLocaleString("en-IN")}</b>
+                      </div>
+                    )}
                   </div>
                   <Tag kind="po">PO</Tag>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 }
@@ -1141,9 +1267,11 @@ function PortfolioCalendar({ items }: { items: CollectionItem[] }) {
 function PostsTab({ posts, profile, isOwn }: { posts: RawPost[] | null; profile: ProfileUser; isOwn: boolean }) {
   if (posts === null) return <SkeletonRows />;
   if (posts.length === 0) {
-    return <EmptyNote>{isOwn ? "You haven't posted yet. Tap + in the top bar to showcase a piece." : "No posts yet."}</EmptyNote>;
+    // v8 :388 — exact copy.
+    return <EmptyNote>{isOwn ? "You haven't posted yet. Tap + to showcase a piece." : "No posts yet."}</EmptyNote>;
   }
   // The per-user posts endpoint omits author fields; the author is this profile.
+  // PostCard routes type "iso" to ISOCard itself (v8 renders ISOCard vs PostCard here).
   const enriched: ApiPost[] = posts.map((p) => ({
     id: p.id,
     user_id: profile.id,
@@ -1151,12 +1279,20 @@ function PostsTab({ posts, profile, isOwn }: { posts: RawPost[] | null; profile:
     name: profile.name,
     avatar_url: profile.avatar_url,
     type: p.type,
+    title: p.title ?? undefined,
     body: p.body,
     images: p.images,
     category: p.category,
     community_id: null,
-    review_rating: null,
+    review_rating: p.review_rating ?? null,
     poll_options: null,
+    iso_item: p.iso_item ?? null,
+    iso_budget: p.iso_budget ?? null,
+    iso_cond: p.iso_cond ?? null,
+    iso_city: p.iso_city ?? null,
+    ref_sku: p.ref_sku ?? null,
+    ref_sku_title: p.ref_sku_title ?? null,
+    ref_sku_brand: p.ref_sku_brand ?? null,
     likes_count: p.likes_count,
     comments_count: p.comments_count,
     saves_count: p.saves_count,
