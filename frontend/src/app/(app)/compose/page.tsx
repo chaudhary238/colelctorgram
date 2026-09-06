@@ -190,7 +190,6 @@ function ComposePage() {
   const [showEmoji, setShowEmoji] = useState(false);
   const [choices, setChoices] = useState(["", ""]);
   const [rating, setRating] = useState(0);
-  const [isoItem, setIsoItem] = useState("");
   const [isoBudget, setIsoBudget] = useState("");
   // Single acceptable condition, lowercase values ("any" = no restriction).
   const [isoCond, setIsoCond] = useState("any");
@@ -270,19 +269,20 @@ function ComposePage() {
     setItemQ("");
     setItemHits([]);
     // v8: an ISO adopts the tagged item's title, and the entry's category joins the
-    // post's categories (only if it maps onto the app's category set).
-    if (type === "iso") setIsoItem(h.title);
+    // post's categories (only if it maps onto the app's category set). The headline
+    // field IS the "what are you looking for" (founder 2026-09-06) — fill if empty.
+    if (type === "iso") setTitle((v) => (v.trim() ? v : h.title));
     if (h.category && ADD_CATEGORIES.some((c) => c.id === h.category)) {
       setCategories((cs) => (cs.includes(h.category!) ? cs : [...cs, h.category!]));
     }
   }
   const untagItem = () => { setRefItem(null); setShowItem(false); };
 
-  // Switching to ISO after tagging still prefills the item field — publish sends
+  // Switching to ISO after tagging still prefills the headline — publish sends
   // the tagged title either way, so the form must not look empty.
   function switchType(t: ComposeType) {
     setType(t);
-    if (t === "iso" && refItem) setIsoItem((v) => (v.trim() ? v : refItem.title));
+    if (t === "iso" && refItem) setTitle((v) => (v.trim() ? v : refItem.title));
   }
 
   useEffect(() => {
@@ -371,8 +371,10 @@ function ComposePage() {
         review_rating: type === "review" ? rating : null,
         // v8 — every type carries the tagged SKU; an ISO uses the tagged item's title
         // when one is set (the field is prefilled on pick, but the tag stays canonical).
+        // Founder 2026-09-06: the post TITLE and "what you're looking for" are ONE
+        // field on an ISO — the headline input carries both.
         ref_sku: refItem?.sku ?? null,
-        iso_item: type === "iso" ? ((refItem?.title ?? isoItem.trim()) || null) : null,
+        iso_item: type === "iso" ? ((refItem?.title ?? title.trim()) || null) : null,
         iso_budget: type === "iso" && isoBudget ? Math.round(Number(isoBudget) * 100) : null,
         iso_condition: type === "iso" ? isoCond : null,
         iso_city: type === "iso" ? (isoCity.trim() || null) : null,
@@ -483,11 +485,12 @@ function ComposePage() {
           </div>
         )}
 
-        {/* title — all types incl. ISO */}
+        {/* title — all types. On an ISO this IS the "what are you looking for"
+            (founder 2026-09-06: one field, not two); it publishes as title + iso_item. */}
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder={type === "poll" ? "Poll title (optional)" : "Add a title"}
+          placeholder={type === "poll" ? "Poll title (optional)" : type === "iso" ? "What are you looking for?" : "Add a title"}
           style={{ width: "100%", boxSizing: "border-box", marginTop: 10, border: "none", outline: "none", background: "transparent", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, letterSpacing: "-0.01em", color: "var(--ink)" }}
         />
 
@@ -661,18 +664,11 @@ function ComposePage() {
           </div>
         )}
 
-        {/* ISO fields — optional item title (v8 gates on photo only) + budget/condition/city */}
+        {/* ISO fields — v8 Overlays :300-320 single budget/condition row (the want's
+            NAME lives in the headline field above) + the city row (founder-kept:
+            Aug 16-24 action point, posts.iso_city — the prototype JSX lags it). */}
         {type === "iso" && (
-          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 12 }}>
-            <div>
-              <SectionLabel>What are you looking for?</SectionLabel>
-              <input
-                value={isoItem}
-                onChange={(e) => setIsoItem(e.target.value)}
-                placeholder="e.g. Hot Toys Iron Man Mark III"
-                style={{ width: "100%", boxSizing: "border-box", marginTop: 8, height: 44, padding: "0 13px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14.5, color: "var(--ink)", outline: "none" }}
-              />
-            </div>
+          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 140px" }}>
                 <SectionLabel>Max budget</SectionLabel>
