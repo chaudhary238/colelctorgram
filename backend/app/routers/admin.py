@@ -8,6 +8,7 @@ from sqlalchemy import select, func, update, or_
 
 from app.database import get_db
 from app.dependencies import get_current_admin
+from app.services import feed_cache
 from app.models.user import User
 from app.models.post import Post, Comment
 from app.models.listing import Listing
@@ -323,6 +324,7 @@ async def admin_remove_post(
         raise HTTPException(status_code=404, detail="Post not found")
     post.status = "removed"
     post.removed_reason = reason
+    feed_cache.invalidate()
 
 
 @router.delete("/listings/{listing_id}", status_code=204)

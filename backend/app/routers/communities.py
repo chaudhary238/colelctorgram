@@ -12,6 +12,7 @@ from app.dependencies import get_current_user
 from app.models.community import Community, CommunityMember, CommunityJoinRequest, CommunityMemberRemoval
 from app.models.deal import Vouch
 from app.models.user import User
+from app.services import feed_cache
 from app.services.notifications import notify
 
 # Founder first, then admins, then mods, then members (v8 multi-admin) — shared
@@ -925,6 +926,7 @@ async def approve_post(
         # Release the global hold too (only relevant for community-only posts).
         if post.status == "pending":
             post.status = "published"
+            feed_cache.invalidate()
         # B-75 — atomic increment
         await db.execute(
             update(Community).where(Community.id == community_id)

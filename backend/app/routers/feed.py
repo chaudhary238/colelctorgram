@@ -16,6 +16,7 @@ from app.models.listing import Listing
 from app.models.item import Item, ItemPhoto
 from app.models.catalogue import Catalogue
 from app.routers.posts import _iso_fields
+from app.services import feed_cache
 from app.services.blocks import blocked_user_ids
 from app.services.social import likers_preview
 
@@ -85,30 +86,42 @@ async def get_feed(
         )
         followed_ids = {str(r) for r in follows.scalars().all()}
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
-    # DF-27 — pending (awaiting-mod-review) community posts never appear in the feed.
-    # DF-30h — to_feed gates posts the author chose to keep community-only.
-    stmt = select(Post).where(
-        Post.created_at >= cutoff, Post.status == "published", Post.to_feed.is_(True)
-    )
-    if category:
-        stmt = stmt.where(Post.category == category)
-    if type:
-        stmt = stmt.where(Post.type == type)
-    if tag:
-        # hashtag slider filter (DF-09/DF-10) — tags stored with leading '#'
-        stmt = stmt.where(Post.tags.contains([tag]))
+    # The candidate window is shared across viewers and cached (feed_cache):
+    # only content filters go in the query; per-viewer filters (blocks,
+    # following_only) are applied in Python below so the cache stays shared.
+    cache_key = (category, type, tag)
+    posts = feed_cache.get(cache_key)
+    if posts is None:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+        # DF-27 — pending (awaiting-mod-review) community posts never appear in the feed.
+        # DF-30h — to_feed gates posts the author chose to keep community-only.
+        stmt = select(Post).where(
+            Post.created_at >= cutoff, Post.status == "published", Post.to_feed.is_(True)
+        )
+        if category:
+            stmt = stmt.where(Post.category == category)
+        if type:
+            stmt = stmt.where(Post.type == type)
+        if tag:
+            # hashtag slider filter (DF-09/DF-10) — tags stored with leading '#'
+            stmt = stmt.where(Post.tags.contains([tag]))
+        result = await db.execute(stmt.order_by(Post.created_at.desc()).limit(500))
+        posts = result.scalars().all()
+        # Detach before caching: rows outlive this session (read-only reuse is
+        # safe — expire_on_commit=False keeps loaded values readable).
+        for p in posts:
+            db.expunge(p)
+        feed_cache.put(cache_key, posts)
+
     if following_only:
         # only posts authored by users the viewer follows
-        stmt = stmt.where(Post.user_id.in_([uuid.UUID(fid) for fid in followed_ids] or [None]))
+        followed_uuids = {uuid.UUID(fid) for fid in followed_ids}
+        posts = [p for p in posts if p.user_id in followed_uuids]
 
     # B-69: hide posts by users in a block relationship with the viewer (either direction).
     blocked = await blocked_user_ids(db, current_user.id)
     if blocked:
-        stmt = stmt.where(Post.user_id.not_in(blocked))
-
-    result = await db.execute(stmt.order_by(Post.created_at.desc()).limit(500))
-    posts = result.scalars().all()
+        posts = [p for p in posts if p.user_id not in blocked]
 
     # For You honours Customize-feed categories: category-tagged posts outside the
     # selection drop; untagged posts (and a no-op full selection) pass through (DF-11)

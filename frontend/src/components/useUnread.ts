@@ -1,18 +1,21 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useRealtime } from "@/lib/realtime";
 
 /**
- * Live unread counts for messages + notifications, refetched on route change.
- * Shared by the desktop Sidebar and the mobile AppBar so both chrome surfaces
- * show the same badge numbers (R-03: AppBar reuses Sidebar's live counts).
+ * Live unread counts for messages + notifications — refetched on route change
+ * AND pushed via the realtime socket (message.new / notification.push), so the
+ * badges move without navigation. Shared by the desktop Sidebar and the mobile
+ * AppBar so both chrome surfaces show the same numbers (R-03).
  */
 export function useUnread() {
   const pathname = usePathname();
   const [unread, setUnread] = useState<{ msgs: number; notifs: number }>({ msgs: 0, notifs: 0 });
-  useEffect(() => {
+
+  const refetch = useCallback(() => {
     Promise.all([
       api.get<{ unread: number }[]>("/threads").catch(() => []),
       api.get<{ is_read: boolean }[]>("/notifications").catch(() => []),
@@ -22,6 +25,12 @@ export function useUnread() {
         notifs: notifs.filter((n) => !n.is_read).length,
       });
     });
-  }, [pathname]);
+  }, []);
+
+  useEffect(refetch, [pathname, refetch]);
+  useRealtime((e) => {
+    if (e.event === "message.new" || e.event === "notification.push" || e.event === "reconnect") refetch();
+  });
+
   return unread;
 }

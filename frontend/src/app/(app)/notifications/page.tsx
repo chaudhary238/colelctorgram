@@ -23,6 +23,7 @@ import { useSearchParams } from "next/navigation";
 import { MessageCircle, Shield, User, Heart, LayoutGrid, X } from "lucide-react";
 import { Avatar, CategoryChip } from "@/components/ui";
 import { api } from "@/lib/api";
+import { useRealtime } from "@/lib/realtime";
 import { timeAgo } from "@/lib/utils";
 
 // Thread shape from GET /threads — same rows /inbox renders (DV7-05).
@@ -119,6 +120,18 @@ function ActivityScreen() {
   useEffect(() => {
     api.get<Thread[]>("/threads").then((t) => setThreads(t ?? [])).catch(() => setThreads([]));
   }, []);
+
+  // Realtime: arrivals while the page is open refresh their segment. New rows
+  // land with is_read=false (read-all only runs on open), so the unread dots
+  // and counts light up for exactly what came in since you arrived.
+  useRealtime((e) => {
+    if (e.event === "notification.push" || e.event === "reconnect") {
+      api.get<ApiNotification[]>("/notifications?limit=50").then((n) => setNotifications(n ?? [])).catch(() => {});
+    }
+    if (e.event === "message.new" || e.event === "reconnect") {
+      api.get<Thread[]>("/threads").then((t) => setThreads(t ?? [])).catch(() => {});
+    }
+  });
 
   const dmUnread = (threads ?? []).reduce((s, t) => s + (t.unread || 0), 0);
   const activityUnread = notifications.filter((n) => !n.is_read).length;

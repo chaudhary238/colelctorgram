@@ -113,7 +113,9 @@ async def websocket_endpoint(ws: WebSocket, token: str | None = Query(default=No
         while True:
             await ws.receive_text()  # presence pings; nothing else for now
     except WebSocketDisconnect:
-        manager.disconnect(user_id)
+        pass
+    finally:
+        manager.disconnect(user_id, ws)
 
 
 @app.get("/health")

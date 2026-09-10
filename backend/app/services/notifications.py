@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification
 from app.models.user import User
+from app.ws.manager import manager
 
 # Map a notification `kind` to the notif_prefs toggle that gates it (DF-23). Kinds
 # absent here have no user toggle and are always delivered (vouches, rank-ups, etc.).
@@ -69,3 +70,6 @@ async def notify(
         ref_type=ref_type,
         ref_id=ref_id,
     ))
+    # Realtime nudge (notification.push) for live badge/Activity refresh. The
+    # row commits with the request a beat later; clients refetch, not render this.
+    await manager.publish(str(user_id), "notification.push", {"kind": kind, "title": title})

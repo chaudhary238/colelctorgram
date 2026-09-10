@@ -16,6 +16,7 @@ from app.models.catalogue import Catalogue
 from app.models.item import Item
 from app.services.blocks import is_blocked_pair
 from app.services.ratelimit import rate_limit_user
+from app.ws.manager import manager
 
 router = APIRouter(prefix="/threads", tags=["messages"])
 
@@ -157,6 +158,8 @@ async def create_thread(
         db.add(msg)
         await _bump_unread(db, thread, current_user.id)
         thread.last_message_at = datetime.now(timezone.utc)
+        await db.flush()
+        await manager.publish(str(body.other_user_id), "message.new", _msg_dict(msg))
 
     return _thread_dict(thread, current_user.id)
 
@@ -272,7 +275,11 @@ async def send_message(
     await _bump_unread(db, thread, current_user.id)
     thread.last_message_at = datetime.now(timezone.utc)
     await db.flush()
-    return _msg_dict(msg)
+    payload = _msg_dict(msg)
+    # Realtime nudge (message.new) so the recipient's open chat/inbox/badge
+    # update without a refresh. Delivery is best-effort — the row is the truth.
+    await manager.publish(str(other_id), "message.new", payload)
+    return payload
 
 
 async def _get_thread(thread_id, user_id, db):

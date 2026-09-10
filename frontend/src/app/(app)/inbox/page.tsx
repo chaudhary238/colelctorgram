@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useRealtime } from "@/lib/realtime";
 import { timeAgo } from "@/lib/utils";
 import { Avatar } from "@/components/ui";
 import { BackButton } from "@/components/BackButton";
@@ -44,6 +45,14 @@ export default function InboxPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  // Realtime: any incoming DM (or a reconnect after being offline) re-pulls the
+  // thread list so ordering, previews and unread counts stay current.
+  useRealtime((e) => {
+    if (e.event === "message.new" || e.event === "reconnect") {
+      api.get<Thread[]>("/threads").then((data) => setThreads(data ?? [])).catch(() => {});
+    }
+  });
 
   return (
     <div className="w-full max-w-[680px] flex flex-col">

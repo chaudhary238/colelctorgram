@@ -15,6 +15,7 @@ from app.models.catalogue import Catalogue
 from app.models.item import Item
 from app.models.listing import Listing
 from app.models.community import Community, CommunityMember
+from app.services import feed_cache
 from app.services.notifications import notify
 from app.services.gamification import award_xp, feed_badge
 from app.services.blocks import blocked_user_ids
@@ -187,6 +188,7 @@ async def create_post(
     elif body.type == "review":
         await award_xp(db, current_user, "review", ref_id=str(post.id), ref_type="post")
 
+    feed_cache.invalidate()
     return {"id": str(post.id), "status": post_status}
 
 
@@ -406,6 +408,7 @@ async def edit_post(
     for key, value in fields.items():
         setattr(post, key, value)
     await db.flush()
+    feed_cache.invalidate()
     return {"id": str(post.id), "updated_at": post.updated_at.isoformat()}
 
 
@@ -422,6 +425,7 @@ async def delete_post(
     if post.user_id != current_user.id and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Not your post")
     await db.delete(post)
+    feed_cache.invalidate()
 
 
 @router.post("/{post_id}/like", status_code=204)

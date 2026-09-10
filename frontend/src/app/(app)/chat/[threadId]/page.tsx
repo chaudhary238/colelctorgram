@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Ban, Check, ChevronRight, Flag, Link2, Plus, Send, Shield, Tag, ShoppingBag, Camera, MoreHorizontal } from "lucide-react";
 import { api } from "@/lib/api";
+import { useRealtime } from "@/lib/realtime";
 import { timeAgo } from "@/lib/utils";
 import { conditionLabel } from "@/lib/catalog";
 import { Avatar, Button, Money, ProductPhoto } from "@/components/ui";
@@ -124,6 +125,24 @@ function ChatThread() {
       })
       .catch(console.error);
   }, [threadId]);
+
+  // Realtime: paint the other side's message the moment it arrives. The quiet
+  // GET after the append re-syncs ordering AND marks the thread read server-side
+  // (the messages GET clears this viewer's unread counter).
+  const resync = () => {
+    api.get<ThreadData>(`/threads/${threadId}/messages`)
+      .then((d) => setLocalMessages(d.messages ?? []))
+      .catch(() => {});
+  };
+  useRealtime((e) => {
+    if (e.event === "message.new" && e.data.thread_id === threadId) {
+      const msg = e.data as unknown as Message;
+      setLocalMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+      resync();
+    } else if (e.event === "reconnect") {
+      resync(); // catch up on anything sent while the socket was down
+    }
+  });
 
   // Focus the prefilled composer with the cursor at the end (not auto-sent).
   useEffect(() => {

@@ -25,4 +25,7 @@ EXPOSE 8000
 # interprets `&&` and `${PORT}` properly — unlike Render's Docker Command field, which
 # execs without a shell. Railway still overrides this via railway.toml startCommand;
 # Render should leave its Docker Command BLANK so this CMD is used.
+# SINGLE WORKER ONLY — realtime (app/ws/manager.py) and the feed cache
+# (app/services/feed_cache.py) are in-process; add Redis pub/sub for both
+# BEFORE adding --workers or a second instance, or WS delivery silently breaks.
 CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
