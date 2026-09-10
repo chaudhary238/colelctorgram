@@ -57,8 +57,9 @@ function ModePicker({ onPick, onClose }: { onPick: (m: ModeId) => void; onClose:
             <X size={18} />
           </button>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>What are you adding?</div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Choose one to continue</div>
+            {/* v8 DetailHeader type (Chrome.jsx:83-110) — 19/700 title, 12 faint subtitle. */}
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em" }}>What are you adding?</div>
+            <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>Choose one to continue</div>
           </div>
         </div>
       </div>
@@ -91,14 +92,15 @@ const fieldStyle: React.CSSProperties = {
   fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", outline: "none",
 };
 
-// v8 shared Toggle — ON is FOREST green (design_v8 AddToCollection.jsx Toggle).
+// v8 shared Toggle — ON is FOREST green (design_v8 AddToCollection.jsx:344-353):
+// 46×28 pill, 22px paper knob at 3/21, shadow-1 (mirrors sell/page.tsx).
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} aria-pressed={on} style={{
-      width: 46, height: 27, borderRadius: 999, flexShrink: 0, cursor: "pointer", position: "relative",
+      width: 46, height: 28, borderRadius: 999, flexShrink: 0, cursor: "pointer", position: "relative",
       border: "none", background: on ? "var(--forest)" : "var(--bone-deep)", transition: "background 160ms",
     }}>
-      <span style={{ position: "absolute", top: 3, left: on ? 22 : 3, width: 21, height: 21, borderRadius: "50%", background: "var(--paper)", transition: "left 160ms" }} />
+      <span style={{ position: "absolute", top: 3, left: on ? 21 : 3, width: 22, height: 22, borderRadius: "50%", background: "var(--paper)", transition: "left 160ms", boxShadow: "var(--shadow-1)" }} />
     </button>
   );
 }
@@ -500,9 +502,10 @@ function AddListingPageInner() {
             <ChevronRight size={18} style={{ transform: "rotate(180deg)" }} />
           </button>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Add an item</div>
+            {/* v8 DetailHeader type (Chrome.jsx:83-110) — 19/700 title, 12 faint subtitle. */}
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em" }}>Add an item</div>
             {/* Bare category label per v8 (AddListing.jsx:485 subtitle={meta.label}). */}
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{meta.label}</div>
+            <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{meta.label}</div>
           </div>
         </div>
       </div>
@@ -514,12 +517,24 @@ function AddListingPageInner() {
             Hidden behind the summary card once linked; "Fix item details" reveals it. */}
         {(!identityFixed || idOpen) && (
           <>
-            {/* Category — shared CategoryChip (stamp-red active), singular chipLabel (DV8). */}
+            {/* Category — v8's ink-filled chip (AddListing.jsx:527-538): 7px 13px, active
+                bg --ink, weight 500; matches the harmonized condition chips below. */}
             <Label>Category</Label>
             <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-              {ADD_CATEGORIES.map((c) => (
-                <CategoryChip key={c.id} active={cat === c.id} onClick={() => changeCat(c.id)}>{c.chipLabel}</CategoryChip>
-              ))}
+              {ADD_CATEGORIES.map((c) => {
+                const active = cat === c.id;
+                return (
+                  <button key={c.id} type="button" onClick={() => changeCat(c.id)} style={{
+                    display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: 999,
+                    background: active ? "var(--ink)" : "var(--paper-soft)",
+                    color: active ? "var(--paper)" : "var(--ink)",
+                    border: `1px solid ${active ? "var(--ink)" : "var(--border)"}`,
+                    fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap", lineHeight: 1,
+                  }}>
+                    {c.chipLabel}
+                  </button>
+                );
+              })}
             </div>
             <div style={{ fontSize: 12, color: "var(--ink-faint)", margin: "9px 2px 0", lineHeight: 1.5 }}>
               The form adapts to the category.
@@ -570,7 +585,8 @@ function AddListingPageInner() {
                       padding: "10px 13px", background: "var(--verified-teal-soft)", border: "none",
                     }}>
                       <Plus size={14} strokeWidth={2.4} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
-                      <span style={{ fontSize: 14, color: "var(--verified-teal)", fontWeight: 600 }}>Add &ldquo;{brand.trim()}&rdquo; as a new brand</span>
+                      {/* v8 :591 — no article: 'as new brand'. */}
+                      <span style={{ fontSize: 14, color: "var(--verified-teal)", fontWeight: 600 }}>Add &ldquo;{brand.trim()}&rdquo; as new brand</span>
                     </button>
                   )}
                 </div>
@@ -652,7 +668,7 @@ function AddListingPageInner() {
             {isNewToDb && (
               <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderRadius: 9, background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)" }}>
                 <Sparkles size={13} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
-                <span style={{ fontSize: 12, color: "var(--verified-teal)", fontWeight: 600 }}>New to Scorred DB — you&rsquo;ll earn +50 XP as first contributor</span>
+                <span style={{ fontSize: 12, color: "var(--verified-teal)", fontWeight: 600 }}>New to Scorred DB — you will earn +50 XP as first contributor</span>
               </div>
             )}
 
@@ -789,7 +805,7 @@ function AddListingPageInner() {
               </div>
             )}
 
-            <Label hint="optional · private">What you paid</Label>
+            <Label hint="optional / private">What you paid</Label>
             <MoneyField value={paid} onChange={setPaid} cur={paidCur} onCur={setPaidCur} placeholder="Purchase price" />
             <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0" }}>Only you see this.</div>
           </>
@@ -870,7 +886,7 @@ function AddListingPageInner() {
                 {/* Exactly two toggle rows — v8 dropped "Open to trades" (AddListing.jsx:876-879). */}
                 <div style={{ marginTop: 12 }}>
                   {[
-                    { k: "ship", title: "Shipping included", sub: "Price covers delivery — no extra at checkout", on: shipIncl, set: () => setShipIncl((v) => !v) },
+                    { k: "ship", title: "Shipping included", sub: "Price covers delivery", on: shipIncl, set: () => setShipIncl((v) => !v) },
                     { k: "ret", title: "Returns accepted", sub: "Buyer can return within a short window", on: returns, set: () => setReturns((v) => !v) },
                   ].map((row, i, arr) => (
                     <div key={row.k} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 0", borderBottom: i === arr.length - 1 ? "none" : "1px solid var(--border)" }}>
@@ -912,7 +928,8 @@ function AddListingPageInner() {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>Selling is off for pre-orders</div>
-              <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 3, lineHeight: 1.45 }}>List it on the Market once it&rsquo;s in hand. For now it&rsquo;s saved to your collection as a pre-order.</div>
+              {/* v8 :910 — one sentence, no extension. */}
+              <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 3, lineHeight: 1.45 }}>List it on the Market once it&rsquo;s in hand.</div>
             </div>
           </div>
         )}
@@ -926,11 +943,14 @@ function AddListingPageInner() {
         className="sticky z-10 bg-[var(--paper)] border-t border-[var(--border)] bottom-[calc(64px+env(safe-area-inset-bottom))] lg:bottom-0"
         style={{ padding: "11px 20px", marginTop: 6 }}
       >
+        {/* v8 Button size "block" (shared.jsx:571 / AddListing.jsx:487-492) — 52 / r14 /
+            16 / 600, mirroring sell/page.tsx's footer CTA. */}
         <button onClick={submit} disabled={submitting} type="button" style={{
           display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
-          height: 48, borderRadius: 12, border: "none",
+          height: 52, padding: "0 22px", borderRadius: 14,
+          border: `1px solid ${forSale ? "var(--stamp-red)" : "var(--ink)"}`,
           background: forSale ? "var(--stamp-red)" : "var(--ink)", color: "var(--paper)",
-          fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15,
+          fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 16, lineHeight: 1, whiteSpace: "nowrap",
           cursor: submitting ? "wait" : "pointer", opacity: invalid ? 0.5 : 1,
         }}>
           {forSale ? <Tag size={18} /> : <PlusCircle size={18} />}

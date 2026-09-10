@@ -9,9 +9,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Gift, Link2, Copy, Check, Share2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { timeAgo } from "@/lib/utils";
 import { Avatar, Button, SectionLabel } from "@/components/ui";
+import { fireToast } from "@/components/gamification";
 
-interface ReferralRow { handle: string; name: string; avatar_url: string | null; status: "joined" | "pending"; xp: number }
+interface ReferralRow { handle: string; name: string; avatar_url: string | null; status: "joined" | "pending"; xp: number; joined_at: string | null }
 interface ReferralData { code: string; invited: number; joined: number; xp_earned: number; reward_xp: number; referrals: ReferralRow[] }
 
 const STEPS = [
@@ -35,6 +37,7 @@ export default function ReferPage() {
     try {
       await navigator.clipboard.writeText(link);
       setCopied(true);
+      fireToast("Referral link copied!"); // v8 ReferView.jsx:20
       setTimeout(() => setCopied(false), 2000);
     } catch { /* clipboard blocked — no-op */ }
   }
@@ -94,7 +97,9 @@ export default function ReferPage() {
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-faint)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Your referral link</div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 11, background: "var(--bone)", border: "1px solid var(--border)" }}>
                 <Link2 size={15} style={{ color: "var(--ink-mute)", flexShrink: 0 }} />
-                <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "var(--ink-soft)", fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.code}</span>
+                {/* v8 ReferView.jsx:15,63 — the box shows the LINK Copy puts on the
+                    clipboard (scheme stripped for the "scorred.app/…" display). */}
+                <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "var(--ink-soft)", fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link.replace(/^https?:\/\//, "")}</span>
                 <button onClick={copy} style={{ flexShrink: 0, padding: "5px 11px", borderRadius: 8, background: copied ? "var(--verified-teal)" : "var(--ink)", color: "#fff", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
                   {copied ? <Check size={13} /> : <Copy size={13} />}
                   {copied ? "Copied" : "Copy"}
@@ -127,7 +132,8 @@ export default function ReferPage() {
                     <Avatar name={r.name} size={38} photo={r.avatar_url} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{r.name}</div>
-                      <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 1 }}>@{r.handle}</div>
+                      {/* v8 ReferView.jsx:104 — sub-line = relative join time. */}
+                      <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 1 }}>{r.joined_at ? timeAgo(r.joined_at) : `@${r.handle}`}</div>
                     </div>
                     {r.status === "joined" ? (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>

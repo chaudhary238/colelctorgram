@@ -6,18 +6,21 @@ import { useParams, useRouter } from "next/navigation";
 import { Clock, Calendar, MapPin, Globe, ChevronRight, X, Pencil, Share2, MessageCircle, Settings2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiEvent } from "@/components/cards";
-import { shortDate } from "@/lib/utils";
 import { Avatar, SectionLabel, EmptyNote, Segmented } from "@/components/ui";
 import { BackButton } from "@/components/BackButton";
 import { ImageUploader } from "@/components/ImageUploader";
-import { CityField, formatTime12 } from "@/components/CityField";
+import { CityField } from "@/components/CityField";
 import { MoneyField } from "@/components/forms";
 import { fireToast } from "@/components/gamification";
 import { ADD_CATEGORIES } from "@/lib/catalog";
+import { fmtEventWhen } from "../../_date";
 
 interface Guest { handle: string; name: string; avatar_url: string | null; city: string | null; status: "going" | "interested" }
 
 // DV8-16 pricing/ticketing fields now live on the shared ApiEvent (DV8-17).
+// DV8 §8#17 — manage access keys off `can_manage` (host + site admin); `is_host`
+// is now the actual host only. Extended locally until the shared type carries it.
+type EventPayload = ApiEvent & { can_manage?: boolean };
 
 // (CAT_LABEL retired here — v8's pending rows dropped the categories row; the
 // detail page keeps its own map, incl. tcg.)
@@ -54,13 +57,16 @@ function DetailRow({ icon: Icon, title, sub, last }: { icon: React.ComponentType
   );
 }
 
-// v8 GuestRow — real avatar photo, trailing chevron, muted rendering for "interested".
-function GuestRow({ guest, muted }: { guest: Guest; muted?: boolean }) {
+// v8 GuestRow (EventManage.jsx:135-138) — real avatar photo, trailing chevron.
+// An "interested" row keeps the name at FULL ink; v8's `muted` only suppresses the
+// verified tick, which we don't render at all (host_tier dead both sides — §8#18),
+// so the prop carries nothing here and is dropped.
+function GuestRow({ guest }: { guest: Guest }) {
   return (
     <Link href={`/profile/${guest.handle}`} style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", padding: 10, textDecoration: "none", borderRadius: 12, background: "var(--paper-soft)", border: "1px solid var(--border)" }}>
       <Avatar name={guest.name} photo={guest.avatar_url ?? undefined} size={38} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: muted ? "var(--ink-soft)" : "var(--ink)" }}>{guest.name}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{guest.name}</div>
         <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{guest.handle}{guest.city ? ` · ${guest.city}` : ""}</div>
       </div>
       <ChevronRight size={17} strokeWidth={2} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
@@ -68,9 +74,11 @@ function GuestRow({ guest, muted }: { guest: Guest; muted?: boolean }) {
   );
 }
 
-function Stat({ n, label, accent }: { n: number | string; label: string; accent: string }) {
+// v8 ManageStat (EventManage.jsx:148-154) — optional onClick plumbed faithfully;
+// no call site passes one yet, so today every tile stays cursor:default.
+function Stat({ n, label, accent, onClick }: { n: number | string; label: string; accent: string; onClick?: () => void }) {
   return (
-    <div style={{ flex: 1, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: "12px 10px", textAlign: "center" }}>
+    <div onClick={onClick} style={{ flex: 1, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: "12px 10px", textAlign: "center", cursor: onClick ? "pointer" : "default" }}>
       <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 22, color: accent, lineHeight: 1 }}>{n}</div>
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--ink-faint)", marginTop: 5 }}>{label}</div>
     </div>
@@ -90,7 +98,7 @@ function isoToParts(iso: string) {
 export default function EventManagePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [event, setEvent] = useState<ApiEvent | null>(null);
+  const [event, setEvent] = useState<EventPayload | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(true);
   const [denied, setDenied] = useState(false);
@@ -121,9 +129,10 @@ export default function EventManagePage() {
     let active = true;
     (async () => {
       try {
-        const ev = await api.get<ApiEvent>(`/events/${id}`);
+        const ev = await api.get<EventPayload>(`/events/${id}`);
         if (!active) return;
-        if (!ev.is_host) { setDenied(true); return; }
+        // DV8 §8#17 — can_manage (host + site admin) gates this page, not is_host.
+        if (!ev.can_manage) { setDenied(true); return; }
         setEvent(ev);
         const guestList = await api.get<Guest[]>(`/events/${id}/interested`).catch(() => []);
         if (active) setGuests(guestList ?? []);
@@ -209,10 +218,11 @@ export default function EventManagePage() {
       if ((eContact.trim() || null) !== (event.contact ?? null)) patch.contact = eContact.trim() || null;
 
       if (Object.keys(patch).length > 0) {
-        const updated = await api.patch<ApiEvent>(`/events/${event.id}`, patch);
+        const updated = await api.patch<EventPayload>(`/events/${event.id}`, patch);
         setEvent(updated);
       }
       setEditing(false);
+      fireToast("Event updated");   // v8 EventManage.jsx:70
     } finally {
       setBusy(false);
     }
@@ -260,12 +270,6 @@ export default function EventManagePage() {
     );
   }
 
-  const { day, month } = shortDate(event.starts_at);
-  const eventDate = new Date(event.starts_at);
-  const dayName = eventDate.toLocaleString("en-IN", { weekday: "short" });
-  // DV8-16 — every echoed time reads "4:00 pm".
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const timeStr = formatTime12(`${pad(eventDate.getHours())}:${pad(eventDate.getMinutes())}`);
   const pending = event.status === "pending_approval";
   const cancelled = event.status === "cancelled" || event.status === "rejected";
   const goingGuests = guests.filter((g) => g.status === "going");
@@ -300,7 +304,8 @@ export default function EventManagePage() {
             </div>
             {/* v8 pending rows — when/city · where/"Venue" · bound community (when present) */}
             <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden", margin: "16px 0" }}>
-              <DetailRow icon={Calendar} title={`${dayName}, ${month} ${day} · ${timeStr}`} sub={event.city ?? undefined} />
+              {/* v8 §8#14 — same date grammar as the detail page: "Sat · 24 May · 4:00 pm – 8:00 pm". */}
+              <DetailRow icon={Calendar} title={fmtEventWhen(event.starts_at, event.ends_at)} sub={event.city ?? undefined} />
               <DetailRow icon={online ? Globe : MapPin} title={event.where ?? event.venue ?? "TBA"} sub="Venue" last={!event.community} />
               {event.community && <DetailRow icon={MessageCircle} title={event.community.name} sub="Bound community" last />}
             </div>
@@ -366,7 +371,8 @@ export default function EventManagePage() {
           editing ? (
             <div style={{ border: "1px solid var(--border)", borderRadius: 14, padding: "2px 14px 14px", marginBottom: 18, background: "var(--paper-soft)" }}>
               <EditLabel hint="optional">Cover photo</EditLabel>
-              <ImageUploader onUpload={(url) => setECover(url)} previewUrl={eCover ?? undefined} label="Add a cover photo" />
+              {/* v8 EventManage cover tile is the same 96px camera tile as the create form (§8#28). */}
+              <ImageUploader onUpload={(url) => setECover(url)} previewUrl={eCover ?? undefined} label="Add a cover photo" height={96} compact />
 
               <EditLabel>Event title</EditLabel>
               <input value={eTitle} onChange={(e) => setETitle(e.target.value)} placeholder="Title" style={fieldStyle} />
@@ -379,7 +385,8 @@ export default function EventManagePage() {
                     // v8 — label-only pills (no check glyph), 7px/13px, singular chipLabel.
                     <button key={c.id} type="button" onClick={() => toggleECat(c.id)} style={{
                       display: "inline-flex", alignItems: "center", padding: "7px 13px", borderRadius: 999, cursor: "pointer",
-                      background: on ? "var(--ink)" : "var(--paper)", color: on ? "var(--paper)" : "var(--ink)",
+                      // v8 EventManage.jsx:217 — off-state chips sit on paper-soft.
+                      background: on ? "var(--ink)" : "var(--paper-soft)", color: on ? "var(--paper)" : "var(--ink)",
                       border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
                       fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13, lineHeight: 1, whiteSpace: "nowrap",
                     }}>
@@ -472,7 +479,7 @@ export default function EventManagePage() {
               <>
                 <SectionLabel>Interested · {interestedGuests.length}</SectionLabel>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, margin: "10px 0 18px" }}>
-                  {interestedGuests.map((g) => <GuestRow key={g.handle} guest={g} muted />)}
+                  {interestedGuests.map((g) => <GuestRow key={g.handle} guest={g} />)}
                 </div>
               </>
             )}

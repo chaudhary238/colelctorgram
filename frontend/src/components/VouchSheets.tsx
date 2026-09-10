@@ -4,8 +4,10 @@ import { useEffect, useState, useCallback } from "react";
 import { X, Shield, Check, Repeat, ShoppingBag, Users, Globe } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useUser } from "@/lib/auth-context";
 import { Avatar, Button } from "@/components/ui";
 import { fireXpToast, fireToast } from "@/components/gamification";
+import { useFollowMap, FollowRowButton } from "@/components/FollowListModal";
 
 /* Relation taxonomy — mirrors v3 ProfileView VOUCH_RELATIONS / VouchView REL. */
 export const VOUCH_RELATIONS: { id: string; label: string; icon: React.ReactNode }[] = [
@@ -181,14 +183,22 @@ export function VouchGiveSheet({
 
 /* ── Vouches received / given list ─────────────────────────────────── */
 export function VouchListModal({
-  handle, mode, onClose,
+  handle, mode, isOwn, onClose, onRequest, onVouch,
 }: {
   handle: string;
   mode: "received" | "given";
+  /** The list belongs to the signed-in viewer (drives the header CTA). */
+  isOwn?: boolean;
   onClose: () => void;
+  /** Own profile, Received tab — header "Request" CTA (v8 ProfileView:480). */
+  onRequest?: () => void;
+  /** Someone else's profile — header "Vouch" CTA (v8 ProfileView:481). */
+  onVouch?: () => void;
 }) {
+  const { user: me } = useUser();
   const [active, setActive] = useState<"received" | "given">(mode);
   const [rows, setRows] = useState<VouchRow[] | null>(null);
+  const [followMap, setFollowMap] = useFollowMap();
 
   const load = useCallback(async (m: "received" | "given") => {
     setRows(null);
@@ -199,11 +209,21 @@ export function VouchListModal({
     }
   }, [handle]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- load resets rows synchronously; fetch-per-tab
   useEffect(() => { load(active); }, [active, load]);
+
+  // v8 ProfileView:479-481 — trailing CTA: "Request" on your own received list,
+  // "Vouch" anywhere on someone else's profile, nothing on your own given list.
+  const trailingCta =
+    isOwn && active === "received" && onRequest ? (
+      <Button size="sm" variant="teal" icon={<Shield size={15} />} onClick={onRequest}>Request</Button>
+    ) : !isOwn && onVouch ? (
+      <Button size="sm" variant="teal" icon={<Shield size={15} />} onClick={onVouch}>Vouch</Button>
+    ) : null;
 
   return (
     <Sheet onClose={onClose}>
-      <div className="flex items-center border-b border-[var(--border)] px-4 py-3 shrink-0">
+      <div className="flex items-center border-b border-[var(--border)] px-4 py-3 shrink-0" style={{ gap: 8 }}>
         <div className="flex gap-6 flex-1">
           {(["received", "given"] as const).map((t) => (
             <button
@@ -217,6 +237,7 @@ export function VouchListModal({
             </button>
           ))}
         </div>
+        {trailingCta}
         <button onClick={onClose} className="p-1 rounded-lg text-[var(--ink-faint)] hover:text-[var(--ink)] hover:bg-[var(--bone)] transition-colors">
           <X size={18} />
         </button>
@@ -237,14 +258,18 @@ export function VouchListModal({
           </p>
         ) : (
           rows.map((u) => (
-            <Link
-              key={u.handle}
-              href={`/profile/${u.handle}`}
-              onClick={onClose}
-              className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-[var(--bone)] transition-colors"
-            >
-              <Avatar name={u.name} photo={u.avatar_url} size={44} />
-              <div className="flex-1 min-w-0">
+            // v8 ProfileView:487-502 — row div (not one big link) so the trailing
+            // Follow button can live beside the avatar/name links.
+            <div key={u.handle} className="flex items-center gap-3 px-2 py-2.5">
+              <Link href={`/profile/${u.handle}`} onClick={onClose} className="shrink-0">
+                <Avatar name={u.name} photo={u.avatar_url} size={44} />
+              </Link>
+              <Link
+                href={`/profile/${u.handle}`}
+                onClick={onClose}
+                className="flex-1 min-w-0"
+                style={{ textDecoration: "none", color: "inherit" }}
+              >
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-[var(--ink)] truncate">{u.name}</span>
                 </div>
@@ -253,8 +278,12 @@ export function VouchListModal({
                   {/* QA2 — show only the selected relation category, never the free-text reason/note. */}
                   <span className="text-xs text-[var(--ink-faint)] truncate">{relationLabel(u.relation)}</span>
                 </div>
-              </div>
-            </Link>
+              </Link>
+              {/* v8 :498-501 — per-row Follow/Following; hidden on your own row. */}
+              {me?.handle !== u.handle && (
+                <FollowRowButton handle={u.handle} followMap={followMap} setFollowMap={setFollowMap} />
+              )}
+            </div>
           ))
         )}
       </div>
@@ -290,7 +319,7 @@ export function VouchRequestModal({ myHandle, onClose }: { myHandle: string; onC
         <div style={{ display: "flex", gap: 10, padding: "12px 14px", background: "var(--verified-teal-soft)", border: "1px solid var(--verified-teal)", borderRadius: 12 }}>
           <Shield size={18} style={{ color: "var(--verified-teal)", flexShrink: 0, marginTop: 1 }} />
           <p style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
-            Vouches build trust independent of trades. Ask collectors who know you — from a deal, a meet-up, or a community — to vouch for you.
+            Vouches build trust independent of trades. Ask collectors who know you — from a deal, a meet-up, a community, or anywhere — to vouch for you.
           </p>
         </div>
       </div>

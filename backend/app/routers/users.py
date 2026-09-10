@@ -37,6 +37,8 @@ class ProfileOut(BaseModel):
     city: Optional[str]
     country: Optional[str] = None
     avatar_url: Optional[str]
+    # v8 EditAvatarView — chosen initials-avatar colour (null = name-hash default).
+    avatar_tone: Optional[str] = None
     interests: list[str]
     sub_interests: Optional[dict] = None  # per-category chips from onboarding (DV4-06)
     rating: float
@@ -122,6 +124,7 @@ class EditProfileBody(BaseModel):
     # DV8 — true exactly once, when the signup wizard finishes (Skip included).
     onboarded: Optional[bool] = None
     avatar_url: Optional[str] = None
+    avatar_tone: Optional[str] = None  # v8 EditAvatarView colour picker
     interests: Optional[list[str]] = None
     sub_interests: Optional[dict] = None  # per-category sub-interest chips (DV4-06)
     privacy_portfolio: Optional[str] = None
@@ -146,8 +149,42 @@ class FollowUserOut(BaseModel):
     handle: str
     name: str
     avatar_url: Optional[str]
+    # v8 ProfileView.jsx:415-450 — follow-list rows carry place, presence and a
+    # per-row Follow button, so the payload needs the viewer-relative state.
+    city: Optional[str] = None
+    country: Optional[str] = None
+    last_active_at: Optional[datetime] = None  # nulled when the row hides presence
+    is_me: bool = False
+    is_following: bool = False
 
     model_config = {"from_attributes": True}
+
+
+async def _follow_rows(db: AsyncSession, users: list[User], viewer: User) -> list[dict]:
+    """Serialize follow-list rows with viewer-relative state in ONE extra query."""
+    if not users:
+        return []
+    followed = set((await db.execute(
+        select(Follow.following_id).where(
+            Follow.follower_id == viewer.id,
+            Follow.following_type == "user",
+            Follow.following_id.in_([u.id for u in users]),
+        )
+    )).scalars().all())
+    rows = []
+    for u in users:
+        show_online = (u.privacy_prefs or {}).get("show_online", DEFAULT_PRIVACY_PREFS["show_online"])
+        rows.append({
+            "handle": u.handle,
+            "name": u.name,
+            "avatar_url": u.avatar_url,
+            "city": u.city,
+            "country": u.country,
+            "last_active_at": u.last_active_at if show_online else None,
+            "is_me": u.id == viewer.id,
+            "is_following": u.id in followed,
+        })
+    return rows
 
 
 @router.get("/me", response_model=ProfileOut)
@@ -268,7 +305,7 @@ async def get_saved_posts(
     current_user: User = Depends(get_current_user),
 ):
     """Posts the current user has bookmarked, newest-saved first (paginated)."""
-    from app.routers.feed import _post_dict
+    from app.routers.feed import serialize_posts
 
     saves_q = await db.execute(
         select(PostSave.post_id)
@@ -286,40 +323,8 @@ async def get_saved_posts(
     # Preserve save-order (newest saved first)
     ordered = [posts_by_id[pid] for pid in saved_post_ids if pid in posts_by_id]
 
-    author_ids = list({p.user_id for p in ordered})
-    users_result = await db.execute(select(User).where(User.id.in_(author_ids)))
-    users_by_id = {u.id: u for u in users_result.scalars().all()}
-
-    liked_q = await db.execute(
-        select(PostLike.post_id).where(
-            PostLike.user_id == current_user.id,
-            PostLike.post_id.in_(saved_post_ids),
-        )
-    )
-    liked_ids = set(liked_q.scalars().all())
-
-    follows_q = await db.execute(
-        select(Follow.following_id).where(
-            Follow.follower_id == current_user.id,
-            Follow.following_type == "user",
-        )
-    )
-    followed_ids = {str(r) for r in follows_q.scalars().all()}
-
-    return {
-        "page": page,
-        "limit": limit,
-        "items": [
-            _post_dict(
-                p,
-                users_by_id.get(p.user_id),
-                p.id in liked_ids,
-                True,  # every post here is saved by definition
-                str(p.user_id) in followed_ids,
-            )
-            for p in ordered
-        ],
-    }
+    items = await serialize_posts(db, ordered, current_user)
+    return {"page": page, "limit": limit, "items": items}
 
 
 HANDLE_RE = re.compile(r"^[a-z0-9_]{3,20}$")
@@ -482,7 +487,7 @@ async def get_profile(
     return out
 
 
-@router.post("/{handle}/follow", status_code=204)
+@router.post("/{handle}/follow")
 async def follow_user(
     handle: str,
     db: AsyncSession = Depends(get_db),
@@ -506,7 +511,7 @@ async def follow_user(
         .on_conflict_do_nothing()
     )
     if not inserted.rowcount:
-        return  # already following (or concurrent double-click)
+        return {"xp_granted": False}  # already following (or concurrent double-click)
 
     await db.execute(
         update(User).where(User.id == target_user.id)
@@ -516,8 +521,10 @@ async def follow_user(
         update(User).where(User.id == current_user.id)
         .values(following_count=User.following_count + 1)
     )
-    # DV6-04 — +2 XP micro-reward, deduped per followed collector.
-    await award_xp(db, current_user, "follow", ref_id=str(target_user.id), ref_type="user")
+    # DV6-04 — +2 XP micro-reward, deduped per followed collector. The verdict
+    # rides the response so the client's "· +2 XP" toast suffix is server-truth
+    # (v8 Cards.jsx:33).
+    xp_granted = await award_xp(db, current_user, "follow", ref_id=str(target_user.id), ref_type="user")
     await notify(
         db,
         user_id=target_user.id,
@@ -528,6 +535,7 @@ async def follow_user(
         ref_type="profile",
         ref_id=current_user.handle,
     )
+    return {"xp_granted": bool(xp_granted)}
 
 
 @router.get("/{handle}/followers", response_model=list[FollowUserOut])
@@ -555,7 +563,7 @@ async def list_followers(
     if blocked:
         stmt = stmt.where(User.id.not_in(blocked))
     result = await db.execute(stmt)
-    return result.scalars().all()
+    return await _follow_rows(db, list(result.scalars().all()), current_user)
 
 
 @router.get("/{handle}/following", response_model=list[FollowUserOut])
@@ -583,7 +591,7 @@ async def list_following(
     if blocked:
         stmt = stmt.where(User.id.not_in(blocked))
     result = await db.execute(stmt)
-    return result.scalars().all()
+    return await _follow_rows(db, list(result.scalars().all()), current_user)
 
 
 # ── Vouches (DF-36a): peer endorsements, independent of any deal ─────────────
@@ -787,24 +795,13 @@ async def get_user_posts(
         .limit(limit)
     )
     result = await db.execute(stmt)
-    posts = result.scalars().all()
-    return {
-        "page": page,
-        "items": [
-            {
-                "id": str(p.id),
-                "type": p.type,
-                "body": p.body,
-                "images": p.images,
-                "category": p.category,
-                "likes_count": p.likes_count,
-                "comments_count": p.comments_count,
-                "saves_count": p.saves_count,
-                "created_at": p.created_at.isoformat(),
-            }
-            for p in posts
-        ],
-    }
+    posts = list(result.scalars().all())
+
+    # Full shared serializer (DV8 audit §9#45): profile ISO/review/tagged-item cards
+    # need the same fields the feed gets — title, iso_*, ref_sku*, badge, ref_listing.
+    from app.routers.feed import serialize_posts
+    items = await serialize_posts(db, posts, current_user)
+    return {"page": page, "items": items}
 
 
 async def _wishlist_hidden(db: AsyncSession, viewer: Optional[User], target_user: User) -> bool:
@@ -932,7 +929,7 @@ async def get_collection(
     # owned/pre-order item is complete ("we genuinely can't compute it" — v8);
     # the owner always sees it, with the incomplete count driving the finish card.
     # (The old client-side sum read per-item `value`, which is now owner-only.)
-    port_rows = (await db.execute(
+    all_rows = (await db.execute(
         select(
             Item.status, Item.condition, Item.value, Item.sold_at,
             Item.preorder_eta, Item.preorder_window_precision, Item.preorder_total,
@@ -940,12 +937,15 @@ async def get_collection(
     )).all()
     # DV8 sold state — sold copies are history: out of the value, out of the
     # completeness denominator (item_is_complete also short-circuits on sold_at).
-    port_rows = [r for r in port_rows if r.sold_at is None]
+    port_rows = [r for r in all_rows if r.sold_at is None]
     incomplete_count = sum(1 for r in port_rows if not item_is_complete(r))
     owned_value = sum((r.value or 0) for r in port_rows if r.status == "owned")
     value_shared = len(port_rows) > 0 and incomplete_count == 0
     portfolio = {
         "item_count": len(port_rows),
+        # v8 ProfileCollection.jsx:66 — the Items pill counts the whole shelf,
+        # sold history included (audit §9#22).
+        "shelf_count": len(all_rows),
         "complete_count": len(port_rows) - incomplete_count,
         "incomplete_count": incomplete_count,
         "value": owned_value if (is_owner_view or value_shared) else None,
@@ -978,8 +978,23 @@ async def get_collection(
                 "image_url": covers.get(i.id),
                 "preorder_eta": i.preorder_eta,
                 # DV8 — the finish flow seeds its window picker from these (owner only).
+                # Deposit rides along so PO-calendar balances subtract it (audit §9#28)
+                # and `?item=` single-edits stop discarding it (audit §6#35).
                 "preorder_window_precision": i.preorder_window_precision if is_owner_view else None,
                 "preorder_total": i.preorder_total if is_owner_view else None,
+                "preorder_deposit": i.preorder_deposit if is_owner_view else None,
+                "preorder_seller": i.preorder_seller if is_owner_view else None,
+                "preorder_ordered_at": (
+                    i.preorder_ordered_at.isoformat() if (is_owner_view and i.preorder_ordered_at) else None
+                ),
+                # v8 CompleteItems.jsx:95 — finish-flow price placeholder anchor (paise).
+                "est_value": (
+                    cat_by_sku[i.sku].est_retail_price
+                    if i.sku and i.sku in cat_by_sku and cat_by_sku[i.sku].est_retail_price
+                    else None
+                ),
+                # DV8 "NEW DB" chip (audit §9#25).
+                "is_new_to_db": i.is_new_to_db,
                 "is_wishlisted": _wishlisted(i),
                 "created_at": i.created_at.isoformat(),
             }

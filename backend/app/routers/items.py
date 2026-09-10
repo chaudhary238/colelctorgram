@@ -68,6 +68,14 @@ class UpdateItemBody(BaseModel):
     status: Optional[str] = None
     condition: Optional[str] = None
     description: Optional[str] = None  # DV8 — the sell/edit page lets you edit your copy's notes
+    # v8 AddListing.jsx:513 "Fix item details" — identity edits on YOUR copy.
+    # Owner precedence in resolved_item_facts means these override the linked
+    # catalogue entry for this item only; the shared record is untouched.
+    custom_title: Optional[str] = None
+    brand: Optional[str] = None
+    scale: Optional[str] = None
+    category: Optional[str] = None
+    release_year: Optional[int] = None
     tcg_graded: Optional[bool] = None
     tcg_grader: Optional[str] = None
     tcg_grade: Optional[str] = None
@@ -119,6 +127,10 @@ class ItemOut(BaseModel):
     # deduped/capped); the client toasts what the server says, like db_new_xp.
     add_xp: int = 0
     complete_xp: int = 0
+    # DV8 "NEW DB" tile chip — this add created its catalogue entry.
+    is_new_to_db: bool = False
+    # v8 CompleteItems.jsx:193 — a condition PATCH also updated a live listing.
+    listing_synced: bool = False
     # Uploaded ownership photos (cover first). image_url is the cover convenience field.
     images: list[str] = []
     image_url: Optional[str] = None
@@ -246,6 +258,9 @@ async def add_item(
             cover_url=body.cover_url, description=body.description,
         )
         item.sku = sku
+        # DV8 "NEW DB" chip — this add CREATED the catalogue entry (first
+        # contributor). Flag regardless of the XP daily cap.
+        item.is_new_to_db = not catalogue_matched
         await db.flush()
     # DV8 — adding earns +5; finishing (condition + price) earns +20 more. Both
     # dedup per item, so re-adds and later PATCHes can never double-grant.
@@ -515,9 +530,22 @@ async def update_item(
     if not was_complete and item.status in ("owned", "preorder") and _is_complete(item):
         if await award_xp(db, current_user, "complete_item", ref_id=str(item.id), ref_type="item"):
             complete_xp = EARN_RULES["complete_item"]["points"]
+    # v8 CompleteItems.jsx:193-204 — a corrected condition syncs the LIVE listing
+    # so the market never says something different from the shelf ("reads as
+    # dishonesty"). The client toasts "Your listing now says X too" off this flag.
+    listing_synced = False
+    if "condition" in patch:
+        from app.models.listing import Listing
+        live_rows = (await db.execute(
+            select(Listing).where(Listing.item_id == item.id, Listing.status == "available")
+        )).scalars().all()
+        for live in live_rows:
+            live.condition = patch["condition"]
+        listing_synced = bool(live_rows)
     photos = (await db.execute(select(ItemPhoto).where(ItemPhoto.item_id == item.id))).scalars().all()
     out = _item_out(item, photos)
     out["complete_xp"] = complete_xp
+    out["listing_synced"] = listing_synced
     return out
 
 
@@ -580,7 +608,11 @@ async def undo_item_sold(
 
 
 # DV4-04: remove-from-collection reasons (design_v4 ItemDetail "Remove from collection?" sheet).
-REMOVE_REASONS = {"sold", "traded", "lost", "broken", "gifted", "other"}
+REMOVE_REASONS = {
+    "sold", "traded", "lost", "broken", "gifted", "other",
+    # v8 ItemDetail.jsx:417-458 — the pre-order cancel sheet's own vocabulary.
+    "po-cancelled", "po-refunded", "po-transfer",
+}
 
 
 @router.delete("/{item_id}", status_code=204)
@@ -684,6 +716,7 @@ def _item_out(item: Item, photos: Optional[list[ItemPhoto]] = None) -> dict:
         "value": item.value,
         "value_currency": item.value_currency,
         "is_listed": item.is_listed,
+        "is_new_to_db": item.is_new_to_db,
         "photo_count": item.photo_count,
         "tcg_language": item.tcg_language,
         "tcg_product_type": item.tcg_product_type,

@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 import {
   Box, Sparkles, Medal, Gem, Flame, Crown, Star, Camera, Heart,
   User, Shield, Calendar, MessageCircle, Gift, Zap, Database,
-  ChevronRight, Trophy, X, type LucideIcon,
+  PlusCircle, CheckCircle2, Lock, ChevronRight, Trophy, type LucideIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui";
@@ -28,7 +28,7 @@ export interface RankProgress { tier: TierInfo; next: TierInfo | null; index: nu
 export interface FirstStart { id: string; name: string; emoji: string; frame: boolean; description: string }
 /* The single badge shown next to an author in feed/leaderboard (v3 §3). */
 export interface FeedBadgeT { kind: "first_start" | "rank"; code: string; name: string; emoji: string | null }
-export interface EarnAction { id: string; label: string; xp: number; icon: string; freq: string; cap: number | null; progress?: { done: number; total: number } }
+export interface EarnAction { id: string; label: string; xp: number; icon: string; freq: string; cap: number | null; note?: string | null; progress?: { done: number; total: number } }
 export interface RewardsSummary {
   xp: number; xp_week: number; rank: RankProgress; earn_actions: EarnAction[];
   checkin: { claimed: boolean; xp: number; streak: number };
@@ -79,9 +79,13 @@ export const FIRST_START_VIS: Record<string, { color: string; emoji: string; lab
   early_believer: { color: "var(--forest)",    emoji: "🌱", label: "Early Believer" },
   pioneer:        { color: "var(--plum)",      emoji: "🔥", label: "Pioneer" },
 };
+/* Keyed by the ICON NAMES the API sends (EARN_RULES in services/gamification.py
+   serializes `icon: "user" | "gift" | …`), NOT by action ids — keying by id made
+   every row fall through to the Zap fallback (DV8 audit §12#6). */
 const EARN_ICON: Record<string, LucideIcon> = {
-  profile: User, refer: Gift, db_new: Database, showcase: Camera, review: Star,
-  vouch: Shield, rsvp: Calendar, comment: MessageCircle, like: Heart, checkin: Zap,
+  user: User, gift: Gift, database: Database, plus: PlusCircle, check: CheckCircle2,
+  camera: Camera, star: Star, shield: Shield, calendar: Calendar,
+  comment: MessageCircle, heart: Heart, zap: Zap,
 };
 /* Season-badge emoji medals by tier (v6 DV6-02 — replaces the Lucide Medal). */
 export const TIER_MEDAL: Record<string, string> = {
@@ -114,66 +118,74 @@ export const goldFrameRing: React.CSSProperties = {
 
 const fmt = (n: number) => n.toLocaleString("en-IN");
 
-/* ── fireXpToast — imperative "+N XP" toast (v6 DV6-04) ──────────────────────
-   Appended to <body> so it outlives a client-side route change (e.g. compose
-   navigates to /feed right after publishing). No provider wiring needed. */
-export function fireXpToast(xp: number, label = "XP earned") {
-  if (typeof document === "undefined" || xp <= 0) return;
+/* ── Toast shell (v8 Nav.jsx:52-57 flashToast + :260-277 Toast) ──────────────
+   Imperative, appended to <body> so a toast outlives a client-side route change.
+   1-line = ink pill (11px 18px, r999, centered); 2-line = r16 card, LEFT-aligned,
+   fw600 title + 11.5/500 sub at 0.72. Entry is the shared `pop` keyframe
+   (globals.css) over 240ms ease-spring. Bottom offset must clear the mobile
+   BottomNav — lg:hidden, so <1024px sits above the 88px bar + safe area. */
+function spawnToast(twoLine: boolean): HTMLDivElement {
   const el = document.createElement("div");
   el.setAttribute("role", "status");
+  const lg = window.matchMedia("(min-width: 1024px)").matches;
   el.style.cssText = [
-    "position:fixed", "left:50%", "bottom:28px", "transform:translateX(-50%) translateY(8px)",
-    "z-index:80", "display:flex", "align-items:center", "gap:8px",
-    "padding:10px 16px", "border-radius:999px", "background:var(--ink)", "color:var(--paper)",
-    "font-family:var(--font-body)", "font-size:13.5px", "font-weight:600",
-    "box-shadow:var(--shadow-3)", "opacity:0", "transition:opacity 200ms ease, transform 200ms ease",
-    "pointer-events:none",
+    "position:fixed", "left:50%",
+    `bottom:${lg ? "28px" : "calc(88px + env(safe-area-inset-bottom))"}`,
+    "transform:translateX(-50%)", "z-index:80",
+    `padding:${twoLine ? "10px 18px 11px" : "11px 18px"}`,
+    `border-radius:${twoLine ? "16px" : "999px"}`,
+    "background:var(--ink)", "color:var(--paper)",
+    "font-family:var(--font-body)", "font-size:13px", "font-weight:500",
+    `text-align:${twoLine ? "left" : "center"}`,
+    "box-shadow:var(--shadow-3)", "max-width:min(90vw,340px)",
+    "animation:pop 240ms var(--ease-spring)",
+    "transition:opacity 200ms ease", "pointer-events:none",
   ].join(";");
-  el.innerHTML = `<span style="font-family:var(--font-mono);font-weight:800;color:var(--grail-gold)">+${xp}</span><span>${label}</span>`;
-  document.body.appendChild(el);
-  requestAnimationFrame(() => { el.style.opacity = "1"; el.style.transform = "translateX(-50%) translateY(0)"; });
+  return el;
+}
+function expireToast(el: HTMLDivElement, ms: number) {
   setTimeout(() => {
     el.style.opacity = "0";
-    el.style.transform = "translateX(-50%) translateY(8px)";
     setTimeout(() => el.remove(), 250);
-  }, 1900);
+  }, ms);
 }
 
-/* ── fireToast — plain imperative toast (no XP styling); same lifecycle as fireXpToast.
-   Used e.g. when a free-text add is auto-linked to an existing catalogue entry (DV6-12). */
+/* ── fireXpToast — imperative "+N XP" toast (v6 DV6-04) ──────────────────────
+   The gold "+N" treatment is OUR deliberate extension over v8's plain ink toast. */
+export function fireXpToast(xp: number, label = "XP earned") {
+  if (typeof document === "undefined" || xp <= 0) return;
+  const el = spawnToast(false);
+  el.style.display = "flex";
+  el.style.alignItems = "center";
+  el.style.gap = "8px";
+  el.innerHTML = `<span style="font-family:var(--font-mono);font-weight:800;color:var(--grail-gold)">+${xp}</span><span>${label}</span>`;
+  document.body.appendChild(el);
+  expireToast(el, 2400);
+}
+
+/* ── fireToast — v8 flashToast(text, sub): optional smaller second line. ───── */
 export function fireToast(message: string, sub?: string) {
   if (typeof document === "undefined" || !message) return;
-  const el = document.createElement("div");
-  el.setAttribute("role", "status");
-  el.style.cssText = [
-    "position:fixed", "left:50%", "bottom:28px", "transform:translateX(-50%) translateY(8px)",
-    "z-index:80", "display:flex", sub ? "flex-direction:column" : "align-items:center", "gap:" + (sub ? "2px" : "8px"),
-    "padding:10px 16px", "border-radius:" + (sub ? "14px" : "999px"), "background:var(--ink)", "color:var(--paper)",
-    "font-family:var(--font-body)", "font-size:13.5px", "font-weight:600",
-    "box-shadow:var(--shadow-3)", "opacity:0", "transition:opacity 200ms ease, transform 200ms ease",
-    "pointer-events:none", "max-width:min(90vw,360px)", "text-align:center",
-  ].join(";");
-  el.textContent = message;
-  // v8 flashToast(title, sub) — an optional smaller second line on the same toast.
+  const el = spawnToast(!!sub);
+  const title = document.createElement("div");
+  title.style.cssText = `font-weight:${sub ? 600 : 500}`;
+  title.textContent = message;
+  el.appendChild(title);
   if (sub) {
     const s = document.createElement("div");
-    s.style.cssText = "font-size:11.5px;font-weight:400;opacity:0.75";
+    s.style.cssText = "font-size:11.5px;font-weight:500;opacity:0.72;margin-top:2px";
     s.textContent = sub;
     el.appendChild(s);
   }
   document.body.appendChild(el);
-  requestAnimationFrame(() => { el.style.opacity = "1"; el.style.transform = "translateX(-50%) translateY(0)"; });
-  setTimeout(() => {
-    el.style.opacity = "0";
-    el.style.transform = "translateX(-50%) translateY(8px)";
-    setTimeout(() => el.remove(), 250);
-  }, 2200);
+  expireToast(el, sub ? 3200 : 2400);
 }
 
 /* ── TierBadge — coloured rank tile (rounded square) ────────────────────── */
 export function TierBadge({ tierId, size = 40, locked = false }: { tierId: string; size?: number; locked?: boolean }) {
   const t = TIER_VIS[tierId] ?? TIER_VIS.rookie;
-  const Icon = t.Icon;
+  // v8 Rewards.jsx:16 — locked tiles show a PADLOCK, not the dimmed tier icon.
+  const Icon = locked ? Lock : t.Icon;
   return (
     <div style={{
       width: size, height: size, borderRadius: size * 0.3, flexShrink: 0, position: "relative", overflow: "hidden",
@@ -182,7 +194,7 @@ export function TierBadge({ tierId, size = 40, locked = false }: { tierId: strin
       boxShadow: locked ? "none" : `0 2px 8px ${t.color}55, inset 0 1px 0 rgba(255,255,255,0.35)`,
     }}>
       {!locked && <span style={{ position: "absolute", top: "-30%", left: "-10%", width: "70%", height: "70%", borderRadius: "50%", background: "rgba(255,255,255,0.28)", filter: "blur(2px)" }} />}
-      <Icon size={Math.round(size * 0.5)} strokeWidth={2} style={{ position: "relative", opacity: locked ? 0.5 : 1 }} />
+      <Icon size={Math.round(size * 0.5)} strokeWidth={2} style={{ position: "relative" }} />
     </div>
   );
 }
@@ -264,6 +276,9 @@ export function FeedBadge({ badge, size = "sm" }: { badge: FeedBadgeT | null | u
   const sm = size === "sm";
   const isFirst = badge.kind === "first_start";
   const Icon = isFirst ? null : (TIER_VIS[badge.code]?.Icon ?? Box);
+  // v8 shared.jsx:1009-1027 — the sm feed pill is TEXT-ONLY for rank badges
+  // (emoji still renders for First Start); the md pill keeps the tier icon.
+  const showIcon = isFirst || !sm;
   return (
     <>
       <button
@@ -271,14 +286,17 @@ export function FeedBadge({ badge, size = "sm" }: { badge: FeedBadgeT | null | u
         title={badge.name}
         style={{
           display: "inline-flex", alignItems: "center", gap: sm ? 3 : 4, flexShrink: 0, cursor: "pointer",
-          padding: sm ? "1.5px 7px 1.5px 5px" : "3px 9px 3px 6px", borderRadius: 999,
-          background: "var(--bone)", border: "1px solid var(--border-strong)", lineHeight: 1.4,
+          padding: sm ? "2px 7px" : "3px 9px 3px 6px", borderRadius: 999,
+          background: "var(--bone)", border: "1px solid var(--border-strong)", lineHeight: sm ? 1 : 1.4,
+          whiteSpace: "nowrap",
         }}
       >
-        <span style={{ display: "inline-flex", fontSize: sm ? 11 : 13 }}>
-          {isFirst ? (badge.emoji ?? "⭐") : Icon && <Icon size={sm ? 11 : 13} strokeWidth={2.3} color="var(--ink-mute)" />}
-        </span>
-        <span style={{ fontSize: sm ? 11 : 12.5, fontWeight: 700, color: "var(--ink-mute)", letterSpacing: "0.01em" }}>{badge.name}</span>
+        {showIcon && (
+          <span style={{ display: "inline-flex", fontSize: sm ? 9 : 13 }}>
+            {isFirst ? (badge.emoji ?? "⭐") : Icon && <Icon size={13} strokeWidth={2.3} color="var(--ink-mute)" />}
+          </span>
+        )}
+        <span style={{ fontSize: sm ? 10 : 12.5, fontWeight: 700, color: "var(--ink-soft)", letterSpacing: "0.02em" }}>{badge.name}</span>
       </button>
       {open && <BadgeSheet badge={badge} onClose={() => setOpen(false)} />}
     </>
@@ -286,15 +304,31 @@ export function FeedBadge({ badge, size = "sm" }: { badge: FeedBadgeT | null | u
 }
 
 /* ── BadgeSheet — bottom-sheet explaining a tapped badge (v3 §4) ─────────── */
+/* v8 data.jsx:1254-1259 — verbatim. */
 const FIRST_START_DESC: Record<string, string> = {
-  founding: "One of the founding members of Scorred. Permanently and manually assigned — never expires.",
-  early_believer: "One of the first collectors to join Scorred. Permanent — never expires.",
-  pioneer: "One of the earliest beta collectors on Scorred. Permanent — never expires.",
+  founding: "One of the founding members of Scorred. A permanent badge, manually awarded — never expires.",
+  early_believer: "One of the first believers in Scorred — here before the crowd. A permanent badge that never expires.",
+  pioneer: "An early user who helped shape Scorred from the start. A permanent badge that never expires.",
 };
-export function BadgeSheet({ badge, onClose }: { badge: FeedBadgeT; onClose: () => void }) {
+/* Season badges reuse the same sheet (v8 shared.jsx:1030-1076 explains all three
+   badge types); wrap a SeasonBadgeT so the discriminated union stays typed. */
+export type SheetBadge = FeedBadgeT | { kind: "season"; season: SeasonBadgeT };
+const SEASON_SHEET_NAME: Record<string, string> = {
+  gold: "Gold Badge", silver: "Silver Badge", bronze: "Bronze Badge", finalist: "Finalist Badge",
+};
+export function BadgeSheet({ badge, onClose }: { badge: SheetBadge; onClose: () => void }) {
   const isFirst = badge.kind === "first_start";
-  const typeLabel = isFirst ? "Permanent badge" : "Rank badge";
-  const desc = isFirst
+  const isSeason = badge.kind === "season";
+  const typeLabel = isSeason ? "Season badge" : isFirst ? "Permanent badge" : "Rank badge";
+  const name = isSeason ? (SEASON_SHEET_NAME[badge.season.tier] ?? "Season Badge") : badge.name;
+  const desc = isSeason
+    ? (() => {
+        // v8 data.jsx:1297 — season badge description string.
+        const m = BADGE_TIER[badge.season.tier] ?? BADGE_TIER.finalist;
+        const k = BADGE_KIND[badge.season.kind] ?? BADGE_KIND.weekly;
+        return `${k.label} · ${badge.season.period} · ${m.label}. Earns +${badge.season.bonus_xp} bonus XP toward your lifetime rank.`;
+      })()
+    : isFirst
     ? (FIRST_START_DESC[badge.code] ?? "A permanent First Start badge, manually assigned by the Scorred team.")
     : (() => {
         const t = REWARD_TIERS.find((r) => r.id === badge.code);
@@ -303,18 +337,30 @@ export function BadgeSheet({ badge, onClose }: { badge: FeedBadgeT; onClose: () 
   // Portal to <body>: the feed PostCard applies a CSS transform on hover, which
   // would otherwise trap this position:fixed sheet inside the card (it'd render
   // small, just under the author name, and jump around on resize).
+  // v8 shared.jsx:1030-1076 bottom sheet: 0.40 scrim, bottom-anchored r20 top
+  // corners, house 36×4 drag handle, no X — handle/backdrop dismiss like our
+  // other sheets. maxWidth 460 caps it centered on lg+ (full-bleed on phones).
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(15,23,42,0.5)" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ position: "relative", width: "100%", maxWidth: 460, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "26px 24px 22px", borderTopLeftRadius: 22, borderTopRightRadius: 22, background: "var(--paper)", boxShadow: "var(--shadow-3)" }}>
-        <button onClick={onClose} aria-label="Close" style={{ position: "absolute", top: 12, right: 12, display: "flex", padding: 6, cursor: "pointer", color: "var(--ink-faint)", background: "none", border: "none" }}>
-          <X size={20} />
-        </button>
-        {isFirst ? <FirstStartTile code={badge.code} size={76} /> : <TierBadge tierId={badge.code} size={76} />}
-        <div style={{ marginTop: 14, fontSize: 10.5, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-faint)" }}>{typeLabel}</div>
-        <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, letterSpacing: "-0.01em", marginTop: 3 }}>{badge.name}</div>
-        <div style={{ fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.55, marginTop: 10, maxWidth: 340 }}>{desc}</div>
-        <Button variant="dark" onClick={onClose} style={{ marginTop: 20, width: "100%", justifyContent: "center" }}>Got it</Button>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(0,0,0,0.40)" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, background: "var(--paper)", borderRadius: "20px 20px 0 0", padding: "8px 0 40px", boxShadow: "0 -4px 28px rgba(0,0,0,0.14)" }}>
+        <div onClick={onClose} style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 22px", cursor: "pointer" }} />
+        <div style={{ textAlign: "center", padding: "0 28px 22px" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+            {isSeason ? <SeasonBadge badge={badge.season} size={76} /> : isFirst ? <FirstStartTile code={badge.code} size={76} /> : <TierBadge tierId={badge.code} size={76} />}
+          </div>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-faint)", marginBottom: 6 }}>{typeLabel}</div>
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", color: "var(--ink)", marginBottom: 12 }}>{name}</div>
+          <div style={{ fontSize: 14, color: "var(--ink-mute)", lineHeight: 1.65, maxWidth: 280, margin: "0 auto" }}>{desc}</div>
+        </div>
+        <div style={{ padding: "0 20px" }}>
+          <button
+            onClick={onClose}
+            style={{ width: "100%", padding: 14, borderRadius: 14, border: "none", background: "var(--bone)", color: "var(--ink)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 15, cursor: "pointer" }}
+          >
+            Got it
+          </button>
+        </div>
       </div>
     </div>,
     document.body
@@ -324,10 +370,12 @@ export function BadgeSheet({ badge, onClose }: { badge: FeedBadgeT; onClose: () 
 /* ── EarnRow — a single "way to earn" ───────────────────────────────────── */
 export function EarnRow({ action, onClick }: { action: EarnAction; onClick?: () => void }) {
   const Icon = EARN_ICON[action.icon] ?? Zap;
+  // v8 Rewards.jsx:187 — a row-specific `note` wins (db_new: "First to add earns
+  // +50 XP"); otherwise our v5 cap copy, then the plain Repeatable fallback.
   const sub = action.freq === "once"
     ? (action.progress ? `${action.progress.done}/${action.progress.total} steps done` : "One-time")
     : action.freq === "daily" ? "Once a day"
-    : action.cap ? `Up to ${action.cap}/day` : "Repeatable";
+    : action.note ?? (action.cap ? `Up to ${action.cap}/day` : "Repeatable");
   // Earn-action deep links: a row with a target is tappable and routes to the
   // surface where the action is performed (compose, events, …).
   const Tag = onClick ? "button" : "div";
@@ -425,10 +473,15 @@ export function RewardCard({ handle, isMe }: { handle: string; isMe: boolean }) 
   );
 }
 
-/* ── BadgeShelf — First Start + season badges on the profile header (v3 §2.1) ── */
+/* ── BadgeShelf — First Start + season badges on the profile header (v3 §2.1) ──
+   v8 Rewards.jsx:67-121 — a bare inline-flex strip (no wrapper pill): each badge
+   is INDIVIDUALLY tappable → BadgeSheet, a "+N" mono circle collects the
+   overflow past 4 slots, and a separate bordered-transparent count pill
+   ("{n} badge{s}" + chevron) opens the trophy case. */
 export function BadgeShelf({ handle, style }: { handle: string; style?: React.CSSProperties }) {
   const router = useRouter();
   const [d, setD] = useState<TrophyCaseData | null>(null);
+  const [sheet, setSheet] = useState<SheetBadge | null>(null);
   useEffect(() => {
     api.get<TrophyCaseData>(`/users/${handle}/badges`).then(setD).catch(() => setD(null));
   }, [handle]);
@@ -436,28 +489,53 @@ export function BadgeShelf({ handle, style }: { handle: string; style?: React.CS
   const fs = d.first_start;
   const total = d.count + (fs ? 1 : 0);
   if (total === 0) return null;
-  // v6 (DV6-02) — group season badges by tier with a count; First Start badge
-  // takes a priority slot, then the top season tiers. Max 3 shelf slots.
-  const slots = groupBadgeSlots(fs, d.badges).slice(0, 3);
+  // v6 (DV6-02) — First Start badge takes the priority slot, then season badges
+  // collapsed by tier with a count.
+  const groups = groupBadgeSlots(fs, d.badges);
+  const slots = groups.slice(0, 4);
+  const overflow = groups.length - slots.length;
+  const openCase = () => router.push(`/profile/${handle}/badges`);
   return (
-    <button onClick={() => router.push(`/profile/${handle}/badges`)} style={{
-      display: "inline-flex", alignItems: "center", gap: 8, marginTop: 9, padding: "4px 9px 4px 4px",
-      background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 999, cursor: "pointer", ...style }}>
-      <span style={{ display: "flex" }}>
+    <>
+      {sheet && <BadgeSheet badge={sheet} onClose={() => setSheet(null)} />}
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0, ...style }}>
         {slots.map((slot, i) => (
-          <span key={slot.key} style={{ marginLeft: i ? -9 : 0, borderRadius: slot.kind === "first" ? 7 : "50%", boxShadow: "0 0 0 2px var(--paper-soft)", position: "relative" }}>
-            {slot.kind === "first"
-              ? <FirstStartTile code={slot.code} size={24} />
-              : <SeasonBadge badge={slot.badge} size={24} />}
+          <span key={slot.key} style={{ marginLeft: i ? -6 : 0, borderRadius: "50%", boxShadow: "0 0 0 2px var(--paper)", position: "relative" }}>
+            <button
+              aria-label={slot.kind === "first" ? (fs?.name ?? "First Start badge") : `${slot.badge.title} badge`}
+              onClick={() => setSheet(slot.kind === "season"
+                ? { kind: "season", season: slot.badge }
+                : fs ? { kind: "first_start", code: fs.id, name: fs.name, emoji: fs.emoji } : null)}
+              style={{ display: "flex", background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+              {slot.kind === "first"
+                ? <FirstStartTile code={slot.code} size={26} />
+                : <SeasonBadge badge={slot.badge} size={26} />}
+            </button>
             {slot.count > 1 && (
-              <span style={{ position: "absolute", top: -4, right: -4, minWidth: 14, height: 14, borderRadius: 999, background: "var(--stamp-red)", color: "#fff", fontSize: 8, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", border: "1.5px solid var(--paper-soft)", lineHeight: 1 }}>{slot.count}</span>
+              <span style={{ position: "absolute", top: -4, right: -4, minWidth: 14, height: 14, borderRadius: 999, background: "var(--stamp-red)", color: "#fff", fontSize: 8, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", border: "1.5px solid var(--paper)", lineHeight: 1, pointerEvents: "none" }}>{slot.count}</span>
             )}
           </span>
         ))}
+        {overflow > 0 && (
+          <button onClick={openCase} style={{
+            marginLeft: -4, width: 26, height: 26, borderRadius: "50%",
+            background: "var(--bone)", border: "2px solid var(--paper)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 9, color: "var(--ink-mute)",
+            cursor: "pointer", flexShrink: 0,
+          }}>+{overflow}</button>
+        )}
+        <button onClick={openCase} style={{
+          marginLeft: 4, padding: "3px 8px", borderRadius: 999, border: "1px solid var(--border)",
+          background: "transparent", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 11,
+          color: "var(--ink-faint)", cursor: "pointer", display: "flex", alignItems: "center", gap: 3,
+          whiteSpace: "nowrap", flexShrink: 0,
+        }}>
+          {total} badge{total !== 1 ? "s" : ""}
+          <ChevronRight size={12} style={{ color: "var(--ink-ghost)" }} />
+        </button>
       </span>
-      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)" }}>{total} badge{total > 1 ? "s" : ""}</span>
-      <ChevronRight size={14} style={{ color: "var(--ink-ghost)" }} />
-    </button>
+    </>
   );
 }
 

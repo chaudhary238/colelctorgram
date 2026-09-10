@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
 import { Avatar } from "@/components/ui";
+import { BackButton } from "@/components/BackButton";
 
 interface ThreadUser {
   id: string;
@@ -19,6 +20,9 @@ interface ThreadListing {
   title: string;
   price: number;
   status: string;
+  // v8 Chat.jsx:24-25 — catalogue vs non-catalogue drives the "re:" line's font.
+  // GET /threads doesn't serialize this yet (backend-owned); optional until it lands.
+  sku?: string | null;
 }
 
 interface Thread {
@@ -43,8 +47,11 @@ export default function InboxPage() {
 
   return (
     <div className="w-full max-w-[680px] flex flex-col">
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "12px 20px" }}>
-        {/* v8 InboxView header is just the "Messages" title — no unread sub, no action. */}
+      {/* v8 InboxView is a PUSHED screen (Chat.jsx:9, DetailHeader "Messages") — the
+          sticky header carries a back affordance (DV8 §10#1); no unread sub, no action.
+          BottomNav stays visible on mobile (deliberate — /inbox keeps its tabs). */}
+      <div className="sticky top-0 z-10 flex items-center gap-2.5 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "12px 20px" }}>
+        <BackButton fallback="/feed" />
         <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, letterSpacing: "-0.025em", margin: 0 }}>Messages</h1>
       </div>
 
@@ -71,10 +78,12 @@ export default function InboxPage() {
                     <span style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{thread.other_user?.name ?? "Unknown"}</span>
                     <span style={{ fontSize: 11.5, color: "var(--ink-faint)", flexShrink: 0 }}>{timeAgo(thread.last_message_at)}</span>
                   </div>
-                  {/* v8 (Chat.jsx:24) — the re: line is the plain body-font catalogue
-                      title, ellipsized. No mono, no price. */}
+                  {/* v8 (Chat.jsx:24-25) — catalogue rows keep the body font; a
+                      NON-catalogue listing (sku === null) renders its custom title in
+                      mono. Strict null check: while GET /threads omits `sku`, rows
+                      stay body-font instead of mono-ing everything (DV8 §10#3). */}
                   {thread.listing && (
-                    <div style={{ fontSize: 11, color: "var(--ink-faint)", margin: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: 11, color: "var(--ink-faint)", margin: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", ...(thread.listing.sku === null ? { fontFamily: "var(--font-mono)" } : null) }}>
                       re: {thread.listing.title}
                     </div>
                   )}

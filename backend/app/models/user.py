@@ -24,6 +24,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # v8 ProfileEdit.jsx:161-224 EditAvatarView — chosen fallback colour for the
+    # initials avatar (one of the 7 PROFILE_COLORS ids); null = name-hash default.
+    avatar_tone: Mapped[str | None] = mapped_column(String(16), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     city: Mapped[str | None] = mapped_column(Text, nullable=True)  # DV8: collected in onboarding step 0 via CityPicker (supersedes DF-05 "hidden in UI")
     # DV8 — CityPicker reports city + country separately; placeLabel renders "City, Country".

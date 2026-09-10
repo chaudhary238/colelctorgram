@@ -24,7 +24,7 @@ import { useUser } from "@/lib/auth-context";
 import { BackButton } from "@/components/BackButton";
 import { ProductPhoto, SectionLabel, Tag } from "@/components/ui";
 import { fireToast, fireXpToast } from "@/components/gamification";
-import { conditionsFor, buildPoEta, PO_MONTHS, PO_YEARS, type PoPrecision } from "@/lib/catalog";
+import { conditionsFor, conditionLabel, buildPoEta, MONTH_FULL, PO_MONTHS, PO_YEARS, type PoPrecision } from "@/lib/catalog";
 
 interface CollectionItem {
   id: string;
@@ -32,12 +32,20 @@ interface CollectionItem {
   custom_title: string | null;
   title?: string | null;
   brand?: string | null;
+  release_year?: number | null;
   status: string;
   condition?: string | null;
   value: number | null; // paise
   is_complete?: boolean;
   image_url?: string | null;
   preorder_eta?: string | null;
+  // DV8 §6#35 — owner-only structured pre-order facts, so a `?item=` single edit
+  // seeds the window/deposit instead of silently discarding them on save.
+  preorder_window_precision?: string | null;
+  preorder_total?: number | null;   // paise
+  preorder_deposit?: number | null; // paise
+  // v8 CompleteItems.jsx:95 — the catalogue anchor for the price placeholder (paise).
+  est_value?: number | null;
 }
 
 /* SKU → category/tone — same mapping the profile grid uses (no catalogue join yet). */
@@ -66,16 +74,43 @@ interface Draft {
   year: string;
 }
 function draftFromItem(it: CollectionItem | undefined): Draft {
+  // v8 draftFromItem (:134-146) — seed EVERYTHING the row already knows, so a
+  // `?item=` single edit of a pre-order can't discard its window/deposit on save.
+  // The eta string parses back by precision: "Mar 2026" (month), "Q2 2026"
+  // (quarter), "2026" (year); TBD carries no date.
+  let prec: PoPrecision = "month";
+  let monthIdx = "";
+  let quarter = "";
+  let year = ""; // empty → the "Year" placeholder option, never a pre-picked 2026 (§6#38)
+  if (it?.status === "preorder") {
+    const stored = it.preorder_window_precision as PoPrecision | undefined;
+    // The finish chips carry no "date" precision — an exact date edits as its month.
+    prec = !stored || stored === "date" ? "month" : stored;
+    const eta = it.preorder_eta ?? "";
+    if (prec === "month") {
+      const m = /([A-Za-z]{3})[a-z]*\s+(\d{4})/.exec(eta); // "Mar 2026" / "12 Mar 2026"
+      if (m) {
+        const idx = PO_MONTHS.findIndex((x) => x === m[1]);
+        if (idx >= 0) monthIdx = String(idx);
+        year = m[2];
+      }
+    } else if (prec === "quarter") {
+      const m = /Q([1-4])(?:\s+(\d{4}))?/.exec(eta);
+      if (m) { quarter = m[1]; year = m[2] ?? ""; }
+    } else if (prec === "year") {
+      const m = /(\d{4})/.exec(eta);
+      if (m) year = m[1];
+    }
+  }
+  const paise = it?.status === "preorder" ? (it.preorder_total ?? it.value) : it?.value;
   return {
     cond: it?.condition ?? "",
-    price: it?.value ? String(Math.round(it.value / 100)) : "",
-    // The collection payload doesn't carry preorder_deposit — always seeds blank,
-    // and commit() only sends it when typed (so an unseen existing deposit survives).
-    deposit: "",
-    prec: "month",
-    monthIdx: "",
-    quarter: "",
-    year: PO_YEARS[0],
+    price: paise ? String(Math.round(paise / 100)) : "",
+    deposit: it?.preorder_deposit ? String(Math.round(it.preorder_deposit / 100)) : "",
+    prec,
+    monthIdx,
+    quarter,
+    year,
   };
 }
 function draftReady(it: CollectionItem, d: Draft): boolean {
@@ -161,7 +196,8 @@ function FinishItemsInner() {
         <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <BackButton fallback="/profile" />
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>
+            {/* v8 DetailHeader type — 19/700 display title. */}
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em" }}>
               {done > 0 ? "Finish your items" : "Nothing to finish"}
             </div>
           </div>
@@ -205,17 +241,26 @@ function FinishItemsInner() {
     setSaving(true);
     const paise = (parseInt(draft.price, 10) || 0) * 100;
     try {
-      const res = await api.patch<{ complete_xp?: number }>(`/items/${item.id}`, isPo
+      const res = await api.patch<{ complete_xp?: number; listing_synced?: boolean }>(`/items/${item.id}`, isPo
         ? {
             preorder_eta: buildPoEta(draft.prec, { monthIdx: draft.monthIdx, quarter: draft.quarter, year: draft.year }),
             preorder_window_precision: draft.prec,
             preorder_total: paise,
             value: paise,
-            // Optional — only sent when typed (PATCH is exclude_none; blank ≠ clear).
+            // Optional — only sent when set (PATCH is exclude_none; blank ≠ clear).
             ...(draft.deposit ? { preorder_deposit: (parseInt(draft.deposit, 10) || 0) * 100 } : {}),
           }
         : { condition: draft.cond, value: paise });
-      if (res?.complete_xp && res.complete_xp > 0) fireXpToast(res.complete_xp, "Item details complete");
+      let slot = 0;
+      if (res?.complete_xp && res.complete_xp > 0) { fireXpToast(res.complete_xp, "Item details complete"); slot = 1; }
+      // v8 CompleteItems.jsx:193-204 — a corrected condition moved onto the LIVE
+      // listing too (server-side sync); say so, or the market silently disagreeing
+      // with the shelf reads as dishonesty. Staggered when an XP toast holds the slot.
+      if (!isPo && res?.listing_synced) {
+        const label = conditionLabel(draft.cond, c.key) ?? draft.cond;
+        const fire = () => fireToast("Saved", `Your listing now says ${label} too`);
+        if (slot > 0) setTimeout(fire, 2400); else fire();
+      }
       setDone((n) => n + 1);
       if (singleId) { router.back(); return; }
       advance();
@@ -233,10 +278,11 @@ function FinishItemsInner() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <BackButton fallback="/profile" />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>
+            {/* v8 DetailHeader type (Chrome.jsx:83-110) — 19/700 title, 12 faint subtitle. */}
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em" }}>
               {singleId ? "Item details" : "Finish your items"}
             </div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>
+            <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
               {singleId ? titleOf(item) : `${idx + 1} of ${queue.length} · +20 XP each`}
             </div>
           </div>
@@ -264,8 +310,9 @@ function FinishItemsInner() {
               <Tag kind={isPo ? "po" : "default"}>{isPo ? "Pre-order" : "Owned"}</Tag>
             </div>
             <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titleOf(item)}</div>
+            {/* v8 :242 — brand · release year, never the category. */}
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--ink-faint)", marginTop: 2 }}>
-              {[item.brand, c.label].filter(Boolean).join(" · ")}
+              {[item.brand, item.release_year != null ? String(item.release_year) : null].filter(Boolean).join(" · ")}
             </div>
           </div>
         </div>
@@ -309,7 +356,8 @@ function FinishItemsInner() {
                     style={{ ...fieldStyle, flex: 1, cursor: "pointer" }}
                   >
                     <option value="">Month</option>
-                    {PO_MONTHS.map((m, i) => <option key={m} value={String(i)}>{m}</option>)}
+                    {/* v8 :71 — FULL month names in the select; storage stays short via buildPoEta. */}
+                    {MONTH_FULL.map((m, i) => <option key={m} value={String(i)}>{m}</option>)}
                   </select>
                 )}
                 {draft.prec === "quarter" && (
@@ -346,7 +394,8 @@ function FinishItemsInner() {
               value={draft.price}
               onChange={(e) => setDraft((d) => ({ ...d, price: e.target.value.replace(/[^0-9]/g, "") }))}
               inputMode="numeric"
-              placeholder="0"
+              // v8 :95 — the catalogue est anchors the placeholder when known.
+              placeholder={item.est_value ? String(Math.round(item.est_value / 100)) : "0"}
               aria-label={isPo ? "Total price in rupees" : "What you paid in rupees"}
               style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 16, color: "var(--ink)" }}
             />

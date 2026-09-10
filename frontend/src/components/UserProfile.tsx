@@ -13,10 +13,10 @@ import { placeLabel } from "@/lib/utils";
 import { AuthUser, useUser } from "@/lib/auth-context";
 import {
   Avatar, Money, Segmented, ProductPhoto,
-  Tag, EmptyNote, Button, IconButton,
+  Tag, EmptyNote, Button, IconButton, compactNum, toneVar,
 } from "@/components/ui";
-import { PostCard, type ApiPost } from "@/components/cards";
-import { EditProfileSheet } from "@/components/EditProfileSheet";
+import { PostCard, SharedListingCard, type ApiPost, type ApiRefListing } from "@/components/cards";
+import { EditProfileSheet, type EditProfileStage } from "@/components/EditProfileSheet";
 import { FollowListModal } from "@/components/FollowListModal";
 import { VouchGiveSheet, VouchListModal, VouchRequestModal } from "@/components/VouchSheets";
 import { ProfileMoreMenu } from "@/components/ProfileMoreMenu";
@@ -34,6 +34,7 @@ interface ProfileUser {
   city: string | null;
   country: string | null; // DV8 — "City, Country" labels via placeLabel
   avatar_url: string | null;
+  avatar_tone?: string | null; // v8 EditAvatarView colour pick
   interests: string[];
   rating: number;
   rating_count: number;
@@ -72,8 +73,16 @@ interface CollectionItem {
   preorder_window_precision?: string | null;
   /** paise — owner-only. Drives the PO calendar's "Balance due" line + price gap. */
   preorder_total?: number | null;
+  /** paise — owner-only. Subtracted from the total for "Balance due" (v8 :343). */
+  preorder_deposit?: number | null;
+  /** Where it's on order — the PO calendar's sub-line (v8 :372). Owner-only. */
+  preorder_seller?: string | null;
+  /** ISO date the pre-order was placed. Owner-only. */
+  preorder_ordered_at?: string | null;
+  /** paise — catalogue est. retail, finish-flow price anchor (v8 CompleteItems:95). */
+  est_value?: number | null;
   /** v8 :451 — teal NEW DB chip on a DB-contribution tile whose entry the user
-      created. NOT sent by the API yet (see NEEDS BACKEND); renders once it is. */
+      created. Sent by the API since the DV8 parity pass (audit §9#25). */
   is_new_to_db?: boolean;
   is_wishlisted?: boolean;
   // DV8-03 completeness + DV8-11 filter fields
@@ -91,6 +100,8 @@ const isSoldItem = (i: CollectionItem) => i.sold_at != null || i.listing_status 
 /** DV8-03 — server-computed portfolio summary on GET /users/{h}/collection. */
 interface Portfolio {
   item_count: number;
+  /** v8 :66 — the Items pill counts the whole shelf, sold history included. */
+  shelf_count?: number;
   complete_count: number;
   incomplete_count: number;
   /** paise — null for visitors until the collection is complete (value_shared). */
@@ -108,8 +119,9 @@ interface RawPost {
   comments_count: number;
   saves_count: number;
   created_at: string;
-  // Not sent by GET /users/{h}/posts yet (see NEEDS BACKEND) — passed through so
-  // ISO cards ("Looking for") and tagged-item chips light up the moment they are.
+  // GET /users/{h}/posts now runs the SAME serializer as the feed (audit §9#45
+  // resolved) — ISO cards ("Looking for"), tagged-item chips and review stars
+  // render from these on the profile too.
   title?: string | null;
   iso_item?: string | null;
   iso_budget?: number | null;
@@ -119,6 +131,21 @@ interface RawPost {
   ref_sku_title?: string | null;
   ref_sku_brand?: string | null;
   review_rating?: number | null;
+  // Share-to-Feed "showcase" posts (backend contract, DV8 P0-1): the shared
+  // listing inline + the community the post went to. Null on plain posts.
+  community_name?: string | null;
+  ref_listing?: ApiRefListing | null;
+  // Viewer/author state the shared serializer also sends — passed through so the
+  // profile's cards agree with the feed (liked hearts, badges, poll votes).
+  community_id?: string | null;
+  badge?: ApiPost["badge"];
+  likers?: ApiPost["likers"];
+  poll_options?: ApiPost["poll_options"];
+  my_poll_vote?: number | null;
+  is_liked?: boolean;
+  is_saved?: boolean;
+  is_following?: boolean;
+  is_official?: boolean;
 }
 
 
@@ -163,15 +190,6 @@ function titleForItem(it: CollectionItem): string {
   return it.title || it.custom_title || it.sku || "Item";
 }
 const paiseToRupees = (p: number) => Math.round(p / 100);
-// v8 shared.jsx compactNum — 1284 → 1.3K, 3.45M → 3.4M (capital K/M/B, compacts from
-// 1000 up; <10 keeps one decimal, ≥10 rounds). Keeps the stat tiles uniform at any size.
-const compactNum = (n: number): string => {
-  n = n || 0;
-  if (n < 1000) return n.toLocaleString("en-IN");
-  if (n < 1000000) { const v = n / 1000; return (v < 10 ? v.toFixed(1).replace(/\.0$/, "") : String(Math.round(v))) + "K"; }
-  if (n < 1000000000) { const v = n / 1000000; return (v < 10 ? v.toFixed(1).replace(/\.0$/, "") : String(Math.round(v))) + "M"; }
-  const v = n / 1000000000; return (v < 10 ? v.toFixed(1).replace(/\.0$/, "") : String(Math.round(v))) + "B";
-};
 
 /* ── Main component ─────────────────────────────────────────────── */
 
@@ -192,6 +210,9 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  // Which stage the edit sheet opens on: the form, or the v8 EditAvatarView
+  // (?edit=avatar deep-link + the header avatar's camera pip, v8 :252).
+  const [editStage, setEditStage] = useState<EditProfileStage>("form");
   const [showFollowModal, setShowFollowModal] = useState<"followers" | "following" | null>(null);
   const [showVouchGive, setShowVouchGive] = useState(false);
   const [showVouchList, setShowVouchList] = useState<"received" | "given" | null>(null);
@@ -229,6 +250,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
     if (params.get("edit")) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot deep-link read on mount
       setShowEdit(true);
+      setEditStage(params.get("edit") === "avatar" ? "avatar" : "form");
       window.history.replaceState(null, "", window.location.pathname);
     } else if (params.get("vouch") === "request") {
       setShowVouchRequest(true);
@@ -276,10 +298,14 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
         await api.delete(`/users/${profile.handle}/follow`);
         setIsFollowing(false);
         setProfile((p) => (p ? { ...p, followers_count: Math.max(0, p.followers_count - 1) } : p));
+        fireToast(`Unfollowed @${profile.handle}`); // v8 ProfileView:353
       } else {
-        await api.post(`/users/${profile.handle}/follow`);
+        // v8 :353 toast with SERVER-truth XP — "· +2 XP" only when the response
+        // says the grant landed (re-follows the ledger counted stay plain).
+        const res = await api.post<{ xp_granted?: boolean } | undefined>(`/users/${profile.handle}/follow`);
         setIsFollowing(true);
         setProfile((p) => (p ? { ...p, followers_count: p.followers_count + 1 } : p));
+        fireToast(res?.xp_granted ? `Following @${profile.handle} · +2 XP` : `Following @${profile.handle}`);
       }
     } catch {
       /* ignore */
@@ -353,7 +379,8 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
     // eslint-disable-next-line @next/next/no-img-element
     <img src={profile.avatar_url} alt={profile.name} className="rounded-full object-cover" style={{ width: 76, height: 76 }} />
   ) : (
-    <Avatar name={profile.name} size={76} />
+    // v8 EditAvatarView — the chosen avatar tone wins over the name-hash colour.
+    <Avatar name={profile.name} color={profile.avatar_tone ? toneVar(profile.avatar_tone) : undefined} size={76} />
   );
 
   return (
@@ -365,8 +392,9 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
           <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
             <div style={{ position: "relative" }}>
               {isOwn ? (
+                // v8 :252 — the header avatar goes straight to the photo stage.
                 <button
-                  onClick={() => setShowEdit(true)}
+                  onClick={() => { setEditStage("avatar"); setShowEdit(true); }}
                   aria-label="Change profile photo"
                   style={{ position: "relative", background: "none", border: "none", padding: 0, cursor: "pointer", display: "block" }}
                 >
@@ -555,14 +583,19 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
         <AccountDrawer
           open={showAccountMenu}
           onClose={() => setShowAccountMenu(false)}
-          onEditProfile={() => setShowEdit(true)}
+          onEditProfile={() => { setEditStage("form"); setShowEdit(true); }}
         />
       )}
       {showEdit && isOwn && authUser && (
-        <EditProfileSheet user={authUser} onClose={() => setShowEdit(false)} onSaved={handleProfileSaved} />
+        <EditProfileSheet user={authUser} initialStage={editStage} onClose={() => setShowEdit(false)} onSaved={handleProfileSaved} />
       )}
       {showFollowModal && (
-        <FollowListModal handle={profile.handle} tab={showFollowModal} onClose={() => setShowFollowModal(null)} />
+        <FollowListModal
+          handle={profile.handle}
+          tab={showFollowModal}
+          counts={{ followers: profile.followers_count, following: profile.following_count }}
+          onClose={() => setShowFollowModal(null)}
+        />
       )}
       {showVouchGive && !isOwn && (
         <VouchGiveSheet
@@ -574,7 +607,15 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
         />
       )}
       {showVouchList && (
-        <VouchListModal handle={profile.handle} mode={showVouchList} onClose={() => setShowVouchList(null)} />
+        <VouchListModal
+          handle={profile.handle}
+          mode={showVouchList}
+          isOwn={isOwn}
+          onClose={() => setShowVouchList(null)}
+          // v8 :479-481 — header CTAs jump into the request / give flows.
+          onRequest={isOwn ? () => { setShowVouchList(null); setShowVouchRequest(true); } : undefined}
+          onVouch={!isOwn ? () => { setShowVouchList(null); setShowVouchGive(true); } : undefined}
+        />
       )}
       {showVouchRequest && isOwn && (
         <VouchRequestModal myHandle={profile.handle} onClose={() => setShowVouchRequest(false)} />
@@ -687,11 +728,11 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
         </div>
         <div style={{ flex: 1, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 999, padding: "9px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Items</span>
-          {/* v8 :66 — Items counts everything on the shelf INCLUDING sold records. The
-              server's portfolio.item_count excludes sold (it feeds completeness), so add
-              the sold records we can see; exact once the server counts them itself. */}
+          {/* v8 :66 — Items counts everything on the shelf INCLUDING sold records.
+              The server now counts them itself (portfolio.shelf_count, audit §9#22);
+              item_count stays the fallback for older cached payloads. */}
           <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--ink)", fontFeatureSettings: '"tnum" 1' }}>
-            {portfolio ? portfolio.item_count + owned.filter(isSoldItem).length : owned.length}
+            {portfolio ? portfolio.shelf_count ?? portfolio.item_count : owned.length}
           </span>
         </div>
       </div>
@@ -1228,9 +1269,10 @@ function PortfolioCalendar({ items }: { items: CollectionItem[] }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
             {g.items.map(({ it, w }) => {
               const bigDay = /^\d+$/.test(w.tileBottom);
-              // v8 :343 — balance = (total ?? value) − deposit; the API has no deposit
-              // field yet, so the balance reads as the full total (owner-only fields).
-              const balancePaise = it.preorder_total ?? it.value;
+              // v8 :343 — balance = max(0, (total ?? value) − deposit). All three are
+              // owner-only fields; visitors (all null) get no balance line (#29).
+              const totalPaise = it.preorder_total ?? it.value;
+              const balancePaise = totalPaise != null ? Math.max(0, totalPaise - (it.preorder_deposit || 0)) : null;
               return (
                 <div key={it.id} style={{ display: "flex", gap: 12, alignItems: "center", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: 12 }}>
                   {/* Mini window tile */}
@@ -1244,11 +1286,12 @@ function PortfolioCalendar({ items }: { items: CollectionItem[] }) {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titleForItem(it)}</div>
-                    <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 3 }}>On order</div>
+                    {/* v8 :372 — where it's on order, falling back to the generic line. */}
+                    <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 3 }}>{it.preorder_seller || "On order"}</div>
                     <div style={{ fontSize: 11.5, color: "var(--grail-gold-deep)", fontFamily: "var(--font-mono)", marginTop: 2 }}>{w.eta}</div>
                     {balancePaise != null && (
                       <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 3 }}>
-                        Balance due <b style={{ fontFamily: "var(--font-mono)", color: "var(--stamp-red)" }}>₹{Math.max(0, paiseToRupees(balancePaise)).toLocaleString("en-IN")}</b>
+                        Balance due <b style={{ fontFamily: "var(--font-mono)", color: "var(--stamp-red)" }}>₹{paiseToRupees(balancePaise).toLocaleString("en-IN")}</b>
                       </div>
                     )}
                   </div>
@@ -1283,9 +1326,16 @@ function PostsTab({ posts, profile, isOwn }: { posts: RawPost[] | null; profile:
     body: p.body,
     images: p.images,
     category: p.category,
-    community_id: null,
+    community_id: p.community_id ?? null,
     review_rating: p.review_rating ?? null,
-    poll_options: null,
+    poll_options: p.poll_options ?? null,
+    my_poll_vote: p.my_poll_vote ?? null,
+    badge: p.badge ?? null,
+    likers: p.likers,
+    is_liked: p.is_liked,
+    is_saved: p.is_saved,
+    is_following: p.is_following,
+    is_official: p.is_official,
     iso_item: p.iso_item ?? null,
     iso_budget: p.iso_budget ?? null,
     iso_cond: p.iso_cond ?? null,
@@ -1293,6 +1343,8 @@ function PostsTab({ posts, profile, isOwn }: { posts: RawPost[] | null; profile:
     ref_sku: p.ref_sku ?? null,
     ref_sku_title: p.ref_sku_title ?? null,
     ref_sku_brand: p.ref_sku_brand ?? null,
+    community_name: p.community_name ?? null,
+    ref_listing: p.ref_listing ?? null,
     likes_count: p.likes_count,
     comments_count: p.comments_count,
     saves_count: p.saves_count,
@@ -1300,7 +1352,10 @@ function PostsTab({ posts, profile, isOwn }: { posts: RawPost[] | null; profile:
   }));
   return (
     <div style={{ margin: "0 -16px" }}>
-      {enriched.map((p) => <PostCard key={p.id} post={p} />)}
+      {/* Share-to-Feed posts (ref_listing set) render the v8 listing-share card. */}
+      {enriched.map((p) => p.ref_listing
+        ? <SharedListingCard key={p.id} post={p} />
+        : <PostCard key={p.id} post={p} />)}
     </div>
   );
 }

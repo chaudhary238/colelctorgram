@@ -31,7 +31,6 @@ class CreateEventBody(BaseModel):
     address: Optional[str] = None       # DV8 — full address details (shown post-RSVP)
     online_url: Optional[str] = None
     cover_image_url: Optional[str] = None
-    bring: Optional[str] = None
     starts_at: datetime
     ends_at: Optional[datetime] = None
     # DV8 events rebuild — real pricing + ticketing/contact.
@@ -55,7 +54,6 @@ class UpdateEventBody(BaseModel):
     address: Optional[str] = None
     online_url: Optional[str] = None
     cover_image_url: Optional[str] = None
-    bring: Optional[str] = None
     starts_at: Optional[datetime] = None
     ends_at: Optional[datetime] = None
     is_free: Optional[bool] = None
@@ -204,7 +202,6 @@ async def create_event(
         address=body.address,
         online_url=body.online_url,
         cover_image_url=body.cover_image_url,
-        bring=body.bring,
         starts_at=body.starts_at,
         ends_at=body.ends_at,
         is_free=body.is_free,
@@ -416,7 +413,15 @@ def _event_dict(
     community: Optional[Community] = None,
     my_reminder: bool = False,
 ) -> dict:
-    is_host = bool(viewer) and (viewer.is_admin or e.host_id == viewer.id)
+    # Audit §8#17 — is_host means THE HOST: a site admin on someone else's event
+    # must not see "Hosted by You" or lose the RSVP footer. Admin edit rights
+    # travel separately as can_manage.
+    is_host = bool(viewer) and e.host_id == viewer.id
+    can_manage = is_host or bool(viewer and viewer.is_admin)
+    # Audit §8#2 — "Attendees see this exact address once they RSVP": the street
+    # address is withheld until the viewer RSVPs (host/admin always see it).
+    sees_address = can_manage or my_rsvp in ("going", "interested")
+    address = e.address if sees_address else None
     return {
         "id": str(e.id),
         "title": e.title,
@@ -438,12 +443,13 @@ def _event_dict(
         "country": e.country,
         "pincode": e.pincode,
         "venue": e.venue,
-        "address": e.address,
+        "address": address,
         # DV8 — the joined display form ("venue — address") used by cards/detail.
-        "where": f"{e.venue} — {e.address}" if e.venue and e.address else e.venue,
+        "where": f"{e.venue} — {address}" if e.venue and address else e.venue,
         "online_url": e.online_url,
         "cover_image_url": e.cover_image_url,
-        "bring": e.bring,
+        # v8 removed "What to bring" — the column stays for legacy rows but the
+        # field no longer rides the payload.
         "is_free": e.is_free,
         "price": e.price,
         "currency": e.currency,
@@ -456,6 +462,8 @@ def _event_dict(
         "my_rsvp": my_rsvp,
         "my_reminder": my_reminder,
         "is_host": is_host,
+        # Site admins (and the host) can open /manage without being shown as host.
+        "can_manage": can_manage,
         "status": e.status,
         "created_at": e.created_at.isoformat(),
     }

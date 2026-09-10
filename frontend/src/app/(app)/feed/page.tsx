@@ -16,7 +16,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Globe, SlidersHorizontal, UserPlus, Check } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser, AuthUser } from "@/lib/auth-context";
-import { PostCard, ListingFeedCard, FeedEventCard, ApiPost, ApiListing, ApiEvent } from "@/components/cards";
+import { PostCard, SharedListingCard, ListingFeedCard, FeedEventCard, ApiPost, ApiListing, ApiEvent } from "@/components/cards";
 import { cn } from "@/lib/utils";
 import { ADD_CATEGORIES } from "@/lib/catalog";
 import { MAX_SNAPSHOT_POSTS, readFeedSnapshot, writeFeedSnapshot } from "@/lib/feedSnapshot";
@@ -122,9 +122,12 @@ function CustomizePopover({
   return (
     <>
       <div className="fixed inset-0 z-30" onClick={onClose} />
+      {/* v8 FeedView.jsx:104 — pad '18px 18px 16px', fadeIn 140ms entry. The
+          keyframes live in v8's index.html, not our globals, so they're scoped here. */}
+      <style>{"@keyframes ch-feed-fadein { from { opacity: 0 } to { opacity: 1 } }"}</style>
       <div
-        className="absolute left-0 z-40 w-[min(320px,100%)] rounded-[20px] border border-[var(--slate-200)] bg-[var(--paper)] shadow-[var(--shadow-4)] p-[18px]"
-        style={{ top: "calc(100% + 8px)" }}
+        className="absolute left-0 z-40 w-[min(320px,100%)] rounded-[20px] border border-[var(--slate-200)] bg-[var(--paper)] shadow-[var(--shadow-4)] px-[18px] pt-[18px] pb-4"
+        style={{ top: "calc(100% + 8px)", animation: "ch-feed-fadein 140ms ease" }}
       >
         <div
           className="font-bold text-[16.5px] text-[var(--ink)]"
@@ -143,7 +146,8 @@ function CustomizePopover({
               <button
                 key={c.id}
                 onClick={() => toggleCat(c.id)}
-                className="flex items-center gap-3 w-full text-left rounded-lg px-1 py-[9px] cursor-pointer hover:bg-[var(--slate-50)] transition-colors"
+                /* v8 FeedView.jsx:112-113 — row gap 13, radius 9 */
+                className="flex items-center gap-[13px] w-full text-left rounded-[9px] px-1 py-[9px] cursor-pointer hover:bg-[var(--slate-50)] transition-colors"
               >
                 <CheckSquare on={on} />
                 <span className="text-[15px] font-medium text-[var(--ink)]">{c.label}</span>
@@ -156,7 +160,7 @@ function CustomizePopover({
 
         <button
           onClick={() => setDraftHide((h) => !h)}
-          className="flex items-center gap-3 w-full text-left rounded-lg px-1 py-[9px] cursor-pointer hover:bg-[var(--slate-50)] transition-colors"
+          className="flex items-center gap-[13px] w-full text-left rounded-[9px] px-1 py-[9px] cursor-pointer hover:bg-[var(--slate-50)] transition-colors"
         >
           <CheckSquare on={draftHide} />
           <span className="flex flex-col gap-px">
@@ -165,7 +169,8 @@ function CustomizePopover({
           </span>
         </button>
 
-        <div className="flex gap-2.5 mt-3.5">
+        {/* v8 FeedView.jsx:144 — footer buttons gap 9 */}
+        <div className="flex gap-[9px] mt-3.5">
           <button
             onClick={() => setDraftCats(allOn ? [] : CATEGORIES.map((c) => c.id))}
             className="flex-1 py-[11px] rounded-[11px] border border-[var(--border-strong)] bg-[var(--paper)] text-sm font-semibold text-[var(--ink)] cursor-pointer"
@@ -369,7 +374,9 @@ export default function FeedPage() {
   const stream = useMemo<StreamItem[]>(() => {
     const base: StreamItem[] = [];
     let li = 0, ei = 0;
-    const showListings = !(tab === "foryou" && hideListings) && tab !== "following";
+    // v8 FeedView.jsx:56 — Following keeps listing cards (post ∪ listing); only
+    // events drop out of the Following stream.
+    const showListings = !(tab === "foryou" && hideListings);
     const showEvents = tab !== "following";
     for (let i = 0; i < posts.length; i++) {
       const p = posts[i];
@@ -411,7 +418,8 @@ export default function FeedPage() {
                     aria-label={isForYou && on ? "Customise feed" : t.label}
                     className={cn(
                       // gap-2.5 (10px), not the old 6px — the icon was crowding the label.
-                      "flex-1 flex items-center justify-center gap-2.5 rounded-[10px] py-2 px-1.5 text-[13.5px] whitespace-nowrap cursor-pointer border-none transition-all duration-150",
+                      // v8 FeedView.jsx:88 — 130ms tab transition.
+                      "flex-1 flex items-center justify-center gap-2.5 rounded-[10px] py-2 px-1.5 text-[13.5px] whitespace-nowrap cursor-pointer border-none transition-all duration-[130ms]",
                       on
                         ? cn(
                             "bg-[var(--paper)] font-bold shadow-[var(--shadow-2)]",
@@ -454,7 +462,13 @@ export default function FeedPage() {
                 </div>
               </div>
             : stream.map((x) => {
-                if (x.t === "post") return <PostCard key={x.key} post={x.data} showFollow />;
+                if (x.t === "post") {
+                  // Share-to-Feed "showcase" posts carry ref_listing → the v8
+                  // listing-share card; everything else stays a PostCard.
+                  return x.data.ref_listing
+                    ? <SharedListingCard key={x.key} post={x.data} showFollow />
+                    : <PostCard key={x.key} post={x.data} showFollow />;
+                }
                 if (x.t === "listing") return <ListingFeedCard key={x.key} listing={x.data} />;
                 if (x.t === "event") return <FeedEventCard key={x.key} event={x.data} />;
                 return null;
@@ -471,7 +485,15 @@ export default function FeedPage() {
         {!loading && !hasMore && stream.length > 0 && (
           <div style={{ padding: "24px 16px 40px", textAlign: "center", color: "var(--slate-400)", fontSize: 12, letterSpacing: "0.02em" }}>
             You&rsquo;re all caught up
-            {user?.interests?.length ? ` · tuned to ${user.interests.length} interest${user.interests.length === 1 ? "" : "s"}` : ""}
+            {/* v8 FeedView.jsx:180 — For You only; N = the Customize-feed CATEGORY
+                selection (feed_prefs), falling back to every category when unset.
+                Not user.interests, and the noun is "categories". */}
+            {tab === "foryou"
+              ? (() => {
+                  const n = user?.feed_prefs?.categories?.length || CATEGORIES.length;
+                  return ` · tuned to ${n} ${n === 1 ? "category" : "categories"}`;
+                })()
+              : ""}
           </div>
         )}
     </div>

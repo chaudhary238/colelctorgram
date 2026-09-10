@@ -76,14 +76,17 @@ function CommunityPageInner() {
 
   // Everything on the "My communities" tab: created OR joined. A community you created
   // but somehow aren't a member of would still be yours, hence the `||`.
+  // v8 (CommunityView.jsx:24) — the category filter applies to BOTH tabs now.
   const mine = useMemo(() => {
-    const ours = communities.filter((c) => c.is_member || c.is_founder);
+    const ours = communities.filter(
+      (c) => (c.is_member || c.is_founder) && (cats.length === 0 || cats.includes(c.category)),
+    );
     const isPinned = (c: ApiCommunity) => pins.includes(c.id);
     // Pinned first (in pin order), then the rest by activity.
     const pinnedCards = pins.map((id) => ours.find((c) => c.id === id)).filter(Boolean) as ApiCommunity[];
     const rest = ours.filter((c) => !isPinned(c)).sort(byActivity);
     return [...pinnedCards, ...rest];
-  }, [communities, pins]);
+  }, [communities, pins, cats]);
 
   // The split. `created` renders its own header only when non-empty, so a collector who
   // has never created one sees exactly the list they saw before.
@@ -100,28 +103,50 @@ function CommunityPageInner() {
 
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-7">
-      <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "14px 20px 0" }}>
-        <Link
-          href="/search?scope=communities"
-          style={{
-            flex: 1, display: "flex", alignItems: "center", gap: 9,
-            height: 40, padding: "0 14px", borderRadius: 11,
-            border: "1px solid var(--border-strong)", background: "var(--paper-soft)",
-            color: "var(--ink-faint)", fontSize: 14,
-          }}
-        >
-          <Search size={18} />
-          Find a community…
-        </Link>
-        <Button size="sm" variant="primary" icon={<PlusCircle size={15} />} onClick={() => router.push("/community/new")}>
-          Create
-        </Button>
-      </div>
+      {/* v8 (CommunityView.jsx:31-60) — search row + category chips + tabs live in ONE
+          sticky header block: top 0, paper bg, slate-200 bottom rule. */}
+      <div style={{ position: "sticky", top: 0, zIndex: 4, background: "var(--paper)", borderBottom: "1px solid var(--slate-200)", padding: "12px 20px 10px" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+          <Link
+            href="/search?scope=communities"
+            style={{
+              flex: 1, display: "flex", alignItems: "center", gap: 9,
+              height: 40, padding: "0 14px", borderRadius: 11,
+              border: "1px solid var(--border-strong)", background: "var(--paper-soft)",
+              color: "var(--ink-faint)", fontSize: 14,
+            }}
+          >
+            <Search size={18} />
+            Find a community…
+          </Link>
+          <Button size="sm" variant="primary" icon={<PlusCircle size={15} />} onClick={() => router.push("/community/new")}>
+            Create
+          </Button>
+        </div>
 
-      {/* QA2 — Discover / Joined as explicit tabs so Discover stays reachable after you've
-          joined several communities; the tab is URL-backed so back-navigation restores it. */}
-      <div style={{ padding: "14px 20px 0" }}>
+        {/* v8 (CommunityView.jsx:45-48) — chips filter BOTH tabs; no "All" chip — a red
+            text "Clear" appears once any category is active. Chips read chipLabel. */}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 7, paddingBottom: 2 }}>
+          {CATEGORIES.map((c) => (
+            <CategoryChip key={c.id} active={cats.includes(c.id)} onClick={() => toggleCat(c.id)}>
+              {c.chipLabel}
+            </CategoryChip>
+          ))}
+          {cats.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setCats([])}
+              style={{ background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5 }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* QA2 — Discover / Joined as explicit tabs so Discover stays reachable after you've
+            joined several communities; the tab is URL-backed so back-navigation restores it. */}
         <Segmented
+          style={{ marginTop: 10 }}
           value={tab}
           onChange={(v) => selectTab(v as Tab)}
           options={[
@@ -146,7 +171,7 @@ function CommunityPageInner() {
             <div style={{ marginBottom: 22 }}>
               <SectionLabel>Created by you</SectionLabel>
               <div style={{ fontSize: 12, color: "var(--ink-faint)", margin: "5px 0 12px" }}>
-                You run {created.length === 1 ? "this one" : "these"} — Manage opens moderation, members and rules.
+                You run {created.length === 1 ? "this one" : "these"} — open it to manage moderation, members and rules.
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {created.map((c) => (
@@ -165,27 +190,30 @@ function CommunityPageInner() {
               <CommunityCard key={c.id} community={c} pinned={pins.includes(c.id)} onTogglePin={() => togglePin(c.id)} />
             ))}
             {joined.length === 0 && (
+              /* v8 (CommunityView.jsx:75) exact copy; the created>0 variant keeps our
+                 created-vs-joined section split (§15). */
               <EmptyNote>
-                {created.length > 0
-                  ? "You haven't joined anyone else's community yet — head to Discover."
-                  : "You haven't joined any communities yet — head to Discover."}
+                {cats.length > 0
+                  ? "No communities in this category yet."
+                  : created.length > 0
+                    ? "You haven't joined anyone else's community yet — check Discover."
+                    : "You haven't joined any communities yet — check Discover."}
               </EmptyNote>
             )}
           </div>
         </div>
       ) : (
         <div style={{ padding: "16px 20px 0" }}>
-          <div style={{ display: "flex", gap: 7, margin: "0 0 12px", overflowX: "auto", paddingBottom: 2 }}>
-            <CategoryChip active={cats.length === 0} onClick={() => setCats([])}>All</CategoryChip>
-            {CATEGORIES.map((c) => (
-              <CategoryChip key={c.id} active={cats.includes(c.id)} onClick={() => toggleCat(c.id)}>
-                {c.label}
-              </CategoryChip>
-            ))}
-          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {discover.map((c) => <CommunityCard key={c.id} community={c} />)}
-            {discover.length === 0 && <EmptyNote>Nothing new to discover in this category — check back soon.</EmptyNote>}
+            {/* v8 (CommunityView.jsx:82) exact copy for both Discover empties. */}
+            {discover.length === 0 && (
+              <EmptyNote>
+                {cats.length > 0
+                  ? "No communities in this category yet."
+                  : "You've joined everything — check back soon."}
+              </EmptyNote>
+            )}
           </div>
         </div>
       )}

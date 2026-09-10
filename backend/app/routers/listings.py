@@ -14,7 +14,7 @@ from app.dependencies import get_current_user
 from app.models.listing import Listing, ListingSave, ListingLike, ListingQuestion, ListingPriceVote
 from app.services.notifications import notify
 from app.models.item import Item, ItemPhoto
-from app.models.catalogue import Catalogue
+from app.models.catalogue import Catalogue, CatalogueRating
 from app.models.user import User
 from app.models.deal import Vouch
 from app.workers.tasks import dispatch_wishlist_notifications
@@ -202,8 +202,34 @@ async def get_listing(
     if listing.status == "removed" and listing.seller_id != viewer.id:
         raise HTTPException(status_code=404, detail="Listing not found")
     enriched = await _enrich_listings([listing], db, viewer)
-    enriched[0]["price_votes"] = await _price_vote_summary(listing_id, db, viewer, seller_id=listing.seller_id)
-    return enriched[0]
+    d = enriched[0]
+    d["price_votes"] = await _price_vote_summary(listing_id, db, viewer, seller_id=listing.seller_id)
+
+    # Detail-only extras (DV8 audit §5#25/#26/#30/#31) — kept off the browse
+    # payload so list pages stay at their current query count.
+    seller_country = await db.scalar(select(User.country).where(User.id == listing.seller_id))
+    d["seller_country"] = seller_country
+    d["seller_replies"] = await _seller_reply_rate(db, listing.seller_id)
+    d["catalogue_rating"] = None
+    d["catalogue_owners"] = 0
+    d["catalogue_desc"] = None
+    if listing.sku:
+        avg, cnt = (await db.execute(
+            select(func.avg(CatalogueRating.rating), func.count())
+            .where(CatalogueRating.sku == listing.sku)
+        )).one()
+        if cnt:
+            d["catalogue_rating"] = {"avg": round(float(avg), 1), "count": cnt}
+        # Owners = shelf copies (owned|preorder), same rule as the catalogue grid.
+        d["catalogue_owners"] = (await db.scalar(
+            select(func.count()).select_from(Item).where(
+                Item.sku == listing.sku, Item.status.in_(["owned", "preorder"])
+            )
+        )) or 0
+        d["catalogue_desc"] = await db.scalar(
+            select(Catalogue.description).where(Catalogue.sku == listing.sku)
+        )
+    return d
 
 
 @router.patch("/{listing_id}")
@@ -469,7 +495,25 @@ async def answer_question(
 
 
 class PriceVoteBody(BaseModel):
-    vote: str  # low | fair | high
+    vote: Optional[str] = None  # low | fair | high — None clears the vote (v8 ListingView.jsx:275)
+
+
+async def _seller_reply_rate(db: AsyncSession, seller_id: uuid.UUID) -> Optional[str]:
+    """Trust-row "Replies" (v8 shared.jsx:499-516 — Vouches · Replies · Joined):
+    the share of Q&A questions across this seller's listings that got an answer.
+    Null under 3 questions — too little signal to print a percentage."""
+    answered, total = (await db.execute(
+        select(
+            func.count().filter(ListingQuestion.answer.isnot(None)),
+            func.count(),
+        )
+        .select_from(ListingQuestion)
+        .join(Listing, Listing.id == ListingQuestion.listing_id)
+        .where(Listing.seller_id == seller_id)
+    )).one()
+    if not total or total < 3:
+        return None
+    return f"{round(100 * answered / total)}%"
 
 
 async def _price_vote_summary(
@@ -512,8 +556,8 @@ async def price_vote(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if body.vote not in ("low", "fair", "high"):
-        raise HTTPException(status_code=400, detail="vote must be low|fair|high")
+    if body.vote is not None and body.vote not in ("low", "fair", "high"):
+        raise HTTPException(status_code=400, detail="vote must be low|fair|high or null to clear")
     listing_result = await db.execute(select(Listing).where(Listing.id == listing_id))
     listing = listing_result.scalar_one_or_none()
     if not listing:
@@ -527,6 +571,15 @@ async def price_vote(
         )
     )
     vote = existing.scalar_one_or_none()
+
+    # v8 ListingView.jsx:275 — "Change" clears the vote server-side; the picker
+    # reopens with nothing counted until a new verdict lands.
+    if body.vote is None:
+        if vote:
+            await db.delete(vote)
+            await db.flush()
+        return await _price_vote_summary(listing_id, db, current_user, seller_id=listing.seller_id)
+
     changed = vote is None or vote.vote != body.vote
     if vote:
         vote.vote = body.vote

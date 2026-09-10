@@ -32,8 +32,9 @@ export const authInputStyle: React.CSSProperties = {
 };
 
 /* Full-page paper shell with the v8 back button (38px, r11, --slate-200
-   border) routing to the previous screen. */
-export function AuthShell({ back, children }: { back: string; children: React.ReactNode }) {
+   border) routing to the previous screen. `padBottom` — v8 gives login/signup a
+   24px pane bottom (Onboarding.jsx:123) while forgot/reset keep 32. */
+export function AuthShell({ back, padBottom = 32, children }: { back: string; padBottom?: number; children: React.ReactNode }) {
   const router = useRouter();
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--paper)" }}>
@@ -52,7 +53,7 @@ export function AuthShell({ back, children }: { back: string; children: React.Re
             <ArrowLeft size={20} />
           </button>
         </div>
-        <div className="flex-1" style={{ padding: "12px 24px 32px" }}>{children}</div>
+        <div className="flex-1" style={{ padding: `12px 24px ${padBottom}px` }}>{children}</div>
       </div>
     </div>
   );
@@ -123,7 +124,9 @@ export function AuthField({
   );
 }
 
-/* shared.jsx Button size "block": h52 / r14 / 16px 600. */
+/* shared.jsx Button size "block": h52 / r14 / 16px 600 — with v8's press scale,
+   focus ring and 120ms transitions (shared.jsx:577-585, DV8 §11#4); primary text
+   is the var(--paper) token, not literal #fff (§11#3). */
 export function BlockButton({
   variant = "primary",
   disabled,
@@ -141,18 +144,25 @@ export function BlockButton({
 }) {
   const colors: React.CSSProperties =
     variant === "primary"
-      ? { background: "var(--stamp-red)", color: "#fff", border: "1px solid var(--stamp-red)" }
+      ? { background: "var(--stamp-red)", color: "var(--paper)", border: "1px solid var(--stamp-red)" }
       : { background: "var(--bone)", color: "var(--ink-soft)", border: "1px solid var(--border-strong)" };
   return (
     <button
       type={type}
       disabled={disabled}
       onClick={onClick}
+      onPointerDown={(e) => { if (!disabled) e.currentTarget.style.transform = "scale(0.97)"; }}
+      onPointerUp={(e) => { e.currentTarget.style.transform = ""; }}
+      onPointerLeave={(e) => { e.currentTarget.style.transform = ""; }}
+      onFocus={(e) => { e.currentTarget.style.boxShadow = "0 0 0 3px var(--ring)"; }}
+      onBlur={(e) => { e.currentTarget.style.boxShadow = ""; }}
       style={{
         width: "100%", height: 52, borderRadius: 14, fontSize: 16, fontWeight: 600,
         fontFamily: "var(--font-body)", display: "inline-flex", alignItems: "center",
         justifyContent: "center", gap: 8, lineHeight: 1, whiteSpace: "nowrap",
         cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1,
+        transition: "transform 120ms var(--ease-out), background 120ms, box-shadow 120ms",
+        outline: "none",
         ...colors, ...style,
       }}
     >

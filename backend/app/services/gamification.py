@@ -88,7 +88,9 @@ EARN_RULES = {
     "refer":    {"points": 150, "freq": "repeat", "cap": None, "label": "Refer a friend",        "icon": "gift"},
     # v6 (DV6-02) — first collector to add a new item to the shared catalogue DB.
     # Deduped per item via ref_id; the /day cap stops bulk-add farming.
-    "db_new":   {"points": 50,  "freq": "repeat", "cap": 5,    "label": "Add new item to Scorred DB", "icon": "database"},
+    "db_new":   {"points": 50,  "freq": "repeat", "cap": 5,    "label": "Add new item to Scorred DB", "icon": "database",
+                 # v8 data.jsx:1215 — the row's sub-line explains the first-contributor rule.
+                 "note": "First to add earns +50 XP"},
     # DV8 quick-add split — adding is rewarded, finishing is rewarded more, so
     # quick-add never feels like a trap that generates homework (change review §2).
     # Both dedup per item via ref_id; caps stop bulk-add farming.
@@ -413,6 +415,8 @@ async def referrals_list(db: AsyncSession, inviter: User) -> list[dict]:
             "avatar_url": u.avatar_url,
             "status": "joined" if joined else "pending",
             "xp": reward if joined else 0,
+            # v8 ReferView.jsx:104 — the row sub-line shows when they joined.
+            "joined_at": u.created_at.isoformat() if u.created_at else None,
         })
     return rows
 
@@ -435,7 +439,8 @@ async def rewards_summary(db: AsyncSession, user: User) -> dict:
         if action in HIDDEN_EARN:
             continue  # check-in has its own card; follow is an invisible micro-reward
         row = {"id": action, "label": rule["label"], "xp": rule["points"],
-               "icon": rule["icon"], "freq": rule["freq"], "cap": rule["cap"]}
+               "icon": rule["icon"], "freq": rule["freq"], "cap": rule["cap"],
+               "note": rule.get("note")}
         if action == "profile":
             row["progress"] = {"done": done, "total": total}
         earn.append(row)

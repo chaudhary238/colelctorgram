@@ -13,6 +13,7 @@ import { api } from "@/lib/api";
 import { useUser, AuthUser } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import { CityField } from "@/components/CityField";
+import { GenderPicker } from "@/components/forms";
 import { Avatar, EmptyNote } from "@/components/ui";
 import { authLabelStyle, authInputStyle, BlockButton } from "@/app/auth/_ui";
 
@@ -29,13 +30,8 @@ const CATEGORIES = [
 // sub-interest chips") — the backend sub_interests field stays untouched; we
 // just stop rendering and sending it here.
 
-// Gender options — v8 shared.jsx GenderPicker: one list so signup and profile
-// editing can never diverge. "Prefer not to say" spans both grid columns.
-const GENDERS = [
-  ["f", "Female"],
-  ["m", "Male"],
-  ["x", "Prefer not to say"],
-] as const;
+// Gender options + control now live in components/forms.tsx (GenderPicker) —
+// one list so signup and profile editing can never diverge.
 
 type HandleStatus = "" | "available" | "taken" | "invalid";
 
@@ -86,24 +82,29 @@ function CheckBox({ on }: { on: boolean }) {
   );
 }
 
+/* v8 rows: step 1 pads '15px 16px', step 2 sits 1px tighter at '14px 16px'
+   (Onboarding.jsx:339,364 — DV8 §11#38); transitions run 120ms (§11#41). */
 function CheckRow({
   on,
   onClick,
+  pad = "15px 16px",
   children,
 }: {
   on: boolean;
   onClick: () => void;
+  pad?: string;
   children: React.ReactNode;
 }) {
   return (
     <button
       onClick={onClick}
       className={cn(
-        "w-full flex items-center gap-3.5 text-left rounded-[14px] border-[1.5px] px-4 py-[15px] transition-colors duration-150 cursor-pointer",
+        "w-full flex items-center gap-3.5 text-left rounded-[14px] border-[1.5px] cursor-pointer",
         on
           ? "border-[var(--ink)] bg-[var(--bone)]"
           : "border-[var(--border-strong)] bg-[var(--paper-soft)] hover:border-[var(--ink-ghost)]"
       )}
+      style={{ padding: pad, transition: "border-color 120ms, background 120ms" }}
     >
       {children}
     </button>
@@ -141,8 +142,10 @@ export default function OnboardingPage() {
   // so the only client-side invalid case is "too short"; the server re-checks
   // format anyway and answers taken/format.
   useEffect(() => {
+    // v8 (Onboarding.jsx:213, DV8 §11#26): a handle the user emptied/cleared is
+    // INVALID (red helper) — only the untouched auto-suggest state stays neutral.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- derived async-validation state keyed to the current handle value
-    if (!handle) { setHandleStatus(""); return; }
+    if (!handle) { setHandleStatus(handleManual ? "invalid" : ""); return; }
     if (handle.length < 3) { setHandleStatus("invalid"); return; }
     setHandleStatus("");
     let stale = false;
@@ -163,7 +166,7 @@ export default function OnboardingPage() {
       stale = true;
       clearTimeout(t);
     };
-  }, [handle]);
+  }, [handle, handleManual]);
 
   function onNameChange(v: string) {
     setName(v);
@@ -277,7 +280,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-[var(--paper)] flex justify-center px-4">
-      <div className="w-full max-w-lg flex flex-col min-h-screen pt-10 pb-8">
+      <div className="w-full max-w-lg flex flex-col min-h-screen pt-10">
         {/* progress + back + skip */}
         <div className="flex items-center gap-2.5 mb-6">
           {step > 0 ? (
@@ -291,12 +294,13 @@ export default function OnboardingPage() {
           ) : (
             <div className="w-[34px]" />
           )}
+          {/* v8 Onboarding.jsx:259 — progress fill transitions in 200ms (DV8 §11#41). */}
           <div className="flex-1 flex gap-1.5">
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
                 className={cn(
-                  "h-1 flex-1 rounded-full transition-colors duration-300",
+                  "h-1 flex-1 rounded-full transition-colors duration-200",
                   i <= step ? "bg-[var(--stamp-red)]" : "bg-[var(--bone-deep)]"
                 )}
               />
@@ -323,7 +327,8 @@ export default function OnboardingPage() {
               <div className="flex justify-center my-6">
                 <div className="relative">
                   <Avatar name={name || "You"} color="var(--ink)" size={84} />
-                  <div className="absolute -bottom-0.5 -right-0.5 w-[30px] h-[30px] rounded-full bg-[var(--stamp-red)] text-white border-[3px] border-[var(--paper)] flex items-center justify-center">
+                  {/* v8 Onboarding.jsx:270 — pip glyph uses the paper TOKEN (DV8 §11#23). */}
+                  <div className="absolute -bottom-0.5 -right-0.5 w-[30px] h-[30px] rounded-full bg-[var(--stamp-red)] text-[var(--paper)] border-[3px] border-[var(--paper)] flex items-center justify-center">
                     <Camera size={15} />
                   </div>
                 </div>
@@ -428,43 +433,24 @@ export default function OnboardingPage() {
                 </label>
 
                 {/* City is a picked value from a fed list — see CityField for why.
-                    Stores city and country separately (DV8 P0-2). */}
+                    Stores city and country separately (DV8 P0-2). height 48 matches
+                    the five 48px fields (v8 shared.jsx:344-345, DV8 §11#27); country
+                    lets the picked value display as "City, Country" (§11#28). */}
                 <CityField
                   label="City"
                   value={city}
+                  country={country}
+                  height={48}
                   onChange={(c, ct) => {
                     setCity(c);
                     setCountry(ct);
                   }}
                 />
 
-                {/* GenderPicker port (shared.jsx:404-426): two even columns —
-                    "Prefer not to say" spans both so it never wraps. */}
+                {/* GenderPicker (shared control — components/forms.tsx) */}
                 <div>
                   <span style={authLabelStyle}>Gender</span>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 7 }}>
-                    {GENDERS.map(([val, lbl], i) => {
-                      const on = gender === val;
-                      return (
-                        <button
-                          key={val}
-                          type="button"
-                          onClick={() => setGender(on ? "" : val)}
-                          style={{
-                            gridColumn: i === 2 ? "span 2" : "auto",
-                            height: 48, borderRadius: 12, cursor: "pointer", padding: "0 10px",
-                            border: `1.5px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
-                            background: on ? "var(--ink)" : "var(--paper-soft)",
-                            color: on ? "var(--paper)" : "var(--ink)",
-                            fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14.5,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {lbl}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <GenderPicker value={gender} onChange={(v) => setGender(v as typeof gender)} />
                 </div>
 
                 <div>
@@ -532,7 +518,7 @@ export default function OnboardingPage() {
                     {suggested.map((c) => {
                       const on = joins.includes(c.id);
                       return (
-                        <CheckRow key={c.id} on={on} onClick={() => toggleJoin(c.id)}>
+                        <CheckRow key={c.id} on={on} onClick={() => toggleJoin(c.id)} pad="14px 16px">
                           <span className="flex-1 min-w-0">
                             <span
                               className="block font-bold text-base text-[var(--ink)]"
@@ -558,7 +544,9 @@ export default function OnboardingPage() {
           )}
         </div>
 
-        <div className="pt-5 shrink-0">
+        {/* v8 Onboarding.jsx:385 — footer CTA pads '12px 20px 30px' (DV8 §11#42);
+            horizontal padding comes from the responsive max-w column. */}
+        <div className="shrink-0" style={{ padding: "12px 0 30px" }}>
           <BlockButton onClick={next} disabled={!canNext || saving}>
             {saving
               ? "Setting up…"

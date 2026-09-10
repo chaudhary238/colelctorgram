@@ -5,12 +5,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Heart, MessageCircle, Share2, Bookmark, Flag } from "lucide-react";
 import { api } from "@/lib/api";
-import { timeAgo } from "@/lib/utils";
-import { ApiPost, PollBlock, CommentThread, ISOCard, PostImages, refTone } from "@/components/cards";
+import { ApiPost, ActionBtn, AuthorLine, PollBlock, CommentThread, ISOCard, PostImages, refTone } from "@/components/cards";
 import { BackButton } from "@/components/BackButton";
 import { ReportSheet } from "@/components/ReportSheet";
+import { ShareSheet } from "@/components/ShareSheet";
 import { useUser } from "@/lib/auth-context";
-import { Avatar, Stars, ProductPhoto, SealMark, Badge } from "@/components/ui";
+import { Stars, ProductPhoto } from "@/components/ui";
 import { patchFeedSnapshotPost } from "@/lib/feedSnapshot";
 
 interface Comment {
@@ -27,6 +27,9 @@ interface Comment {
 // in cards.tsx, shared with the feed's Tagged-item chip (v8).
 interface PostDetail extends ApiPost {
   comments?: Comment[];
+  // GET /posts/{id} only — the author's role in the post's community, for the
+  // ADMIN/MOD chip in the detail AuthorLine (v8 PostDetail.jsx:27).
+  author_role?: "admin" | "mod" | null;
 }
 
 export default function PostDetailPage() {
@@ -40,7 +43,9 @@ export default function PostDetailPage() {
   const [likeBusy, setLikeBusy] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
   const [reporting, setReporting] = useState(false); // W-48
-  const [shared, setShared] = useState(false);
+  // DV8 §2#2 — share opens the branded ShareSheet (v8 Overlays.jsx:716), replacing
+  // the old direct navigator.share / silent-clipboard handler.
+  const [sharing, setSharing] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
 
   useEffect(() => {
@@ -90,20 +95,6 @@ export default function PostDetailPage() {
     }
   }
 
-  async function sharePost() {
-    const url = `${window.location.origin}/post/${id}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: "Scorred", url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        setShared(true);
-        setTimeout(() => setShared(false), 1600);
-      }
-    } catch {
-      /* cancelled */
-    }
-  }
 
   if (loading || !post) {
     return (
@@ -126,8 +117,9 @@ export default function PostDetailPage() {
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <BackButton fallback="/feed" />
-          {/* v8 PostDetail — ISO posts read "Wanted" in the header. */}
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", flex: 1 }}>{post.type === "iso" ? "Wanted" : "Post"}</span>
+          {/* v8 PostDetail — ISO posts read "Wanted" in the header.
+              Title 19/700 display (v8 Chrome.jsx:83 DetailHeader); 20px gutters stay. */}
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em", lineHeight: 1.15, flex: 1 }}>{post.type === "iso" ? "Wanted" : "Post"}</span>
           {user?.id !== post.user_id && (
             /* W-48 — report entry point on post detail */
             <button
@@ -143,6 +135,14 @@ export default function PostDetailPage() {
       {reporting && (
         <ReportSheet targetType="post" targetId={post.id} title="Report post" onClose={() => setReporting(false)} />
       )}
+      {sharing && (
+        <ShareSheet
+          url={`${window.location.origin}/post/${id}`}
+          label="post"
+          title={post.title ?? "Scorred"}
+          onClose={() => setSharing(false)}
+        />
+      )}
 
       {post.type === "iso" ? (
         /* v8 PostDetail:18 — an ISO detail IS the real ISOCard (teal "Wanted" ribbon,
@@ -156,45 +156,21 @@ export default function PostDetailPage() {
       ) : (
         <>
           <div style={{ padding: "16px 20px 0" }}>
-            {/* v8 PostDetail — the author row carries NO post-type tag; the page
-                header already names the surface. */}
-            {/* Staff posts speak as Scorred (QA 2026-08-04 §4) — seal, Official tag, no
-                handle and no link through to the admin's personal profile. */}
-            {post.is_official ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <SealMark size={40} />
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontWeight: 600, fontSize: 14 }}>Scorred</span>
-                    <Badge style={{ background: "var(--slate-800)", color: "var(--paper)", borderRadius: 5, fontWeight: 700, fontSize: 10.5, letterSpacing: "0.04em", textTransform: "uppercase", padding: "2px 7px" }}>
-                      Official
-                    </Badge>
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{timeAgo(post.created_at)}</div>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <Link href={`/profile/${post.handle}`}>
-                  <Avatar name={post.name ?? "?"} size={40} />
-                </Link>
-                <div>
-                  <Link href={`/profile/${post.handle}`} style={{ textDecoration: "none", color: "inherit" }} className="hover:underline">
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{post.name}</div>
-                  </Link>
-                  <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{post.handle} · {timeAgo(post.created_at)}</div>
-                </div>
-              </div>
-            )}
+            {/* v8 PostDetail.jsx:27 — the SAME AuthorLine as the feed: 38px avatar,
+                name, rewards-badge pill, community byline, ADMIN/MOD chip, and the
+                Scorred-Official switch for staff posts (all inside AuthorLine). The
+                author row carries NO post-type tag — the header names the surface. */}
+            <AuthorLine post={post} authorRole={post.author_role ?? null} />
 
             {post.type === "review" && post.review_rating && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "12px 0 0" }}>
                 <Stars n={post.review_rating} />
                 <span style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>{post.review_rating}/5 build quality</span>
               </div>
             )}
 
-            <div style={{ fontSize: 16, lineHeight: 1.6, color: "var(--ink-soft)", marginBottom: 14, whiteSpace: "pre-wrap" }}>{post.body}</div>
+            {/* v8 PostDetail.jsx:34 — body margin '12px 0' */}
+            <div style={{ fontSize: 16, lineHeight: 1.6, color: "var(--ink-soft)", margin: "12px 0", whiteSpace: "pre-wrap" }}>{post.body}</div>
 
             {/* QA 5.1 — same swipeable carousel as the feed for multi-photo posts. */}
             {post.images.length > 0 && (
@@ -204,7 +180,10 @@ export default function PostDetailPage() {
             )}
             {post.images.length === 0 && post.type === "showcase" && (
               <div style={{ marginBottom: 14 }}>
-                {/* v8 PostDetail:36 — the placeholder's watermark is the brand. */}
+                {/* v8 PostDetail:36 — the placeholder's watermark is the brand.
+                    tone stays "teal": the post payload carries no tone field
+                    (audit §1#44) — switch to `post.tone ?? "teal"` if the
+                    serializer ever grows one. */}
                 <ProductPhoto tone="teal" ratio="3/2" label={post.ref_sku_brand ?? undefined} />
               </div>
             )}
@@ -234,23 +213,15 @@ export default function PostDetailPage() {
             )}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "12px 20px", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
-            <button onClick={toggleLike} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: liked ? "var(--stamp-red)" : "var(--ink-mute)" }}>
-              <Heart size={21} fill={liked ? "currentColor" : "none"} />
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{likes}</span>
-            </button>
-            <button style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: "var(--ink-mute)" }}>
-              <MessageCircle size={21} />
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{commentCount}</span>
-            </button>
-            <button onClick={sharePost} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: shared ? "var(--ink)" : "var(--ink-mute)" }}>
-              <Share2 size={20} />
-              {shared && <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>Copied</span>}
-            </button>
+          {/* v8 PostDetail.jsx:52-57 — the shared ActionBtn treatment (inactive
+              slate-400, active fill/weight + burst), margin '6px 0'; 20px web
+              gutters kept (deliberate over v8's 16). */}
+          <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "12px 20px", margin: "6px 0", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
+            <ActionBtn icon={<Heart size={21} />} label={likes} active={liked} onClick={toggleLike} />
+            <ActionBtn icon={<MessageCircle size={21} />} label={commentCount} />
+            <ActionBtn icon={<Share2 size={20} />} onClick={() => setSharing(true)} />
             <div style={{ flex: 1 }} />
-            <button onClick={toggleSave} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: saved ? "var(--ink)" : "var(--ink-mute)" }}>
-              <Bookmark size={21} fill={saved ? "currentColor" : "none"} />
-            </button>
+            <ActionBtn icon={<Bookmark size={21} />} active={saved} activeColor="var(--ink)" onClick={toggleSave} />
           </div>
 
           {/* Rich thread — likes, replies & @mentions on each comment (QA 5.2). */}

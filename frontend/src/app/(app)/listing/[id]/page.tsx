@@ -3,16 +3,29 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Heart, Share2, MessageCircle, Shield, Info, ChevronRight, Pencil, Send, Check, Clock, Flag, SlidersHorizontal, Tag as TagIcon, X } from "lucide-react";
+import { Heart, Share2, MessageCircle, Shield, Info, ChevronRight, Pencil, Send, Check, Clock, Flag, SlidersHorizontal, Star, Tag as TagIcon, X } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { ReportSheet } from "@/components/ReportSheet";
+import { ShareSheet } from "@/components/ShareSheet";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
 import { symOf, conditionLabel } from "@/lib/catalog";
 import { ApiCommunity, ApiListing, ApiListingQuestion } from "@/components/cards";
-import { Avatar, Money, ProductPhoto, SectionLabel, TrustSignals } from "@/components/ui";
+import { Avatar, ClampText, Disclosure, Money, ProductPhoto, SectionLabel, TrustSignals } from "@/components/ui";
 import { fireToast } from "@/components/gamification";
 import { invalidateFeedSnapshot } from "@/lib/feedSnapshot";
+
+// Detail-only extras (GET /listings/{id} — backend listings.py DV8 §5#25/26/30/31).
+// The browse payload doesn't carry them, so they extend ApiListing here rather
+// than widening the shared card type in cards.tsx.
+type ApiListingDetail = ApiListing & {
+  seller_country?: string | null;
+  /** Seller reply rate, e.g. "96%" — null under 3 answered questions. */
+  seller_replies?: string | null;
+  catalogue_rating?: { avg: number; count: number } | null;
+  catalogue_owners?: number;
+  catalogue_desc?: string | null;
+};
 
 // DV8-09 — price-fairness vote options. Bar/legend tones are deliberately distinct:
 // teal (low) / forest (fair) / red (high) — v8 ListingView:70-74.
@@ -44,18 +57,18 @@ function SpecRow({ label, value, last }: { label: string; value: string; last?: 
 export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [listing, setListing] = useState<ApiListing | null>(null);
+  const [listing, setListing] = useState<ApiListingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [liked, setLiked] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
-  const [shared, setShared] = useState(false);
+  // DV8 §2#2 — share opens the branded ShareSheet (v8 Overlays.jsx:716), replacing
+  // the old direct navigator.share / silent-clipboard handler.
+  const [sharing, setSharing] = useState(false);
   const [dmBusy, setDmBusy] = useState(false);
   // DV8-08 — Selling terms lead (condition, shipping, returns are what a buyer decides
   // on); catalogue facts live in "About the item" and read from the same DB entry.
   const [tab, setTab] = useState<"terms" | "about">("terms");
-  const [descExpanded, setDescExpanded] = useState(false);
   const [priceVote, setPriceVote] = useState<string | null>(null);
-  const [voteChanging, setVoteChanging] = useState(false);
   const [voteCounts, setVoteCounts] = useState({ low: 0, fair: 0, high: 0, total: 0 });
   const [photo, setPhoto] = useState(0);
   // v8 Manage sheet (ListingView:97) replaces the old inline edit bar. The inline
@@ -68,13 +81,10 @@ export default function ListingDetailPage() {
   const [editNotes, setEditNotes] = useState("");
   const [editBusy, setEditBusy] = useState(false);
   const [reporting, setReporting] = useState(false); // W-48
-  // v8 ClampText measures real overflow (scrollHeight), never a character count.
-  const descRef = useRef<HTMLDivElement | null>(null);
-  const [descOverflows, setDescOverflows] = useState(false);
   const sharePrompted = useRef(false);
 
   useEffect(() => {
-    api.get<ApiListing>(`/listings/${id}`)
+    api.get<ApiListingDetail>(`/listings/${id}`)
       .then((l) => {
         setListing(l);
         setLiked(l.is_liked ?? false);
@@ -100,12 +110,6 @@ export default function ListingDetailPage() {
     }
   }, [loading, listing]);
 
-  // Re-measure the About description whenever it can have changed shape.
-  useEffect(() => {
-    const el = descRef.current;
-    if (el) setDescOverflows(el.scrollHeight > el.clientHeight + 2);
-  }, [listing, tab]);
-
   async function toggleLike() {
     if (likeBusy) return;
     const next = !liked;
@@ -122,24 +126,20 @@ export default function ListingDetailPage() {
     }
   }
 
-  async function share() {
-    const url = `${window.location.origin}/listing/${id}`;
-    try {
-      if (navigator.share) await navigator.share({ title: listing?.title ?? "Scorred", url });
-      else { await navigator.clipboard.writeText(url); setShared(true); setTimeout(() => setShared(false), 1600); }
-    } catch { /* cancelled */ }
-  }
+  const share = () => setSharing(true);
 
-  async function messageSeller(initialMessage?: string) {
+  // DV8 §10#22 (v8 Chat.jsx:90) — buy intent is an EDITABLE draft, never auto-sent:
+  // create/reuse the pair thread with NO initial_message, then land in the chat
+  // composer pre-filled + focused via the existing ?draft=1 plumbing (intent=buy).
+  async function messageSeller() {
     if (!listing || dmBusy) return;
     setDmBusy(true);
     try {
       const thread = await api.post<{ id: string }>("/threads", {
         other_user_id: listing.seller_id,
         listing_id: listing.id,
-        initial_message: initialMessage,
       });
-      router.push(`/chat/${thread.id}`);
+      router.push(`/chat/${thread.id}?draft=1&intent=buy&title=${encodeURIComponent(listing.title)}`);
     } catch {
       router.push("/inbox");   // fall back to inbox if thread creation fails
     } finally {
@@ -178,12 +178,17 @@ export default function ListingDetailPage() {
     ? `${cur}${Math.round(listing.shipping_cost / 100).toLocaleString("en-IN")} extra`
     : shipIncluded ? "Included in price" : "Paid by buyer";
   const returnsAccepted = listing.terms.includes("Returns accepted");
-  // v8 About tab — catalogue facts (brand/scale/year/category) live in the title
-  // meta line, not a spec table; only the pre-order launch rows remain tabular.
-  const aboutRows = [
-    isPreorder && listing.preorder_eta ? { label: "Launch date", value: listing.preorder_eta } : null,
-    isPreorder && listing.preorder_seller ? { label: "Pre-order from", value: listing.preorder_seller } : null,
-  ].filter((r): r is { label: string; value: string } => r !== null);
+  // v8 About tab (ListingView:297-301) — catalogue facts live in the title meta
+  // line, not a spec table; the PO card carries the Launch date row ONLY (v8 has
+  // no "Pre-order from" row — the source seller is a Terms-side concern).
+  const launchDate = isPreorder ? listing.preorder_eta : null;
+  // v8:309-313 — the About blurb is the CATALOGUE description (the listing's own
+  // description already renders on the Terms tab); fallback sentence per v8,
+  // year omitted when the payload has none.
+  const catalogueBlurb = listing.sku
+    ? listing.catalogue_desc
+      || `${listing.brand ? `${listing.brand} ` : ""}${listing.title}. Catalogue entry from the Scorred database${listing.release_year ? `, ${listing.release_year}` : ""}.`
+    : null;
 
   const priceLabel = `${cur}${priceRupees.toLocaleString("en-IN")}`;
   const votePct = (k: VoteId) => (voteCounts.total ? Math.round((voteCounts[k] / voteCounts.total) * 100) : 0);
@@ -228,23 +233,27 @@ export default function ListingDetailPage() {
         price: Number(editPrice) * 100,
         condition_notes: editNotes.trim() || null,
       });
-      setListing(updated);
+      // Merge — the PATCH payload lacks the detail-only extras (seller_replies,
+      // catalogue_rating…); replacing outright would blank them mid-session.
+      setListing((cur) => (cur ? { ...cur, ...updated } : updated));
       setEditing(false);
     } catch { /* keep the form open on failure */ } finally {
       setEditBusy(false);
     }
   }
 
-  async function castVote(vote: string) {
+  // vote: "low"|"fair"|"high" casts/replaces; null CLEARS the caller's vote
+  // server-side (v8 ListingView:275-276 — "Change" un-votes, the picker reopens
+  // with nothing selected until a new verdict lands).
+  async function castVote(vote: VoteId | null) {
     if (!listing) return;
     const prev = priceVote;
-    setPriceVote(vote); // optimistic
-    fireToast("Thanks — sent anonymously to the seller"); // v8:282
+    setPriceVote(vote); // optimistic — null immediately re-renders the empty picker
+    if (vote) fireToast("Thanks — sent anonymously to the seller"); // v8:282; clearing is silent
     try {
       const res = await api.post<{ low: number | null; fair: number | null; high: number | null; total: number | null; my_vote: string | null }>(`/listings/${listing.id}/price-vote`, { vote });
       setVoteCounts({ low: res.low ?? 0, fair: res.fair ?? 0, high: res.high ?? 0, total: res.total ?? 0 });
       setPriceVote(res.my_vote);
-      setVoteChanging(false);
     } catch {
       setPriceVote(prev);
     }
@@ -255,13 +264,13 @@ export default function ListingDetailPage() {
     setEditBusy(true);
     try {
       const updated = await api.patch<ApiListing>(`/listings/${listing.id}`, { status: "sold" });
-      setListing(updated);
+      setListing((cur) => (cur ? { ...cur, ...updated } : updated));
       setEditing(false);
       setManageOpen(false);
       // The server stamps the item's sold_at when the listing PATCHes to sold —
       // no extra /items call needed; the shelf copy picks up its Sold tag on load.
-      // v8 toast title + sub combined (fireToast is single-line); then pop (v8:122).
-      fireToast("Marked as sold — greyed out in your collection, undo any time");
+      // v8:122 two-line toast (title + sub), then pop.
+      fireToast("Marked as sold", "Greyed out in your collection — undo any time");
       setTimeout(goBack, 60);
     } catch { /* ignore */ } finally {
       setEditBusy(false);
@@ -274,7 +283,7 @@ export default function ListingDetailPage() {
     setEditBusy(true);
     try {
       const updated = await api.patch<ApiListing>(`/listings/${listing.id}`, { status: "closed" });
-      setListing(updated);
+      setListing((cur) => (cur ? { ...cur, ...updated } : updated));
       setManageOpen(false);
       setConfirmUnlist(false);
       fireToast("Unlisted — back in your collection");
@@ -303,6 +312,14 @@ export default function ListingDetailPage() {
       )}
       {shareToFeedOpen && (
         <ShareToFeedSheet listing={listing} onClose={() => setShareToFeedOpen(false)} />
+      )}
+      {sharing && (
+        <ShareSheet
+          url={`${window.location.origin}/listing/${id}`}
+          label="listing"
+          title={listing.title ?? "Scorred"}
+          onClose={() => setSharing(false)}
+        />
       )}
 
       {/* v8 Manage sheet — one dark footer button opens this; rows above. */}
@@ -359,7 +376,7 @@ export default function ListingDetailPage() {
             <button onClick={toggleLike} title={liked ? "Saved" : "Save"} aria-label={liked ? "Saved" : "Save"} style={heroBtn}>
               <Heart size={18} fill={liked ? "var(--stamp-red)" : "none"} />
             </button>
-            <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ ...heroBtn, color: shared ? "var(--grail-gold)" : "var(--paper)" }}>
+            <button onClick={share} title="Share" aria-label="Share" style={heroBtn}>
               <Share2 size={17} />
             </button>
           </div>
@@ -498,13 +515,15 @@ export default function ListingDetailPage() {
                   <span style={{ fontSize: 13.5, fontWeight: 600 }}>Is this price fair?</span>
                   <span style={{ fontSize: 11, color: "var(--ink-faint)", marginLeft: "auto" }}>Anonymous</span>
                 </div>
-                {priceVote && !voteChanging ? (
+                {priceVote ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 11 }}>
                     <Check size={15} style={{ color: "var(--forest)", flexShrink: 0 }} />
                     <span style={{ fontSize: 12.5, color: "var(--ink-soft)", flex: 1 }}>
                       You said <b>{VOTE_OPTS.find((o) => o.id === priceVote)?.label ?? priceVote}</b> — sent anonymously to the seller.
                     </span>
-                    <button onClick={() => setVoteChanging(true)} style={{ padding: 0, border: "none", background: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12, color: "var(--ink-mute)" }}>Change</button>
+                    {/* v8:275 — Change = castPriceVote(l, null): the old vote is DELETED
+                        server-side, not held while a replacement is picked. */}
+                    <button onClick={() => castVote(null)} style={{ padding: 0, border: "none", background: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12, color: "var(--ink-mute)" }}>Change</button>
                   </div>
                 ) : (
                   <>
@@ -526,27 +545,23 @@ export default function ListingDetailPage() {
         ) : (
           /* Catalogue facts, straight from the database entry — same source as the item page */
           <div style={{ marginBottom: 18 }}>
-            {aboutRows.length > 0 && (
+            {launchDate && (
               /* v8:298 — same card-surface treatment as the terms table. */
               <div style={{ background: "var(--card-surface)", border: "1px solid var(--slate-200)", borderRadius: 13, overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
-                {aboutRows.map((r, i) => (
-                  <SpecRow key={r.label} label={r.label} value={r.value} last={i === aboutRows.length - 1} />
-                ))}
+                <SpecRow label="Launch date" value={launchDate} last />
               </div>
             )}
-            {listing.description && (
-              /* v8 ClampText (shared.jsx:454) — 3-line clamp, measured overflow,
-                 "Read more"/"Read less" in w700 ink-mute. Catalogue desc itself is a
-                 backend gap; the listing description stands in. */
+            {listing.catalogue_rating && listing.catalogue_rating.count > 0 && (
+              /* v8:302-307 — gold star + avg + "· N ratings · N own this". */
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 14 }}>
+                <Star size={15} fill="var(--grail-gold)" style={{ color: "var(--grail-gold)" }} />
+                <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 13.5, color: "var(--ink)" }}>{listing.catalogue_rating.avg.toFixed(1)}</span>
+                <span style={{ fontSize: 12.5, color: "var(--ink-faint)", whiteSpace: "nowrap" }}>· {listing.catalogue_rating.count} ratings · {listing.catalogue_owners ?? 0} own this</span>
+              </div>
+            )}
+            {catalogueBlurb && (
               <div style={{ marginTop: 14 }}>
-                <div ref={descRef} style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--ink-soft)", textWrap: "pretty", ...(descExpanded ? {} : { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }) }}>
-                  {listing.description}
-                </div>
-                {(descOverflows || descExpanded) && (
-                  <button onClick={() => setDescExpanded((v) => !v)} style={{ background: "none", border: "none", padding: 0, marginTop: 5, cursor: "pointer", color: "var(--ink-mute)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12.5 }}>
-                    {descExpanded ? "Read less" : "Read more"}
-                  </button>
-                )}
+                <ClampText lines={3} size={14.5}>{catalogueBlurb}</ClampText>
               </div>
             )}
             {listing.sku && (
@@ -564,12 +579,12 @@ export default function ListingDetailPage() {
 
         {mine ? (
           /* v8 ListingView:332 — gold Boost-trust panel on your own listing.
-             NOTE: the v8 copy references the Verified badge; ownership verification
-             was removed 2026-07-18 — founder to confirm this copy or its successor. */
+             v8's own copy promised the RETIRED Verified badge (verification removed
+             2026-07-18), so the wording below replaces it — ⚖ founder-confirmable. */
           <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 13, padding: "12px 14px" }}>
             <Shield size={17} style={{ color: "var(--grail-gold-deep)", flexShrink: 0, marginTop: 1 }} />
             <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.5 }}>
-              <b>Boost trust:</b> add a verified in-app photo to earn the Verified badge — verified listings rank higher and sell faster.
+              <b>Boost trust:</b> add clear in-hand photos — listings with real photos build buyer confidence and sell faster.
             </div>
           </div>
         ) : (
@@ -580,18 +595,24 @@ export default function ListingDetailPage() {
                 <Avatar name={listing.name ?? "?"} photo={listing.avatar_url} size={46} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 15, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{listing.name}</div>
-                  {/* v8 placeLabel is "City, Country" — the listing payload has no seller
-                      country yet, so we render the city alone rather than invent one.
-                      TODO(🛠B users.country): append `, {country}` once the API sends it. */}
-                  <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{listing.handle}{listing.seller_city ? ` · ${listing.seller_city}` : ""}</div>
+                  {/* v8:349 placeLabel — "@handle · City, Country"; degrades to
+                      city-only / country-only / bare handle when fields are null. */}
+                  {(() => {
+                    const place = [listing.seller_city, listing.seller_country].filter(Boolean).join(", ");
+                    return (
+                      <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{listing.handle}{place ? ` · ${place}` : ""}</div>
+                    );
+                  })()}
                 </div>
                 <ChevronRight size={18} style={{ color: "var(--ink-faint)" }} />
               </div>
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
                 {/* v8:354 trust row is NON-compact (stats spread space-between):
-                    Vouches · Joined {year}. Replies renders only if the API sends it. */}
+                    Vouches · Replies · Joined. Replies = seller reply rate ("96%"),
+                    null under 3 answered questions — the row degrades gracefully. */}
                 <TrustSignals
                   vouches={sellerVouches}
+                  response={listing.seller_replies ?? null}
                   joined={listing.seller_joined ?? null}
                 />
               </div>
@@ -656,7 +677,7 @@ export default function ListingDetailPage() {
           </button>
         ) : (
           /* v8 — a single full-width CTA; a trade conversation folds into the chat. */
-          <button onClick={() => messageSeller(`Hi! Is "${listing.title}" still available?`)} disabled={dmBusy} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--stamp-red)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: dmBusy ? "default" : "pointer" }}>
+          <button onClick={messageSeller} disabled={dmBusy} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--stamp-red)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: dmBusy ? "default" : "pointer" }}>
             <MessageCircle size={18} />{dmBusy ? "Opening…" : "Message seller"}
           </button>
         )}
@@ -772,7 +793,6 @@ function ShareToFeedSheet({ listing, onClose }: { listing: ApiListing; onClose: 
 /* ── Public Q&A on a listing — collapsible, count in the header, open by default.
    Header matches the v8 Disclosure (display-font title + mono meta + chevron). ── */
 function ListingQA({ listingId, canAnswer, sellerName, sellerPhoto }: { listingId: string; canAnswer: boolean; sellerName?: string | null; sellerPhoto?: string | null }) {
-  const [open, setOpen] = useState(false); // v8 Disclosure defaults closed (shared.jsx:434)
   const [questions, setQuestions] = useState<ApiListingQuestion[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -817,17 +837,10 @@ function ListingQA({ listingId, canAnswer, sellerName, sellerPhoto }: { listingI
   const visible = expanded ? questions : questions.slice(0, 2);
 
   return (
-    /* v8:326 — Disclosure carries a top rule of its own plus the passed borderBottom. */
-    <div style={{ marginBottom: 18, borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", padding: "13px 0", cursor: "pointer", textAlign: "left" }}>
-        <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, letterSpacing: "-0.015em", color: "var(--ink)" }}>Q&amp;A</span>
-        <span style={{ fontSize: 12, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>{questions.length}</span>
-        <ChevronRight size={15} style={{ marginLeft: "auto", color: "var(--ink-faint)", flexShrink: 0, transform: open ? "rotate(90deg)" : "none", transition: "transform 130ms" }} />
-      </button>
-
-      {open && (
-        <div style={{ paddingBottom: 16 }}>
-          <div style={{ fontSize: 12.5, color: "var(--ink-faint)", margin: "0 0 12px" }}>Questions are public — don&rsquo;t share personal info here.</div>
+    /* v8:326 — Disclosure carries a top rule of its own plus the passed borderBottom.
+       Defaults closed (shared.jsx:434); the count reads in the header meta slot. */
+    <Disclosure title="Q&A" meta={questions.length} style={{ marginBottom: 18, borderBottom: "1px solid var(--border)" }}>
+      <div style={{ fontSize: 12.5, color: "var(--ink-faint)", margin: "0 0 12px" }}>Questions are public — don&rsquo;t share personal info here.</div>
 
           {!canAnswer && (
             <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
@@ -844,7 +857,8 @@ function ListingQA({ listingId, canAnswer, sellerName, sellerPhoto }: { listingI
               {visible.map((item) => (
                 <div key={item.id} style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden" }}>
                   <div style={{ padding: "11px 13px", display: "flex", gap: 9, alignItems: "flex-start" }}>
-                    <Avatar name={item.asker_name ?? "?"} size={26} />
+                    {/* DV8 §5#28 — asker photos render like the seller's, not initials */}
+                    <Avatar name={item.asker_name ?? "?"} photo={item.asker_avatar_url} size={26} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 3 }}>{item.is_mine ? "You" : item.asker_name} · {timeAgo(item.created_at)}</div>
                       <div style={{ fontSize: 14, color: "var(--ink)", lineHeight: 1.45 }}>{item.body}</div>
@@ -886,8 +900,6 @@ function ListingQA({ listingId, canAnswer, sellerName, sellerPhoto }: { listingI
               )}
             </div>
           )}
-        </div>
-      )}
-    </div>
+    </Disclosure>
   );
 }

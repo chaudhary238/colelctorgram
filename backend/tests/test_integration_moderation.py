@@ -47,7 +47,8 @@ async def test_block_hides_author_from_feed(client):
 
     # dana follows evan so his post is definitely in her feed
     f = await client.post(f"/v1/users/{b['handle']}/follow", headers=a["headers"])
-    assert f.status_code == 204
+    assert f.status_code == 200
+    assert f.json()["xp_granted"] is True
     pid = await _make_post(client, b["headers"], "collectible drop")
     assert pid in await _feed_ids(client, a["headers"])  # present before block
 

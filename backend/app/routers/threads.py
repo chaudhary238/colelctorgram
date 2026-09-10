@@ -82,7 +82,9 @@ async def list_threads(
             cat = cats.get(l.sku) if l.sku else None
             item = items.get(l.item_id)
             title = (cat.title if cat else None) or (item.custom_title if item else None) or l.sku or "Listing"
-            listings[lid] = {"id": str(l.id), "title": title, "price": l.price, "status": l.status}
+            # sku rides along so the inbox can mono-face the "re:" line only for
+            # non-catalogue listings (v8 Chat.jsx:25).
+            listings[lid] = {"id": str(l.id), "title": title, "price": l.price, "status": l.status, "sku": l.sku}
 
     # Batch-load last message per thread — DISTINCT ON returns one row per
     # thread (the latest), instead of loading every message in every thread.

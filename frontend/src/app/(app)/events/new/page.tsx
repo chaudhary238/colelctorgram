@@ -32,6 +32,10 @@ interface Draft {
   pricing: Pricing; price: string; priceCur: string;
   ticketUrl: string; contact: string;
   comMode: ComMode; existingCom: string;
+  // DV8 §8#22 (v8 EventCreate.jsx:44-48,104) — the created-community binding
+  // travels with the draft, so a restored draft in comMode:"create" comes back
+  // BOUND instead of forcing a re-detour. Optional: older stored drafts lack it.
+  createdComId?: string | null;
 }
 
 const fieldStyle: React.CSSProperties = {
@@ -109,12 +113,12 @@ export default function CreateEventPage() {
   useEffect(() => {
     if (submitting) return;
     if (dirty) {
-      const snap: Draft = { cover, title, cats, date, endDate, time, endTime, city, country, venue, address, about, pricing, price, priceCur, ticketUrl, contact, comMode, existingCom };
+      const snap: Draft = { cover, title, cats, date, endDate, time, endTime, city, country, venue, address, about, pricing, price, priceCur, ticketUrl, contact, comMode, existingCom, createdComId: createdCom?.id ?? null };
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify(snap));
     } else {
       sessionStorage.removeItem(DRAFT_KEY);
     }
-  }, [dirty, submitting, cover, title, cats, date, endDate, time, endTime, city, country, venue, address, about, pricing, price, priceCur, ticketUrl, contact, comMode, existingCom]);
+  }, [dirty, submitting, cover, title, cats, date, endDate, time, endTime, city, country, venue, address, about, pricing, price, priceCur, ticketUrl, contact, comMode, existingCom, createdCom]);
 
   const discardDraft = () => {
     sessionStorage.removeItem(DRAFT_KEY);
@@ -127,11 +131,15 @@ export default function CreateEventPage() {
 
   // Bind the freshly-made community (async fetch + URL cleanup are effect-safe — the
   // setState happens inside the promise callback, not synchronously in the effect).
+  // DV8 §8#22 — a restored draft's createdComId rebinds the same way, so coming back
+  // to a comMode:"create" draft doesn't demand a second community detour; a fresh
+  // ?newCommunity= round-trip wins over the stored binding.
   useEffect(() => {
-    if (!boot.newCommunityId) return;
-    api.get<ApiCommunity>(`/communities/${boot.newCommunityId}`).then(setCreatedCom).catch(() => {});
-    router.replace("/events/new");
-  }, [boot.newCommunityId, router]);
+    const bindId = boot.newCommunityId ?? (boot.draft?.comMode === "create" ? boot.draft.createdComId ?? null : null);
+    if (!bindId) return;
+    api.get<ApiCommunity>(`/communities/${bindId}`).then(setCreatedCom).catch(() => {});
+    if (boot.newCommunityId) router.replace("/events/new");
+  }, [boot, router]);
 
   // Existing titles, for the v7 duplicate-name guard (matched case/whitespace-insensitively).
   useEffect(() => {
@@ -164,7 +172,7 @@ export default function CreateEventPage() {
   const launchCreateCommunity = () => {
     // The continuous-persistence effect already keeps the draft current; this is
     // just a belt-and-braces flush before we leave the page.
-    const snap: Draft = { cover, title, cats, date, endDate, time, endTime, city, country, venue, address, about, pricing, price, priceCur, ticketUrl, contact, comMode, existingCom };
+    const snap: Draft = { cover, title, cats, date, endDate, time, endTime, city, country, venue, address, about, pricing, price, priceCur, ticketUrl, contact, comMode, existingCom, createdComId: createdCom?.id ?? null };
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(snap));
     const qs = new URLSearchParams({ forEvent: "1" });
     if (title.trim()) qs.set("prefillName", title.trim());
@@ -322,7 +330,8 @@ export default function CreateEventPage() {
         <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "7px 2px 0", lineHeight: 1.5 }}>Attendees see this exact address once they RSVP.</div>
 
         <Label required missing={tried && miss.about}>Description</Label>
-        <textarea value={about} onChange={(e) => setAbout(e.target.value)} rows={3} placeholder="What's happening, who it's for, what to expect…"
+        {/* v8 EventCreate.jsx:209 — curly apostrophes in the placeholder. */}
+        <textarea value={about} onChange={(e) => setAbout(e.target.value)} rows={3} placeholder="What’s happening, who it’s for, what to expect…"
           style={{ ...fieldStyle, height: "auto", padding: "11px 13px", lineHeight: 1.5, resize: "none", borderColor: tried && miss.about ? "var(--stamp-red)" : "var(--border-strong)" }} />
 
         {/* DV8-16 — Free/Paid entry with multi-currency price */}

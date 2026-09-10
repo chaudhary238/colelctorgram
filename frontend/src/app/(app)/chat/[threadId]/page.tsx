@@ -3,12 +3,12 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ChevronRight, Plus, Send, Shield, Tag, ShoppingBag, Camera, MoreHorizontal } from "lucide-react";
+import { Ban, Check, ChevronRight, Flag, Link2, Plus, Send, Shield, Tag, ShoppingBag, Camera, MoreHorizontal } from "lucide-react";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
 import { conditionLabel } from "@/lib/catalog";
-import { Avatar, Money, ProductPhoto } from "@/components/ui";
-import { ProfileMoreMenu } from "@/components/ProfileMoreMenu";
+import { Avatar, Button, Money, ProductPhoto } from "@/components/ui";
+import { fireToast } from "@/components/gamification";
 import { BackButton } from "@/components/BackButton";
 
 interface ChatUser {
@@ -72,14 +72,25 @@ function ChatThread() {
   const { threadId } = useParams<{ threadId: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Draft mode ("Ask @owner about it", ?draft=1&sku=…) — read once as state seeds;
-  // useState initial values are mount-only, so router.replace stripping the params
-  // (or the user editing the text) never re-seeds the composer.
-  const draftSku = searchParams.get("draft") === "1" ? searchParams.get("sku") : null;
+  // Draft mode — read once as state seeds; useState initial values are mount-only,
+  // so router.replace stripping the params (or the user editing the text) never
+  // re-seeds the composer. Three callers share this plumbing (DV8 §10#22):
+  //   · Ask-about-it:            ?draft=1&sku=…&title=…
+  //   · listing "Message seller": ?draft=1&intent=buy&title=…
+  //   · ISO "I have this":        ?draft=1&intent=iso&title=…[&sku=…]
+  // All of them PRE-FILL the composer (v8 Chat.jsx:90) — nothing is auto-sent.
+  const isDraft = searchParams.get("draft") === "1";
+  const draftIntent = isDraft ? searchParams.get("intent") : null;
+  const draftSku = isDraft ? searchParams.get("sku") : null;
   const draftTitle = searchParams.get("title") ?? "";
   const [data, setData] = useState<ThreadData | null>(null);
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
-  const [draft, setDraft] = useState(draftSku ? `About your ${draftTitle || "item"} — ` : "");
+  const [draft, setDraft] = useState(
+    !isDraft ? ""
+      : draftIntent === "buy" ? `Hi! Is the ${draftTitle || "item"} still available? `
+      : draftIntent === "iso" ? `Hi! I have ${draftTitle || "it"} — still looking? `
+      : draftSku ? `About your ${draftTitle || "item"} — ` : ""
+  );
   const [sending, setSending] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
   const [offerOpen, setOfferOpen] = useState(false);
@@ -90,10 +101,12 @@ function ChatThread() {
   // DV8 "Ask about it" — sku→{title,thumbnail} map for the context chips; seeded by
   // the GET, extended locally when the draft's first send tags a new sku.
   const [refs, setRefs] = useState<Record<string, ChatRef>>({});
-  // Held item context from ?draft=1&sku=… — attached to the FIRST send (whatever it
-  // says: the context is the tap intent), then cleared and stripped from the URL.
-  const [pendingRef, setPendingRef] = useState<{ sku: string; title: string } | null>(
-    draftSku ? { sku: draftSku, title: draftTitle } : null,
+  // Held draft context — the sku (when one exists) rides the FIRST send (whatever it
+  // says: the context is the tap intent), then it's cleared and the draft params are
+  // stripped from the URL. Intent drafts without a sku still hold a ref so the same
+  // focus + URL-cleanup path runs; they just send without ref_sku.
+  const [pendingRef, setPendingRef] = useState<{ sku: string | null; title: string } | null>(
+    draftSku || draftIntent ? { sku: draftSku, title: draftTitle } : null,
   );
   const bodyRef = useRef<HTMLDivElement>(null);
   const photoRef = useRef<HTMLInputElement>(null);
@@ -125,11 +138,14 @@ function ChatThread() {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [localMessages]);
 
-  // After the first send lands with ref_sku: make sure the chip can render (the
-  // refs map from the initial GET predates this sku), drop the held context and
-  // strip the draft params from the URL.
-  const consumeRef = (ref: { sku: string; title: string }) => {
-    setRefs((r) => (r[ref.sku] ? r : { ...r, [ref.sku]: { title: ref.title, thumbnail_url: null } }));
+  // After the first send lands: make sure a sku-carrying draft's chip can render
+  // (the refs map from the initial GET predates this sku), drop the held context
+  // and strip the draft params from the URL.
+  const consumeRef = (ref: { sku: string | null; title: string }) => {
+    const sku = ref.sku;
+    if (sku) {
+      setRefs((r) => (r[sku] ? r : { ...r, [sku]: { title: ref.title, thumbnail_url: null } }));
+    }
     setPendingRef(null);
     router.replace(`/chat/${threadId}`);
   };
@@ -140,7 +156,7 @@ function ChatThread() {
     const ref = pendingRef;
     const msg = await api.post<Message>(
       `/threads/${threadId}/messages`,
-      ref ? { body: t, ref_sku: ref.sku } : { body: t },
+      ref?.sku ? { body: t, ref_sku: ref.sku } : { body: t },
     );
     setLocalMessages((prev) => [...prev, msg]);
     if (ref) consumeRef(ref);
@@ -160,10 +176,16 @@ function ChatThread() {
   };
 
   // v3 attach actions — message-based, fully real (no mock/dead controls).
+  // DV8 §10#9 (v8 Chat.jsx:107-108,146) — each attach action confirms with a toast.
   const shareListing = async () => {
     if (!data?.listing) return;
     setAttachOpen(false);
-    await sendText(`📦 Sharing listing: ${data.listing.title}`).catch(console.error);
+    try {
+      await sendText(`📦 Sharing listing: ${data.listing.title}`);
+      fireToast("Listing shared");
+    } catch (e) {
+      console.error(e);
+    }
   };
   // DV8 — Photo attach: same R2 presigned-PUT path the composer's uploader uses,
   // then the public URL goes out as an image message (messages carry image_url).
@@ -184,6 +206,7 @@ function ChatThread() {
       );
       setLocalMessages((prev) => [...prev, msg]);
       if (ref) consumeRef(ref);
+      fireToast("Photo sent"); // v8 Chat.jsx:107
     } catch (e) {
       console.error(e);
     } finally {
@@ -194,10 +217,16 @@ function ChatThread() {
   const sendOffer = async () => {
     if (!offerAmt) return;
     const amt = Number(offerAmt).toLocaleString("en-IN");
-    const what = data?.listing?.title ?? "this item";
+    // v8 Chat.jsx:144 — the no-listing edge copy ends "for item" (DV8 §10#11).
+    const what = data?.listing?.title ?? "item";
     setOfferOpen(false);
     setOfferAmt("");
-    await sendText(`💰 Offer: ₹${amt} for ${what}`).catch(console.error);
+    try {
+      await sendText(`💰 Offer: ₹${amt} for ${what}`);
+      fireToast("Offer sent!"); // v8 Chat.jsx:146
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const other = data?.other_user;
@@ -247,7 +276,9 @@ function ChatThread() {
                   <span style={{ fontSize: 12.5, fontWeight: 600 }}>Share listing</span>
                 </button>
               )}
-              <button onClick={() => { setAttachOpen(false); setOfferAmt(""); setOfferOpen(true); }} style={attachBtn}>
+              {/* DV8 §10#10 (v8 Chat.jsx:49) — the amount seeds at 90% of asking when a
+                  listing is present (display units), re-seeded on every open. */}
+              <button onClick={() => { setAttachOpen(false); setOfferAmt(listing ? String(Math.round((listing.price / 100) * 0.9)) : ""); setOfferOpen(true); }} style={attachBtn}>
                 <span style={attachIcon}><Tag size={22} /></span>
                 <span style={{ fontSize: 12.5, fontWeight: 600 }}>Make offer</span>
               </button>
@@ -277,7 +308,7 @@ function ChatThread() {
 
       {/* ── More menu (block / report) ── */}
       {moreOpen && other && (
-        <ProfileMoreMenu
+        <ChatMoreMenu
           targetId={other.id}
           targetHandle={other.handle ?? ""}
           targetName={other.name ?? "this user"}
@@ -309,10 +340,11 @@ function ChatThread() {
             </div>
           </Link>
           {other && (
+            /* v8 shared IconButton (DV8 §10#6) — 40px, r13, 1px --border. */
             <button
               onClick={() => setMoreOpen(true)}
               aria-label="More"
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)", background: "none", cursor: "pointer" }}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 13, border: "1px solid var(--border)", color: "var(--ink)", background: "none", cursor: "pointer", flexShrink: 0 }}
             >
               <MoreHorizontal size={18} />
             </button>
@@ -412,8 +444,10 @@ function ChatThread() {
           </div>
         </div>
 
+        {/* DV8 §10#21b (v8 Chat.jsx:272-275, shared IconButton) — plus/send are 40px
+            r13; the ACTIVE send fills var(--ink), not stamp-red. */}
         <div style={{ display: "flex", gap: 9, alignItems: "center" }}>
-          <button onClick={() => setAttachOpen(true)} aria-label="Attach" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, borderRadius: 11, border: "1px solid var(--border)", background: "transparent", color: "var(--ink-mute)", cursor: "pointer" }}>
+          <button onClick={() => setAttachOpen(true)} aria-label="Attach" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 13, border: "1px solid var(--border)", background: "transparent", color: "var(--ink-mute)", cursor: "pointer", flexShrink: 0 }}>
             <Plus size={20} />
           </button>
           <input
@@ -424,7 +458,7 @@ function ChatThread() {
             placeholder="Message…"
             style={{ flex: 1, height: 42, padding: "0 14px", borderRadius: 999, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14.5, color: "var(--ink)", outline: "none" }}
           />
-          <button onClick={send} disabled={sending} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, borderRadius: 11, border: "none", background: draft.trim() ? "var(--stamp-red)" : "var(--bone)", color: draft.trim() ? "var(--paper)" : "var(--ink-ghost)", cursor: draft.trim() ? "pointer" : "default" }}>
+          <button onClick={send} disabled={sending} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 13, border: "none", background: draft.trim() ? "var(--ink)" : "var(--bone)", color: draft.trim() ? "var(--paper)" : "var(--ink-ghost)", cursor: draft.trim() ? "pointer" : "default", flexShrink: 0 }}>
             <Send size={18} />
           </button>
         </div>
@@ -434,7 +468,7 @@ function ChatThread() {
 }
 
 // useSearchParams must sit under a Suspense boundary for the production build
-// (draft mode: /chat/{id}?draft=1&sku=…&title=…).
+// (draft mode: /chat/{id}?draft=1[&intent=buy|iso][&sku=…]&title=…).
 export default function ChatPage() {
   return (
     <Suspense fallback={
@@ -454,3 +488,189 @@ const attachBtn: React.CSSProperties = {
 const attachIcon: React.CSSProperties = {
   width: 46, height: 46, borderRadius: 14, background: "var(--bone)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink)",
 };
+
+/* ── ChatMoreMenu — chat-side more/report/block sheet (DV8 §10#13) ──────────────
+   Mirror of components/ProfileMoreMenu (another owner's file, which exposes no
+   subtitle/context prop), implemented locally so the report sheet can ask
+   "Why are you reporting this conversation?" (v8 Chat.jsx:185) instead of
+   "…this account?". Everything else — the three menu rows (Copy profile link kept,
+   §10#12 deliberate), the required-note report contract (§10#14), the 1100ms
+   inline confirm (§10#15) and the real-block-then-/inbox flow (§10#16) — stays
+   identical to the profile sheet. If ProfileMoreMenu ever grows a subtitle prop,
+   fold this back into it. */
+
+const REPORT_REASONS: { label: string; reason: string }[] = [
+  { label: "Fake / impersonation", reason: "other" },
+  { label: "Counterfeit / replica listings", reason: "counterfeit" },
+  { label: "Scam or fraud attempt", reason: "other" },
+  { label: "Harassment or abuse", reason: "harassment" },
+  { label: "Spam", reason: "spam" },
+  { label: "Other", reason: "other" },
+];
+
+type MoreStage = "menu" | "report" | "block";
+
+function ChatMoreMenu({
+  targetId, targetHandle, targetName, avatarUrl, onClose, onBlocked,
+}: {
+  targetId: string;
+  targetHandle: string;
+  targetName: string;
+  avatarUrl: string | null;
+  onClose: () => void;
+  onBlocked: () => void;
+}) {
+  const [stage, setStage] = useState<MoreStage>("menu");
+  const [reason, setReason] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const canSubmitReport = Boolean(reason) && note.trim().length > 0;
+
+  function copyLink() {
+    const url = `${window.location.origin}/profile/${targetHandle}`;
+    navigator.clipboard?.writeText(url).catch(() => {});
+    onClose();
+  }
+
+  async function doBlock() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await api.post(`/blocks?target_id=${targetId}`);
+      onBlocked();
+      onClose();
+    } catch {
+      setBusy(false);
+    }
+  }
+
+  async function doReport() {
+    if (!canSubmitReport || busy) return;
+    setBusy(true);
+    const picked = REPORT_REASONS.find((r) => r.label === reason)!;
+    try {
+      await api.post(`/reports`, {
+        target_type: "user",
+        target_id: targetId,
+        reason: picked.reason,
+        detail: `${picked.label} — ${note.trim()}`,
+      });
+      setSent(true);
+      setTimeout(onClose, 1100);
+    } catch {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ background: "rgba(0,0,0,0.38)" }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl sm:mb-4"
+        style={{ boxShadow: "0 -4px 24px rgba(0,0,0,0.12)", padding: "8px 0 28px" }}
+      >
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 14px" }} />
+
+        {/* ── Main menu ── */}
+        {stage === "menu" && (
+          <div>
+            {[
+              { icon: <Link2 size={18} />, label: "Copy profile link", danger: false, onClick: copyLink },
+              { icon: <Ban size={18} />, label: `Block @${targetHandle}`, danger: false, onClick: () => setStage("block") },
+              { icon: <Flag size={18} />, label: `Report @${targetHandle}`, danger: true, onClick: () => { setReason(null); setNote(""); setStage("report"); } },
+            ].map((item) => (
+              <button
+                key={item.label}
+                onClick={item.onClick}
+                className="w-full flex items-center gap-3.5 px-5 py-3.5 cursor-pointer"
+                style={{ background: "none", border: "none", color: item.danger ? "var(--stamp-red)" : "var(--ink)" }}
+              >
+                <span style={{ width: 38, height: 38, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", background: item.danger ? "var(--rose-tint-bg)" : "var(--paper-soft)", color: "inherit" }}>
+                  {item.icon}
+                </span>
+                <span style={{ fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 15 }}>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* ── Report ── */}
+        {stage === "report" && (
+          <div>
+            <div style={{ padding: "0 20px 10px" }}>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17 }}>Report @{targetHandle}</div>
+              {/* v8 Chat.jsx:185 — reporting FROM a thread asks about the conversation. */}
+              <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 3 }}>Why are you reporting this conversation?</div>
+            </div>
+            {sent ? (
+              <div className="flex flex-col items-center gap-2.5" style={{ padding: "24px 0 8px" }}>
+                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--paper-soft)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Check size={24} style={{ color: "var(--forest)" }} />
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>Report submitted</div>
+                <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>We&apos;ll review this within 24 hrs</div>
+              </div>
+            ) : (
+              <>
+                {REPORT_REASONS.map((r) => (
+                  <button
+                    key={r.label}
+                    onClick={() => setReason(r.label)}
+                    className="w-full flex items-center justify-between cursor-pointer"
+                    style={{ padding: "13px 20px", background: "none", border: "none", borderBottom: "1px solid var(--border)" }}
+                  >
+                    <span style={{ fontFamily: "var(--font-body)", fontSize: 14.5, color: "var(--ink)", fontWeight: reason === r.label ? 600 : 400 }}>{r.label}</span>
+                    {reason === r.label && <Check size={16} style={{ color: "var(--stamp-red)" }} />}
+                  </button>
+                ))}
+                <div style={{ padding: "12px 20px 0" }}>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 6 }}>Tell us what happened</div>
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value.slice(0, 300))}
+                    rows={3}
+                    placeholder="Describe the issue — what was said or done, and when."
+                    style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14, lineHeight: 1.5, color: "var(--ink)", outline: "none", resize: "none" }}
+                  />
+                  <div style={{ display: "flex", justifyContent: "flex-end", fontFamily: "var(--font-mono)", fontSize: 11, color: note.length > 260 ? "var(--stamp-red)" : "var(--ink-ghost)", marginTop: 4 }}>{note.length}/300</div>
+                </div>
+                <div style={{ padding: "10px 20px 0" }}>
+                  <Button variant="primary" style={{ width: "100%", justifyContent: "center" }} disabled={!canSubmitReport || busy} onClick={doReport}>
+                    Submit report
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── Block confirm ── */}
+        {stage === "block" && (
+          <div>
+            <div style={{ padding: "8px 20px 6px", textAlign: "center" }}>
+              <Avatar name={targetName} photo={avatarUrl} size={56} />
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, marginTop: 12 }}>Block @{targetHandle}?</div>
+              <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 6, lineHeight: 1.55, maxWidth: 280, marginLeft: "auto", marginRight: "auto" }}>
+                They won&apos;t be able to see your profile, listings or messages. You can unblock them anytime from Settings.
+              </div>
+            </div>
+            <div className="flex flex-col gap-2" style={{ padding: "18px 20px 0" }}>
+              <Button variant="primary" style={{ width: "100%", justifyContent: "center", background: "var(--stamp-red)", borderColor: "var(--stamp-red)" }} disabled={busy} onClick={doBlock}>
+                Block @{targetHandle}
+              </Button>
+              <Button variant="secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setStage("menu")}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

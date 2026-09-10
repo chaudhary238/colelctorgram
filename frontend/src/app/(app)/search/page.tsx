@@ -4,7 +4,12 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { api } from "@/lib/api";
-import { CategoryChip, ProductPhoto, Avatar, SectionLabel } from "@/components/ui";
+import { useUser } from "@/lib/auth-context";
+import { CategoryChip, ProductPhoto, Avatar, SectionLabel, compactNum } from "@/components/ui";
+
+/* Mixed-case 3-letter months for the event-result sub (DV8 §2#22) — locale short
+   months drift ("Sept" in en-IN), and the date TILE above uppercases via CSS. */
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const CAT_TONE: Record<string, string> = { figures: "red", designer: "plum", kits: "forest", diecast: "teal" };
 function toneForCat(category: string | null): string {
@@ -64,7 +69,8 @@ function browseSnippet(p: BrowseFeedItem): string {
   return t.length > 80 ? t.slice(0, 80) + "…" : t;
 }
 
-/* v3 ResRow — plain row, slate meta, subtle hover affordance for web. */
+/* DV8 §2#18 — v8 ResRow (Overlays.jsx:539-550): padding '8px 0', mono sub in
+   ink-faint. The hover wash is a kept web affordance (v8 has none). */
 function ResRow({ media, title, sub, action, onClick }: {
   media: React.ReactNode; title: string; sub: React.ReactNode; action?: React.ReactNode; onClick?: () => void;
 }) {
@@ -77,13 +83,13 @@ function ResRow({ media, title, sub, action, onClick }: {
       style={{
         display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left",
         background: hover ? "var(--slate-50)" : "transparent", border: "none", cursor: onClick ? "pointer" : "default",
-        padding: "8px 10px", margin: "0 -10px", borderRadius: 12, transition: "background 120ms",
+        padding: "8px 0", borderRadius: 12, transition: "background 120ms",
       }}
     >
       {media}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</div>
-        <div style={{ fontSize: 12, color: "var(--slate-500)", fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub}</div>
+        <div style={{ fontSize: 12, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub}</div>
       </div>
       {action}
     </button>
@@ -104,6 +110,7 @@ function ResGroup({ label, count, shown, children }: { label: string; count?: nu
 
 function SearchPageInner() {
   const router = useRouter();
+  const { user } = useUser();
   const searchParams = useSearchParams();
   // q/scope live in the URL (?q=…&scope=…) so back-navigation from a result's
   // detail page restores the last search instead of remounting to a blank box.
@@ -167,6 +174,7 @@ function SearchPageInner() {
   // Debounced search
   useEffect(() => {
     if (!q.trim()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing stale results the moment the query empties, so retyping shows "Searching…" and not the last search's rows
       setResults(null);
       return;
     }
@@ -233,9 +241,14 @@ function SearchPageInner() {
                 onClick={() => router.push(`/db/${encodeURIComponent(c.sku)}`)}
                 media={<div style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}><ProductPhoto tone={skuToneSearch(c.sku, c.category)} src={c.thumbnail_url} ratio="1/1" rounded={8} /></div>}
                 title={c.title}
-                // DV8 provenance subtitle (Overlays.jsx:498) — community entries credit
-                // their contributor; verified entries show brand only. No SKU (v8 dropped it).
-                sub={c.intel_by ? (
+                // DV8 provenance subtitle (Overlays.jsx:498-501) — community entries
+                // credit their contributor; YOUR own contribution reads "DB Contribution
+                // by @you". ⚖ v8 shows `{SKU} · {brand}` on verified entries — standing
+                // rule (SKUs never surface on user-facing screens) overrides v8 here, so
+                // verified rows stay brand-only.
+                sub={c.intel_by && user?.handle && c.intel_by === user.handle ? (
+                  `DB Contribution by @you · ${c.brand}`
+                ) : c.intel_by ? (
                   <span>
                     Intel by{" "}
                     <span
@@ -298,7 +311,9 @@ function SearchPageInner() {
                   <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15 }}>{new Date(e.starts_at).getDate()}</span>
                 </div>}
                 title={e.title}
-                sub={`${e.mode === "online" ? "Online" : e.city ?? "In person"} · ${new Date(e.starts_at).toLocaleString("en-IN", { day: "numeric", month: "short" })}`}
+                // DV8 §2#22 — computed `{Online|City} · {d} {MMM}` with a mixed-case
+                // 3-letter month (v8's curated `when` strings read the same way).
+                sub={`${e.mode === "online" ? "Online" : e.city ?? "In person"} · ${new Date(e.starts_at).getDate()} ${MONTHS[new Date(e.starts_at).getMonth()]}`}
               />
             ))}
           </ResGroup>
@@ -309,12 +324,13 @@ function SearchPageInner() {
 
   return (
     <div className="w-full max-w-[680px] flex flex-col">
-      {/* search bar + Cancel + scopes — safe-area padded like v8's full-screen overlay */}
+      {/* search bar + Cancel + scopes — safe-area padded like v8's full-screen overlay.
+          DV8 §2#16 — v8 chrome gutters are 14px (Overlays.jsx:435). */}
       <div
         className="sticky top-0 z-10"
         style={{
           background: "var(--paper)", borderBottom: "1px solid var(--slate-200)",
-          padding: "calc(16px + env(safe-area-inset-top)) 20px 12px",
+          padding: "calc(16px + env(safe-area-inset-top)) 14px 12px",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -345,7 +361,8 @@ function SearchPageInner() {
         </div>
       </div>
 
-      <div style={{ padding: "8px 20px 28px", background: "var(--paper)", minHeight: "60vh" }}>
+      {/* DV8 §2#16 — v8 body padding '8px 16px 24px' (Overlays.jsx:450) */}
+      <div style={{ padding: "8px 16px 24px", background: "var(--paper)", minHeight: "60vh" }}>
         {/* Trending now — empty query, always on top of the browse groups */}
         {!q && (
           <div style={{ marginTop: 8 }}>
@@ -366,7 +383,8 @@ function SearchPageInner() {
                 <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, letterSpacing: "-0.03em", color: "var(--stamp-red)", width: 26, flexShrink: 0, textAlign: "right" }}>{t.rank}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "var(--slate-900)", lineHeight: 1.2 }}>{t.term}</div>
-                  <div style={{ fontSize: 11.5, color: "var(--slate-400)", marginTop: 2 }}>{t.count.toLocaleString("en-IN")} {t.count === 1 ? "post" : "posts"}</div>
+                  {/* DV8 §2#17 — compact counts: "18.4K posts" (v8 Overlays.jsx:456-460) */}
+                  <div style={{ fontSize: 11.5, color: "var(--slate-400)", marginTop: 2 }}>{compactNum(t.count)} {t.count === 1 ? "post" : "posts"}</div>
                 </div>
                 <span style={{ fontSize: 16, flexShrink: 0 }}>{t.hot ? "🔥" : "📈"}</span>
               </button>

@@ -108,9 +108,17 @@ async def create_post(
                 status_code=403,
                 detail=f"Join {community.name} and wait for approval before posting there.",
             )
+        # v8 CloseCommunitySheet — "freezes posting, members keep read access".
+        if community.status == "closed":
+            raise HTTPException(
+                status_code=403,
+                detail=f"{community.name} is closed — posting is frozen.",
+            )
         cstatus = "published"
         if community.post_mode == "approval":
-            is_mod = bool(membership and membership.role in ("founder", "mod"))
+            # founder|admin|mod all bypass review (granted admins were missing here
+            # after the multi-admin drop — their posts wrongly queued as pending).
+            is_mod = bool(membership and membership.role in ("founder", "admin", "mod"))
             if not (is_mod or current_user.is_admin):
                 cstatus = "pending"
         community_status[cid] = cstatus
@@ -254,6 +262,12 @@ async def get_post(
     # Referenced item / listing (the "showcasing" chip)
     # DV8 — a tagged CATALOGUE entry wins (composer "Tag item"; reviews require it).
     ref = None
+    ref_listing = None
+    if post.ref_listing_id:
+        # Shared-listing summary for the SharedListingCard (v8 Cards.jsx:844-898);
+        # function-level import — feed.py imports _iso_fields from this module.
+        from app.routers.feed import listing_summaries
+        ref_listing = (await listing_summaries(db, {post.ref_listing_id})).get(post.ref_listing_id)
     if post.ref_sku:
         rc = (await db.execute(select(Catalogue).where(Catalogue.sku == post.ref_sku))).scalar_one_or_none()
         if rc:
@@ -263,11 +277,9 @@ async def get_post(
         if ri:
             ref = {"kind": "item", "id": str(ri.id), "sku": ri.sku,
                    "title": ri.custom_title or ri.sku or "Item"}
-    elif post.ref_listing_id:
-        rl = (await db.execute(select(Listing).where(Listing.id == post.ref_listing_id))).scalar_one_or_none()
-        if rl:
-            ref = {"kind": "listing", "id": str(rl.id), "sku": rl.sku,
-                   "title": rl.sku or "Listing", "price": rl.price}
+    elif ref_listing:
+        ref = {"kind": "listing", "id": ref_listing["id"], "sku": ref_listing["sku"],
+               "title": ref_listing["title"], "price": ref_listing["price"]}
 
     # DF-30h — every community this post was published to
     community_ids = (await db.execute(
@@ -275,6 +287,25 @@ async def get_post(
             PostCommunity.post_id == post_id, PostCommunity.status == "published"
         )
     )).scalars().all()
+
+    # v8 Cards.jsx:44 — byline community attribution on the detail page too.
+    community_name = None
+    author_role = None
+    if post.community_id:
+        community_name = (await db.execute(
+            select(Community.name).where(Community.id == post.community_id)
+        )).scalar_one_or_none()
+        # v8 PostDetail.jsx:27 — the detail AuthorLine carries the Admin/Mod chip.
+        role_row = (await db.execute(
+            select(CommunityMember.role).where(
+                CommunityMember.community_id == post.community_id,
+                CommunityMember.user_id == post.user_id,
+            )
+        )).scalar_one_or_none()
+        if role_row in ("founder", "admin"):
+            author_role = "admin"
+        elif role_row == "mod":
+            author_role = "mod"
 
     return {
         "id": str(post.id),
@@ -297,6 +328,9 @@ async def get_post(
         "category": post.category,
         "tags": post.tags or [],
         "community_id": post.community_id,
+        "community_name": community_name,
+        "author_role": author_role,
+        "ref_listing": ref_listing,
         "likes_count": post.likes_count,
         "comments_count": post.comments_count,
         "saves_count": post.saves_count,

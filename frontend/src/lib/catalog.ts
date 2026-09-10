@@ -52,15 +52,17 @@ export const CAT_BRANDS: Record<string, string[]> = {
   diecast: ["Mini GT", "Hot Wheels", "Tomica", "Inno64", "Tarmac Works", "AUTOart", "Kyosho", "Maisto", "Bburago", "Greenlight", "Matchbox", "GT Spirit", "Solido", "Schuco", "Norev", "Spark"],
   kits: ["LEGO", "Bandai", "Tamiya", "Revell", "Kotobukiya", "Hasegawa", "Aoshima", "Meng", "Academy", "Trumpeter", "Good Smile Company"],
   designer: ["Pop Mart", "Medicom (Bearbrick)", "KAWS", "Funko", "Jellycat", "Sonny Angel", "Kidrobot", "Superplastic", "Unbox Industries", "52Toys", "How2Work"],
-  tcg: ["The Pokémon Company", "Bandai (One Piece TCG)", "Wizards of the Coast (MTG)", "Konami (Yu-Gi-Oh!)", "Bandai (Digimon TCG)", "Bandai (Dragon Ball Super TCG)", "Bushiroad (Weiss Schwarz)", "Bushiroad (Cardfight!! Vanguard)"],
+  // v8 AddListing.jsx:40 byte-exact — "Pokemon" unaccented, "Cardfight Vanguard" plain.
+  tcg: ["The Pokemon Company", "Bandai (One Piece TCG)", "Wizards of the Coast (MTG)", "Konami (Yu-Gi-Oh!)", "Bandai (Digimon TCG)", "Bandai (Dragon Ball Super TCG)", "Bushiroad (Weiss Schwarz)", "Bushiroad (Cardfight Vanguard)"],
 };
 
+// v8 AddListing.jsx:44-49 byte-exact (DV8 §6#1) — no embellished examples, no ellipses.
 export const CAT_META: Record<string, { label: string; titleEg: string; brandEg: string }> = {
-  figures: { label: "Action figure", titleEg: "e.g. Iron Man Mark 85 — Endgame", brandEg: "Hot Toys, Bandai, Sideshow…" },
-  diecast: { label: "Diecast", titleEg: "e.g. Nissan Skyline GT-R R34 — Bayside Blue", brandEg: "Mini GT, Tomica, Hot Wheels…" },
-  kits: { label: "Model kit / Lego", titleEg: "e.g. RG 1/144 Nu Gundam", brandEg: "LEGO, Bandai, Tamiya…" },
-  designer: { label: "Designer toy / blind box", titleEg: "e.g. Skullpanda — Tell Me What You Want", brandEg: "Pop Mart, Bearbrick, KAWS…" },
-  tcg: { label: "Trading card / set", titleEg: "e.g. Pokémon SV 151 Booster Box (EN)", brandEg: "Pokémon, One Piece TCG, MTG…" },
+  figures: { label: "Action figure", titleEg: "e.g. Iron Man Mark 85", brandEg: "Hot Toys, Bandai, Sideshow" },
+  diecast: { label: "Diecast", titleEg: "e.g. Nissan Skyline GT-R R34", brandEg: "Mini GT, Tomica, Hot Wheels" },
+  kits: { label: "Model kit / Lego", titleEg: "e.g. RG 1/144 Nu Gundam", brandEg: "LEGO, Bandai, Tamiya" },
+  designer: { label: "Designer toy / blind box", titleEg: "e.g. Skullpanda", brandEg: "Pop Mart, Bearbrick, KAWS" },
+  tcg: { label: "Trading card / set", titleEg: "e.g. Pokemon SV 151 Booster Box", brandEg: "Pokemon, One Piece TCG, MTG" },
 };
 
 // ── Per-category condition vocabulary (DV8-10, ported from design_v8 app/data.jsx). ──
@@ -135,7 +137,10 @@ export const isGradedCondition = (cat: string | null | undefined, cond: string |
 
 // ── Pre-order release-window helpers (DV4-03a). ──
 export const PO_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
-export const PO_YEARS = ["2026", "2027", "2028"] as const;
+// v8 CompleteItems.jsx:71 — the finish flow's month select shows FULL names; the
+// stored eta string keeps the short form (buildPoEta / PO_MONTHS).
+export const MONTH_FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] as const;
+export const PO_YEARS = ["2026", "2027", "2028", "2029"] as const;
 export type PoPrecision = "date" | "month" | "quarter" | "year" | "tbd";
 
 // Build the human ETA string stored in `preorder_eta` from the precision picker.

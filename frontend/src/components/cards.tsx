@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Heart, MessageCircle, Share2, Bookmark, Star, Send, Calendar, MapPin, Clock,
-  Users, MessageSquare, Bell, Shield, Tag as TagIcon, Pencil, Trash2, MoreHorizontal, FileText, Pin,
+  Users, MessageSquare, Shield, Tag as TagIcon, Pencil, Trash2, FileText, Pin,
   ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -14,9 +14,9 @@ import { timeAgo, shortDate } from "@/lib/utils";
 import { symOf, conditionLabel } from "@/lib/catalog";
 import {
   Avatar, Stars, Money, ProductPhoto, SealMark,
-  Badge, Button, IconButton, LocationTag, statusLabel,
+  Badge, Button, IconButton, LocationTag, statusLabel, toneVar,
 } from "@/components/ui";
-import { FeedBadge, fireXpToast, goldFrameRing, hasGoldFrame, type FeedBadgeT } from "@/components/gamification";
+import { FeedBadge, fireToast, goldFrameRing, hasGoldFrame, type FeedBadgeT } from "@/components/gamification";
 import { formatTime12FromDate } from "@/components/CityField";
 
 /* ── API response shapes ────────────────────────────────────────── */
@@ -41,6 +41,12 @@ export interface ApiPost {
   tags?: string[];
   community_id: string | null;
   community_ids?: string[];
+  // Community attribution in the byline: "@handle · {community_name} · time"
+  // (v8 Cards.jsx:44). Null outside communities.
+  community_name?: string | null;
+  // Share-to-Feed "showcase" posts carry the shared listing inline — non-null
+  // routes the card to SharedListingCard (v8 `listing-share`). Prices in PAISE.
+  ref_listing?: ApiRefListing | null;
   review_rating: number | null;
   poll_options: Record<string, unknown> | null;
   // Viewer's locked poll choice (index into poll_options keys), or null if unvoted.
@@ -77,6 +83,18 @@ export interface ApiPostRef {
   sku: string | null;
   title: string;
   price?: number;
+}
+
+/** The listing a Share-to-Feed post showcases (post.ref_listing). PAISE prices. */
+export interface ApiRefListing {
+  id: string;
+  title: string;
+  price: number;
+  currency: string;
+  condition: string;
+  cover_url: string | null;
+  status: string;
+  retail_price: number | null;
 }
 
 /* One resolver for the tagged chip: the detail payload's `ref` wins; otherwise a
@@ -204,7 +222,6 @@ export interface ApiEvent {
   where?: string | null;
   online_url?: string | null;
   cover_image_url?: string | null;
-  bring?: string | null;
   // DV8-16 — real pricing + ticketing/contact (price is minor units of currency).
   is_free: boolean;
   price: number;
@@ -278,28 +295,53 @@ function TypeRibbon({ label, fg }: { label: string; fg: string }) {
   );
 }
 
-/* ── Quick-action button ─────────────────────────────────────────── */
-function ActionBtn({
+/* ── Quick-action button (v8 shared.jsx:765-789, full tactile layer) ──
+   Press squishes to 0.78; a tap "bursts" the icon to 1.40 for ~420ms before it
+   settles at the active 1.12 + glow; the icon FILL is cloned in from `active`,
+   so e.g. the comment icon fills while its thread is open.
+   Exported — post/[id]'s action strip is the same treatment (v8 PostDetail:53-57). */
+export function ActionBtn({
   icon, label, active, activeColor = "var(--stamp-red)", onClick,
 }: {
-  icon: React.ReactNode;
+  icon: React.ReactElement<{ fill?: string }>;
   label?: React.ReactNode;
   active?: boolean;
   activeColor?: string;
   onClick?: () => void;
 }) {
+  const [burst, setBurst] = useState(false);
+  const fire = () => {
+    setBurst(true);
+    setTimeout(() => setBurst(false), 420);
+    onClick?.();
+  };
   return (
     <button
-      onClick={onClick}
+      onClick={fire}
+      onPointerDown={(e) => { e.currentTarget.style.transform = "scale(0.78)"; }}
+      onPointerUp={(e) => { e.currentTarget.style.transform = ""; }}
+      onPointerLeave={(e) => { e.currentTarget.style.transform = ""; }}
       style={{
         display: "inline-flex", alignItems: "center", gap: 6,
         background: "none", border: "none", padding: "4px 2px",
         cursor: "pointer", color: active ? activeColor : "var(--slate-400)",
         fontFamily: "var(--font-body)", fontSize: 13, fontWeight: active ? 700 : 500,
-        transition: "color 150ms",
+        transition: "color 150ms, transform 120ms var(--ease-spring)",
       }}
     >
-      <span style={{ display: "flex" }}>{icon}</span>
+      <span
+        style={{
+          display: "flex",
+          transform: burst ? "scale(1.40)" : active ? "scale(1.12)" : "scale(1)",
+          // v8 writes `${activeColor}99` — a hex-alpha suffix that is invalid on a
+          // var() reference, so the glow silently no-ops there. color-mix at 60%
+          // (≈ 0x99) is the same glow, working for tokens and hex alike.
+          filter: active ? `drop-shadow(0 0 5px color-mix(in srgb, ${activeColor} 60%, transparent))` : "none",
+          transition: "transform 260ms var(--ease-spring), filter 200ms",
+        }}
+      >
+        {React.cloneElement(icon, { fill: active ? activeColor : "none" })}
+      </span>
       {label != null && <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{label}</span>}
     </button>
   );
@@ -348,8 +390,9 @@ function StackedLikers({ likers, total }: { likers: ApiPost["likers"]; total: nu
           )}
         </div>
       )}
+      {/* v8 Cards.jsx:178 — "{n} liked", not "{n} likes" */}
       <span style={{ fontSize: 12, color: "var(--slate-500)", fontWeight: 500 }}>
-        {total.toLocaleString("en-IN")} {total === 1 ? "like" : "likes"}
+        {total.toLocaleString("en-IN")} liked
       </span>
     </div>
   );
@@ -380,23 +423,25 @@ function OfficialAuthorLine({ post }: { post: ApiPost }) {
   );
 }
 
-/* Community role chip beside the author name (DV8-14 / v8 25-Aug polish):
-   ADMIN = ink-inverted, MOD = bone. Same treatment as the community rosters. */
+/* Community role chip beside the author name (v8 CommunityDetail.jsx:7 RoleBadge):
+   ADMIN = stamp-red, MOD = bone. Same treatment as the community rosters. */
 export type AuthorRole = "admin" | "mod" | null;
 function AuthorRoleChip({ role }: { role: "admin" | "mod" }) {
   const admin = role === "admin";
   return (
     <span style={{
       fontFamily: "var(--font-mono)", fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase",
-      padding: "3px 8px", borderRadius: 6, fontWeight: 700, flexShrink: 0, lineHeight: 1,
-      background: admin ? "var(--ink)" : "var(--bone-deep)", color: admin ? "var(--paper)" : "var(--ink-mute)",
+      padding: "2px 7px", borderRadius: 6, fontWeight: 700, flexShrink: 0, lineHeight: 1,
+      background: admin ? "var(--stamp-red)" : "var(--bone-deep)", color: admin ? "var(--paper)" : "var(--ink-mute)",
     }}>
       {role}
     </span>
   );
 }
 
-function AuthorLine({ post, showFollow, authorRole, reserveRight = 0 }: {
+/* Exported — v8 PostDetail.jsx:27 renders the SAME AuthorLine on the post's own
+   page (38px avatar, badge pill, community byline, role chip, Official switch). */
+export function AuthorLine({ post, showFollow, authorRole, reserveRight = 0 }: {
   post: ApiPost;
   showFollow?: boolean;
   authorRole?: AuthorRole;
@@ -418,8 +463,18 @@ function AuthorLine({ post, showFollow, authorRole, reserveRight = 0 }: {
     setFollowing(next);          // optimistic
     setBusy(true);
     try {
-      if (next) { await api.post(`/users/${post.handle}/follow`); fireXpToast(2); }
-      else await api.delete(`/users/${post.handle}/follow`);
+      if (next) {
+        // v8 Cards.jsx:33 toast copy, with SERVER-truth XP: the "+2 XP" suffix
+        // renders only when the response says a grant landed. Today the endpoint
+        // is a bodyless 204 (the dedup/cap verdict stays server-side), so this
+        // stays the plain variant until the payload grows the flag — never a
+        // false "+2 XP" on a re-follow the ledger already counted.
+        const res = await api.post<{ xp_granted?: boolean } | undefined>(`/users/${post.handle}/follow`);
+        fireToast(res?.xp_granted ? `Following @${post.handle} · +2 XP` : `Following @${post.handle}`);
+      } else {
+        await api.delete(`/users/${post.handle}/follow`);
+        fireToast(`Unfollowed @${post.handle}`);
+      }
     } catch {
       setFollowing(!next);       // revert on error
     } finally {
@@ -451,7 +506,8 @@ function AuthorLine({ post, showFollow, authorRole, reserveRight = 0 }: {
               onClick={toggleFollow}
               disabled={busy}
               style={{
-                marginLeft: 2, padding: "3px 9px", borderRadius: 999, cursor: busy ? "default" : "pointer",
+                /* v8 Cards.jsx:35 — pad 3px 8px, no extra left margin */
+                padding: "3px 8px", borderRadius: 999, cursor: busy ? "default" : "pointer",
                 lineHeight: 1, fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 11, whiteSpace: "nowrap",
                 background: following ? "transparent" : "var(--stamp-red-soft)",
                 color: following ? "var(--ink-faint)" : "var(--stamp-red)",
@@ -462,8 +518,9 @@ function AuthorLine({ post, showFollow, authorRole, reserveRight = 0 }: {
             </button>
           )}
         </div>
+        {/* v8 Cards.jsx:44 — community attribution sits between handle and time */}
         <div style={{ fontSize: 12, color: "var(--slate-400)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          @{post.handle} · {timeAgo(post.created_at)}
+          @{post.handle}{post.community_name ? ` · ${post.community_name}` : ""} · {timeAgo(post.created_at)}
         </div>
       </div>
     </div>
@@ -696,8 +753,9 @@ export function CommentThread({ postId, onCountChange }: { postId: string; onCou
               <span style={{ fontSize: 11, color: "var(--ink-faint)", flexShrink: 0 }}>{timeAgo(c.created_at)}</span>
               {isOwn && (
                 <div style={{ position: "relative", flexShrink: 0 }}>
-                  <button onClick={() => setMenuId(menuOpen ? null : c.id)} style={{ background: "none", border: "none", padding: "0 3px", cursor: "pointer", color: "var(--ink-faint)", display: "flex", alignItems: "center" }}>
-                    <MoreHorizontal size={15} />
+                  {/* v8 Cards.jsx:330 — text "···" trigger, not an icon glyph */}
+                  <button onClick={() => setMenuId(menuOpen ? null : c.id)} style={{ background: "none", border: "none", padding: "0 3px", cursor: "pointer", color: "var(--ink-faint)", display: "flex", alignItems: "center", fontSize: 15, lineHeight: 1, letterSpacing: "0.05em" }}>
+                    ···
                   </button>
                   {menuOpen && (
                     <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 30, background: "var(--paper)", border: "1px solid var(--border-strong)", borderRadius: 11, boxShadow: "0 4px 18px rgba(0,0,0,0.13)", overflow: "hidden", minWidth: 112 }}>
@@ -976,7 +1034,10 @@ export function PostCard({ post, showFollow = false, authorRole = null, canModer
     const next = !saved;
     setSaved(next);                          // optimistic
     setSaveBusy(true);
-    try { await api.post(`/posts/${post.id}/save`); }
+    try {
+      await api.post(`/posts/${post.id}/save`);
+      fireToast(next ? "Saved" : "Removed from saved"); // v8 Cards.jsx:155
+    }
     catch { setSaved(!next); }
     finally { setSaveBusy(false); }
   }
@@ -1014,7 +1075,10 @@ export function PostCard({ post, showFollow = false, authorRole = null, canModer
           {post.type === "review" && post.review_rating && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <Stars n={post.review_rating} />
-              <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>{post.review_rating} / 5</span>
+              {/* v8 Cards.jsx:88 — a tagged item reads "reviewing {brand}", else the score */}
+              <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+                {post.ref_sku_brand ? `reviewing ${post.ref_sku_brand}` : `${post.review_rating} / 5`}
+              </span>
             </div>
           )}
           {post.title && (
@@ -1091,12 +1155,13 @@ export function PostCard({ post, showFollow = false, authorRole = null, canModer
         </Link>
       ); })()}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 18, padding: metaStrip ? "12px 18px 10px" : "12px 18px 14px" }}>
-        <ActionBtn icon={<Heart size={20} strokeWidth={1.8} fill={liked ? "var(--stamp-red)" : "none"} />} label={likes.toLocaleString()} active={liked} onClick={toggleLike} />
+      {/* v8 Cards.jsx:147 — fixed pad, no metaStrip conditional */}
+      <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "12px 18px 10px" }}>
+        <ActionBtn icon={<Heart size={20} strokeWidth={1.8} />} label={likes.toLocaleString()} active={liked} onClick={toggleLike} />
         <ActionBtn icon={<MessageCircle size={20} strokeWidth={1.8} />} label={commentCount.toLocaleString()} active={showComments} onClick={() => setShowComments((v) => !v)} />
         <ActionBtn icon={<Share2 size={19} strokeWidth={1.8} />} label={shared ? "Copied" : undefined} active={shared} activeColor="var(--ink)" onClick={sharePost} />
         <div style={{ flex: 1 }} />
-        <ActionBtn icon={<Bookmark size={20} strokeWidth={1.8} fill={saved ? "var(--ink)" : "none"} />} active={saved} activeColor="var(--ink)" onClick={toggleSave} />
+        <ActionBtn icon={<Bookmark size={20} strokeWidth={1.8} />} active={saved} activeColor="var(--ink)" onClick={toggleSave} />
         {canModerate && (
           <ActionBtn icon={<Trash2 size={19} strokeWidth={1.8} />} active={confirmRemove} onClick={() => setConfirmRemove((v) => !v)} />
         )}
@@ -1182,19 +1247,25 @@ export function ISOCard({ post, authorRole = null, detail = false }: { post: Api
   }
   async function toggleSave() {
     const next = !saved; setSaved(next);
-    try { await api.post(`/posts/${post.id}/save`); } catch { setSaved(!next); }
+    try {
+      await api.post(`/posts/${post.id}/save`);
+      fireToast(next ? "Saved" : "Removed from saved"); // v8 Cards.jsx:826
+    } catch { setSaved(!next); }
   }
-  // "I have this" — open a DM to the ISO author with the wanted item as context.
+  // "I have this" — DV8 §10#22 (v8 Chat.jsx:90): an EDITABLE draft, never auto-sent.
+  // Create/reuse the pair thread with NO initial_message, then open the chat
+  // composer pre-filled + focused (?draft=1&intent=iso). When the ISO references a
+  // catalogue entry, its sku rides the first send as the context chip.
   async function haveThis() {
     if (dmBusy) return;
     setDmBusy(true);
-    const item = post.iso_item ?? post.title ?? "the item you're looking for";
+    const item = post.iso_item ?? post.title ?? "it";
     try {
       const thread = await api.post<{ id: string }>("/threads", {
         other_user_id: post.user_id,
-        initial_message: `Hi! I saw your ISO for "${item}" — I have one. Still looking?`,
       });
-      router.push(`/chat/${thread.id}`);
+      const skuQs = post.ref_sku ? `&sku=${encodeURIComponent(post.ref_sku)}` : "";
+      router.push(`/chat/${thread.id}?draft=1&intent=iso&title=${encodeURIComponent(item)}${skuQs}`);
     } catch {
       router.push("/inbox");
     } finally {
@@ -1255,13 +1326,15 @@ export function ISOCard({ post, authorRole = null, detail = false }: { post: Api
         {post.body && <div style={{ fontSize: 15, color: "var(--ink-soft)", lineHeight: 1.55, marginTop: 10 }}>{post.body}</div>}
       </div>
 
-      {post.images.length > 0 && <div style={{ padding: "12px 18px 0" }}><PostImages images={post.images} /></div>}
+      {/* v8 Cards.jsx:815-819 — pad '0 16px 12px': below the body, above the actions.
+          (The WANTED ribbon lives in the top corner, well above this block — no clash.) */}
+      {post.images.length > 0 && <div style={{ padding: "0 16px 12px" }}><PostImages images={post.images} /></div>}
 
       {/* DV4-07f: v4 groups save+share with heart/comment on the left; the teal CTA sits alone on the right (gap 8, pad-bottom 16). */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 18px 16px" }}>
-        <ActionBtn icon={<Heart size={19} fill={liked ? "var(--stamp-red)" : "none"} />} label={likes} active={liked} onClick={toggleLike} />
+        <ActionBtn icon={<Heart size={19} />} label={likes} active={liked} onClick={toggleLike} />
         <ActionBtn icon={<MessageCircle size={19} />} label={commentCount} active={showComments} onClick={detail ? undefined : () => setShowComments((v) => !v)} />
-        <ActionBtn icon={<Bookmark size={19} fill={saved ? "var(--ink)" : "none"} />} active={saved} activeColor="var(--ink)" onClick={toggleSave} />
+        <ActionBtn icon={<Bookmark size={19} />} active={saved} activeColor="var(--ink)" onClick={toggleSave} />
         <ActionBtn icon={<Share2 size={19} />} label={shared ? "Copied" : undefined} active={shared} activeColor="var(--ink)" onClick={shareIso} />
         <div style={{ flex: 1 }} />
         {!isOwn && (
@@ -1330,11 +1403,106 @@ export function ListingFeedCard({ listing }: { listing: ApiListing }) {
   );
 }
 
+/* ── Shared listing card (in feed) — v8 Cards.jsx:844-898 ────────────
+   A seller's Share-to-Feed "showcase" post with `ref_listing` set: FOR SALE
+   ribbon, optional caption (post.body), inner listing box (96px photo, title,
+   condition, price + strike retail), ActionBtn row, teal Message CTA into the
+   listing, inline CommentThread. Callers gate on post.ref_listing != null and
+   fall back to PostCard otherwise. */
+export function SharedListingCard({ post, showFollow = false }: { post: ApiPost; showFollow?: boolean }) {
+  const { user } = useUser();
+  const l = post.ref_listing;
+  const [liked, setLiked] = useState(post.is_liked ?? false);
+  const [likes, setLikes] = useState(post.likes_count);
+  const [saved, setSaved] = useState(post.is_saved ?? false);
+  const [showComments, setShowComments] = useState(false);
+  const [commentCount, setCommentCount] = useState(post.comments_count);
+  const [shared, setShared] = useState(false);
+  if (!l) return <PostCard post={post} showFollow={showFollow} />;
+  const isOwn = !!user && user.id === post.user_id;
+  const listingTitle = l.title;
+  const price = Math.round(l.price / 100);
+  const retail = l.retail_price != null ? Math.round(l.retail_price / 100) : null;
+  const cur = symOf(l.currency ?? "INR");
+
+  async function toggleLike() {
+    const next = !liked; setLiked(next); setLikes((n) => n + (next ? 1 : -1));
+    try { await api.post(`/posts/${post.id}/like`); }
+    catch { setLiked(!next); setLikes((n) => n + (next ? -1 : 1)); }
+  }
+  async function toggleSave() {
+    const next = !saved; setSaved(next);
+    try {
+      await api.post(`/posts/${post.id}/save`);
+      fireToast(next ? "Saved" : "Removed from saved"); // v8 :885
+    } catch { setSaved(!next); }
+  }
+  async function share() {
+    const url = `${window.location.origin}/post/${post.id}`;
+    const who = (post.name ?? "A collector").split(" ")[0];
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Scorred", text: `${who}'s listing: ${listingTitle}`, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setShared(true);
+        setTimeout(() => setShared(false), 1600);
+      }
+    } catch { /* user cancelled */ }
+  }
+
+  return (
+    <div style={{ ...CARD_BASE, border: "none", position: "relative" }}>
+      <TypeRibbon label="FOR SALE" fg="var(--verified-teal)" />
+      <div style={{ padding: "16px 18px 0" }}>
+        <AuthorLine post={post} showFollow={showFollow} reserveRight={64} />
+        {post.body && (
+          <div style={{ fontSize: 14, color: "var(--ink)", lineHeight: 1.45, marginTop: 12 }}>{post.body}</div>
+        )}
+        <Link
+          href={`/listing/${l.id}`}
+          style={{
+            display: "flex", gap: 13, width: "100%", textAlign: "left", marginTop: 12,
+            border: "1px solid var(--slate-200)", background: "var(--slate-50)",
+            borderRadius: 16, padding: 12, boxShadow: "var(--shadow-1)", textDecoration: "none",
+          }}
+        >
+          <div style={{ width: 96, flexShrink: 0 }}>
+            <ProductPhoto tone="ink" src={l.cover_url} ratio="1/1" />
+          </div>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", lineHeight: 1.25 }}>{l.title}</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", margin: "3px 0 8px" }}>
+              {conditionLabel(l.condition) ?? l.condition}
+            </div>
+            <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "nowrap" }}>
+              <span style={{ fontSize: 17, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}><Money value={price} currency={cur} /></span>
+              {retail != null && retail > price && <Money value={retail} currency={cur} strike size={12} />}
+            </div>
+          </div>
+        </Link>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 18px 16px" }}>
+        <ActionBtn icon={<Heart size={19} />} label={likes} active={liked} onClick={toggleLike} />
+        <ActionBtn icon={<MessageCircle size={19} />} label={commentCount} active={showComments} onClick={() => setShowComments((v) => !v)} />
+        <ActionBtn icon={<Bookmark size={19} />} active={saved} activeColor="var(--ink)" onClick={toggleSave} />
+        <ActionBtn icon={<Share2 size={19} />} label={shared ? "Copied" : undefined} active={shared} activeColor="var(--ink)" onClick={share} />
+        <div style={{ flex: 1 }} />
+        {!isOwn && (
+          <Link href={`/listing/${l.id}`} style={{ textDecoration: "none", flexShrink: 0 }}>
+            <Button size="sm" variant="teal" icon={<MessageSquare size={15} />}>Message</Button>
+          </Link>
+        )}
+      </div>
+      {showComments && <CommentThread postId={post.id} onCountChange={setCommentCount} />}
+    </div>
+  );
+}
+
 /* ── Marketplace grid card ───────────────────────────────────────── */
 export function MarketCard({ listing }: { listing: ApiListing }) {
   const router = useRouter();
   const [liked, setLiked] = useState(listing.is_liked ?? false);
-  const [likes, setLikes] = useState(listing.likes_count ?? 0);
   const [likeBusy, setLikeBusy] = useState(false);
   const [wishlisted, setWishlisted] = useState(listing.is_wishlisted ?? false);
   const [wishBusy, setWishBusy] = useState(false);
@@ -1342,17 +1510,18 @@ export function MarketCard({ listing }: { listing: ApiListing }) {
   const price = Math.round(listing.price / 100);
   const cur = symOf(listing.currency ?? "INR");
 
-  // Card actions (founder 2026-07-11): Heart = public like, Star = wishlist the
-  // underlying item. Save (Bookmark) lives on the listing detail page, not the card.
+  // v8 Cards.jsx:519-598 chrome on OUR semantics (deliberate): the heart keeps
+  // the /like endpoint and the star keeps the item-wishlist endpoint, but the
+  // card carries NO counts — heart bottom-right (red fill active), star
+  // top-right (gold active), is_mine gates unchanged.
   async function toggleLike(e: React.MouseEvent) {
     e.preventDefault();
     if (likeBusy) return;
     const next = !liked;
     setLiked(next);                              // optimistic
-    setLikes((n) => Math.max(0, n + (next ? 1 : -1)));
     setLikeBusy(true);
     try { await api.post(`/listings/${listing.id}/like`); }
-    catch { setLiked(!next); setLikes((n) => Math.max(0, n + (next ? -1 : 1))); }
+    catch { setLiked(!next); }
     finally { setLikeBusy(false); }
   }
 
@@ -1362,7 +1531,10 @@ export function MarketCard({ listing }: { listing: ApiListing }) {
     const next = !wishlisted;
     setWishlisted(next);                         // optimistic
     setWishBusy(true);
-    try { await api.post(`/items/${listing.item_id}/wishlist`); }
+    try {
+      await api.post(`/items/${listing.item_id}/wishlist`);
+      fireToast(next ? "Added to wishlist" : "Removed from wishlist"); // v8 :532
+    }
     catch { setWishlisted(!next); }
     finally { setWishBusy(false); }
   }
@@ -1388,26 +1560,42 @@ export function MarketCard({ listing }: { listing: ApiListing }) {
   return (
     <Link
       href={`/listing/${listing.id}`}
-      onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "var(--card-shadow-lifted)"; }}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.025) translateY(-3px)"; e.currentTarget.style.boxShadow = "var(--card-shadow-lifted)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "var(--card-shadow)"; }}
+      onPointerDown={(e) => { e.currentTarget.style.transform = "scale(0.96)"; e.currentTarget.style.boxShadow = "none"; }}
+      onPointerUp={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "var(--card-shadow)"; }}
+      onPointerLeave={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "var(--card-shadow)"; }}
       style={{
         background: "var(--card-surface)",
         border: `1px solid ${listing.is_mine ? "var(--verified-teal)" : "var(--slate-200)"}`,
         borderRadius: 16, overflow: "hidden", textAlign: "left",
         padding: 0, display: "flex", flexDirection: "column",
-        boxShadow: "var(--card-shadow)", transition: "transform 150ms var(--ease-out), box-shadow 150ms",
+        boxShadow: "var(--card-shadow)", transition: "transform 80ms var(--ease-out), box-shadow 80ms",
       }}
     >
       <div style={{ position: "relative" }}>
         <ProductPhoto tone="ink" src={listing.cover_url} ratio="1/1" rounded={0} />
-        {/* Icon law (2026-07-11): Heart = like (public, shows the count),
-            Star = wishlist the underlying item. Save lives on listing detail. */}
+        {!listing.is_mine && (
+          <div
+            onClick={toggleWishlist}
+            title={wishlisted ? "Remove from wishlist" : "Add item to wishlist"}
+            style={{
+              position: "absolute", top: 8, right: 8, width: 32, height: 32, borderRadius: 10,
+              background: wishlisted ? "rgba(176,119,36,0.85)" : "rgba(15,23,42,0.46)",
+              backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+              border: "1px solid rgba(255,255,255,0.20)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "var(--paper)", cursor: wishBusy ? "default" : "pointer", transition: "background 150ms",
+            }}
+          >
+            <Star size={16} fill={wishlisted ? "currentColor" : "none"} />
+          </div>
+        )}
         <div
           onClick={toggleLike}
           title={liked ? "Unlike" : "Like"}
           style={{
-            position: "absolute", top: 8, right: 8, minWidth: 32, height: 32, borderRadius: 10,
-            padding: likes > 0 ? "0 9px" : 0, gap: 5,
+            position: "absolute", bottom: 8, right: 8, width: 32, height: 32, borderRadius: 10,
             background: liked ? "rgba(255,36,66,0.80)" : "rgba(15,23,42,0.46)",
             backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
             border: "1px solid rgba(255,255,255,0.20)",
@@ -1415,25 +1603,8 @@ export function MarketCard({ listing }: { listing: ApiListing }) {
             color: "var(--paper)", cursor: likeBusy ? "default" : "pointer", transition: "background 150ms",
           }}
         >
-          <Heart size={15} fill={liked ? "currentColor" : "none"} />
-          {likes > 0 && <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, fontWeight: 700 }}>{likes}</span>}
+          <Heart size={16} fill={liked ? "var(--stamp-red)" : "none"} />
         </div>
-        {!listing.is_mine && (
-          <div
-            onClick={toggleWishlist}
-            title={wishlisted ? "Remove from wishlist" : "Add item to wishlist"}
-            style={{
-              position: "absolute", top: 46, right: 8, width: 32, height: 32, borderRadius: 10,
-              background: wishlisted ? "rgba(255,36,66,0.80)" : "rgba(15,23,42,0.46)",
-              backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
-              border: "1px solid rgba(255,255,255,0.20)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: "var(--paper)", cursor: wishBusy ? "default" : "pointer", transition: "background 150ms",
-            }}
-          >
-            <Star size={15} strokeWidth={wishlisted ? 0 : 1.75} fill={wishlisted ? "currentColor" : "none"} />
-          </div>
-        )}
         {listing.is_mine && listing.status === "available" && (
           <div style={{ position: "absolute", top: 8, left: 8 }}><Badge variant="teal">Just listed</Badge></div>
         )}
@@ -1488,7 +1659,9 @@ export function MarketCard({ listing }: { listing: ApiListing }) {
 
 /* ── Event card ──────────────────────────────────────────────────── */
 export function EventCard({ event }: { event: ApiEvent }) {
-  const { day, month } = shortDate(event.starts_at);
+  const { day: rawDay, month } = shortDate(event.starts_at);
+  // v8 EventCreate.jsx:15 pads the tile day ("05", not "5").
+  const day = String(rawDay).padStart(2, "0");
   const weekday = new Date(event.starts_at).toLocaleString("en-IN", { weekday: "short" });
   const going = event.my_rsvp === "going";
   const interested = event.my_rsvp === "interested";
@@ -1540,7 +1713,8 @@ export function EventCard({ event }: { event: ApiEvent }) {
 
 export function FeedEventCard({ event }: { event: ApiEvent }) {
   return (
-    <div style={{ ...CARD_BASE, padding: "16px 18px" }}>
+    /* v8 FeedView.jsx:191 — the plum 1.5px border IS the event-card identity. */
+    <div style={{ ...CARD_BASE, padding: "14px 18px", border: "1.5px solid var(--plum)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
         <Calendar size={16} strokeWidth={2} style={{ color: "var(--plum)" }} />
         <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--plum)" }}>Event near you</span>
@@ -1576,32 +1750,42 @@ export function CommunityCard({ community, pinned, onTogglePin }: {
       if (isRequested) {
         setJoinState("none"); // withdraw a pending request
         await api.delete(`/communities/${community.id}/join`);
+        fireToast("Request withdrawn");
       } else {
         // Optimistic guess; the server tells us "requested" (private) vs "member" (public).
         setJoinState(community.is_invite_only ? "requested" : "member");
         const res = await api.post<{ join_state?: string }>(`/communities/${community.id}/join`);
+        const next = res?.join_state ?? (community.is_invite_only ? "requested" : "member");
         if (res?.join_state) setJoinState(res.join_state);
+        // v8 Cards.jsx:711-716 — the card announces what actually happened.
+        if (next === "member") fireToast(`Joined ${community.name}`);
+        else fireToast("Request sent — an admin will review it");
       }
     } catch { setJoinState(prev); }
     finally { setBusy(false); }
   }
 
-  const tone = community.tone || "plum";
-  const toneVar = tone.startsWith("var(--") ? tone : `var(--${tone})`;
+  const toneBg = toneVar(community.tone || "plum");
   const fresh = community.recent_post_count ?? 0;
   const joinLabel = isRequested ? "Requested" : community.is_invite_only ? "Request" : "Join";
+  // v8 Cards.jsx:705-706 — role keys off member_role: ANY manage role (founder /
+  // granted admin / mod) gets the badge, not just the founder. is_founder is the
+  // safety net for rows whose membership record predates the role column or
+  // drifted (a founder must NEVER lose the Manage door over data drift).
+  const role = community.member_role;
+  const manages = community.is_founder || role === "founder" || role === "admin" || role === "mod";
   // v8 25-Aug polish — the badge row renders ONLY when a badge exists (no reserved gap).
-  const hasBadges = community.is_founder || fresh > 0 || community.is_invite_only
-    || community.status === "pending" || isRequested;
-  // Fixed minimum width keeps Join / Request / Requested / Open aligned across rows.
-  const ctaStyle: React.CSSProperties = { minWidth: 92, justifyContent: "center" };
+  const hasBadges = manages || fresh > 0 || community.is_invite_only
+    || community.status === "pending" || community.status === "closed" || isRequested;
+  // Fixed minimum width keeps Join / Request / Requested / Open aligned (v8 :735 — 84).
+  const ctaStyle: React.CSSProperties = { minWidth: 84, justifyContent: "center" };
 
   return (
     <div style={{ display: "flex", gap: 14, alignItems: "center", background: "var(--card-surface)", border: `1px solid ${pinned ? "var(--stamp-red)" : "var(--slate-200)"}`, borderRadius: 16, padding: 14, boxShadow: "var(--card-shadow)" }}>
       <Link href={`/community/${community.id}`} className="shrink-0">
         <div style={{
           width: 50, height: 50, borderRadius: 12,
-          background: toneVar, color: "var(--paper)",
+          background: toneBg, color: "var(--paper)",
           display: "flex", alignItems: "center", justifyContent: "center",
           fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 19, letterSpacing: "-0.02em",
         }}>
@@ -1614,12 +1798,15 @@ export function CommunityCard({ community, pinned, onTogglePin }: {
             space under the name when a public community carries no badge at all. */}
         {hasBadges && (
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
-            {/* §15 — "Admin" reads on the card itself, so a community you created is
-                still identifiable in Discover, search or anywhere outside the section. */}
-            {community.is_founder && <Badge style={{ background: "var(--plum)", color: "var(--paper)" }}>Admin</Badge>}
+            {/* v8 Cards.jsx:730 — teal role badge for every manage role; "Founder"
+                displays as "Admin" (DV8-15), mods read "Mod". */}
+            {manages && <Badge variant="teal">{role === "mod" ? "Mod" : "Admin"}</Badge>}
             {fresh > 0 && <Badge variant="default">{fresh} new</Badge>}
             {community.is_invite_only && <Badge variant="secondary">Private</Badge>}
-            {community.status === "pending" && <Badge variant="warning">Under review</Badge>}
+            {/* v8 Cards.jsx:728 — secondary "Pending review", not a warning tone. */}
+            {community.status === "pending" && <Badge variant="secondary">Pending review</Badge>}
+            {/* DV8 close — members still see closed communities in "Your communities". */}
+            {community.status === "closed" && <Badge variant="secondary">Closed</Badge>}
             {isRequested && <Badge variant="secondary">Requested</Badge>}
           </div>
         )}
@@ -1627,9 +1814,9 @@ export function CommunityCard({ community, pinned, onTogglePin }: {
           {community.short_desc ?? community.description}
         </div>
         <div style={{ display: "flex", gap: 14, fontSize: 11.5, color: "var(--slate-400)", fontFamily: "var(--font-mono)" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Users size={11} />{community.member_count.toLocaleString()}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Users size={11} />{community.member_count.toLocaleString("en-IN")}</span>
           {/* QA 6.2 — post count uses a post icon, not the message icon. */}
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><FileText size={11} />{community.post_count.toLocaleString()}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><FileText size={11} />{community.post_count.toLocaleString("en-IN")}</span>
           {fresh > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--stamp-red)" }}><Clock size={11} />{fresh} new · 24h</span>}
         </div>
       </Link>
@@ -1644,14 +1831,12 @@ export function CommunityCard({ community, pinned, onTogglePin }: {
           <Pin size={15} fill={pinned ? "currentColor" : "none"} />
         </button>
       )}
-      {/* §15 — a founder can't leave their own community (the API refuses); they get
-          Manage. A joined member's CTA is "Open" — a Link into the community, NOT a
-          leave toggle (leaving lives on the detail page, v8 25-Aug). */}
-      {community.is_founder ? (
-        <Link href={`/community/${community.id}/manage`} style={{ textDecoration: "none", flexShrink: 0 }}>
-          <Button size="sm" variant="secondary" style={ctaStyle}>Manage</Button>
-        </Link>
-      ) : isMember ? (
+      {/* v8 Cards.jsx:734-736 — EVERY member's CTA is a plain "Open", manage roles
+          included (founder call 2026-09-10, reverting our earlier Manage-CTA
+          divergence): the teal role badge says what you are, and managing lives
+          INSIDE the community (Open → "Manage community" in the detail header).
+          The CTA is a Link into the community, NOT a leave toggle. */}
+      {isMember ? (
         <Link href={`/community/${community.id}`} style={{ textDecoration: "none", flexShrink: 0 }}>
           <Button size="sm" variant="secondary" style={ctaStyle}>Open</Button>
         </Link>

@@ -9,6 +9,7 @@ import { useUser } from "@/lib/auth-context";
 import { timeAgo } from "@/lib/utils";
 import { ApiListing, ApiPost, MarketCard, refTone } from "@/components/cards";
 import { Avatar, Button, ProductPhoto } from "@/components/ui";
+import { goldFrameRing, hasGoldFrame } from "@/components/gamification";
 import { ADD_CATEGORIES, conditionsFor } from "@/lib/catalog";
 
 // Category multi-select (design: [] = All). ids match the substring stored on listings.
@@ -65,9 +66,10 @@ function FilterChip({ active, onClick, children, icon: Icon, red, fillIcon }: {
 }
 
 // Boxed ₹ numeric input (From/To price range + the ISO Max budget field).
+// v8:281,287,349 — border-strong on paper-soft, same tokens as the search field.
 function PriceInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   return (
-    <div style={{ flex: 1, minWidth: 0, boxSizing: "border-box", display: "flex", alignItems: "center", gap: 6, height: 44, padding: "0 12px", borderRadius: 11, border: "1px solid var(--slate-200)", background: "var(--card-surface)" }}>
+    <div style={{ flex: 1, minWidth: 0, boxSizing: "border-box", display: "flex", alignItems: "center", gap: 6, height: 44, padding: "0 12px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>
       <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--ink-faint)" }}>₹</span>
       <input value={value} onChange={(e) => onChange(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder={placeholder}
         style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 14.5, color: "var(--ink)" }} />
@@ -127,15 +129,18 @@ function WantedCard({ post }: { post: ApiPost }) {
   const conds = (post.iso_cond ?? "").split(",").map((x) => x.trim()).filter((x) => x && x.toLowerCase() !== "any");
   const firstName = (post.name ?? post.handle ?? "Collector").split(" ")[0];
 
+  // DV8 §10#22 (v8 Chat.jsx:90) — an EDITABLE draft, never auto-sent: create/reuse
+  // the pair thread with NO initial_message, then open the chat composer pre-filled
+  // + focused (?draft=1&intent=iso); a referenced catalogue sku rides the first send.
   async function haveThis() {
     if (dmBusy) return;
     setDmBusy(true);
     try {
       const thread = await api.post<{ id: string }>("/threads", {
         other_user_id: post.user_id,
-        initial_message: `Hi! I saw your ISO for "${title}" — I have one. Still looking?`,
       });
-      router.push(`/chat/${thread.id}`);
+      const skuQs = post.ref_sku ? `&sku=${encodeURIComponent(post.ref_sku)}` : "";
+      router.push(`/chat/${thread.id}?draft=1&intent=iso&title=${encodeURIComponent(title)}${skuQs}`);
     } catch {
       router.push("/inbox");
     } finally {
@@ -172,7 +177,11 @@ function WantedCard({ post }: { post: ApiPost }) {
         )}
 
         <Link href={`/profile/${post.handle ?? "unknown"}`} style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
-          <Avatar name={post.name ?? "?"} photo={post.avatar_url} size={20} />
+          {/* v8:474 avatarFrame — Pioneer/Early Believer authors ring gold, the
+              same First-Start rule the feed's comment rows use. */}
+          <span style={{ display: "inline-flex", flexShrink: 0, ...(hasGoldFrame(post.badge) ? goldFrameRing : {}) }}>
+            <Avatar name={post.name ?? "?"} photo={post.avatar_url} size={20} />
+          </span>
           <span style={{ fontSize: 11.5, color: "var(--ink-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{firstName} · {timeAgo(post.created_at)}</span>
         </Link>
 
@@ -242,6 +251,7 @@ export default function MarketPage() {
   // Refetch from page 1 whenever a filter/search/sort changes.
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- flips the loading flag for the fetch this effect starts; resolved async in .finally
     setLoading(true);
     api.get<{ items: ApiListing[]; total: number; has_more: boolean }>(`/listings?${buildParams(1)}`)
       .then((d) => { if (!cancelled) { setList(d?.items ?? []); setTotal(d?.total ?? 0); setHasMore(d?.has_more ?? false); setPage(1); } })
@@ -272,9 +282,10 @@ export default function MarketPage() {
   // Mint/Played) — chips only appear once a category narrows them down, and with
   // ≥2 categories selected each category gets its own sub-headed group (v8
   // MarketView.jsx:296-311) instead of one deduped soup.
+  // Sub-heads use chipLabel (singular) — same wording as the chips (v8:98).
   const condsByCat = useMemo(() => cats.map((id) => ({
     cat: id,
-    label: CATEGORIES.find((c) => c.id === id)?.label ?? id,
+    label: CATEGORIES.find((c) => c.id === id)?.chipLabel ?? id,
     options: conditionsFor(id),
   })), [cats]);
 
@@ -405,8 +416,10 @@ export default function MarketPage() {
             </div>
             <div>
               <FilterLabel>Category</FilterLabel>
-              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-                {CATEGORIES.map((c) => <FilterChip key={c.id} active={cats.includes(c.id)} onClick={() => toggleCat(c.id)}>{c.label}</FilterChip>)}
+              {/* v8:257 — chip row sits 8px under the label (sale sheet only);
+                  chips read chipLabel (singular — v8:259). */}
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 8 }}>
+                {CATEGORIES.map((c) => <FilterChip key={c.id} active={cats.includes(c.id)} onClick={() => toggleCat(c.id)}>{c.chipLabel}</FilterChip>)}
               </div>
               {cats.length > 0 && (
                 <button type="button" onClick={() => setCats([])} style={{ marginTop: 7, background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--ink-faint)", fontFamily: "var(--font-body)", fontSize: 12 }}>Clear category selection</button>
@@ -460,8 +473,9 @@ export default function MarketPage() {
           <div style={{ borderTop: "1px solid var(--slate-200)", padding: "16px 16px 20px", display: "flex", flexDirection: "column", gap: 20, maxHeight: 420, overflowY: "auto" }}>
             <div>
               <FilterLabel>Category</FilterLabel>
+              {/* v8:335 — wanted sheet keeps no marginTop; chips read chipLabel. */}
               <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-                {CATEGORIES.map((c) => <FilterChip key={c.id} active={isoCats.includes(c.id)} onClick={() => toggleArr(setIsoCats, c.id)}>{c.label}</FilterChip>)}
+                {CATEGORIES.map((c) => <FilterChip key={c.id} active={isoCats.includes(c.id)} onClick={() => toggleArr(setIsoCats, c.id)}>{c.chipLabel}</FilterChip>)}
               </div>
             </div>
             <div>
@@ -522,7 +536,7 @@ export default function MarketPage() {
           )}
         </>
       ) : loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 px-4 py-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 px-3.5 py-5">
           {Array.from({ length: 6 }).map((_, i) => <div key={i} style={{ borderRadius: 20, background: "var(--slate-100)", aspectRatio: "1/1.4" }} />)}
         </div>
       ) : isEmpty ? (
@@ -548,7 +562,9 @@ export default function MarketPage() {
               <button type="button" onClick={resetAll} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5 }}>Clear filters</button>
             )}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 px-4 pb-3">
+          {/* v8:420 — gap 14, 14px sides, 32px bottom: byte-matches the Wanted
+              board's grid so the two boards agree (sm:grid-cols-3 kept — web). */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 px-3.5 pb-8">
             {shown.map((l) => <MarketCard key={l.id} listing={l} />)}
             {shown.length === 0 && (
               <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", alignItems: "center", padding: "44px 0", color: "var(--ink-faint)", textAlign: "center" }}>

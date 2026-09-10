@@ -129,3 +129,41 @@ export function ReleaseWindowPicker({
     </>
   );
 }
+
+/* ── Gender picker (v8 shared.jsx:404-426) ─────────────────────
+   ONE list + ONE control shared by signup and profile editing so the two can
+   never diverge. Two even columns; "Prefer not to say" spans both so it never
+   wraps. Tapping the active option clears it. */
+export const GENDERS: [string, string][] = [
+  ["f", "Female"],
+  ["m", "Male"],
+  ["x", "Prefer not to say"],
+];
+
+export function GenderPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 7 }}>
+      {GENDERS.map(([val, lbl], i) => {
+        const on = value === val;
+        return (
+          <button
+            key={val}
+            type="button"
+            onClick={() => onChange(on ? "" : val)}
+            style={{
+              gridColumn: i === 2 ? "span 2" : "auto",
+              height: 48, borderRadius: 12, cursor: "pointer", padding: "0 10px",
+              border: `1.5px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
+              background: on ? "var(--ink)" : "var(--paper-soft)",
+              color: on ? "var(--paper)" : "var(--ink)",
+              fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14.5,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {lbl}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

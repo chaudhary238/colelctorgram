@@ -135,12 +135,14 @@ export function Avatar({
 
 /* ── Tag (sale / sold / vouch / event …) ─────────────────────── */
 /* "reserved" retired with DV8-13 — a listing is available | sold | closed. */
-type TagKind = "sale" | "po" | "misb" | "sold" | "vouch" | "event" | "default";
+type TagKind = "sale" | "po" | "misb" | "sold" | "intel" | "teal" | "vouch" | "event" | "default";
 const TAG_STYLES: Record<TagKind, React.CSSProperties> = {
   sale: { background: "var(--stamp-red)", color: "var(--paper)" },
   po: { background: "var(--grail-gold)", color: "var(--ink)" },
   misb: { background: "var(--ink)", color: "var(--paper)" },
   sold: { background: "var(--forest)", color: "var(--paper)" },
+  intel: { background: "var(--verified-teal-soft)", color: "var(--verified-teal)", border: "1px solid var(--verified-teal)" },
+  teal: { background: "var(--verified-teal-soft)", color: "var(--verified-teal)", border: "1px solid var(--verified-teal)" },
   vouch: { background: "var(--verified-teal-soft)", color: "var(--verified-teal)", border: "1px solid var(--verified-teal)" },
   event: { background: "var(--plum-soft)", color: "var(--plum)", border: "1px solid var(--plum)" },
   default: { background: "var(--bone)", color: "var(--ink)" },
@@ -153,8 +155,8 @@ export function Tag({ kind = "default", children, style }: { kind?: TagKind; chi
         display: "inline-flex",
         alignItems: "center",
         gap: 4,
-        padding: "3px 7px",
-        borderRadius: 4,
+        padding: "4px 8px",
+        borderRadius: 6,
         lineHeight: 1,
         fontFamily: "var(--font-body)",
         fontWeight: 600,
@@ -234,11 +236,13 @@ export function TrustSignals({
   joined?: string | number | null;
   compact?: boolean;
 }) {
+  // v8 shared.jsx:502-504 — labels are Capitalized (Vouches · Replies · Joined).
+  // The "New / new seller" zero-state is ours (v8 always has all three metrics).
   const items: { v: string; l: string }[] = [];
-  if (vouches != null) items.push({ v: String(vouches), l: "vouches" });
+  if (vouches != null) items.push({ v: String(vouches), l: "Vouches" });
   void rating; void ratingCount;
-  if (response) items.push({ v: response, l: "replies" });
-  if (joined) items.push({ v: String(joined), l: "joined" });
+  if (response) items.push({ v: response, l: "Replies" });
+  if (joined) items.push({ v: String(joined), l: "Joined" });
   if (items.length === 0) items.push({ v: "New", l: "new seller" });
   return (
     <div
@@ -331,6 +335,9 @@ export function CategoryChip({ active, children, onClick }: { active?: boolean; 
   return (
     <button
       onClick={onClick}
+      onPointerDown={(e) => { e.currentTarget.style.transform = "scale(0.94)"; }}
+      onPointerUp={(e) => { e.currentTarget.style.transform = ""; }}
+      onPointerLeave={(e) => { e.currentTarget.style.transform = ""; }}
       style={{
         padding: "8px 16px",
         borderRadius: 999,
@@ -344,7 +351,7 @@ export function CategoryChip({ active, children, onClick }: { active?: boolean; 
         whiteSpace: "nowrap",
         lineHeight: 1,
         flexShrink: 0,
-        transition: "all 150ms var(--ease-out)",
+        transition: "all 150ms var(--ease-out), transform 80ms",
       }}
     >
       {children}
@@ -366,33 +373,6 @@ export function Money({ value, currency = "₹", strike = false, size }: { value
       }}
     >
       {currency} {value.toLocaleString("en-IN")}
-    </span>
-  );
-}
-
-/* ── Stamp (hard-shadow accent) ──────────────────────────────── */
-export function Stamp({ children, color = "var(--stamp-red)", rotate = 2, style }: { children: React.ReactNode; color?: string; rotate?: number; style?: React.CSSProperties }) {
-  return (
-    <span
-      style={{
-        background: color,
-        color: "var(--paper)",
-        padding: "4px 8px",
-        borderRadius: 6,
-        fontFamily: "var(--font-display)",
-        fontWeight: 800,
-        fontSize: 11,
-        letterSpacing: "0.10em",
-        textTransform: "uppercase",
-        boxShadow: "var(--shadow-stamp)",
-        transform: `rotate(${rotate}deg)`,
-        lineHeight: 1,
-        whiteSpace: "nowrap",
-        display: "inline-block",
-        ...style,
-      }}
-    >
-      {children}
     </span>
   );
 }
@@ -472,7 +452,7 @@ export function ProductPhoto({
 /* ── Section label (mono, all-caps) ──────────────────────────── */
 export function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-faint)" }}>
+    <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--slate-400)" }}>
       {children}
     </div>
   );
@@ -485,27 +465,19 @@ export function EmptyNote({ children }: { children: React.ReactNode }) {
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 10, opacity: 0.16 }}>
         <SealMark size={40} />
       </div>
-      <div style={{ color: "var(--ink-faint)", fontSize: 13 }}>{children}</div>
+      <div style={{ color: "var(--slate-400)", fontSize: 13 }}>{children}</div>
     </div>
   );
 }
 
-/* ── Initials helper ─────────────────────────────────────────── */
-export function initialsOf(name: string) {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
-
 /* ── Status → display label ──────────────────────────────────── */
+/* wishlist → "Wishlist" (NOT v8's "Intel") is our datamodel vocabulary — deliberate. */
 const STATUS_LABEL: Record<string, string> = {
   available: "Available",
   sold: "Sold",
   preorder: "Pre-order",
   wishlist: "Wishlist",
+  intel: "DB Contribution",
   owned: "Owned",
 };
 export function statusLabel(s: string) {
@@ -595,6 +567,9 @@ export function Button({
       onPointerDown={(e) => { if (!disabled) e.currentTarget.style.transform = "scale(0.97)"; }}
       onPointerUp={(e) => { e.currentTarget.style.transform = ""; }}
       onPointerLeave={(e) => { e.currentTarget.style.transform = ""; }}
+      // v8 shared.jsx:584 — outline:none needs the ring or keyboard focus is invisible
+      onFocus={(e) => { e.currentTarget.style.boxShadow = "0 0 0 3px var(--ring)"; }}
+      onBlur={(e) => { e.currentTarget.style.boxShadow = ""; }}
     >
       {icon}
       {children}
@@ -622,8 +597,10 @@ export function IconButton({
         border: "1px solid " + (active ? "var(--ink)" : "var(--border)"),
         display: "flex", alignItems: "center", justifyContent: "center",
         cursor: "pointer", flexShrink: 0, outline: "none",
-        transition: "background 120ms, border-color 120ms",
+        transition: "background 120ms, border-color 120ms, box-shadow 120ms",
       }}
+      onFocus={(e) => { e.currentTarget.style.boxShadow = "0 0 0 3px var(--ring)"; }}
+      onBlur={(e) => { e.currentTarget.style.boxShadow = ""; }}
     >
       {icon}
       {badge != null && (
@@ -643,90 +620,112 @@ export function IconButton({
   );
 }
 
-/* ── GlassPill (v3 DF-29c) — floats inside image areas ────────── */
-export function GlassPill({
-  children, variant = "dark", style,
+/* ── Tone → CSS var (community tiles/banners/tags) ────────────────
+   The API stores short tone names; three of them (teal/red/gold) have NO
+   matching bare CSS var — the real tokens are --verified-teal / --stamp-red /
+   --grail-gold. Every `var(--${tone})` construction must go through here or
+   half the tones paint transparent. Unknown tones fall back to slate-500. */
+const TONE_VARS: Record<string, string> = {
+  teal: "--verified-teal",
+  red: "--stamp-red",
+  gold: "--grail-gold",
+  plum: "--plum",
+  forest: "--forest",
+  sky: "--sky",
+  // v8 EditAvatarView PROFILE_COLORS — persisted as users.avatar_tone ids.
+  ink: "--ink",
+  mute: "--ink-mute",
+};
+export function toneVar(tone: string | null | undefined): string {
+  if (!tone) return "var(--slate-500)";
+  if (tone.startsWith("var(--")) return tone; // already a var() reference
+  const v = TONE_VARS[tone];
+  return v ? `var(${v})` : "var(--slate-500)";
+}
+
+/* ── Disclosure — one collapsible primitive (v8 shared.jsx:434) ───
+   Same header rhythm, chevron behaviour and collapsed height for every long
+   section (About, Q&A, ownership…). Meta renders mono beside the title; icon
+   and accent tint the header for special sections. */
+export function Disclosure({
+  title, meta, children, defaultOpen = false, icon, accent, style,
 }: {
+  title: React.ReactNode;
+  meta?: React.ReactNode;
   children: React.ReactNode;
-  variant?: "dark" | "red" | "white";
+  defaultOpen?: boolean;
+  icon?: React.ReactNode;
+  accent?: string;
   style?: React.CSSProperties;
 }) {
-  const bgs = {
-    dark: "rgba(15,23,42,0.52)",
-    red: "rgba(255,36,66,0.78)",
-    white: "rgba(255,255,255,0.72)",
-  };
+  const [open, setOpen] = React.useState(defaultOpen);
   return (
-    <span
-      style={{
-        display: "inline-flex", alignItems: "center", gap: 5,
-        padding: "5px 11px", borderRadius: 999,
-        background: bgs[variant],
-        backdropFilter: "blur(8px) saturate(180%)",
-        WebkitBackdropFilter: "blur(8px) saturate(180%)",
-        border: "1px solid rgba(255,255,255,0.18)",
-        color: "#fff", fontSize: 12, fontWeight: 600, lineHeight: 1,
-        ...style,
-      }}
-    >
-      {children}
-    </span>
+    <div style={{ borderTop: "1px solid var(--border)", ...style }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        style={{
+          display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "13px 0",
+          background: "none", border: "none", cursor: "pointer", textAlign: "left", fontFamily: "var(--font-body)",
+        }}
+      >
+        {icon && <span style={{ display: "flex", color: accent ?? "var(--ink-faint)", flexShrink: 0 }}>{icon}</span>}
+        <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, letterSpacing: "-0.015em", color: accent ?? "var(--ink)" }}>{title}</span>
+        {meta != null && <span style={{ fontSize: 12, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>{meta}</span>}
+        <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+          style={{ marginLeft: "auto", color: "var(--ink-faint)", flexShrink: 0, transform: open ? "rotate(90deg)" : "none", transition: "transform 130ms" }}>
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+      </button>
+      {open && <div style={{ paddingBottom: 16 }}>{children}</div>}
+    </div>
   );
 }
 
-/* ── StackedAvatars (v3 DF-29c) — social-proof overlap row ────── */
-const STACK_PALETTE = ["#FF2442", "#8B5CF6", "#10B981", "#F59E0B", "#0EA5E9", "#E94560"];
-export function StackedAvatars({
-  items = [], max = 3, label, style,
-}: {
-  items?: ({ name?: string; color?: string } | string)[];
-  max?: number;
-  label?: React.ReactNode;
-  style?: React.CSSProperties;
-}) {
-  const shown = items.slice(0, max);
-  const overflow = items.length - max;
+/* ── ClampText — long copy stays clamped until asked for (v8 shared.jsx:454) ── */
+export function ClampText({ children, lines = 3, size = 14.5 }: { children: React.ReactNode; lines?: number; size?: number }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [overflows, setOverflows] = React.useState(false);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (el) setOverflows(el.scrollHeight > el.clientHeight + 2);
+  }, [children, lines]);
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, ...style }}>
-      <div style={{ display: "flex", alignItems: "center" }}>
-        {shown.map((item, i) => {
-          const name = typeof item === "string" ? item : item.name || "?";
-          const color = typeof item === "object" && item.color ? item.color : STACK_PALETTE[i % STACK_PALETTE.length];
-          const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
-          return (
-            <div
-              key={i}
-              style={{
-                width: 26, height: 26, borderRadius: "50%",
-                border: "2px solid var(--card-surface)",
-                background: color, color: "#fff", fontSize: 9, fontWeight: 800,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                marginLeft: i === 0 ? 0 : -9,
-                position: "relative", zIndex: shown.length - i, flexShrink: 0,
-              }}
-            >
-              {initials}
-            </div>
-          );
-        })}
-        {overflow > 0 && (
-          <div
-            style={{
-              width: 26, height: 26, borderRadius: "50%",
-              border: "2px solid var(--card-surface)",
-              background: "var(--slate-200)", color: "var(--slate-600)",
-              fontSize: 9, fontWeight: 800,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              marginLeft: -9, flexShrink: 0,
-            }}
-          >
-            +{overflow}
-          </div>
-        )}
+    <div>
+      <div
+        ref={ref}
+        style={{
+          fontSize: size, lineHeight: 1.6, color: "var(--ink-soft)",
+          ...({ textWrap: "pretty" } as React.CSSProperties),
+          ...(open ? {} : { display: "-webkit-box", WebkitLineClamp: lines, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }),
+        }}
+      >
+        {children}
       </div>
-      {label != null && <span style={{ fontSize: 12, color: "var(--slate-500)", fontWeight: 500 }}>{label}</span>}
+      {(overflows || open) && (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          style={{ marginTop: 5, padding: 0, border: "none", background: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12.5, color: "var(--ink-mute)" }}
+        >
+          {open ? "Read less" : "Read more"}
+        </button>
+      )}
     </div>
   );
+}
+
+/* ── compactNum — 1284 → 1.3K, 3.45M → 3.4M (v8 shared.jsx:746) ──
+   Compacts from 1000 up; <10 keeps one decimal, ≥10 rounds. Keeps stat tiles
+   uniform at any size. */
+export function compactNum(n: number): string {
+  n = n || 0;
+  if (n < 1000) return n.toLocaleString("en-IN");
+  if (n < 1000000) { const v = n / 1000; return (v < 10 ? v.toFixed(1).replace(/\.0$/, "") : String(Math.round(v))) + "K"; }
+  if (n < 1000000000) { const v = n / 1000000; return (v < 10 ? v.toFixed(1).replace(/\.0$/, "") : String(Math.round(v))) + "M"; }
+  const v = n / 1000000000; return (v < 10 ? v.toFixed(1).replace(/\.0$/, "") : String(Math.round(v))) + "B";
 }
 
 /* ── LocationTag (v3 DF-29c) ─────────────────────────────────── */

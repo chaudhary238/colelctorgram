@@ -11,6 +11,7 @@ export interface AuthUser {
   city: string | null;
   country?: string | null; // DV8 — CityField's second output ("City, Country" labels)
   avatar_url: string | null;
+  avatar_tone?: string | null; // v8 EditAvatarView colour pick (toneVar id)
   interests: string[];
   sub_interests?: Record<string, string[]> | null; // per-category chips (DV4-06)
   rating: number;

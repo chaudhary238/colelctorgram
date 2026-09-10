@@ -125,7 +125,8 @@ export default function AddToDatabasePage() {
         <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <BackButton fallback="/db" />
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Add to database</span>
+            {/* v8 DetailHeader type (Chrome.jsx:83-110) — 19/700 display title. */}
+            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em" }}>Add to database</span>
           </div>
         </div>
         <div style={{ padding: "32px 24px", textAlign: "center" }}>
@@ -183,8 +184,9 @@ export default function AddToDatabasePage() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <BackButton fallback="/db" />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Add to database</div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Shared catalogue entry</div>
+            {/* v8 DetailHeader type (Chrome.jsx:83-110) — 19/700 title, 12 faint subtitle. */}
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em" }}>Add to database</div>
+            <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>Shared catalogue entry</div>
           </div>
         </div>
       </div>

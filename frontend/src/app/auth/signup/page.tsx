@@ -54,7 +54,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <AuthShell back="/auth">
+    <AuthShell back="/auth" padBottom={24}>
       <AuthTitle title="Create your account" sub="Build your collection and start trading." />
 
       <form onSubmit={handleSubmit}>

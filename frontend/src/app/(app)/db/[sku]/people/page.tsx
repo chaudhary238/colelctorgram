@@ -19,6 +19,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { BackButton } from "@/components/BackButton";
 import { Avatar, EmptyNote } from "@/components/ui";
+import { fireToast } from "@/components/gamification";
 
 interface DbPerson {
   handle: string;
@@ -42,7 +43,9 @@ function DbPeopleInner() {
       .then((e) => { if (alive) setTitle(e.title); })
       .catch(() => {});
     api.get<{ items: DbPerson[] }>(`/catalogue/${encodeURIComponent(sku)}/people?mode=${mode}`)
-      .then((d) => { if (alive) setPeople(d.items); })
+      // DV8 §3#24 — the viewer is never listed among the people (v8 ExploreView.jsx:536
+      // filters out 'you'); your own copy/wishlist isn't news to you.
+      .then((d) => { if (alive) setPeople(d.items.filter((p) => !p.is_me)); })
       .catch(() => { if (alive) setPeople([]); });
     return () => { alive = false; };
   }, [sku, mode]);
@@ -53,8 +56,16 @@ function DbPeopleInner() {
     // Optimistic — the button flips immediately; a failure flips it back.
     setPeople((ps) => ps?.map((x) => (x.handle === p.handle ? { ...x, is_following: !p.is_following } : x)) ?? null);
     try {
-      if (p.is_following) await api.delete(`/users/${p.handle}/follow`);
-      else await api.post(`/users/${p.handle}/follow`);
+      // DV8 §3#22 — v8 follow toasts (ExploreView.jsx:553). The follow response says
+      // whether XP was actually granted (first-time follows only), so the +2 rides
+      // the same line instead of firing a gold toast for a re-follow that earns 0.
+      if (p.is_following) {
+        await api.delete(`/users/${p.handle}/follow`);
+        fireToast(`Unfollowed @${p.handle}`);
+      } else {
+        const res = await api.post<{ xp_granted?: boolean }>(`/users/${p.handle}/follow`);
+        fireToast(`Following @${p.handle}${res.xp_granted ? " · +2 XP" : ""}`);
+      }
     } catch {
       setPeople((ps) => ps?.map((x) => (x.handle === p.handle ? { ...x, is_following: p.is_following } : x)) ?? null);
     } finally {
@@ -70,9 +81,10 @@ function DbPeopleInner() {
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <BackButton fallback={`/db/${encodeURIComponent(sku)}`} />
+          {/* DV8 §3#20 — v8 DetailHeader type: title 19/700, subtitle 12 (Chrome.jsx:83-110) */}
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em", lineHeight: 1.2 }}>{heading}</div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em", lineHeight: 1.2 }}>{heading}</div>
+            <div style={{ fontSize: 12, color: "var(--ink-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {title || "…"}{people ? ` · ${people.length}` : ""}
             </div>
           </div>
@@ -102,6 +114,8 @@ function DbPeopleInner() {
           </div>
         ) : (
           people.map((p) => (
+            /* Row padding '11px 20px' — v8 uses 16px gutters (:544), the 20px web
+               gutter is deliberate (matches every other list on the web column). */
             <div key={p.handle} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 20px", borderBottom: "1px solid var(--border)" }}>
               <Link href={`/profile/${p.handle}`} style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, textDecoration: "none" }}>
                 <Avatar name={p.name} photo={p.avatar_url} size={44} />
@@ -110,23 +124,23 @@ function DbPeopleInner() {
                   <span style={{ display: "block", fontSize: 12, color: "var(--ink-faint)" }}>@{p.handle}</span>
                 </span>
               </Link>
-              {!p.is_me && (
-                <button
-                  type="button"
-                  onClick={() => toggleFollow(p)}
-                  disabled={busy === p.handle}
-                  style={{
-                    flexShrink: 0, height: 32, padding: "0 14px", borderRadius: 10,
-                    cursor: busy === p.handle ? "wait" : "pointer",
-                    fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5,
-                    border: p.is_following ? "1px solid var(--border-strong)" : "1px solid var(--ink)",
-                    background: p.is_following ? "var(--paper)" : "var(--ink)",
-                    color: p.is_following ? "var(--ink)" : "var(--paper)",
-                  }}
-                >
-                  {p.is_following ? "Following" : "Follow"}
-                </button>
-              )}
+              {/* DV8 §3#21 — v8 shared Button sm (shared.jsx:567): h34, r9, fs13;
+                  following = secondary's bone bg + ink-soft text. */}
+              <button
+                type="button"
+                onClick={() => toggleFollow(p)}
+                disabled={busy === p.handle}
+                style={{
+                  flexShrink: 0, height: 34, padding: "0 14px", borderRadius: 9,
+                  cursor: busy === p.handle ? "wait" : "pointer",
+                  fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13,
+                  border: p.is_following ? "1px solid var(--border-strong)" : "1px solid var(--ink)",
+                  background: p.is_following ? "var(--bone)" : "var(--ink)",
+                  color: p.is_following ? "var(--ink-soft)" : "var(--paper)",
+                }}
+              >
+                {p.is_following ? "Following" : "Follow"}
+              </button>
             </div>
           ))
         )}

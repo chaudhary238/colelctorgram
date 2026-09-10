@@ -7,10 +7,9 @@ import { api } from "@/lib/api";
 import { ApiEvent, EventCard } from "@/components/cards";
 import { BackButton } from "@/components/BackButton";
 import { Segmented, SectionLabel, EmptyNote, Tag, ProductPhoto, CategoryChip } from "@/components/ui";
-import { shortDate } from "@/lib/utils";
 import { useUser } from "@/lib/auth-context";
 import { ADD_CATEGORIES } from "@/lib/catalog";
-import { formatTime12FromDate } from "@/components/CityField";
+import { eventDateParts, fmtEventWhen } from "./_date";
 
 // v8 chips read the SINGULAR chipLabel (data.jsx) — only figures differs from label.
 const CHIP_LABEL: Record<string, string> = { figures: "Action Figure" };
@@ -213,8 +212,9 @@ export default function EventsPage() {
         <div style={{ padding: "16px 20px 28px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
             {filteredPast.map((ev) => <EventCard key={ev.id} event={ev} />)}
+            {/* v8 EventsView:128 — the past tab's search-empty copy is its own string. */}
             {filteredPast.length === 0 && (
-              <EmptyNote>{q ? `No events match "${q}".` : evCats.length ? "No past events in this category." : "No past events yet."}</EmptyNote>
+              <EmptyNote>{q ? "No events match your search." : evCats.length ? "No past events in this category." : "No past events yet."}</EmptyNote>
             )}
           </div>
         </div>
@@ -223,7 +223,8 @@ export default function EventsPage() {
         <div style={{ padding: "16px 20px 28px" }}>
           <Link href="/events/new" style={{
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 46,
-            borderRadius: 14, background: "var(--ink)", color: "var(--paper)", textDecoration: "none",
+            // v8 EventsView:137 — slate-900, matching the row-1 "List an event" CTA.
+            borderRadius: 14, background: "var(--slate-900)", color: "var(--paper)", textDecoration: "none",
             fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14.5, marginBottom: 16,
           }}>
             <Plus size={18} />List an event
@@ -244,17 +245,16 @@ export default function EventsPage() {
   );
 }
 
-// v8 FeaturedEvent subtitle — "{when} · {city}" where when reads "Sat · 12 Jul · 4:00 pm".
+// v8 FeaturedEvent subtitle — "{when} · {city}" where when reads
+// "Sat · 24 May · 4:00 – 8:00 pm" (mixed-case month, end-time range when set).
 function featuredWhen(ev: ApiEvent): string {
-  const d = new Date(ev.starts_at);
-  const { day, month } = shortDate(ev.starts_at);
-  const weekday = d.toLocaleString("en-IN", { weekday: "short" });
-  const when = `${weekday} · ${day} ${month} · ${formatTime12FromDate(d)}`;
+  const when = fmtEventWhen(ev.starts_at, ev.ends_at, { compact: true });
   return ev.city ? `${when} · ${ev.city}` : when;
 }
 
 function HostingRow({ event }: { event: ApiEvent }) {
-  const { day, month } = shortDate(event.starts_at);
+  // v8 parseDate zero-pads the tile day ("05"); month uppercases via the span's CSS.
+  const { dayPadded, month } = eventDateParts(event.starts_at);
   const pending = event.status === "pending_approval";
   const cancelled = event.status === "cancelled" || event.status === "rejected";
   return (
@@ -270,7 +270,7 @@ function HostingRow({ event }: { event: ApiEvent }) {
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       }}>
         <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>{month}</span>
-        <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, lineHeight: 1 }}>{day}</span>
+        <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, lineHeight: 1 }}>{dayPadded}</span>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.25, color: "var(--ink)" }}>{event.title}</div>

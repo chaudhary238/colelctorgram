@@ -27,8 +27,18 @@ export default function SignInPage() {
         refresh_token: string;
       }>("/auth/login", { identifier, password });
       storeTokens(access_token, refresh_token);
-      // Full page load so AuthProvider refetches the user for the new session
-      window.location.assign("/feed");
+      // DV8 §11#15 — email/password login must not bypass the wizard either: an
+      // account without the onboarded_at stamp resumes onboarding (mirrors
+      // SocialButtons.finish). Full page load so AuthProvider refetches the user
+      // for the new session.
+      let dest = "/feed";
+      try {
+        const me = await api.get<{ onboarded_at?: string | null }>("/users/me");
+        if (!me?.onboarded_at) dest = "/onboarding";
+      } catch {
+        // can't tell — default to /feed
+      }
+      window.location.assign(dest);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Sign in failed");
     } finally {
@@ -37,7 +47,7 @@ export default function SignInPage() {
   }
 
   return (
-    <AuthShell back="/auth">
+    <AuthShell back="/auth" padBottom={24}>
       <AuthTitle title="Welcome back" sub="Log in to pick up where you left off." />
 
       <form onSubmit={handleSubmit}>

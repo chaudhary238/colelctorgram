@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronLeft, Trophy, Info, Download, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Trophy, Info, Download, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button, SectionLabel } from "@/components/ui";
 import {
@@ -122,7 +122,8 @@ export default function BadgesPage() {
                 </span>
               </div>
               <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>No badges yet</div>
-              <div style={{ fontSize: 13, marginTop: 6, lineHeight: 1.5 }}>{d.is_me ? "Finish in the weekly league to earn your first badge." : `${first} hasn’t placed in a league yet.`}</div>
+              {/* v8 Rewards.jsx:445 — verbatim. */}
+              <div style={{ fontSize: 13, marginTop: 6, lineHeight: 1.5 }}>{d.is_me ? "Finish in a weekly league to earn your first badge." : `${first} hasn't earned any badges yet.`}</div>
               {d.is_me && <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}><Button size="sm" variant="dark" icon={<Trophy size={15} />} onClick={() => router.push("/leaderboard")}>See leaderboard</Button></div>}
             </div>
           ) : (
@@ -132,7 +133,8 @@ export default function BadgesPage() {
                 <button onClick={() => setFsOpen(true)} style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%", padding: "22px 16px", borderRadius: 18, border: "1px solid var(--border)", background: "var(--paper-soft)", cursor: "pointer" }}>
                   <FirstStartTile code={fs.id} size={76} />
                   <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 21, letterSpacing: "-0.01em", marginTop: 13 }}>{fs.name}</div>
-                  <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 3 }}>Permanent badge · never expires</div>
+                  {/* v8 Rewards.jsx:457,475 */}
+                  <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 4 }}>Permanent · never expires</div>
                   <div style={{ display: "flex", gap: 28, marginTop: 16 }}>
                     <Stat n={badgeTypes} label="Badge types" />
                     <Stat n={seasonWins} label="Season wins" />
@@ -145,50 +147,72 @@ export default function BadgesPage() {
                   <button onClick={() => setSelected(topSeason)} style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%", padding: "22px 16px", borderRadius: 18, border: "1px solid var(--border)", background: "var(--paper-soft)", cursor: "pointer" }}>
                     <SeasonBadge badge={topSeason} size={76} />
                     <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 21, letterSpacing: "-0.01em", marginTop: 13 }}>{topSeason.title}</div>
-                    <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 3 }}>{k.label} · {topSeason.period} · {m.label}</div>
-                    <div style={{ display: "flex", gap: 18, marginTop: 16 }}>
-                      <Stat n={totalCount} label="Badges" />
-                      <div style={{ width: 1, background: "var(--border)" }} />
-                      <Stat n={d.bonus_xp_total} label="Bonus XP" />
+                    <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 4 }}>{k.label} · {topSeason.period} · {m.label}</div>
+                    {/* v8 Rewards.jsx:476-485 — stats are ALWAYS Badge types + Season wins, gap 28. */}
+                    <div style={{ display: "flex", gap: 28, marginTop: 16 }}>
+                      <Stat n={badgeTypes} label="Badge types" />
+                      <Stat n={seasonWins} label="Season wins" />
                     </div>
                   </button>
                 );
               })()}
 
-              {/* all badges grid */}
-              <div style={{ marginTop: 22 }}><SectionLabel>All badges</SectionLabel></div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 11 }}>
-                {fs && (
-                  <button onClick={() => setFsOpen(true)} style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "16px 12px", borderRadius: 14, border: "1px solid var(--border)", background: "var(--paper-soft)", cursor: "pointer" }}>
-                    <FirstStartTile code={fs.id} size={48} />
-                    <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)", marginTop: 10 }}>{fs.name}</div>
-                    <div style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>Permanent badge</div>
-                    <div style={{ marginTop: 9, fontSize: 11, fontWeight: 700, color: "var(--verified-teal)" }}>Never expires</div>
-                  </button>
-                )}
-                {seasonSlots.map((slot) => {
-                  const b = slot.badge;
-                  const tier = b.tier || "finalist";
-                  return (
-                    <button key={slot.key} onClick={() => setSelected(b)} style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "16px 12px", borderRadius: 14, border: "1px solid var(--border)", background: "var(--paper-soft)", cursor: "pointer" }}>
-                      <div style={{ position: "relative", display: "inline-flex" }}>
-                        <SeasonBadge badge={b} size={48} />
-                        {slot.count > 1 && (
-                          <span style={{ position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 999, background: "var(--stamp-red)", color: "#fff", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", border: "2px solid var(--paper-soft)" }}>{slot.count}</span>
-                        )}
+              {/* Permanent badges — full-width rows → BadgeSheet (v8 Rewards.jsx:491-511) */}
+              {fs && (
+                <>
+                  <div style={{ marginTop: 22, marginBottom: 10 }}><SectionLabel>Permanent</SectionLabel></div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <button onClick={() => setFsOpen(true)} style={{
+                      display: "flex", alignItems: "center", gap: 12, padding: "13px 15px", width: "100%",
+                      borderRadius: 14, border: "1px solid var(--border)", background: "var(--paper)",
+                      cursor: "pointer", textAlign: "left",
+                    }}>
+                      <FirstStartTile code={fs.id} size={40} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{fs.name}</div>
+                        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 2 }}>Permanent · never expires</div>
                       </div>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)", marginTop: 10 }}>{TIER_LABEL[tier] ?? "Season"} Badge</div>
-                      <div style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>{slot.count} badge{slot.count === 1 ? "" : "s"} · season</div>
+                      <ChevronRight size={15} style={{ color: "var(--ink-ghost)", flexShrink: 0 }} />
                     </button>
-                  );
-                })}
-              </div>
+                  </div>
+                </>
+              )}
 
-              {/* how it works */}
+              {/* Season badges — horizontal centered tier tiles (v8 Rewards.jsx:513-547);
+                  tap keeps our SeasonBadgeModal w/ PNG export (ours-extra). */}
+              {seasonSlots.length > 0 && (
+                <>
+                  <div style={{ marginTop: 22, marginBottom: 10 }}><SectionLabel>Season Badges</SectionLabel></div>
+                  <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                    {seasonSlots.map((slot) => {
+                      const b = slot.badge;
+                      const tier = b.tier || "finalist";
+                      return (
+                        <button key={slot.key} onClick={() => setSelected(b)} style={{
+                          display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center",
+                          padding: "14px 0", borderRadius: 14, border: "1px solid var(--border)",
+                          background: "var(--paper)", cursor: "pointer", position: "relative", flex: "1 1 0", minWidth: 0,
+                        }}>
+                          <div style={{ position: "relative", display: "inline-flex" }}>
+                            <SeasonBadge badge={b} size={56} />
+                            {slot.count > 1 && (
+                              <span style={{ position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 999, background: "var(--stamp-red)", color: "#fff", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", border: "2px solid var(--paper)" }}>{slot.count}</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", marginTop: 10 }}>{TIER_LABEL[tier] ?? "Season"}</div>
+                          <div style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>{slot.count} badge{slot.count === 1 ? "" : "s"} · season</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* how it works — v8 Rewards.jsx:553 verbatim */}
               <div style={{ marginTop: 22, padding: "14px 15px", borderRadius: 14, background: "var(--bone)", display: "flex", gap: 11 }}>
                 <Info size={17} style={{ color: "var(--ink-mute)", flexShrink: 0, marginTop: 1 }} />
                 <div style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.55 }}>
-                  First Start badges are permanent and manually assigned to founding members and earliest collectors. League badges are earned when the weekly league ends — the top 3 take gold, silver &amp; bronze; everyone in the top 10 earns a finalist badge. Standings reset each week; your badges are permanent.
+                  Tap any badge to learn more. Permanent badges never expire. Season badges are earned when weekly leagues end — they&apos;re yours forever once earned.
                 </div>
               </div>
             </>

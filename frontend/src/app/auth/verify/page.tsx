@@ -131,7 +131,8 @@ function VerifyForm() {
         </BlockButton>
       </div>
 
-      <div className="text-center mt-5 text-[13.5px] text-[var(--ink-mute)]">
+      {/* v8 Onboarding.jsx:472 — resend block sits 22px under the CTA (DV8 §11#20). */}
+      <div className="text-center text-[13.5px] text-[var(--ink-mute)]" style={{ marginTop: 22 }}>
         {secs > 0 ? (
           <span>
             Resend code in{" "}

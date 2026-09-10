@@ -24,7 +24,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Info, ShieldCheck, Clock, X } from "lucide-react";
+import { Info, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { BackButton } from "@/components/BackButton";
 import { CategoryChip, ProductPhoto, SectionLabel, Segmented } from "@/components/ui";
@@ -157,7 +157,8 @@ function AddToCollectionInner() {
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <BackButton fallback={sku ? `/db/${encodeURIComponent(sku)}` : "/db"} />
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Add to collection</span>
+          {/* v8 DetailHeader type (Chrome.jsx:83-110) — 19/700 display title. */}
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em" }}>Add to collection</span>
         </div>
       </div>
 
@@ -185,49 +186,46 @@ function AddToCollectionInner() {
               <ProductPhoto tone="ink" src={entry.thumbnail_url ?? undefined} ratio="1/1" rounded={10} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 14.5, fontWeight: 700, lineHeight: 1.25 }}>{entry.title}</span>
-                {entry.is_verified
-                  ? <ShieldCheck size={13} style={{ color: "var(--verified-teal)", flexShrink: 0 }} aria-label="Scorred Verified" />
-                  : <Clock size={13} style={{ color: "var(--ink-ghost)", flexShrink: 0 }} aria-label="Pending verification" />}
-              </div>
-              {/* DV8 — mono meta drops the SKU (v8 PickedForm shows brand · scale only). */}
+              {/* v8 PickedForm :136-137 — plain 14.5/700 title, mono brand · scale only
+                  (no year, no verification glyph). */}
+              <div style={{ fontSize: 14.5, fontWeight: 700, lineHeight: 1.25 }}>{entry.title}</div>
               <div style={{ fontSize: 11.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {[entry.brand, entry.scale && entry.scale !== "—" ? entry.scale : null, entry.year].filter(Boolean).join(" · ")}
+                {[entry.brand, entry.scale && entry.scale !== "—" ? entry.scale : null].filter(Boolean).join(" · ")}
               </div>
             </div>
           </div>
+          {/* v8 :140 exact. */}
           <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "9px 2px 0" }}>
-            From the Scorred database — everything below is about your copy.
+            From the Scorred database — details below are about your copy.
           </div>
 
           {/* Your photos — optional, and private by default (DV6-13). */}
           <div style={{ marginTop: 20 }}>
             <SectionLabel>Your photos <span style={{ color: "var(--ink-ghost)", fontWeight: 400 }}>(optional)</span></SectionLabel>
           </div>
-          {photos.length > 0 && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 9 }}>
-              {photos.map((url, i) => (
-                <div key={url} style={{ position: "relative", width: 64, height: 64, flexShrink: 0 }}>
-                  <ProductPhoto tone="ink" src={url} ratio="1/1" rounded={11} />
-                  <button type="button" onClick={() => setPhotos((p) => p.filter((_, j) => j !== i))} aria-label="Remove photo"
-                    style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", cursor: "pointer", background: "var(--ink)", color: "var(--paper)", border: "2px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <X size={10} strokeWidth={3} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          {photos.length < PHOTO_MAX && (
-            <div style={{ marginTop: 9 }}>
+          {/* v8 :144-157 — ONE wrap row: 64×64 photo tiles with the dashed 64×64
+              camera tile as the add affordance, never a full-width drop zone. */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 9 }}>
+            {photos.map((url, i) => (
+              <div key={url} style={{ position: "relative", width: 64, height: 64, flexShrink: 0 }}>
+                <ProductPhoto tone="ink" src={url} ratio="1/1" rounded={11} />
+                <button type="button" onClick={() => setPhotos((p) => p.filter((_, j) => j !== i))} aria-label="Remove photo"
+                  style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", cursor: "pointer", background: "var(--ink)", color: "var(--paper)", border: "2px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <X size={10} strokeWidth={3} />
+                </button>
+              </div>
+            ))}
+            {photos.length < PHOTO_MAX && (
               <ImageUploader
+                tile
+                height={64}
                 multiple
                 maxFiles={PHOTO_MAX - photos.length}
                 onUpload={(url) => setPhotos((p) => (p.length < PHOTO_MAX ? [...p, url] : p))}
-                label={photos.length ? `Add more (up to ${PHOTO_MAX - photos.length})` : "Add your photos"}
+                label="Add"
               />
-            </div>
-          )}
+            )}
+          </div>
           <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "8px 2px 0", lineHeight: 1.45 }}>
             Private to you by default — the catalogue already has its own reference image.
           </div>

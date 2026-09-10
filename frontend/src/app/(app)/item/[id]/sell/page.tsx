@@ -520,7 +520,7 @@ export default function EditItemPage() {
                     <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 5 }}>
                       <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 15, color: "var(--ink)" }}>{symOf(priceCur)} {price ? Number(price).toLocaleString("en-IN") : "—"}</span>
-                      {condLabel && <Tag style={{ background: "var(--bone)", padding: "4px 8px", borderRadius: 6 }}>{condLabel}</Tag>}
+                      {condLabel && <Tag>{condLabel}</Tag>}
                     </div>
                   </div>
                 </div>

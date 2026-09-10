@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { SealMark, ScorredWordmark } from "@/components/ui";
+import { BlockButton } from "./_ui";
 
 // Splash (design_v8/app/Onboarding.jsx) — the unauthenticated landing.
 export default function SplashPage() {
@@ -49,21 +50,13 @@ export default function SplashPage() {
         </p>
       </div>
 
+      {/* v8 Button size "block" (shared.jsx:554-585) — BlockButton carries the paper
+          text token, press scale, focus ring and 120ms transitions (DV8 §11#3+#4). */}
       <div className="scr-fu-3 relative flex flex-col" style={{ gap: 10, padding: "0 24px 44px", maxWidth: 420, width: "100%", marginLeft: "auto", marginRight: "auto" }}>
-        <button
-          onClick={() => router.push("/auth/signup")}
-          className="w-full font-semibold cursor-pointer"
-          style={{ height: 52, borderRadius: 14, fontSize: 16, background: "var(--stamp-red)", color: "#fff", border: "1px solid var(--stamp-red)" }}
-        >
-          Create account
-        </button>
-        <button
-          onClick={() => router.push("/auth/signin")}
-          className="w-full font-semibold cursor-pointer"
-          style={{ height: 52, borderRadius: 14, fontSize: 16, background: "var(--bone)", color: "var(--ink-soft)", border: "1px solid var(--border-strong)" }}
-        >
+        <BlockButton onClick={() => router.push("/auth/signup")}>Create account</BlockButton>
+        <BlockButton variant="secondary" onClick={() => router.push("/auth/signin")}>
           I already have an account
-        </button>
+        </BlockButton>
       </div>
     </div>
   );

@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Check, Pencil, X, Shield } from "lucide-react";
+import { Camera, Check, Clock, Image as ImageIcon, Pencil, X, Shield } from "lucide-react";
 import { api } from "@/lib/api";
+import { BackButton } from "@/components/BackButton";
 import { PostImages, type ApiCommunity } from "@/components/cards";
-import { Avatar, Segmented, SectionLabel, EmptyNote, PostTypeTag } from "@/components/ui";
-import { ImageUploader } from "@/components/ImageUploader";
+import { Avatar, Button, Segmented, SectionLabel, EmptyNote, PostTypeTag } from "@/components/ui";
 import { fireToast } from "@/components/gamification";
 import { useUser } from "@/lib/auth-context";
 import { timeAgo } from "@/lib/utils";
@@ -19,7 +19,7 @@ interface CommunityDetail extends ApiCommunity {
   admins: { handle: string; name: string; avatar_url: string | null; role: string }[];
 }
 interface JoinRequest { handle: string; name: string; avatar_url: string | null; vouches: number; }
-interface PendingPost { id: string; handle: string; name: string; avatar_url: string | null; type: string; body: string; images: string[]; created_at: string; }
+interface PendingPost { id: string; handle: string; name: string; avatar_url: string | null; type: string; title: string | null; body: string; images: string[]; created_at: string; }
 interface Member { handle: string; name: string; avatar_url: string | null; role: string; }
 
 type Tab = "requests" | "posts" | "members" | "settings";
@@ -69,13 +69,14 @@ function RadioRow({ title, sub, on, onClick }: { title: string; sub: string; on:
   );
 }
 
-/* v8 ManageStat — centred tile, mono 22 figure, uppercase micro-label. */
-function Stat({ n, label, accent }: { n: number; label: string; accent: string }) {
+/* v8 ManageStat (:124-126) — centred tile, mono 22 figure, uppercase micro-label;
+   each tile is a button that jumps to its segment. */
+function Stat({ n, label, accent, onClick }: { n: number; label: string; accent: string; onClick: () => void }) {
   return (
-    <div style={{ flex: 1, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: "12px 10px", textAlign: "center" }}>
+    <button type="button" onClick={onClick} style={{ flex: 1, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, padding: "12px 10px", textAlign: "center", cursor: "pointer", fontFamily: "var(--font-body)" }}>
       <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 22, color: accent, lineHeight: 1 }}>{n}</div>
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--ink-faint)", marginTop: 5 }}>{label}</div>
-    </div>
+    </button>
   );
 }
 
@@ -117,6 +118,19 @@ export default function CommunityManagePage() {
   // v8 :36/:41 — member controls hide behind the pencil; role changes confirm first.
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
   const [roleChange, setRoleChange] = useState<{ handle: string; role: "member" | "mod" | "admin"; label: string } | null>(null);
+  // #36 (v8 :34-35) — declining a post collects the mod's reason inline on the card.
+  const [decliningId, setDecliningId] = useState<string | null>(null);
+  const [declineReason, setDeclineReason] = useState("");
+  // v8 :38-39 — the details editor and the close/delete flow live in overlay sheets.
+  const [editOpen, setEditOpen] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false);
+  // v8 :24,:330-390 — leave flow: confirm | promote (last admin picks a successor) | sole.
+  const [leaveStep, setLeaveStep] = useState<null | "confirm" | "promote" | "sole">(null);
+  const [succHandle, setSuccHandle] = useState<string | null>(null);
+  const [leaveBusy, setLeaveBusy] = useState(false);
+  // ⚖ Reopen is our addition — v8's close had no way back short of delete; the
+  // status column makes the undo cheap, so a closed community gets a one-tap reopen.
+  const [reopening, setReopening] = useState(false);
 
   // Settings (admin only, saved via PATCH)
   const [privacy, setPrivacy] = useState<"public" | "private">("public");
@@ -127,7 +141,6 @@ export default function CommunityManagePage() {
   const [desc, setDesc] = useState("");
   const [rulesText, setRulesText] = useState("");
   const [savingDetails, setSavingDetails] = useState(false);
-  const [detailsSaved, setDetailsSaved] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
 
   // v8 roleCanFullAdmin (data.jsx :1152) — the founder OR any granted Admin edits
@@ -169,14 +182,32 @@ export default function CommunityManagePage() {
       await api.post(`/communities/${id}/requests/${handle}/${action}`);
       setRequests((r) => r.filter((x) => x.handle !== handle));
       if (action === "approve" && community) setCommunity({ ...community, member_count: community.member_count + 1 });
+      // v8 :65-66 — every verdict is announced.
+      fireToast(action === "approve" ? `@${handle} approved` : `@${handle} declined`);
     } finally { setBusy(null); }
   };
 
-  const actPost = async (postId: string, action: "approve" | "reject") => {
+  const approvePost = async (postId: string) => {
     if (busy) return; setBusy(postId);
     try {
-      await api.post(`/communities/${id}/posts/${postId}/${action}`);
+      await api.post(`/communities/${id}/posts/${postId}/approve`);
       setPending((p) => p.filter((x) => x.id !== postId));
+      fireToast("Post approved & published"); // v8 :206
+    } finally { setBusy(null); }
+  };
+
+  // #36 (v8 :193-233) — Decline first opens the inline reason collector; only
+  // "Confirm decline" fires the request. POST reject REQUIRES {reason} (422 blank).
+  const confirmDecline = async (post: PendingPost) => {
+    const reason = declineReason.trim();
+    if (busy || !reason) return;
+    setBusy(post.id);
+    try {
+      await api.post(`/communities/${id}/posts/${post.id}/reject`, { reason });
+      setPending((p) => p.filter((x) => x.id !== post.id));
+      fireToast(`@${post.handle} declined`);
+      setDecliningId(null);
+      setDeclineReason("");
     } finally { setBusy(null); }
   };
 
@@ -216,6 +247,9 @@ export default function CommunityManagePage() {
     if (next.posting) setPosting(next.posting);
     try {
       await api.patch(`/communities/${id}`, { is_invite_only: p === "private", post_mode: post });
+      // #37 (v8 :301-308) — each settings change announces itself.
+      if (next.privacy) fireToast(next.privacy === "public" ? "Community is now public" : "Community is now private");
+      if (next.posting) fireToast(next.posting === "open" ? "Members can post freely" : "Posts will be reviewed");
     } finally { setSavingSettings(false); }
   };
 
@@ -225,17 +259,31 @@ export default function CommunityManagePage() {
     setCommunity((c) => c ? { ...c, [field]: url } : c);
   };
 
-  // Rules cap — same 900-char total budget as the create form; Save blocked while over.
+  // Rules cap (#39) — same 900-char total budget as the create form, counted on the
+  // RAW text (newlines included) and hard-sliced as you type, exactly like create.
   const ruleLines = ruleLinesOf(rulesText);
-  const rulesChars = ruleLines.reduce((s, r) => s + r.length, 0);
+  const rulesChars = rulesText.length;
   const rulesInvalid = rulesChars > RULES_TOTAL_MAX_CHARS;
-  const detailsInvalid = !name.trim() || rulesInvalid;
+  // #39 — description is required now, like the create form (v8 EditCommunitySheet :411).
+  const detailsInvalid = !name.trim() || !desc.trim() || rulesInvalid;
+
+  // v8 :397-446 — the sheet opens on the SAVED values, so drafts from an earlier
+  // abandoned edit don't leak back in (v8 mounts its sheet fresh each time).
+  const openEdit = () => {
+    if (!community) return;
+    setName(community.name);
+    setDesc(community.description ?? community.short_desc ?? "");
+    setRulesText((community.rules ?? []).join("\n"));
+    setDetailsError(null);
+    setEditOpen(true);
+  };
 
   const saveDetails = async () => {
-    if (savingDetails || detailsInvalid) return;
+    if (savingDetails) return;
+    // v8 :411 — an invalid draft toasts and keeps the sheet open.
+    if (detailsInvalid) { fireToast("Check the name, description and rules length"); return; }
     setSavingDetails(true);
     setDetailsError(null);
-    setDetailsSaved(false);
     try {
       await api.patch(`/communities/${id}`, {
         name: name.trim(),
@@ -243,7 +291,8 @@ export default function CommunityManagePage() {
         rules: ruleLines,
       });
       setCommunity((c) => c ? { ...c, name: name.trim(), description: desc.trim(), rules: ruleLines } : c);
-      setDetailsSaved(true);
+      fireToast("Community details updated"); // v8 :418
+      setEditOpen(false);
     } catch (e) {
       // A 409 duplicate-name comes back as the error detail — shown inline by the name field.
       setDetailsError(e instanceof Error ? e.message : "Could not save changes");
@@ -252,14 +301,59 @@ export default function CommunityManagePage() {
     }
   };
 
-  const deleteCommunity = async () => {
-    if (!community) return;
-    if (!window.confirm(`Delete ${community.name}? This removes it for everyone — it can't be undone.`)) return;
+  // v8 :49-63 — leave flow entry. A sole member has no one to hand over to; the
+  // ONLY full admin must promote a successor first; everyone else just confirms.
+  const otherMembers = members.filter((m) => m.handle !== user?.handle);
+  const openLeaveFlow = () => {
+    if (members.length <= 1) { setLeaveStep("sole"); return; }
+    const otherAdmins = otherMembers.filter((m) => m.role === "founder" || m.role === "admin");
+    if (isAdmin && otherAdmins.length === 0) { setSuccHandle(null); setLeaveStep("promote"); return; }
+    setLeaveStep("confirm");
+  };
+  const doLeave = async () => {
+    if (leaveBusy || !community) return;
+    setLeaveBusy(true);
     try {
-      await api.delete(`/communities/${id}`);
+      await api.delete(`/communities/${id}/join`);
+      setLeaveStep(null);
+      fireToast(`Left ${community.name}`);
       router.push("/community");
     } catch (e) {
-      setDetailsError(e instanceof Error ? e.message : "Could not delete community");
+      // 409 — the server refuses the LAST full admin (roster drift); its message says so.
+      fireToast(e instanceof Error && e.message ? e.message : "Couldn't leave — try again");
+      setLeaveBusy(false);
+    }
+  };
+  // v8 confirmSuccessionAndLeave (:55-63) — promote, then leave, one toast.
+  const promoteAndLeave = async () => {
+    if (!succHandle || leaveBusy || !community) return;
+    setLeaveBusy(true);
+    try {
+      await api.patch(`/communities/${id}/members/${succHandle}/role?role=admin`);
+      await api.delete(`/communities/${id}/join`);
+      setLeaveStep(null);
+      fireToast(`Left ${community.name} — @${succHandle} is now Admin`);
+      router.push("/community");
+    } catch (e) {
+      fireToast(e instanceof Error && e.message ? e.message : "Couldn't hand over — try again");
+      setLeaveBusy(false);
+    }
+  };
+
+  // ⚖ Reopen (our addition — see the reopening state note): POST reopen, then
+  // refetch so the closed banner clears with the server as the source of truth.
+  const reopenCommunity = async () => {
+    if (reopening || !community) return;
+    setReopening(true);
+    try {
+      await api.post(`/communities/${id}/reopen`);
+      fireToast(`${community.name} reopened`);
+      const c = await api.get<CommunityDetail>(`/communities/${id}`);
+      setCommunity(c);
+    } catch (e) {
+      fireToast(e instanceof Error && e.message ? e.message : "Couldn't reopen — try again");
+    } finally {
+      setReopening(false);
     }
   };
 
@@ -331,11 +425,115 @@ export default function CommunityManagePage() {
           </div>
         </>
       )}
+      {/* v8 :86 EditCommunitySheet — rename / photos / description / rules in a sheet. */}
+      {editOpen && (
+        <EditCommunitySheet
+          community={community}
+          name={name}
+          desc={desc}
+          rulesText={rulesText}
+          detailsError={detailsError}
+          saving={savingDetails}
+          onNameChange={(v) => { setName(v); setDetailsError(null); }}
+          onDescChange={setDesc}
+          onRulesChange={setRulesText}
+          onSave={saveDetails}
+          onClose={() => setEditOpen(false)}
+          onPhotoUploaded={savePhoto}
+        />
+      )}
+      {/* v8 :87 CloseCommunitySheet — close (hide + freeze) or permanently delete. */}
+      {closeOpen && <CloseCommunitySheet community={community} onClose={() => setCloseOpen(false)} />}
+      {/* v8 :330-341 — leave confirm, centred modal card. */}
+      {leaveStep === "confirm" && (
+        <>
+          <button type="button" aria-label="Cancel" onClick={() => setLeaveStep(null)}
+            style={{ position: "fixed", inset: 0, background: "rgba(20,17,15,0.4)", zIndex: 140, border: "none", cursor: "default" }} />
+          <div style={{
+            position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)", zIndex: 141,
+            width: "min(calc(100% - 40px), 380px)", background: "var(--paper)", borderRadius: 18, padding: 20,
+            boxShadow: "var(--shadow-2)", boxSizing: "border-box",
+          }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--ink)" }}>Leave {community.name}?</div>
+            {/* Gated-rejoin copy (ours — joins queue for approval), matching the detail page. */}
+            <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5, marginTop: 6 }}>
+              You can ask to rejoin anytime, but you&rsquo;ll lose your role and any unread activity here.
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+              <Button variant="secondary" style={{ flex: 1, justifyContent: "center" }} onClick={() => setLeaveStep(null)}>Cancel</Button>
+              <Button variant="destructive" style={{ flex: 1, justifyContent: "center" }} disabled={leaveBusy} onClick={doLeave}>Leave</Button>
+            </div>
+          </div>
+        </>
+      )}
+      {/* v8 :343-378 — the last full admin hands the community over before leaving. */}
+      {leaveStep === "promote" && (
+        <>
+          <button type="button" aria-label="Cancel" onClick={() => setLeaveStep(null)}
+            style={{ position: "fixed", inset: 0, background: "rgba(20,17,15,0.4)", zIndex: 140, border: "none", cursor: "default" }} />
+          <div style={{
+            position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)", zIndex: 141,
+            width: "min(calc(100% - 40px), 380px)", background: "var(--paper)", borderRadius: 18, padding: 20,
+            boxShadow: "var(--shadow-2)", boxSizing: "border-box", maxHeight: "76vh", overflowY: "auto",
+          }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--ink)" }}>Pick a new admin before you leave</div>
+            <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5, marginTop: 6 }}>
+              You&rsquo;re the only admin left. Every community needs someone managing it, so choose a member to make Admin.
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+              {otherMembers.map((m) => {
+                const on = succHandle === m.handle;
+                return (
+                  <button key={m.handle} type="button" onClick={() => setSuccHandle(m.handle)} style={{
+                    display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: 10, cursor: "pointer",
+                    background: on ? "var(--bone)" : "var(--paper-soft)", border: `1.5px solid ${on ? "var(--ink)" : "var(--border)"}`, borderRadius: 13,
+                  }}>
+                    <Avatar name={m.name} photo={m.avatar_url} size={36} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13.5, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</div>
+                      <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>@{m.handle}</div>
+                    </div>
+                    {memberRoleChip(m.role)}
+                    {on && <Check size={16} style={{ color: "var(--ink)", flexShrink: 0 }} />}
+                  </button>
+                );
+              })}
+              {otherMembers.length === 0 && <EmptyNote>No other members to promote.</EmptyNote>}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+              <Button variant="secondary" style={{ flex: 1, justifyContent: "center" }} onClick={() => setLeaveStep(null)}>Cancel</Button>
+              <Button variant="destructive" disabled={!succHandle || leaveBusy} style={{ flex: 1, justifyContent: "center", opacity: succHandle ? 1 : 0.5 }} onClick={promoteAndLeave}>
+                Promote &amp; leave
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+      {/* v8 :379-390 — sole member: nothing to hand over, point at close/delete. */}
+      {leaveStep === "sole" && (
+        <>
+          <button type="button" aria-label="Cancel" onClick={() => setLeaveStep(null)}
+            style={{ position: "fixed", inset: 0, background: "rgba(20,17,15,0.4)", zIndex: 140, border: "none", cursor: "default" }} />
+          <div style={{
+            position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)", zIndex: 141,
+            width: "min(calc(100% - 40px), 380px)", background: "var(--paper)", borderRadius: 18, padding: 20,
+            boxShadow: "var(--shadow-2)", boxSizing: "border-box",
+          }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--ink)" }}>You&rsquo;re the only member</div>
+            <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5, marginTop: 6 }}>
+              There&rsquo;s no one to hand this community to. Close or delete it below instead if you&rsquo;re done with it.
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+              <Button variant="secondary" style={{ flex: 1, justifyContent: "center" }} onClick={() => setLeaveStep(null)}>Got it</Button>
+            </div>
+          </div>
+        </>
+      )}
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link href={`/community/${id}`} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)" }}>
-            <ArrowLeft size={18} />
-          </Link>
+          {/* A history POP, not a push — the old Link href={detail} stacked a fresh
+              detail entry, so detail's own back then returned HERE (a loop). */}
+          <BackButton fallback={`/community/${id}`} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Manage community</div>
             <div style={{ fontSize: 11.5, color: "var(--ink-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{community.name}</div>
@@ -343,10 +541,20 @@ export default function CommunityManagePage() {
         </div>
       </div>
 
+      {/* #31 (v8 :113-120) — a pending community still lets its admin edit details,
+          but nothing else moves until the platform approves it. */}
+      {community.status === "pending" && (
+        <div style={{ margin: "14px 20px 0", display: "flex", gap: 9, alignItems: "flex-start", padding: 13, background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", borderRadius: 12, fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+          <Clock size={15} style={{ flexShrink: 0, marginTop: 1, color: "var(--grail-gold-deep)" }} />
+          <div>This community is awaiting platform review — no member or post activity yet. You can still edit its details below.</div>
+        </div>
+      )}
+
+      {/* #32 (v8 :124-126) — the stat tiles jump to their segment. */}
       <div style={{ display: "flex", gap: 10, padding: "14px 20px 4px" }}>
-        <Stat n={community.member_count} label="Members" accent="var(--ink)" />
-        <Stat n={requests.length} label="Requests" accent={requests.length ? "var(--stamp-red)" : "var(--ink-mute)"} />
-        <Stat n={pending.length} label="To review" accent={pending.length ? "var(--grail-gold-deep)" : "var(--ink-mute)"} />
+        <Stat n={community.member_count} label="Members" accent="var(--ink)" onClick={() => setTab("members")} />
+        <Stat n={requests.length} label="Requests" accent={requests.length ? "var(--stamp-red)" : "var(--ink-mute)"} onClick={() => setTab("requests")} />
+        <Stat n={pending.length} label="To review" accent={pending.length ? "var(--grail-gold-deep)" : "var(--ink-mute)"} onClick={() => setTab("posts")} />
       </div>
 
       <div style={{ position: "sticky", top: 56, zIndex: 9, background: "var(--paper)", padding: "12px 20px 10px", borderBottom: "1px solid var(--border)" }}>
@@ -408,15 +616,44 @@ export default function CommunityManagePage() {
                     </Link>
                     <PostTypeTag type={(p.type === "poll" ? "discussion" : p.type) as "showcase" | "discussion" | "review"} />
                   </div>
-                  <div style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.55, padding: "10px 13px 0" }}>{p.body}</div>
+                  <div style={{ padding: "10px 13px 0" }}>
+                    {/* #35 (v8 :187) — the queue card leads with the post title when present. */}
+                    {p.title && <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14.5, marginBottom: 4 }}>{p.title}</div>}
+                    <div style={{ fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.55 }}>{p.body}</div>
+                  </div>
                   {p.images.length > 0 && (
                     <div style={{ padding: "10px 13px 0" }}><PostImages images={p.images} /></div>
                   )}
-                  {/* v8 Button sm pair — Decline is the bone secondary with red ink; Approve is dark with the check. */}
-                  <div style={{ display: "flex", gap: 9, padding: "12px 13px 13px" }}>
-                    <button onClick={(e) => { e.stopPropagation(); actPost(p.id, "reject"); }} disabled={busy === p.id} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", height: 34, borderRadius: 9, border: "1px solid var(--border-strong)", background: "var(--bone)", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Decline</button>
-                    <button onClick={(e) => { e.stopPropagation(); actPost(p.id, "approve"); }} disabled={busy === p.id} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 34, borderRadius: 9, border: "1px solid var(--ink)", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}><Check size={15} />Approve</button>
-                  </div>
+                  {decliningId === p.id ? (
+                    /* #36 (v8 :193-202) — the decline reason collector, inline on the card.
+                       stopPropagation everywhere: the card itself click-throughs to the post. */
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      role="presentation"
+                      style={{ padding: "10px 13px 13px", cursor: "default" }}
+                    >
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--stamp-red-deep)", marginBottom: 7 }}>Decline this post — why?</div>
+                      <textarea
+                        value={declineReason}
+                        onChange={(e) => setDeclineReason(e.target.value.slice(0, 200))}
+                        rows={2}
+                        autoFocus
+                        placeholder="e.g. Off-topic, breaks community rules…"
+                        style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 9, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink)", outline: "none", resize: "none" }}
+                      />
+                      <div style={{ display: "flex", gap: 9, marginTop: 9 }}>
+                        <button onClick={() => { setDecliningId(null); setDeclineReason(""); }} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", height: 34, borderRadius: 9, border: "1px solid var(--border-strong)", background: "var(--bone)", color: "var(--ink-soft)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Cancel</button>
+                        <button onClick={() => confirmDecline(p)} disabled={busy === p.id || !declineReason.trim()} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", height: 34, borderRadius: 9, border: "1px solid var(--stamp-red)", background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: declineReason.trim() ? "pointer" : "default", opacity: declineReason.trim() ? 1 : 0.5 }}>Confirm decline</button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* v8 Button sm pair — Decline is the bone secondary with red ink; Approve is dark with the check. */
+                    <div style={{ display: "flex", gap: 9, padding: "12px 13px 13px" }}>
+                      <button onClick={(e) => { e.stopPropagation(); setDecliningId(p.id); setDeclineReason(""); }} disabled={busy === p.id} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", height: 34, borderRadius: 9, border: "1px solid var(--border-strong)", background: "var(--bone)", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Decline</button>
+                      <button onClick={(e) => { e.stopPropagation(); approvePost(p.id); }} disabled={busy === p.id} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 34, borderRadius: 9, border: "1px solid var(--ink)", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}><Check size={15} />Approve</button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -482,10 +719,33 @@ export default function CommunityManagePage() {
             })}
           </div>
         )}
+        {/* v8 :324-328 — a NON-admin mod has no Settings tab, so their exit sits at
+            the foot of Members instead (admins leave from Settings). */}
+        {tab === "members" && !isAdmin && (
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+            <Button variant="secondary" size="block" icon={<X size={16} strokeWidth={2.4} />} onClick={openLeaveFlow}>Leave community</Button>
+          </div>
+        )}
 
         {/* SETTINGS — the full editor, admin only (DV8-14). */}
         {tab === "settings" && isAdmin && (
           <div>
+            {/* ⚖ CLOSED state — reopen is our addition: v8's close had no way back short
+                of delete, but our status column makes the undo cheap, so we surface it. */}
+            {community.status === "closed" && (
+              <div style={{ marginBottom: 22 }}>
+                <div style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: 13, background: "var(--bone)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+                  <X size={15} strokeWidth={2.4} style={{ flexShrink: 0, marginTop: 1, color: "var(--ink-mute)" }} />
+                  <div>This community is closed — hidden from discovery and posting is frozen. Members keep read access.</div>
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <Button variant="primary" size="block" disabled={reopening} onClick={reopenCommunity}>
+                    {reopening ? "Reopening…" : "Reopen community"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* v8 section order — Privacy, Who can post, then the details editor. */}
             <SectionLabel>Privacy</SectionLabel>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, margin: "11px 0 20px" }}>
@@ -501,80 +761,224 @@ export default function CommunityManagePage() {
             </div>
             {savingSettings && <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 14 }}>Saving…</div>}
 
-            {/* Details editor — v8's EditCommunitySheet fields (Photos, name, description,
-                rules) rendered inline; we have no overlay sheet here. */}
-            <SectionLabel>Photos</SectionLabel>
-            <div style={{ margin: "10px 0 20px" }}>
-              <ImageUploader onUpload={(url) => savePhoto("banner_url", url)} previewUrl={community.banner_url ?? undefined} label="Add a banner image" />
-              <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginTop: 10 }}>
-                <div style={{ width: 148, flexShrink: 0 }}>
-                  <ImageUploader onUpload={(url) => savePhoto("avatar_url", url)} previewUrl={community.avatar_url ?? undefined} label="Add a photo" />
-                </div>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.5, paddingTop: 6 }}>
-                  Square photo — shown on the community tile. Photos save as soon as they upload.
-                </div>
-              </div>
+            {/* v8 :311-314 — details editing lives behind ONE door into the sheet. */}
+            <SectionLabel>Community details</SectionLabel>
+            <div style={{ margin: "11px 0 14px" }}>
+              <Button variant="secondary" size="block" icon={<Pencil size={16} />} onClick={openEdit}>Rename, photos &amp; rules</Button>
             </div>
 
-            <SectionLabel>Community name</SectionLabel>
-            <input
-              value={name}
-              onChange={(e) => { setName(e.target.value); setDetailsError(null); setDetailsSaved(false); }}
-              style={{ width: "100%", boxSizing: "border-box", height: 46, padding: "0 13px", borderRadius: 11, border: `1px solid ${detailsError ? "var(--stamp-red)" : "var(--border-strong)"}`, background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", outline: "none", margin: detailsError ? "10px 0 0" : "10px 0 20px" }}
-            />
-            {/* A 409 duplicate-name comes back as the error detail — shown inline by the field. */}
-            {detailsError && <div style={{ fontSize: 12.5, color: "var(--stamp-red)", margin: "6px 0 20px" }}>{detailsError}</div>}
-
-            <SectionLabel>Description</SectionLabel>
-            <textarea
-              value={desc}
-              onChange={(e) => { setDesc(e.target.value.slice(0, 140)); setDetailsSaved(false); }}
-              rows={2}
-              style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none", resize: "none", margin: "10px 0 20px" }}
-            />
-
-            <SectionLabel>Community rules</SectionLabel>
-            <textarea
-              value={rulesText}
-              onChange={(e) => { setRulesText(e.target.value); setDetailsSaved(false); }}
-              rows={7}
-              style={{ width: "100%", boxSizing: "border-box", padding: "12px 13px", borderRadius: 11, border: `1px solid ${rulesInvalid ? "var(--stamp-red)" : "var(--border-strong)"}`, background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--ink)", outline: "none", resize: "vertical", margin: "10px 0 4px" }}
-            />
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11.5, color: rulesInvalid ? "var(--stamp-red)" : "var(--ink-faint)", lineHeight: 1.5 }}>
-              <span>
-                {rulesInvalid && `Rules must be ${RULES_TOTAL_MAX_CHARS} characters or fewer in total.`}
-              </span>
-              <span style={{ flexShrink: 0 }}>{rulesChars}/{RULES_TOTAL_MAX_CHARS}</span>
-            </div>
-
-            {/* v8's sheet saves via a small primary Save button — same control, inline. */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, marginTop: 12 }}>
-              {detailsSaved && (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--forest)", fontSize: 12.5, fontWeight: 600 }}>
-                  <Check size={14} /> Saved.
-                </span>
-              )}
-              <button onClick={saveDetails} disabled={savingDetails || detailsInvalid} style={{
-                display: "inline-flex", alignItems: "center", justifyContent: "center", height: 34,
-                padding: "0 14px", borderRadius: 9, border: "1px solid var(--stamp-red)",
-                background: "var(--stamp-red)", color: "var(--paper)",
-                fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, lineHeight: 1,
-                cursor: savingDetails || detailsInvalid ? "not-allowed" : "pointer", opacity: savingDetails || detailsInvalid ? 0.4 : 1,
-              }}>
-                {savingDetails ? "Saving…" : "Save"}
-              </button>
-            </div>
-
-            {/* v8 destructive treatment — secondary block button in stamp-red. Our API only
-                deletes (no close/pause), and the confirm is the browser dialog. */}
+            {/* v8 :316-321 — destructive foot: close/delete behind the red-outline door,
+                then the admin's own exit. */}
             <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
-              <button onClick={deleteCommunity} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 52, borderRadius: 14, border: "1px solid var(--stamp-red)", background: "var(--bone)", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 16, lineHeight: 1, cursor: "pointer" }}>
-                <X size={16} strokeWidth={2.4} />Delete community
-              </button>
+              <Button variant="secondary" size="block" style={{ color: "var(--stamp-red)", borderColor: "var(--stamp-red)" }} icon={<X size={16} strokeWidth={2.4} />} onClick={() => setCloseOpen(true)}>
+                Close or delete community
+              </Button>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <Button variant="secondary" size="block" icon={<X size={16} strokeWidth={2.4} />} onClick={openLeaveFlow}>Leave community</Button>
             </div>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+/* ── Overlay sheet chrome (v8 OverlayShell) ─────────────────────────────────
+   Dim backdrop + paper panel: full-height sheet on mobile, centred ~560 card on
+   desktop. Header row = display title · optional trailing action · X close. */
+function SheetShell({ title, trailing, onClose, children }: {
+  title: string;
+  trailing?: React.ReactNode;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 flex items-end sm:items-center justify-center" style={{ zIndex: 140 }}>
+      <div role="presentation" className="absolute inset-0" style={{ background: "rgba(20,17,15,0.4)" }} onClick={onClose} />
+      <div className="relative z-10 w-full sm:max-w-[560px] bg-[var(--paper)] sm:rounded-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh]" style={{ boxShadow: "var(--shadow-2)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--ink)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</span>
+          {trailing}
+          <button type="button" onClick={onClose} aria-label="Close" style={{ width: 30, height: 30, borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--ink-mute)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <X size={15} />
+          </button>
+        </div>
+        <div className="overflow-y-auto flex-1" style={{ padding: 16 }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/* R2 presign response — same contract EditProfileSheet / ImageUploader use. */
+interface UploadUrlResponse { upload_url: string; public_url: string }
+
+/* v8 EditCommunitySheet (:397-446) — rename / photos / description / rules.
+   Draft state lives on the page (so the dup-name 409 highlights the field);
+   photos persist as soon as they upload, text persists on Save. */
+function EditCommunitySheet({
+  community, name, desc, rulesText, detailsError, saving,
+  onNameChange, onDescChange, onRulesChange, onSave, onClose, onPhotoUploaded,
+}: {
+  community: CommunityDetail;
+  name: string;
+  desc: string;
+  rulesText: string;
+  detailsError: string | null;
+  saving: boolean;
+  onNameChange: (v: string) => void;
+  onDescChange: (v: string) => void;
+  onRulesChange: (v: string) => void;
+  onSave: () => void;
+  onClose: () => void;
+  onPhotoUploaded: (field: "banner_url" | "avatar_url", url: string) => Promise<void>;
+}) {
+  const bannerRef = useRef<HTMLInputElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState<"banner_url" | "avatar_url" | null>(null);
+  const rulesChars = rulesText.length;
+  const banner = community.banner_url;
+  const photo = community.avatar_url;
+
+  // Same presign → PUT → PATCH flow as EditProfileSheet (grep /media/upload-url);
+  // the photo persists immediately via the page's savePhoto, exactly as before.
+  const pickImg = async (e: React.ChangeEvent<HTMLInputElement>, field: "banner_url" | "avatar_url") => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file || !file.type.startsWith("image/") || uploading) return;
+    setUploading(field);
+    try {
+      const meta = await api.post<UploadUrlResponse>(
+        `/media/upload-url?prefix=uploads&content_type=${encodeURIComponent(file.type)}`
+      );
+      const res = await fetch(meta.upload_url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!res.ok) throw new Error(`Storage rejected the upload (HTTP ${res.status})`);
+      await onPhotoUploaded(field, meta.public_url);
+    } catch (err) {
+      fireToast(err instanceof Error && err.message ? err.message : "Upload failed — try again");
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  return (
+    <SheetShell
+      title="Edit community"
+      onClose={onClose}
+      trailing={<Button size="sm" variant="primary" disabled={saving} onClick={onSave}>{saving ? "Saving…" : "Save"}</Button>}
+    >
+      <SectionLabel>Photos</SectionLabel>
+      {/* v8 :425-436 — banner block with the square photo button overlapping its
+          bottom-left corner (hence the 30px bottom margin). */}
+      <div style={{ position: "relative", margin: "10px 0 30px" }}>
+        <div style={{ position: "relative", height: 92, borderRadius: 13, overflow: "hidden", background: banner ? `center/cover url(${banner})` : "var(--bone)", border: "1px solid var(--border-strong)" }}>
+          <input ref={bannerRef} type="file" accept="image/*" hidden onChange={(e) => pickImg(e, "banner_url")} />
+          <button
+            type="button"
+            onClick={() => bannerRef.current?.click()}
+            disabled={uploading !== null}
+            style={{ position: "absolute", inset: 0, width: "100%", border: "none", background: banner ? "rgba(20,17,15,0.28)" : "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, color: banner ? "#fff" : "var(--ink-mute)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5 }}
+          >
+            <ImageIcon size={16} />
+            {uploading === "banner_url" ? "Uploading…" : banner ? "Change banner" : "Add a banner image"}
+          </button>
+        </div>
+        <input ref={photoRef} type="file" accept="image/*" hidden onChange={(e) => pickImg(e, "avatar_url")} />
+        <button
+          type="button"
+          onClick={() => photoRef.current?.click()}
+          disabled={uploading !== null}
+          aria-label={photo ? "Change photo" : "Add a photo"}
+          style={{ position: "absolute", left: 14, bottom: -26, width: 60, height: 60, borderRadius: 16, border: "3px solid var(--paper)", cursor: "pointer", background: photo ? `center/cover url(${photo})` : "var(--ink)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", opacity: uploading === "avatar_url" ? 0.6 : 1 }}
+        >
+          {!photo && <Camera size={18} />}
+        </button>
+      </div>
+
+      <SectionLabel>Community name</SectionLabel>
+      <input
+        value={name}
+        onChange={(e) => onNameChange(e.target.value)}
+        style={{ width: "100%", boxSizing: "border-box", height: 46, padding: "0 13px", borderRadius: 11, border: `1px solid ${detailsError ? "var(--stamp-red)" : "var(--border-strong)"}`, background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", outline: "none", margin: detailsError ? "10px 0 0" : "10px 0 20px" }}
+      />
+      {/* A 409 duplicate-name comes back as the error detail — shown inline by the field. */}
+      {detailsError && <div style={{ fontSize: 12.5, color: "var(--stamp-red)", margin: "6px 0 20px" }}>{detailsError}</div>}
+
+      <SectionLabel>Description</SectionLabel>
+      <textarea
+        value={desc}
+        onChange={(e) => onDescChange(e.target.value.slice(0, 140))}
+        rows={2}
+        style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none", resize: "none", margin: "10px 0 20px" }}
+      />
+
+      <SectionLabel>Community rules</SectionLabel>
+      {/* #39 — the budget counts RAW characters (newlines included) and the field
+          hard-slices at the cap, exactly like community/new. */}
+      <textarea
+        value={rulesText}
+        onChange={(e) => onRulesChange(e.target.value.slice(0, RULES_TOTAL_MAX_CHARS))}
+        rows={7}
+        style={{ width: "100%", boxSizing: "border-box", padding: "12px 13px", borderRadius: 11, border: `1px solid ${rulesChars >= RULES_TOTAL_MAX_CHARS ? "var(--stamp-red)" : "var(--border-strong)"}`, background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--ink)", outline: "none", resize: "vertical", margin: "10px 0 4px" }}
+      />
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11.5, color: rulesChars >= RULES_TOTAL_MAX_CHARS ? "var(--stamp-red)" : "var(--ink-faint)", lineHeight: 1.5 }}>
+        <span>One rule per line.</span>
+        <span style={{ flexShrink: 0, fontFamily: "var(--font-mono)" }}>{rulesChars}/{RULES_TOTAL_MAX_CHARS}</span>
+      </div>
+    </SheetShell>
+  );
+}
+
+/* v8 CloseCommunitySheet (:450-480) — close (hide from discovery + freeze posting,
+   members keep read access) or permanently delete; delete re-confirms by typing
+   the community's name. Both land back on the community index. */
+function CloseCommunitySheet({ community, onClose }: { community: CommunityDetail; onClose: () => void }) {
+  const router = useRouter();
+  const [mode, setMode] = useState<"close" | "delete">("close");
+  const [confirmText, setConfirmText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const ready = mode === "close" || confirmText.trim().toLowerCase() === community.name.trim().toLowerCase();
+
+  const submit = async () => {
+    if (!ready || busy) return;
+    setBusy(true);
+    try {
+      if (mode === "close") {
+        await api.post(`/communities/${community.id}/close`);
+        fireToast(`${community.name} closed — hidden from discovery`);
+      } else {
+        await api.delete(`/communities/${community.id}`);
+        fireToast(`${community.name} deleted`);
+      }
+      router.push("/community");
+    } catch (e) {
+      setBusy(false);
+      fireToast(e instanceof Error && e.message ? e.message : "Something went wrong — try again");
+    }
+  };
+
+  return (
+    <SheetShell title="Close or delete community" onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
+        <RadioRow title="Close community" sub="Hides it from discovery and freezes posting — members keep read access" on={mode === "close"} onClick={() => setMode("close")} />
+        <RadioRow title="Delete permanently" sub="Removes all posts, members and history. Cannot be undone." on={mode === "delete"} onClick={() => setMode("delete")} />
+      </div>
+      {mode === "delete" && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 12.5, color: "var(--ink-mute)", marginBottom: 8 }}>Type <b style={{ color: "var(--ink)" }}>{community.name}</b> to confirm.</div>
+          <input
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder={community.name}
+            autoFocus
+            style={{ width: "100%", boxSizing: "border-box", height: 44, padding: "0 12px", borderRadius: 10, border: "1px solid var(--stamp-red)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none" }}
+          />
+        </div>
+      )}
+      {/* v8 :475 — the CTA stays clickable but sits at half opacity until ready. */}
+      <Button size="block" variant="primary" disabled={busy} style={{ opacity: ready && !busy ? 1 : 0.5 }} onClick={submit}>
+        {busy ? (mode === "close" ? "Closing…" : "Deleting…") : mode === "close" ? "Close community" : "Permanently delete"}
+      </Button>
+    </SheetShell>
   );
 }

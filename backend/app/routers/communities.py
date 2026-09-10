@@ -12,6 +12,7 @@ from app.dependencies import get_current_user
 from app.models.community import Community, CommunityMember, CommunityJoinRequest, CommunityMemberRemoval
 from app.models.deal import Vouch
 from app.models.user import User
+from app.services.notifications import notify
 
 # Founder first, then admins, then mods, then members (v8 multi-admin) — shared
 # ordering for roster/member lists.
@@ -146,27 +147,10 @@ async def list_communities(
             for c, role in rows
         ]
 
-    stmt = select(Community)
-    if category:
-        stmt = stmt.where(Community.category == category)
-    # Only approved communities are public; a founder also sees their own pending ones.
-    # Rejected/archived never appear in the directory.
-    if current_user:
-        stmt = stmt.where(
-            (Community.status == "approved")
-            | ((Community.founder_id == current_user.id) & (Community.status == "pending"))
-        )
-    else:
-        stmt = stmt.where(Community.status == "approved")
-    stmt = stmt.order_by(Community.member_count.desc()).offset((page - 1) * limit).limit(limit)
-    result = await db.execute(stmt)
-    communities = result.scalars().all()
-
     member_ids: set[str] = set()
     requested_ids: set[str] = set()
     # QA 2026-08-04 §15 — the "My communities" tab splits Created by you / Joined, so the
-    # list has to say which one each row is. Role comes along for the Manage shortcut
-    # (founders and mods can manage; only founders "created" it).
+    # list has to say which one each row is (role rides along for the role badge).
     roles_by_id: dict[str, str] = {}
     if current_user:
         mem_result = await db.execute(
@@ -184,6 +168,29 @@ async def list_communities(
             )
         )
         requested_ids = set(req_result.scalars().all())
+
+    stmt = select(Community)
+    if category:
+        stmt = stmt.where(Community.category == category)
+    # Only approved communities are public; a founder also sees their own pending
+    # ones, and members keep their CLOSED communities in "Your communities" (read
+    # access survives a close — v8 CloseCommunitySheet). Rejected/archived never
+    # appear in the directory.
+    if current_user:
+        visibility = (
+            (Community.status == "approved")
+            | ((Community.founder_id == current_user.id) & (Community.status == "pending"))
+        )
+        if member_ids:
+            visibility = visibility | (
+                Community.id.in_(member_ids) & (Community.status == "closed")
+            )
+        stmt = stmt.where(visibility)
+    else:
+        stmt = stmt.where(Community.status == "approved")
+    stmt = stmt.order_by(Community.member_count.desc()).offset((page - 1) * limit).limit(limit)
+    result = await db.execute(stmt)
+    communities = result.scalars().all()
 
     # QA2 — "new posts in the last 24h" badge + most-active ordering. One grouped query
     # over the page's communities (cheap; no per-card round-trips, no stored counter).
@@ -250,12 +257,21 @@ async def get_community(
         raise HTTPException(status_code=404, detail=NOT_FOUND)
 
     # A non-approved community (pending/rejected/archived) is only visible to its
-    # founder or an admin.
-    if community.status != "approved" and (
-        not current_user
-        or (current_user.id != community.founder_id and not current_user.is_admin)
-    ):
-        raise HTTPException(status_code=404, detail=NOT_FOUND)
+    # founder or an admin — EXCEPT "closed", which keeps read access for members
+    # (v8 CloseCommunitySheet: "hides it from discovery and freezes posting —
+    # members keep read access").
+    if community.status != "approved":
+        privileged = bool(
+            current_user
+            and (current_user.id == community.founder_id or current_user.is_admin)
+        )
+        closed_member = bool(
+            community.status == "closed"
+            and current_user
+            and await _get_member(db, community_id, current_user.id) is not None
+        )
+        if not (privileged or closed_member):
+            raise HTTPException(status_code=404, detail=NOT_FOUND)
 
     is_member = False
     member_role = None
@@ -268,8 +284,10 @@ async def get_community(
         member_role = m.role if m else None
         if is_member:
             join_state = "member"
-        elif community.is_invite_only:
-            # invite-only → check for a pending join request (DF-26)
+        else:
+            # DV8-14: ALL joins are gated — public communities queue requests too,
+            # so "requested" must survive a reload on every community, not just
+            # invite-only ones (audit §7#49).
             req = (
                 await db.execute(
                     select(CommunityJoinRequest).where(
@@ -384,6 +402,10 @@ async def join_community(
 
     if await _get_member(db, community_id, current_user.id):
         return {"join_state": "member"}
+
+    # Closed/pending/archived communities take no new joins.
+    if community.status != "approved":
+        raise HTTPException(status_code=409, detail="This community isn't accepting joins right now.")
 
     # DV8 approval gate — joining no longer grants activity immediately for ANY
     # community: every join lands as a pending request that a mod/admin approves.
@@ -587,6 +609,30 @@ async def archive_community(
 ):
     community, _ = await _require_admin(db, community_id, current_user)
     community.status = "archived"
+
+
+@router.post("/{community_id}/close", status_code=204)
+async def close_community(
+    community_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """v8 CloseCommunitySheet "Close community" — hidden from discovery, posting
+    frozen, members keep read access. Reversible via /reopen (unlike delete)."""
+    community, _ = await _require_admin(db, community_id, current_user)
+    community.status = "closed"
+
+
+@router.post("/{community_id}/reopen", status_code=204)
+async def reopen_community(
+    community_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    community, _ = await _require_admin(db, community_id, current_user)
+    if community.status != "closed":
+        raise HTTPException(status_code=409, detail="Only a closed community can be reopened.")
+    community.status = "approved"
 
 
 @router.delete("/{community_id}", status_code=204)
@@ -837,6 +883,8 @@ async def list_pending_posts(
             "name": u.name,
             "avatar_url": u.avatar_url,
             "type": p.type,
+            # v8 CommunityManage.jsx:187 — the queue card leads with the title.
+            "title": p.title,
             "body": p.body,
             "images": p.images or [],
             "created_at": p.created_at.isoformat(),
@@ -884,18 +932,99 @@ async def approve_post(
         )
 
 
+class RejectPostBody(BaseModel):
+    # v8 CommunityManage.jsx:193-208 — a decline always carries the mod's reason.
+    reason: str
+
+
 @router.post("/{community_id}/posts/{post_id}/reject", status_code=204)
 async def reject_post(
+    community_id: str,
+    post_id: str,
+    body: RejectPostBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _require_mod(db, community_id, current_user)
+    reason = (body.reason or "").strip()
+    if not reason:
+        raise HTTPException(status_code=422, detail="A decline reason is required")
+    post, pc = await _resolve_pending_post(db, community_id, post_id)
+    # v8 CommunityDetail.jsx:243-267 — declined posts stay visible to the AUTHOR
+    # with the reason until dismissed; nothing is deleted here anymore.
+    pc.status = "declined"
+    pc.decline_reason = reason[:200]
+    pc.declined_at = datetime.now(timezone.utc)
+    await notify(
+        db,
+        user_id=post.user_id,
+        kind="community_post_declined",
+        title="Your post wasn't approved",
+        body=f"A moderator declined your post in this community — reason: {reason[:140]}",
+        ref_type="community",
+        ref_id=community_id,
+    )
+
+
+@router.get("/{community_id}/my-posts")
+async def my_community_posts(
+    community_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """v8 CommunityDetail.jsx:243-267 — the member-side "Pending" tab: the
+    caller's posts still awaiting review here, plus declined ones w/ reason."""
+    from app.models.post import Post, PostCommunity
+    rows = await db.execute(
+        select(Post, PostCommunity)
+        .join(PostCommunity, PostCommunity.post_id == Post.id)
+        .where(
+            PostCommunity.community_id == community_id,
+            PostCommunity.status.in_(["pending", "declined"]),
+            Post.user_id == current_user.id,
+        )
+        .order_by(Post.created_at.desc())
+    )
+    return [
+        {
+            "id": str(p.id),
+            "type": p.type,
+            "title": p.title,
+            "body": p.body,
+            "images": p.images or [],
+            "status": pc.status,
+            "decline_reason": pc.decline_reason,
+            "declined_at": pc.declined_at.isoformat() if pc.declined_at else None,
+            "created_at": p.created_at.isoformat(),
+        }
+        for p, pc in rows
+    ]
+
+
+@router.delete("/{community_id}/posts/{post_id}/declined", status_code=204)
+async def dismiss_declined_post(
     community_id: str,
     post_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """v8 "Dismiss" on a declined post — the author clears it from their pending
+    tab. Only now does the routing row go away (orphan posts are cleaned up)."""
     from app.models.post import Post, PostCommunity
-    await _require_mod(db, community_id, current_user)
-    post, pc = await _resolve_pending_post(db, community_id, post_id)
-    # DF-30h — rejecting only removes the post from THIS community. If that leaves
-    # the post with no communities and off the feed, it's orphaned → delete it.
+    pc = (
+        await db.execute(
+            select(PostCommunity).where(
+                PostCommunity.post_id == post_id,
+                PostCommunity.community_id == community_id,
+                PostCommunity.status == "declined",
+            )
+        )
+    ).scalar_one_or_none()
+    if not pc:
+        raise HTTPException(status_code=404, detail="No declined post to dismiss")
+    post = (await db.execute(select(Post).where(Post.id == pc.post_id))).scalar_one_or_none()
+    if not post or post.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the author can dismiss this")
     await db.delete(pc)
     await db.flush()
     remaining = (

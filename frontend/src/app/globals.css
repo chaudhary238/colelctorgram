@@ -126,6 +126,13 @@
   --t-fast: 120ms; --t-base: 200ms; --t-slow: 320ms;
 }
 
+/* Toast entry (v8 Nav.jsx Toast — pop 240ms ease-spring). The translateX keeps
+   the centered-by-left:50% toasts centered while they scale in. */
+@keyframes pop {
+  from { transform: translateX(-50%) scale(0.8); opacity: 0; }
+  to   { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
 /* ── Tailwind v4 theme mapping ────────────────────────────────── */
 @theme inline {
   --color-background: var(--bg);

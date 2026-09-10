@@ -99,13 +99,16 @@ const scaleRank = (s: string) => {
 const sortScales = (xs: string[]) =>
   [...new Set(xs)].sort((a, b) => scaleRank(a) - scaleRank(b) || a.localeCompare(b));
 
+/* DV8 §3#16 — v8's WINNING FilterChip definition (Rewards.jsx:564-578, the one the
+   prototype's load order resolves to): r999, pad '7px 14px', fw600; idle = paper bg,
+   ink-mute text, plain --border. Active stays solid ink. */
 function FilterChip({ active, onClick, children }: { active?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button type="button" onClick={onClick} style={{
-      padding: "7px 13px", borderRadius: 999, cursor: "pointer", transition: "all 120ms",
-      border: `1px solid ${active ? "var(--ink)" : "var(--border-strong)"}`,
-      background: active ? "var(--ink)" : "var(--paper-soft)", color: active ? "var(--paper)" : "var(--ink)",
-      fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 12.5, whiteSpace: "nowrap", lineHeight: 1.2,
+      padding: "7px 14px", borderRadius: 999, cursor: "pointer", transition: "all 120ms",
+      border: `1px solid ${active ? "var(--ink)" : "var(--border)"}`,
+      background: active ? "var(--ink)" : "var(--paper)", color: active ? "var(--paper)" : "var(--ink-mute)",
+      fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, whiteSpace: "nowrap", lineHeight: 1.2,
     }}>
       {children}
     </button>
@@ -124,17 +127,20 @@ function TickChip({ active, onClick, children }: { active: boolean; onClick: () 
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      /* DV8 §3#17 — v8 ExploreView.jsx:187-195 verbatim: h32, pad '0 12px', r9, 12.5/600;
+         ACTIVE is the SOFT red tint (stamp-red-soft bg + stamp-red text + red border),
+         not a solid fill — the solid version shouted over the sort chips beside it. */
       style={{
-        display: "inline-flex", alignItems: "center", gap: 6, padding: active ? "7px 13px 7px 10px" : "7px 13px",
-        borderRadius: 999, cursor: "pointer", transition: "all 120ms",
+        display: "inline-flex", alignItems: "center", gap: 5, height: 32, padding: "0 12px",
+        borderRadius: 9, cursor: "pointer", transition: "all 120ms",
         border: `1px solid ${active ? "var(--stamp-red)" : "var(--border-strong)"}`,
-        background: active ? "var(--stamp-red)" : "var(--paper-soft)",
-        color: active ? "var(--paper)" : "var(--ink)",
-        fontFamily: "var(--font-body)", fontWeight: active ? 700 : 500, fontSize: 12.5,
+        background: active ? "var(--stamp-red-soft)" : "var(--paper-soft)",
+        color: active ? "var(--stamp-red)" : "var(--ink-mute)",
+        fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5,
         whiteSpace: "nowrap", lineHeight: 1.2,
       }}
     >
-      {active && <Check size={13} strokeWidth={3} />}
+      {active && <Check size={12} strokeWidth={3.4} />}
       {children}
     </button>
   );
@@ -150,6 +156,15 @@ export default function DatabasePage() {
   const [cats, setCats] = useState<string[]>([]);
   const [scale, setScale] = useState("");
   const [sort, setSort] = useState<SortId>(DEFAULT_SORT);
+
+  // DV8 §3#1 (v8 ExploreView.jsx:31-39,67) — the category filter is pre-seeded from
+  // your interests, which is right for BROWSING but wrong for SEARCH: typing the title
+  // of an item you can see in the database returned "No items match that search."
+  // whenever it sat outside your interests. `filtersTouched` flips once (and only
+  // once) the user Applies the filter sheet themselves; until then an active text
+  // query spans the whole catalogue, and the seeded-category browse returns the
+  // moment the query clears.
+  const [filtersTouched, setFiltersTouched] = useState(false);
 
   // filter panel (draft until Apply, like v7)
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -192,15 +207,18 @@ export default function DatabasePage() {
     return () => { if (deb.current) clearTimeout(deb.current); };
   }, [q]);
 
-  // `cats` joins with commas — the backend ORs them (DV7-08).
+  // `cats` joins with commas — the backend ORs them (DV7-08). While a text query is
+  // live and the filters are still the untouched sign-up seed, category is NOT sent —
+  // search spans the whole catalogue (v8 :39 `filtersTouched || !searchingNow`).
   const catKey = cats.join(",");
+  const searchCatKey = debouncedQ && !filtersTouched ? "" : catKey;
   const query = useCallback((p: number) => {
     const s = new URLSearchParams({ sort, page: String(p), limit: String(PAGE_SIZE) });
     if (debouncedQ) s.set("q", debouncedQ);
-    if (catKey) s.set("category", catKey);
+    if (searchCatKey) s.set("category", searchCatKey);
     if (scale) s.set("scale", scale);
     return s.toString();
-  }, [debouncedQ, catKey, scale, sort]);
+  }, [debouncedQ, searchCatKey, scale, sort]);
 
   // First page — refetches whenever the query or a filter changes, which is also what
   // resets the page size back to 8 (Change Spec §3.2): paging deep and then filtering must
@@ -359,12 +377,15 @@ export default function DatabasePage() {
   }
 
   // Change Spec §4.5 — one per picked category, plus one each for a non-default scale and
-  // sort. Drives both the trigger's active state and the number it shows.
+  // sort. `filtersOn` (trigger accent + inline count) additionally requires the user to
+  // have TOUCHED the sheet (DV8 §3#1): the sign-up seed is a default lens, not an applied
+  // filter, and while it's untouched a live search ignores it — so a red icon would lie.
   const activeFilters = cats.length + (scale ? 1 : 0) + (sort !== DEFAULT_SORT ? 1 : 0);
-  const filtersOn = activeFilters > 0;
+  const anyApplied = activeFilters > 0; // seeded OR user-set — drives the Clear-filters link
+  const filtersOn = filtersTouched && anyApplied;
   const draftDirty = dCats.length > 0 || !!dScale || dSort !== DEFAULT_SORT;
   const openSheet = () => { setDCats(cats); setDScale(scale); setDSort(sort); setSheetCount(null); setSheetOpen(true); };
-  const applySheet = () => { setCats(dCats); setScale(dScale); setSort(dSort); setSheetOpen(false); };
+  const applySheet = () => { setCats(dCats); setScale(dScale); setSort(dSort); setFiltersTouched(true); setSheetOpen(false); };
   // Clear empties the selection outright — it does NOT restore the sign-up defaults, which
   // would make "unrestricted" unreachable for anyone who picked interests (§4.3).
   // It resets the DRAFT only; Apply commits, so it never silently changes the grid.
@@ -391,14 +412,14 @@ export default function DatabasePage() {
         <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
           {/* The field must be allowed to SHRINK (flex:1 + minWidth:0) — without minWidth:0
               its content sets a floor and Add item clips off the right at 390px. */}
-          <div style={{ flex: "1 1 auto", minWidth: 0, display: "flex", alignItems: "center", gap: 8, height: 44, padding: "0 6px 0 13px", borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>
-            <Search size={17} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
+          {/* DV8 §3#5 — v8 field metrics (ExploreView.jsx:74-77): gap 9, pad '0 14px',
+              icon 18, "Search items…". The clear-X is a kept web affordance. */}
+          <div style={{ flex: "1 1 auto", minWidth: 0, display: "flex", alignItems: "center", gap: 9, height: 44, padding: "0 14px", borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper-soft)" }}>
+            <Search size={18} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              /* Short on purpose: the field is the one control here allowed to shrink, so
-                 at 390px with a filter count showing, a longer string truncates mid-word. */
-              placeholder="Search items"
+              placeholder="Search items…"
               aria-label="Search the database"
               style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-body)", fontSize: 14.5, color: "var(--ink)" }}
             />
@@ -409,20 +430,23 @@ export default function DatabasePage() {
             )}
             {/* Filter trigger — INSIDE the field, at its right edge (§3.1). Icon only: no
                 divider, no border, no background of its own, so the field stays one object.
-                Neutral when nothing is applied; accent + inline count when filters are on. */}
+                DV8 §3#6 — idle ink-faint, stamp-red ONLY when filters are actively applied
+                (a merely-open sheet stays neutral), stroke 2 in both states, aria
+                `Filters · N active` (v8 :78-84). marginRight -8 cancels the hit-box padding
+                against the field's 14px inset — v8's own negative-margin trick (:79). */}
             <button
               type="button"
               onClick={() => (sheetOpen ? setSheetOpen(false) : openSheet())}
-              aria-label={filtersOn ? `Filters — ${activeFilters} applied` : "Filters"}
+              aria-label={filtersOn ? `Filters · ${activeFilters} active` : "Filters"}
               aria-expanded={sheetOpen}
               style={{
                 display: "flex", alignItems: "center", gap: 4, flexShrink: 0,
-                height: 32, padding: "0 8px", borderRadius: 9, cursor: "pointer",
+                height: 32, padding: "0 8px", marginRight: -8, borderRadius: 9, cursor: "pointer",
                 border: "none", background: "transparent",
-                color: filtersOn || sheetOpen ? "var(--stamp-red)" : "var(--ink-mute)",
+                color: filtersOn ? "var(--stamp-red)" : "var(--ink-faint)",
               }}
             >
-              <Filter size={18} strokeWidth={filtersOn ? 2.3 : 2} />
+              <Filter size={18} strokeWidth={2} />
               {filtersOn && (
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, lineHeight: 1 }}>
                   {activeFilters}
@@ -489,12 +513,10 @@ export default function DatabasePage() {
                 ))}
               </div>
 
-              <div style={{ marginTop: 18, display: "flex", alignItems: "baseline", gap: 8 }}>
-                <SectionLabel>Category</SectionLabel>
-                <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>
-                  {dCats.length ? `${dCats.length} selected` : "all categories"}
-                </span>
-              </div>
+              {/* DV8 §3#17 — bare "Category" label, no "N selected / all categories"
+                  annotation (v8 :182 has none — the ticks already say it); sections
+                  sit at marginTop 20, Apply at 22 (v8 :182/:201/:210). */}
+              <div style={{ marginTop: 20 }}><SectionLabel>Category</SectionLabel></div>
               <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 9 }}>
                 {ADD_CATEGORIES.map((cg) => (
                   <TickChip key={cg.id} active={dCats.includes(cg.id)} onClick={() => toggleDraftCat(cg.id)}>
@@ -505,7 +527,7 @@ export default function DatabasePage() {
 
               {scaleOptions.length > 0 && (
                 <>
-                  <div style={{ marginTop: 18 }}><SectionLabel>Scale</SectionLabel></div>
+                  <div style={{ marginTop: 20 }}><SectionLabel>Scale</SectionLabel></div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 9 }}>
                     <FilterChip active={!dScale} onClick={() => setDScale("")}>All scales</FilterChip>
                     {scaleOptions.map((s) => (
@@ -515,7 +537,7 @@ export default function DatabasePage() {
                 </>
               )}
 
-              <Button variant="dark" size="block" style={{ marginTop: 18 }} onClick={applySheet}>
+              <Button variant="dark" size="block" style={{ marginTop: 22 }} onClick={applySheet}>
                 Show {(draftMatchesApplied ? total : sheetCount ?? total).toLocaleString("en-IN")} items
               </Button>
             </div>
@@ -528,7 +550,9 @@ export default function DatabasePage() {
         {/* item count — below the search row (§3.1) */}
         <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 10 }}>
           {items === null ? "Loading…" : `${total.toLocaleString("en-IN")} item${total === 1 ? "" : "s"}`}
-          {filtersOn && items !== null && (
+          {/* Keyed to anyApplied, not filtersOn — the seeded-interest browse IS filtered
+              even before the sheet is touched, and must stay clearable. */}
+          {anyApplied && items !== null && (
             <button onClick={() => { setCats([]); setScale(""); setSort(DEFAULT_SORT); }} style={{ marginLeft: 8, background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12 }}>
               Clear filters
             </button>
@@ -536,19 +560,21 @@ export default function DatabasePage() {
         </div>
 
         {items === null ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-[10px]">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="aspect-square rounded-2xl bg-[var(--bone-deep)] animate-pulse" />
             ))}
           </div>
         ) : items.length === 0 ? (
-          <div style={{ padding: "28px 4px 8px", textAlign: "center" }}>
+          /* DV8 §3#8 — v8 empty-state padding '28px 24px 32px' (ExploreView.jsx:99) */
+          <div style={{ padding: "28px 24px 32px", textAlign: "center" }}>
             <div style={{ fontSize: 13.5, color: "var(--ink-faint)" }}>
               {debouncedQ ? "No items match that search." : "No entries match these filters."}
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          /* DV8 §3#9 — v8 grid gap 10 (ExploreView.jsx:102); 3-up from `sm` stays. */
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-[10px]">
             {items.map((it) => (
               <DbTile key={it.sku} item={it} onWishlist={() => toggleWishlist(it)} onQuickAdd={() => quickAdd(it)} />
             ))}
@@ -625,7 +651,9 @@ function DbTile({ item, onWishlist, onQuickAdd }: { item: DbItem; onWishlist: ()
     <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ position: "relative" }}>
         <Link href={`/db/${encodeURIComponent(item.sku)}`} aria-label={item.title} style={{ display: "block" }}>
-          <ProductPhoto tone={toneOf(item.sku)} src={item.thumbnail_url} ratio="1/1" rounded={0} label="catalogue reference" />
+          {/* DV8 §3#10 — no mono label on grid tiles (v8 ExploreView.jsx:107); v8
+              reserves "catalogue reference" for the detail page's hero photo. */}
+          <ProductPhoto tone={toneOf(item.sku)} src={item.thumbnail_url} ratio="1/1" rounded={0} />
         </Link>
 
         {/* ── Overlay column, RIGHT edge — exactly as design_v7 has it ─────────────
@@ -707,25 +735,28 @@ function DbTile({ item, onWishlist, onQuickAdd }: { item: DbItem; onWishlist: ()
             <span style={{ flex: 1, minWidth: 0, fontSize: 10.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {item.brand}
             </span>
+            {/* DV8 §3#13 — v8 ReviewIcon wording (shared.jsx:1079-1096): "Scorred
+                Reviewed" / "Pending Review". "Verified" is retired terminology (the
+                Aug 16-24 "Scorred Reviewed" relabel); clock stroke 2.4. */}
             {item.is_verified ? (
               <span
-                title="Scorred Verified — this catalogue entry was checked by the Scorred team"
-                aria-label="Scorred Verified"
+                title="Scorred Reviewed"
+                aria-label="Scorred Reviewed"
                 style={{ width: 16, height: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
               >
                 <SealMark size={16} />
               </span>
             ) : item.pending ? (
               <span
-                title="Pending verification — not yet checked by the Scorred team"
-                aria-label="Pending verification"
+                title="Pending Review"
+                aria-label="Pending Review"
                 style={{
                   width: 16, height: 16, borderRadius: 999, flexShrink: 0,
                   background: "var(--bone-deep)", border: "1px solid var(--border-strong)", color: "var(--ink-faint)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}
               >
-                <Clock size={10} strokeWidth={2.6} />
+                <Clock size={10} strokeWidth={2.4} />
               </span>
             ) : null}
           </div>

@@ -25,6 +25,7 @@ export default function BlockedUsersPage() {
     setBlocked(data);
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount; state lands after the await
   useEffect(() => { load(); }, [load]);
 
   async function unblock(u: BlockedUser) {
@@ -72,8 +73,9 @@ export default function BlockedUsersPage() {
             <Ban size={24} />
           </div>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, color: "var(--ink)" }}>No blocked users</div>
+          {/* v8 ProfileSettings.jsx:168 — exact copy */}
           <div style={{ fontSize: 13.5, color: "var(--ink-faint)", lineHeight: 1.55, maxWidth: 280 }}>
-            Users you block won&apos;t be able to see your profile, listings or message you.
+            Users you block won&apos;t be able to see your profile, listings or messages.
           </div>
         </div>
       ) : (

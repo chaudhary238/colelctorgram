@@ -10,9 +10,10 @@ import { Button } from "@/components/ui";
    v3's display reasons mapped onto the backend's 4 (spam|harassment|counterfeit|other);
    the label rides along as `detail` so moderators keep the nuance. */
 const REPORT_REASONS: { label: string; reason: string }[] = [
-  /* v8 parity with ProfileMoreMenu — "Fake / impersonation" leads the list. */
+  /* v8 parity with ProfileMoreMenu — "Fake / impersonation" leads the list;
+     DV8 §2#23 — the full v8 string keeps "listings" (ProfileView.jsx:31). */
   { label: "Fake / impersonation", reason: "other" },
-  { label: "Counterfeit / replica", reason: "counterfeit" },
+  { label: "Counterfeit / replica listings", reason: "counterfeit" },
   { label: "Scam or fraud attempt", reason: "other" },
   { label: "Harassment or abuse", reason: "harassment" },
   { label: "Spam", reason: "spam" },
@@ -61,13 +62,15 @@ export function ReportSheet({
       className="fixed inset-0 z-50 flex items-end justify-center"
       style={{ background: "rgba(0,0,0,0.38)" }}
     >
+      {/* DV8 §2#25 — v8 sheet chrome (ProfileView.jsx:117-146): r20 top corners,
+          '8px 0 32px' shell padding, handle margin '8px auto 0', header '16px 20px 10px'. */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl sm:mb-4"
-        style={{ boxShadow: "0 -4px 24px rgba(0,0,0,0.12)", padding: "8px 0 28px" }}
+        className="w-full max-w-sm bg-[var(--paper)]"
+        style={{ borderRadius: "20px 20px 0 0", boxShadow: "0 -4px 24px rgba(0,0,0,0.12)", padding: "8px 0 32px" }}
       >
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 14px" }} />
-        <div style={{ padding: "0 20px 10px" }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 0" }} />
+        <div style={{ padding: "16px 20px 10px" }}>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17 }}>{title}</div>
           <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 3 }}>Why are you reporting this?</div>
         </div>
@@ -104,8 +107,15 @@ export function ReportSheet({
               />
               <div style={{ display: "flex", justifyContent: "flex-end", fontFamily: "var(--font-mono)", fontSize: 11, color: note.length > 260 ? "var(--stamp-red)" : "var(--ink-ghost)", marginTop: 4 }}>{note.length}/300</div>
             </div>
-            <div style={{ padding: "10px 20px 0" }}>
-              <Button variant="primary" style={{ width: "100%", justifyContent: "center" }} disabled={!canSubmit || busy} onClick={doReport}>
+            {/* DV8 §2#25 — submit row '14px 20px 0'; the not-yet-submittable state is
+                v8's still-styled primary at opacity 0.45 (onClick gated), NOT the Button
+                component's washed-out disabled treatment. */}
+            <div style={{ padding: "14px 20px 0" }}>
+              <Button
+                variant="primary"
+                style={{ width: "100%", justifyContent: "center", opacity: canSubmit && !busy ? 1 : 0.45 }}
+                onClick={canSubmit && !busy ? doReport : undefined}
+              >
                 Submit report
               </Button>
             </div>

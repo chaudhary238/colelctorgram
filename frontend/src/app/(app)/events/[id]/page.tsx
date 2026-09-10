@@ -3,17 +3,21 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Share2, Bell, Calendar, MapPin, Globe, Users, Star, Settings2, Tag as TagIcon, ChevronRight, MessageCircle, X } from "lucide-react";
+import { Share2, Bell, Calendar, Check, MapPin, Globe, Users, Star, Settings2, Tag as TagIcon, ChevronRight, MessageCircle, X } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
-import { shortDate } from "@/lib/utils";
 import { ApiEvent } from "@/components/cards";
-import { Avatar, ProductPhoto, SectionLabel } from "@/components/ui";
+import { Avatar, EmptyNote, ProductPhoto, SectionLabel } from "@/components/ui";
 import { useUser } from "@/lib/auth-context";
-import { formatTime12FromDate } from "@/components/CityField";
+import { fireToast } from "@/components/gamification";
+import { ShareSheet } from "@/components/ShareSheet";
 import { formatMoney } from "@/lib/catalog";
+import { eventDateParts, fmtEventWhen } from "../_date";
 
 // DV8-16 pricing/ticketing fields now live on the shared ApiEvent (DV8-17).
+// DV8 §8#17 — `is_host` is now true ONLY for the actual host; `can_manage`
+// covers host + site admin. Extended locally until the shared type carries it.
+type EventPayload = ApiEvent & { can_manage?: boolean };
 
 interface Guest { handle: string; name: string; avatar_url: string | null; city: string | null; status: "going" | "interested" }
 
@@ -62,7 +66,7 @@ const heroBtn: React.CSSProperties = {
   cursor: "pointer",
 };
 
-function DetailRow({ icon: Icon, title, sub, last }: { icon: React.ComponentType<{ size?: number }>; title: React.ReactNode; sub?: string; last?: boolean }) {
+function DetailRow({ icon: Icon, title, sub, note, last }: { icon: React.ComponentType<{ size?: number }>; title: React.ReactNode; sub?: string; note?: string; last?: boolean }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 14px", borderBottom: last ? "none" : "1px solid var(--border)" }}>
       <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--bone)", color: "var(--ink-mute)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -72,6 +76,7 @@ function DetailRow({ icon: Icon, title, sub, last }: { icon: React.ComponentType
         {/* pre-line keeps line breaks in multi-line address details */}
         <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", whiteSpace: "pre-line", overflowWrap: "anywhere" }}>{title}</div>
         {sub && <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{sub}</div>}
+        {note && <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 3 }}>{note}</div>}
       </div>
     </div>
   );
@@ -80,10 +85,10 @@ function DetailRow({ icon: Icon, title, sub, last }: { icon: React.ComponentType
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useUser();
-  const [event, setEvent] = useState<ApiEvent | null>(null);
+  const [event, setEvent] = useState<EventPayload | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [shared, setShared] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reminder, setReminder] = useState(false);
   const [guestModal, setGuestModal] = useState<"going" | "interested" | null>(null);
@@ -95,7 +100,7 @@ export default function EventDetailPage() {
   const [now] = useState(() => Date.now());
 
   useEffect(() => {
-    api.get<ApiEvent>(`/events/${id}`)
+    api.get<EventPayload>(`/events/${id}`)
       .then((e) => {
         setEvent(e);
         setMyRsvp(e.my_rsvp ?? null);
@@ -108,12 +113,10 @@ export default function EventDetailPage() {
     api.get<Guest[]>(`/events/${id}/interested`).then((g) => setGuests(g ?? [])).catch(() => {});
   }, [id]);
 
-  async function share() {
-    const url = `${window.location.origin}/events/${id}`;
-    try {
-      if (navigator.share) await navigator.share({ title: event?.title ?? "Scorred", url });
-      else { await navigator.clipboard.writeText(url); setShared(true); setTimeout(() => setShared(false), 1600); }
-    } catch { /* cancelled */ }
+  function share() {
+    // v8 Overlays.jsx:716-767 — the branded ShareSheet replaces the bare
+    // navigator.share/clipboard fallback (same treatment as post/listing).
+    setShareOpen(true);
   }
 
   async function toggleReminder() {
@@ -122,6 +125,8 @@ export default function EventDetailPage() {
     try {
       if (next) await api.post(`/events/${id}/reminder`);
       else await api.delete(`/events/${id}/reminder`);
+      // v8 EventDetail:76 toast pair (fired once the server agrees — the toggle reverts on error).
+      fireToast(next ? "We’ll remind you before it starts" : "Reminder off");
     } catch {
       setReminder(!next);  // revert
     }
@@ -145,7 +150,21 @@ export default function EventDetailPage() {
     setMyRsvp(mine); setGoingCount(Math.max(0, g)); setIntCount(Math.max(0, i));
     setBusy(true);
     try {
-      await api.post(`/events/${id}/interest?status=${next}`);
+      // DV8 §8#2 — the RSVP response returns the refreshed event, so the withheld
+      // address/where appear immediately once the viewer is on the guest list.
+      const updated = await api.post<EventPayload>(`/events/${id}/interest?status=${next}`);
+      if (updated?.id) {
+        setEvent(updated);
+        setMyRsvp(updated.my_rsvp ?? null);
+        setGoingCount(updated.going_count ?? 0);
+        setIntCount(updated.interested_count ?? 0);
+      }
+      // v8 EventDetail:43,50 — RSVP toast triplet (curly apostrophes).
+      fireToast(
+        mine === null ? "Removed your RSVP"
+          : mine === "going" ? "You’re going — added to the guest list"
+          : "Marked interested — you’ll get updates",
+      );
       const fresh = await api.get<Guest[]>(`/events/${id}/interested`).catch(() => null);
       if (fresh) setGuests(fresh);
     } catch {
@@ -155,7 +174,7 @@ export default function EventDetailPage() {
     }
   }
 
-  if (loading || !event) {
+  if (loading) {
     return (
       <div className="w-full max-w-[680px]" style={{ padding: 20 }}>
         <div style={{ aspectRatio: "3/2", borderRadius: 12, background: "var(--bone)", marginBottom: 16 }} />
@@ -164,19 +183,21 @@ export default function EventDetailPage() {
       </div>
     );
   }
+  if (!event) {
+    // v8 EventDetail:12 — a missing/404 event states it instead of skeleting forever.
+    return (
+      <div className="w-full max-w-[680px]" style={{ padding: 20 }}>
+        <div style={{ marginBottom: 16 }}><BackButton fallback="/events" /></div>
+        <EmptyNote>This event isn&rsquo;t available.</EmptyNote>
+      </div>
+    );
+  }
 
-  const { day, month } = shortDate(event.starts_at);
+  // v8 §8#14 — one date grammar everywhere: "Sat · 24 May · 4:00 pm – 8:00 pm"
+  // (day-first, mixed-case month, " · " separators); the pill day zero-pads.
+  const { weekday, dayPadded, month } = eventDateParts(event.starts_at);
+  const whenStr = fmtEventWhen(event.starts_at, event.ends_at);
   const eventDate = new Date(event.starts_at);
-  const dayName = eventDate.toLocaleString("en-IN", { weekday: "short" });
-  // DV8-16 — every echoed time reads "4:00 pm"; ends_at extends it to a range.
-  const timeStr = formatTime12FromDate(eventDate);
-  const endDate = event.ends_at ? new Date(event.ends_at) : null;
-  const sameDay = !!endDate && endDate.toDateString() === eventDate.toDateString();
-  const whenStr = endDate
-    ? sameDay
-      ? `${dayName}, ${month} ${day} · ${timeStr} – ${formatTime12FromDate(endDate)}`
-      : `${dayName}, ${month} ${day}, ${timeStr} – ${endDate.toLocaleString("en-IN", { weekday: "short" })}, ${shortDate(event.ends_at!).month} ${shortDate(event.ends_at!).day}, ${formatTime12FromDate(endDate)}`
-    : `${dayName}, ${month} ${day} · ${timeStr}`;
   const online = event.mode === "online";
   const past = eventDate.getTime() < now;
   const going = guests.filter((g) => g.status === "going");
@@ -193,11 +214,12 @@ export default function EventDetailPage() {
           <BackButton fallback="/events" transparent />
           <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
             {!past && !event.is_host && (
-              <button onClick={toggleReminder} title={reminder ? "Reminder on" : "Remind me before it starts"} style={{ ...heroBtn, color: reminder ? "var(--grail-gold)" : "var(--paper)" }}>
-                <Bell size={17} fill={reminder ? "var(--grail-gold)" : "none"} />
+              // v8 EventDetail:76 — the active bell fills with paper, no colour swap.
+              <button onClick={toggleReminder} title={reminder ? "Reminder on" : "Remind me before it starts"} style={{ ...heroBtn, color: "var(--paper)" }}>
+                <Bell size={17} fill={reminder ? "var(--paper)" : "none"} />
               </button>
             )}
-            <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ ...heroBtn, color: shared ? "var(--grail-gold)" : "var(--paper)" }}>
+            <button onClick={share} title="Share" style={{ ...heroBtn, color: "var(--paper)" }}>
               <Share2 size={17} />
             </button>
           </div>
@@ -215,9 +237,9 @@ export default function EventDetailPage() {
           {/* v8 — the date pill stands alone; no mode Tag beside it. */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
             <div style={{ display: "inline-flex", alignItems: "baseline", gap: 6, borderRadius: 8, background: "var(--paper)", color: "var(--ink)", padding: "4px 10px", boxShadow: "var(--shadow-2)" }}>
-              <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15 }}>{day}</span>
+              <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15 }}>{dayPadded}</span>
               <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--stamp-red)" }}>{month}</span>
-              <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>· {dayName}</span>
+              <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>· {weekday}</span>
             </div>
           </div>
           <div style={{ color: "var(--paper)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", lineHeight: 1.15, textWrap: "pretty" }}>{event.title}</div>
@@ -238,8 +260,17 @@ export default function EventDetailPage() {
         <div style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13, overflow: "hidden", marginBottom: 18 }}>
           {/* v8 — no is_host branch on the date-row sub. */}
           <DetailRow icon={Calendar} title={whenStr} sub={reminder ? "Reminder on" : past ? "Ended" : "Tap the bell to get reminded"} />
-          {/* v8 — location leads with the joined "venue — address" display form; city below. */}
-          <DetailRow icon={online ? Globe : MapPin} title={event.where ?? event.venue ?? (online ? "Online event" : "TBA")} sub={online ? "Online" : event.city ?? undefined} />
+          {/* v8 — location leads with the joined "venue — address" display form; city below.
+              DV8 §8#2 — the API nulls address/where until the viewer RSVPs (host and
+              site admin always see it); a quiet note says why the row is venue-only.
+              ⚖ note copy founder-confirmable. An event with no address at all is
+              indistinguishable client-side pre-RSVP, so the note may show there too. */}
+          <DetailRow
+            icon={online ? Globe : MapPin}
+            title={event.where ?? event.venue ?? (online ? "Online event" : "TBA")}
+            sub={online ? "Online" : event.city ?? undefined}
+            note={!online && !!event.venue && event.address == null && !event.is_host && !myRsvp ? "RSVP to see the exact address." : undefined}
+          />
           {/* v8 — Entry + ticket + contact rows all carry the plain DetailRow chrome;
               "What to bring" is gone (removed in v8, column kept for legacy). */}
           <DetailRow icon={TagIcon} title={priceLabel} sub="Entry" last={event.categories.length === 0 && !event.ticket_url && !event.contact} />
@@ -359,7 +390,8 @@ export default function EventDetailPage() {
                 background: myRsvp === "going" ? "var(--forest)" : "var(--ink)", color: "var(--paper)",
                 fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 15,
               }}>
-                <Users size={18} strokeWidth={2.2} />Going
+                {/* v8 EventDetail:48 — check when going, users otherwise. */}
+                {myRsvp === "going" ? <Check size={18} strokeWidth={2.2} /> : <Users size={18} strokeWidth={2.2} />}Going
               </button>
               <button onClick={() => setRsvp("interested")} disabled={busy} style={{
                 flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, height: 50, borderRadius: 13, cursor: busy ? "default" : "pointer",
@@ -376,6 +408,14 @@ export default function EventDetailPage() {
                 <MessageCircle size={16} />Open event community
               </Link>
             )}
+            {/* DV8 §8#17 — a site admin on someone else's event keeps the normal RSVP
+                footer and host line, plus this quiet manage affordance (can_manage
+                covers host + site admin; is_host alone hides the RSVP footer). */}
+            {event.can_manage && (
+              <Link href={`/events/${id}/manage`} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", marginTop: 10, height: 40, borderRadius: 11, border: "1px solid var(--border-strong)", background: "transparent", color: "var(--ink-soft)", textDecoration: "none", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13.5 }}>
+                <Settings2 size={16} />Manage event
+              </Link>
+            )}
           </>
         )}
       </div>
@@ -385,6 +425,15 @@ export default function EventDetailPage() {
           title={guestModal === "going" ? "Going" : "Interested"}
           guests={guestModal === "going" ? going : interested}
           onClose={() => setGuestModal(null)}
+        />
+      )}
+
+      {shareOpen && (
+        <ShareSheet
+          url={`${window.location.origin}/events/${id}`}
+          label="event"
+          title={event.title}
+          onClose={() => setShareOpen(false)}
         />
       )}
     </div>

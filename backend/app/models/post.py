@@ -88,7 +88,11 @@ class PostCommunity(Base):
 
     post_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("posts.id", ondelete="CASCADE"), primary_key=True)
     community_id: Mapped[str] = mapped_column(Text, ForeignKey("communities.id", ondelete="CASCADE"), primary_key=True)
+    # published | pending | declined — declined rows stay visible to the AUTHOR
+    # with the mod's reason until dismissed (v8 CommunityDetail.jsx:243-267).
     status: Mapped[str] = mapped_column(String(16), default="published", server_default="published")
+    decline_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    declined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     __table_args__ = (

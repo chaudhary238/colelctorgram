@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Flag, Plus, Star } from "lucide-react";
+import { Flag, PlusCircle, Star } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { fireToast, fireXpToast } from "@/components/gamification";
 import { BackButton } from "@/components/BackButton";
 import { ReportCatalogueSheet } from "@/components/ReportCatalogueSheet";
-import { ItemPageBody, ItemTag, type RatingAggregate } from "@/components/ItemPageBody";
+import { Tag } from "@/components/ui";
+import { ItemPageBody, type RatingAggregate } from "@/components/ItemPageBody";
 
 // Scorred DB entry page — the shared library record for one SKU (NOT a user's item).
 //
@@ -65,9 +66,6 @@ export default function DbEntryPage() {
     return true;
   }, [router]);
 
-  // Star = wishlist (casual "might want someday"; taxonomy 2026-07-11). Active when
-  // the viewer's copy of this SKU is a wishlist item; hidden once they own it.
-  const wishlisted = entry?.viewer_item?.status === "wishlist";
 
   // v8 ItemDetail :63-89 — the entry-page CTA QUICK-ADDS (+5 XP, finish later via the
   // ownership card's gap rows); it never opens a form. A wishlist row converts
@@ -171,9 +169,9 @@ export default function DbEntryPage() {
           photoLabel="catalogue reference"
           tags={
             viewerStatus === "wishlist" ? (
-              <ItemTag kind="teal">Wishlist</ItemTag>
+              <Tag kind="teal">Wishlist</Tag>
             ) : viewerStatus === "intel" ? (
-              <ItemTag kind="teal">DB Contribution</ItemTag>
+              <Tag kind="teal">DB Contribution</Tag>
             ) : undefined
           }
           title={entry.title}
@@ -206,28 +204,29 @@ export default function DbEntryPage() {
               disabled={adding}
               style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: adding ? "wait" : "pointer" }}
             >
-              <Plus size={18} /> {adding ? "Adding…" : entry.viewer_item ? "I own this now" : "Add to collection"}
+              {/* v8 :64/:75 — the CTA glyph is the plus-CIRCLE, not a bare plus. */}
+              <PlusCircle size={18} /> {adding ? "Adding…" : entry.viewer_item ? "I own this now" : "Add to collection"}
             </button>
             {/* Star = wishlist (icon law 2026-07-11): casual intent, lands in Saved → Wishlist.
                 v8 :92-98 — only offered while the viewer holds NO row of this SKU (once one
-                exists the CTA owns the slot); active = soft red tint, never a solid fill.
-                Un-wishing lives on Saved → Wishlist. */}
+                exists the CTA owns the slot), so it only ever draws idle: a wishlist row
+                hides it, and un-wishing lives on Saved → Wishlist. */}
             {!entry.viewer_item && (
               <button
                 type="button"
                 onClick={toggleWishlist}
                 disabled={wishBusy}
-                title={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-                aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                title="Add to wishlist"
+                aria-label="Add to wishlist"
                 style={{
                   width: 52, height: 48, borderRadius: 12, flexShrink: 0, cursor: wishBusy ? "wait" : "pointer",
                   border: "1px solid var(--border-strong)",
-                  background: wishlisted ? "var(--stamp-red-soft)" : "var(--paper)",
-                  color: wishlisted ? "var(--stamp-red)" : "var(--ink-faint)",
+                  background: "var(--paper)",
+                  color: "var(--ink-faint)",
                   display: "flex", alignItems: "center", justifyContent: "center", transition: "all 140ms",
                 }}
               >
-                <Star size={21} fill={wishlisted ? "var(--stamp-red)" : "none"} />
+                <Star size={21} />
               </button>
             )}
         </div>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link2, Ban, Flag, Check } from "lucide-react";
 import { api } from "@/lib/api";
 import { Avatar, Button } from "@/components/ui";
+import { fireToast } from "@/components/gamification";
 
 /* v3's 6 display reasons mapped onto the backend's 4 (spam|harassment|counterfeit|other);
    the full label rides along as `detail` so moderators keep the nuance. */
@@ -42,6 +43,8 @@ export function ProfileMoreMenu({
     const url = `${window.location.origin}/profile/${targetHandle}`;
     navigator.clipboard?.writeText(url).catch(() => {});
     onClose();
+    // v8 ProfileView:92 — the copy confirms itself.
+    fireToast("Profile link copied");
   }
 
   async function doBlock() {
@@ -69,7 +72,12 @@ export function ProfileMoreMenu({
         detail: `${picked.label} — ${note.trim()}`,
       });
       setSent(true);
-      setTimeout(onClose, 1100);
+      // v8 ProfileView:45-53 — inline confirm holds ~1.1s, then the sheet closes
+      // AND a toast lands so the confirmation survives the overlay.
+      setTimeout(() => {
+        onClose();
+        fireToast("Report submitted — thank you");
+      }, 1100);
     } catch {
       setBusy(false);
     }
@@ -86,7 +94,10 @@ export function ProfileMoreMenu({
         className="w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl sm:mb-4"
         style={{ boxShadow: "0 -4px 24px rgba(0,0,0,0.12)", padding: "8px 0 28px" }}
       >
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 14px" }} />
+        {/* v8 ProfileView:89,120,162 — the grab handle sits 18px above the menu
+            rows but flush (0) above the report/block headers, which carry their
+            own top padding. */}
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: stage === "menu" ? "8px auto 18px" : "8px auto 0" }} />
 
         {/* ── Main menu ── */}
         {stage === "menu" && (
@@ -114,7 +125,7 @@ export function ProfileMoreMenu({
         {/* ── Report ── */}
         {stage === "report" && (
           <div>
-            <div style={{ padding: "0 20px 10px" }}>
+            <div style={{ padding: "16px 20px 10px" }}>
               <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17 }}>Report @{targetHandle}</div>
               <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 3 }}>Why are you reporting this account?</div>
             </div>
@@ -164,7 +175,7 @@ export function ProfileMoreMenu({
         {/* ── Block confirm ── */}
         {stage === "block" && (
           <div>
-            <div style={{ padding: "8px 20px 6px", textAlign: "center" }}>
+            <div style={{ padding: "20px 20px 6px", textAlign: "center" }}>
               <Avatar name={targetName} photo={avatarUrl} size={56} />
               <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, marginTop: 12 }}>Block @{targetHandle}?</div>
               <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 6, lineHeight: 1.55, maxWidth: 280, marginLeft: "auto", marginRight: "auto" }}>
@@ -175,7 +186,9 @@ export function ProfileMoreMenu({
               <Button variant="primary" style={{ width: "100%", justifyContent: "center", background: "var(--stamp-red)", borderColor: "var(--stamp-red)" }} disabled={busy} onClick={doBlock}>
                 Block @{targetHandle}
               </Button>
-              <Button variant="secondary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setStage("menu")}>
+              {/* v8 ProfileView:175-178 — Cancel dismisses the whole overlay,
+                  it does not step back to the menu. */}
+              <Button variant="secondary" style={{ width: "100%", justifyContent: "center" }} onClick={onClose}>
                 Cancel
               </Button>
             </div>

@@ -40,7 +40,7 @@ export default function LeaderboardPage() {
   const rest = rows.slice(3);
   const ri = resetInfo(period);
   const showSeason = period === "week";
-  const periodLabel = period === "week" ? "this week" : "all-time";
+  const periodLabel = period === "week" ? "this week" : "lifetime"; // v8 Rewards.jsx:322
   const dotColor = (r: { tier_id: string }) => (TIER_VIS[r.tier_id] ?? TIER_VIS.rookie).color;
 
   return (
@@ -55,8 +55,8 @@ export default function LeaderboardPage() {
         </div>
       </div>
 
-      {/* filters — Weekly / Lifetime (v3 §9) */}
-      <div style={{ padding: "14px 16px 10px" }}>
+      {/* filters — Weekly / Lifetime (v3 §9); sticky w/ the reset clock (v8 Rewards.jsx:327) */}
+      <div style={{ padding: "14px 16px 10px", position: "sticky", top: 0, zIndex: 3, background: "var(--paper)" }}>
         <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 2 }}>
           {[{ id: "week", label: "Weekly" }, { id: "all", label: "Lifetime" }].map((o) => (
             <FilterChip key={o.id} active={period === o.id} onClick={() => setPeriod(o.id)}>{o.label}</FilterChip>
@@ -74,12 +74,12 @@ export default function LeaderboardPage() {
         <>
           {/* season prize */}
           {showSeason && (
-            <div style={{ margin: "0 16px", display: "flex", alignItems: "center", gap: 11, padding: "11px 13px", borderRadius: 14, background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)" }}>
+            <div style={{ margin: "14px 16px 0", display: "flex", alignItems: "center", gap: 11, padding: "11px 13px", borderRadius: 14, background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)" }}>
               <span style={{ width: 34, height: 34, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--grail-gold)", color: "#5A3D00" }}>
                 <Gift size={17} strokeWidth={2.1} />
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>Win a badge when the week ends</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>Win a badge when the season ends</div>
                 <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 1 }}>Top 3 earn a permanent badge + up to 300 bonus XP toward your rank</div>
               </div>
             </div>
@@ -142,7 +142,7 @@ export default function LeaderboardPage() {
                       <span style={{ width: 24, textAlign: "center", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 14, color: r.is_me ? "var(--verified-teal)" : "var(--ink-faint)" }}>{rank}</span>
                       <Avatar name={r.name} size={40} photo={r.avatar_url} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.is_me ? "You" : r.name}</span>
                           <FeedBadge badge={r.badge} />
                         </div>

@@ -9,7 +9,7 @@ import { ChevronLeft, Check, Flame, Gift, Copy } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button, SectionLabel } from "@/components/ui";
 import {
-  TierBadge, EarnRow, TIER_VIS, REWARD_TIERS,
+  TierBadge, EarnRow, TIER_VIS, REWARD_TIERS, fireToast,
   type RewardsSummary, Trophy, Zap,
 } from "@/components/gamification";
 
@@ -18,12 +18,15 @@ const fmt = (n: number) => n.toLocaleString("en-IN");
 // DV6-02 — earn-action deep links. Each lands on the surface where the action is
 // actually performed: refer → the referral dashboard; profile → your own profile;
 // db_new → your collection (where "Add to collection" submits new catalogue items);
-// showcase/review deep-link straight into the composer (skipping the Create
-// chooser); vouch → your Following list (who you can vouch for).
+// add_item → the DB explore grid (quick-add +5); complete_item → the finish flow
+// (+20 condition & price); showcase/review deep-link straight into the composer
+// (skipping the Create chooser); vouch → your Following list (who you can vouch for).
 const EARN_LINK: Record<string, string> = {
   refer: "/refer",
   profile: "/profile",
   db_new: "/add/catalogue",
+  add_item: "/db",
+  complete_item: "/collection/finish",
   showcase: "/compose?type=post",
   review: "/compose?type=review",
   rsvp: "/events",
@@ -74,6 +77,8 @@ export default function RewardsPage() {
         // Claiming today extends the run ending yesterday (or starts a new one).
         checkin: { ...p.checkin, claimed: true, streak: p.checkin.streak + 1 },
       }));
+      // v8 Rewards.jsx:245 — claim confirmation toast.
+      if (res?.granted) fireToast(`Checked in · +${d.checkin.xp} XP`);
     } finally { setClaiming(false); }
   }
 
@@ -182,7 +187,7 @@ export default function RewardsPage() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                             <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15 }}>{t.name}</span>
-                            {current && <span style={{ fontWeight: 700, fontSize: 9.5, letterSpacing: "0.08em", color: tc, border: `1px solid ${tc}`, borderRadius: 999, padding: "2px 7px", textTransform: "uppercase" }}>You</span>}
+                            {current && <span style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 9.5, letterSpacing: "0.08em", color: tc, border: `1px solid ${tc}`, borderRadius: 999, padding: "2px 7px", textTransform: "uppercase" }}>You</span>}
                           </div>
                         </div>
                         <div style={{ textAlign: "right" }}>

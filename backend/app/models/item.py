@@ -37,6 +37,9 @@ class Item(Base):
     value: Mapped[int] = mapped_column(Integer, default=0)  # estimated value, in minor units of value_currency
     value_currency: Mapped[str] = mapped_column(String(3), default="INR", nullable=False)  # DV4-05
     is_listed: Mapped[bool] = mapped_column(Boolean, default=False)
+    # DV8 "NEW DB" tile chip — True when this add CREATED its catalogue entry
+    # (first contributor); set once at creation, never recomputed.
+    is_new_to_db: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     photo_count: Mapped[int] = mapped_column(Integer, default=0)
 
     # DV4-01: TCG-specific spec (Trading Cards promoted to Phase-1 in BRD v1.4).

@@ -29,7 +29,9 @@ import { timeAgo } from "@/lib/utils";
 interface Thread {
   id: string;
   other_user: { id: string; handle: string | null; name: string | null; avatar_url: string | null } | null;
-  listing: { id: string; title: string; price: number; status: string } | null;
+  // `sku` (v8 Chat.jsx:24-25): catalogue vs non-catalogue drives the "re:" line's
+  // font. GET /threads doesn't serialize it yet (backend-owned); optional until then.
+  listing: { id: string; title: string; price: number; status: string; sku?: string | null } | null;
   last_message: string | null;
   last_message_at: string;
   unread: number;
@@ -185,9 +187,11 @@ function ActivityScreen() {
                       </span>
                       <span style={{ fontSize: 11, color: "var(--ink-faint)", flexShrink: 0 }}>{timeAgo(t.last_message_at)}</span>
                     </div>
-                    {/* v8 (Chat.jsx:24) — body-font catalogue title, ellipsized; no mono, no price. */}
+                    {/* v8 (Chat.jsx:24-25) — catalogue rows body font; non-catalogue
+                        (sku === null) rows mono. Strict null check keeps rows body-font
+                        while GET /threads still omits `sku` (DV8 §10#3). */}
                     {t.listing && (
-                      <div style={{ fontSize: 11, color: "var(--ink-faint)", margin: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: 11, color: "var(--ink-faint)", margin: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", ...(t.listing.sku === null ? { fontFamily: "var(--font-mono)" } : null) }}>
                         re: {t.listing.title}
                       </div>
                     )}

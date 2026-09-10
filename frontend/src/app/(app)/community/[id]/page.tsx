@@ -4,14 +4,15 @@ import { useEffect, useState } from "react";
 import type React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Share2, Shield, Globe, CheckCircle2, Check, Settings2, UserPlus, Clock, Plus } from "lucide-react";
+import { Share2, Shield, Globe, Check, Settings2, UserPlus, Clock, Plus, X } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { ApiPost } from "@/components/cards";
-import { Avatar, Segmented, SectionLabel, EmptyNote, Button } from "@/components/ui";
-import { PostCard } from "@/components/cards";
+import { Avatar, Segmented, SectionLabel, EmptyNote, Button, toneVar } from "@/components/ui";
+import { PostCard, PostImages } from "@/components/cards";
 import { fireToast } from "@/components/gamification";
+import { timeAgo } from "@/lib/utils";
 
 interface CommunityAdmin {
   handle: string;
@@ -46,13 +47,36 @@ interface CommunityDetail {
   is_member: boolean;
   member_role: string | null;
   join_state: string; // member | requested | none
+  status: string; // pending | approved | … (a pending community only loads for founder/site-admin)
   admins: CommunityAdmin[];
 }
 
 // Community post payloads carry the author's role in THIS community (DV8-14).
 type CommunityPost = ApiPost & { author_role?: "admin" | "mod" | null };
 
-type Tab = "posts" | "members" | "about";
+// GET /communities/{id}/my-posts — the caller's pending + declined posts here (#21).
+interface MyPendingPost {
+  id: string;
+  type: string;
+  title: string | null;
+  body: string;
+  images: string[];
+  status: string; // pending | declined
+  decline_reason: string | null;
+  declined_at: string | null;
+  created_at: string;
+}
+
+type Tab = "posts" | "members" | "pending" | "about";
+
+/* ⚖ Guidelines acceptance persists per community in localStorage so it survives
+   reloads (v8 keeps it in app state per community); a server-side column is a
+   future backend addition. Existing members auto-pass (they predate the gate). */
+const GUIDELINES_KEY_PREFIX = "scorred:guidelinesAccepted:";
+function readGuidelinesAccepted(communityId: string): boolean {
+  if (typeof window === "undefined") return false;
+  try { return localStorage.getItem(GUIDELINES_KEY_PREFIX + communityId) === "1"; } catch { return false; }
+}
 
 /* "Founder" reads as "Admin" everywhere it renders (DV8-15) — the API still says founder. */
 function displayRole(role: string) {
@@ -133,6 +157,7 @@ export default function CommunityDetailPage() {
   const [community, setCommunity] = useState<CommunityDetail | null>(null);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [members, setMembers] = useState<RosterMember[]>([]);
+  const [myPending, setMyPending] = useState<MyPendingPost[]>([]); // #21 — your posts in review here
   const [tab, setTab] = useState<Tab>("posts");
   const [joinState, setJoinState] = useState<string>("none"); // member | requested | none
   const joined = joinState === "member";
@@ -169,6 +194,7 @@ export default function CommunityDetailPage() {
       setJoinState("none");
       try {
         await api.delete(`/communities/${community.id}/join`);
+        fireToast("Request withdrawn"); // v8 Cards.jsx:711
       } catch {
         setJoinState("requested");
       } finally {
@@ -182,7 +208,13 @@ export default function CommunityDetailPage() {
       const res = await api.post<{ join_state?: string }>(`/communities/${community.id}/join`);
       const next = res?.join_state ?? "requested";
       setJoinState(next);
-      if (next === "member") setCommunity((c) => c ? { ...c, member_count: c.member_count + 1 } : c);
+      // v8 Cards.jsx:711-716 — announce what actually happened.
+      if (next === "member") {
+        setCommunity((c) => c ? { ...c, member_count: c.member_count + 1 } : c);
+        fireToast(`Joined ${community.name}`);
+      } else {
+        fireToast("Request sent — an admin will review it");
+      }
     } finally {
       setJoinBusy(false);
     }
@@ -194,12 +226,33 @@ export default function CommunityDetailPage() {
   async function removePost(postId: string, reason: string) {
     try {
       await api.post(`/communities/${id}/posts/${postId}/remove`, { reason });
+      fireToast("Post removed"); // v8 CommunityDetail.jsx:239
       const p = await api.get<CommunityPost[]>(`/communities/${id}/posts?limit=10`);
       setPosts(p ?? []);
       setCommunity((c) => c ? { ...c, post_count: Math.max(0, c.post_count - 1) } : c);
     } catch (e) {
       console.error(e);
     }
+  }
+
+  // #21 — a declined row's Dismiss (author-only server-side); the tab collapses
+  // back to Posts once the queue empties.
+  async function dismissDeclined(postId: string) {
+    try {
+      await api.delete(`/communities/${id}/posts/${postId}/declined`);
+      const next = myPending.filter((p) => p.id !== postId);
+      setMyPending(next);
+      if (next.length === 0 && tab === "pending") setTab("posts");
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // #23 — accepting is a real event now: persisted per community + toast (v8 :229,300).
+  function acceptGuidelines() {
+    setAccepted(true);
+    try { localStorage.setItem(GUIDELINES_KEY_PREFIX + id, "1"); } catch { /* ignore */ }
+    fireToast("Guidelines accepted — you can post now");
   }
 
   // v8 leave flow (updated CommunityDetail) — a plain member confirms; the LAST
@@ -259,13 +312,27 @@ export default function CommunityDetailPage() {
       .then(([c, p, m]) => {
         setCommunity(c);
         setJoinState(c.join_state ?? (c.is_member ? "member" : "none"));
-        setAccepted(c.is_member);
+        // ⚖ Existing members auto-pass the guidelines gate; a fresh acceptance is
+        // remembered per community in localStorage (#23 — server column later).
+        setAccepted(c.is_member || readGuidelinesAccepted(id));
         setPosts(p ?? []);
         setMembers(m ?? []);
+        setMyPending([]); // stale rows from a previous community clear before the refetch
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
+
+  // #21 — members also carry their own review queue here: pending + declined posts.
+  const isJoinedMember = community?.is_member ?? false;
+  useEffect(() => {
+    if (!isJoinedMember) return;
+    let active = true;
+    api.get<MyPendingPost[]>(`/communities/${id}/my-posts`)
+      .then((ps) => { if (active) setMyPending(ps ?? []); })
+      .catch(() => { /* tab simply doesn't render */ });
+    return () => { active = false; };
+  }, [isJoinedMember, id]);
 
   // Admins see a "Manage · N" badge counting pending join requests + posts to review (v3 parity).
   const isModView = community?.member_role === "founder" || community?.member_role === "admin" || community?.member_role === "mod";
@@ -287,12 +354,17 @@ export default function CommunityDetailPage() {
     );
   }
 
-  const rawTone = community.tone || "plum";
-  const tone = rawTone.startsWith("var(--") ? rawTone : `var(--${rawTone})`;
+  const tone = toneVar(community.tone || "plum");
   const approval = community.post_mode === "approval";
   const isMod = isModView;
   const isPrivate = community.is_invite_only;
   const locked = isPrivate && !joined && !isMod;
+  // #20 — pending platform review blocks ALL activity; the API only serves a
+  // pending community to its founder or a site admin, everyone else 404s.
+  const pendingReview = community.status === "pending";
+  // DV8 close — a closed community is frozen: no joins, no composer (server
+  // enforces both); members keep read access. Reopen lives in Manage → Settings.
+  const closed = community.status === "closed";
   const founder = community.admins.find((a) => a.role === "founder");
   const requested = joinState === "requested";
   const hasBanner = !!community.banner_url;
@@ -301,8 +373,10 @@ export default function CommunityDetailPage() {
   // Header CTA (DV8-14/15): admins & mods get Manage; a joined member gets Leave
   // (confirm-guarded — rejoining needs approval again); everyone else gets the gated
   // Join, which flips to a withdrawable "Requested" once the API queues it.
+  // v8 :132 — the header's requested CTA is the short "Requested"; the long
+  // "tap to withdraw" copy lives only on the locked preview (v8 :212).
   let joinCtaLabel = "Join";
-  if (requested) joinCtaLabel = "Requested — tap to withdraw";
+  if (requested) joinCtaLabel = "Requested";
   else if (isPrivate) joinCtaLabel = "Request to join";
   let headerCta: React.ReactNode;
   if (isMod) {
@@ -316,10 +390,13 @@ export default function CommunityDetailPage() {
     );
   } else if (joined) {
     headerCta = (
-      <Button size="sm" variant="secondary" onClick={confirmLeave} disabled={joinBusy}>
+      /* v8 :136 — Leave carries the close glyph. */
+      <Button size="sm" variant="secondary" icon={<X size={15} />} onClick={confirmLeave} disabled={joinBusy}>
         Leave
       </Button>
     );
+  } else if (pendingReview || closed) {
+    headerCta = null; // v8 :130 — no join CTA while awaiting review; closed takes no joins either
   } else {
     headerCta = (
       <Button size="sm" variant={requested ? "secondary" : "dark"} onClick={toggleJoin} disabled={joinBusy}>
@@ -327,6 +404,20 @@ export default function CommunityDetailPage() {
       </Button>
     );
   }
+
+  // v8 :82-90 — locked previews and pending-review both collapse the tab bar to a
+  // single "Rules" tab; the member's own review queue adds a "Pending n" segment.
+  const realTabs: { id: Tab; label: string }[] = locked || pendingReview
+    ? [{ id: "about", label: "Rules" }]
+    : [
+        { id: "posts", label: "Posts" },
+        { id: "members", label: "Members" },
+        ...(joined && myPending.length > 0 ? [{ id: "pending" as Tab, label: `Pending ${myPending.length}` }] : []),
+        { id: "about", label: "Rules" },
+      ];
+  const activeTab: Tab = locked || pendingReview
+    ? "about"
+    : tab === "pending" && (!joined || myPending.length === 0) ? "posts" : tab;
 
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-8">
@@ -370,8 +461,14 @@ export default function CommunityDetailPage() {
           <div style={{ flex: 1, paddingBottom: 4, display: "flex", justifyContent: "flex-end", gap: 8 }}>{headerCta}</div>
         </div>
 
-        <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 23, letterSpacing: "-0.025em", margin: "12px 0 4px" }}>{community.name}</h1>
-        <div style={{ fontSize: 14, color: "var(--ink-mute)", lineHeight: 1.5 }}>{community.description}</div>
+        {/* v8 :141-143 — your role badge sits beside the name (admin red / mod bone;
+            founder displays Admin), replacing the old "You're an admin" pill. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "12px 0 4px" }}>
+          <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 23, letterSpacing: "-0.025em", margin: 0 }}>{community.name}</h1>
+          {community.member_role && community.member_role !== "member" && <RoleChip role={community.member_role} />}
+        </div>
+        {/* v8 :145 — the sub-line is the short description when one exists. */}
+        <div style={{ fontSize: 14, color: "var(--ink-mute)", lineHeight: 1.5 }}>{community.short_desc || community.description}</div>
 
         {/* meta row */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 10, fontSize: 12.5, color: "var(--ink-faint)" }}>
@@ -393,26 +490,63 @@ export default function CommunityDetailPage() {
           )}
         </div>
 
-        {/* privacy + posting + admin badges */}
+        {/* privacy + posting badges (v8 :155-172) — pending review swaps the posting
+            chip for the gold "Pending platform review" chip. */}
         <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, background: "var(--bone)", border: "1px solid var(--border-strong)" }}>
             {isPrivate ? <Shield size={13} style={{ color: "var(--ink-mute)" }} /> : <Globe size={13} style={{ color: "var(--ink-mute)" }} />}
             <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink-soft)" }}>{isPrivate ? "Private" : "Public"}</span>
           </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, background: approval ? "var(--grail-gold-soft)" : "var(--forest-soft)", border: `1px solid ${approval ? "var(--grail-gold)" : "var(--forest)"}` }}>
-            {approval ? <Shield size={13} style={{ color: "var(--grail-gold-deep)" }} /> : <Check size={13} style={{ color: "var(--forest)" }} />}
-            <span style={{ fontSize: 11.5, fontWeight: 600, color: approval ? "var(--grail-gold-deep)" : "var(--forest)" }}>{approval ? "Posts reviewed" : "Open posting"}</span>
-          </span>
-          {isMod && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, background: "var(--ink)", border: "1px solid var(--ink)" }}>
-              <Shield size={13} style={{ color: "var(--paper)" }} />
-              <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--paper)" }}>{community.member_role === "mod" ? "You’re a mod" : "You’re an admin"}</span>
+          {!pendingReview && !closed && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, background: approval ? "var(--grail-gold-soft)" : "var(--forest-soft)", border: `1px solid ${approval ? "var(--grail-gold)" : "var(--forest)"}` }}>
+              {approval ? <Shield size={13} style={{ color: "var(--grail-gold-deep)" }} /> : <Check size={13} style={{ color: "var(--forest)" }} />}
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: approval ? "var(--grail-gold-deep)" : "var(--forest)" }}>{approval ? "Posts reviewed" : "Open posting"}</span>
+            </span>
+          )}
+          {/* DV8 close — the posting chip yields to a neutral "Closed" chip (posting is frozen). */}
+          {closed && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, background: "var(--bone)", border: "1px solid var(--border-strong)" }}>
+              <X size={13} style={{ color: "var(--ink-mute)" }} />
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink-soft)" }}>Closed</span>
+            </span>
+          )}
+          {pendingReview && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)" }}>
+              <Clock size={13} style={{ color: "var(--grail-gold-deep)" }} />
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--grail-gold-deep)" }}>Pending platform review</span>
             </span>
           )}
         </div>
       </div>
 
-      {locked ? (
+      {/* Tabs — always rendered: locked previews and pending review keep the bar with
+          the single "Rules" segment (v8 :82-90,176-178). */}
+      <div style={{ position: "sticky", top: 56, zIndex: 9, background: "var(--paper)", padding: "16px 20px 10px", marginTop: 14, borderBottom: "1px solid var(--border)" }}>
+        <Segmented value={activeTab} onChange={(v) => setTab(v as Tab)} options={realTabs} />
+      </div>
+
+      {pendingReview ? (
+        /* #20 — PENDING PLATFORM REVIEW blocks all activity (v8 :166-199). */
+        <div style={{ padding: "20px 20px" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "8px 0 20px" }}>
+            <div style={{ width: 52, height: 52, borderRadius: 15, background: "var(--grail-gold-soft)", border: "1px solid var(--grail-gold)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--grail-gold-deep)", marginBottom: 12 }}>
+              <Clock size={24} />
+            </div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17 }}>Awaiting platform review</div>
+            <div style={{ fontSize: 13.5, color: "var(--ink-faint)", marginTop: 6, maxWidth: 300, lineHeight: 1.55 }}>
+              New communities are checked before they go live — no posts, joins or activity happen until it&rsquo;s approved. You&rsquo;ll be notified.
+            </div>
+            {isMod && (
+              <div style={{ marginTop: 16 }}>
+                <Link href={`/community/${id}/manage`} style={{ textDecoration: "none" }}>
+                  <Button size="sm" variant="secondary" icon={<Settings2 size={15} />}>Manage community</Button>
+                </Link>
+              </div>
+            )}
+          </div>
+          <RulesAndAdmins community={community} />
+        </div>
+      ) : locked ? (
         /* LOCKED private preview */
         <div style={{ padding: "20px 20px" }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "8px 0 20px" }}>
@@ -433,16 +567,7 @@ export default function CommunityDetailPage() {
         </div>
       ) : (
         <>
-          {/* Tabs */}
-          <div style={{ position: "sticky", top: 56, zIndex: 9, background: "var(--paper)", padding: "16px 20px 10px", marginTop: 14, borderBottom: "1px solid var(--border)" }}>
-            <Segmented
-              value={tab}
-              onChange={(v) => setTab(v as Tab)}
-              options={[{ id: "posts", label: "Posts" }, { id: "members", label: "Members" }, { id: "about", label: "Rules" }]}
-            />
-          </div>
-
-          {tab === "posts" ? (
+          {activeTab === "posts" ? (
             <div>
               {/* v8 (CommunityDetail.jsx:80-92) — the composer trigger moved to a sticky
                   footer bar (rendered after the tab content below); only the accept-the-
@@ -458,7 +583,7 @@ export default function CommunityDetailPage() {
                   </div>
                   <div style={{ display: "flex", gap: 9 }}>
                     <Button size="sm" variant="secondary" onClick={() => setTab("about")}>View rules</Button>
-                    <Button size="sm" variant="dark" onClick={() => setAccepted(true)}>Accept &amp; continue</Button>
+                    <Button size="sm" variant="dark" onClick={acceptGuidelines}>Accept &amp; continue</Button>
                   </div>
                 </div>
               ))}
@@ -487,7 +612,47 @@ export default function CommunityDetailPage() {
                   : <EmptyNote>Quiet so far — be the first to post.</EmptyNote>}
               </div>
             </div>
-          ) : tab === "members" ? (
+          ) : activeTab === "pending" ? (
+            /* #21 — YOUR review queue here (v8 :243-267): pending posts wait in gold;
+               declined ones turn red, show the mod's reason and offer Dismiss. */
+            <div style={{ padding: "14px 20px" }}>
+              <SectionLabel>Your posts awaiting review</SectionLabel>
+              <div style={{ fontSize: 12.5, color: "var(--ink-faint)", margin: "8px 2px 14px", lineHeight: 1.5 }}>
+                These aren&rsquo;t visible to the community yet. Once approved, they&rsquo;ll publish and clear from here automatically.
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {myPending.map((p) => {
+                  const declined = p.status === "declined";
+                  return (
+                    <div key={p.id} style={{ background: "var(--paper-soft)", border: `1px solid ${declined ? "var(--stamp-red)" : "var(--border)"}`, borderRadius: 14, padding: 13 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: declined ? "var(--stamp-red-soft)" : "var(--grail-gold-soft)", color: declined ? "var(--stamp-red)" : "var(--grail-gold-deep)" }}>
+                          {declined ? <X size={11} /> : <Clock size={11} />}
+                          {declined ? "Declined" : "Pending review"}
+                        </span>
+                        <span style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{timeAgo(p.created_at)}</span>
+                      </div>
+                      {p.title && <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{p.title}</div>}
+                      <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>{p.body}</div>
+                      {p.images.length > 0 && <div style={{ marginTop: 10 }}><PostImages images={p.images} /></div>}
+                      {declined && (
+                        <>
+                          {p.decline_reason && <div style={{ fontSize: 12, color: "var(--stamp-red)", marginTop: 8 }}>Reason: {p.decline_reason}</div>}
+                          <button
+                            type="button"
+                            onClick={() => dismissDeclined(p.id)}
+                            style={{ marginTop: 10, background: "none", border: "1px solid var(--border-strong)", borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-mute)", fontWeight: 600 }}
+                          >
+                            Dismiss
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : activeTab === "members" ? (
             <div style={{ padding: "14px 20px" }}>
               <SectionLabel>{members.length} members</SectionLabel>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
@@ -523,13 +688,14 @@ export default function CommunityDetailPage() {
             <div style={{ padding: "16px 20px" }}>
               <RulesAndAdmins community={community} />
               {joined && !accepted && (
-                <Button variant="primary" size="block" style={{ marginTop: 16 }} onClick={() => { setAccepted(true); setTab("posts"); }}>
+                <Button variant="primary" size="block" style={{ marginTop: 16 }} onClick={() => { acceptGuidelines(); setTab("posts"); }}>
                   Accept guidelines
                 </Button>
               )}
               {accepted && (
+                /* v8 :306 — plain check stroke 2.4, not the circled glyph. */
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, color: "var(--forest)", fontSize: 13, fontWeight: 600 }}>
-                  <CheckCircle2 size={16} />You&rsquo;ve accepted these guidelines.
+                  <Check size={16} strokeWidth={2.4} />You&rsquo;ve accepted these guidelines.
                 </div>
               )}
               {/* v8 (CommunityDetail.jsx:292-294) — same red exit link under the rules. */}
@@ -549,7 +715,7 @@ export default function CommunityDetailPage() {
               Posts tab once you're a member who accepted the guidelines: 48px bar with
               a 1.5px ink border on paper, bold ink text, 34px dark rounded + square.
               The bottom offset clears the fixed BottomNav below lg. */}
-          {tab === "posts" && joined && accepted && (
+          {activeTab === "posts" && joined && accepted && !closed && (
             <div
               className="sticky z-20 bottom-[calc(64px+env(safe-area-inset-bottom))] lg:bottom-0"
               style={{ background: "var(--paper)", borderTop: "1px solid var(--slate-200)", padding: "10px 20px", marginTop: 8 }}

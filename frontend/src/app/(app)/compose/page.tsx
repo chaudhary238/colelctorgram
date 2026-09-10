@@ -17,7 +17,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X, ArrowLeft, Check, Camera, PlusCircle, Star, ChevronDown, ChevronRight, Tag, Search, SquarePen } from "lucide-react";
+import { X, ArrowLeft, Check, Camera, PlusCircle, Star, ChevronDown, ChevronRight, Tag, Search, Pencil } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiCommunity, refTone } from "@/components/cards";
 import { useUser } from "@/lib/auth-context";
@@ -96,7 +96,10 @@ function ComposeHeader({ leading, onLeading, title, trailing }: {
   trailing?: React.ReactNode;
 }) {
   return (
-    <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]" style={{ padding: "8px 14px 12px" }}>
+    /* DV8 §2#1 — safe-area top inset (v8 Overlays.jsx:9 pads the overlay header for the
+       notch): on a standalone PWA the sticky header otherwise sits under the status bar.
+       Same calc() pattern as /search's chrome. */
+    <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]" style={{ padding: "calc(8px + env(safe-area-inset-top)) 14px 12px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 40 }}>
         <button
           aria-label={leading === "back" ? "Back" : "Close"}
@@ -117,12 +120,14 @@ function CreateChooser({ onPost, onClose }: { onPost: () => void; onClose: () =>
   const router = useRouter();
   const options = [
     {
+      // DV8 §2#5 — v8's Icons.edit is the BARE pencil, not the boxed SquarePen.
       id: "post", label: "Create a Post", desc: "Showcase, ask, review or poll the community.",
-      c: "var(--plum)", bg: "oklch(96% 0.02 300)", icon: <SquarePen size={22} />,
+      c: "var(--plum)", bg: "oklch(96% 0.02 300)", icon: <Pencil size={22} />,
       go: onPost,
     },
     {
-      id: "item", label: "Add an item", desc: "Browse the database — add it there if it's missing.",
+      // DV8 §2#4 — typographic apostrophe (v8 Overlays.jsx:110).
+      id: "item", label: "Add an item", desc: "Browse the database — add it there if it’s missing.",
       c: "var(--stamp-red)", bg: "var(--stamp-red-soft)", icon: <Tag size={22} />,
       go: () => router.push("/db"),
     },
@@ -422,20 +427,23 @@ function ComposePage() {
   // (feed, market, a community…), or /feed on a cold deep-link with no history.
   const closeCompose = () => (window.history.length > 1 ? router.back() : router.push("/feed"));
 
+  // DV8 §2#13 — the compose surface is PAPER (v8 Overlays.jsx:8 OverlayShell),
+  // not the canvas grey: the composer is a sheet, not a feed.
   if (stage === "choose") {
     return (
-      <div className="w-full max-w-[680px] flex flex-col pb-10" style={{ background: "var(--canvas)", minHeight: "100vh" }}>
+      <div className="w-full max-w-[680px] flex flex-col pb-10" style={{ background: "var(--paper)", minHeight: "100vh" }}>
         <CreateChooser onPost={() => setStage("compose")} onClose={closeCompose} />
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-[680px] flex flex-col pb-10" style={{ background: "var(--canvas)", minHeight: "100vh" }}>
-      {/* Deep-linked (?type= / ?community=): nothing sits behind the composer, X leaves.
-          Otherwise the back-arrow pops back to the Stage-0 chooser. */}
+    <div className="w-full max-w-[680px] flex flex-col pb-10" style={{ background: "var(--paper)", minHeight: "100vh" }}>
+      {/* DV8 §2#6 — the composer ALWAYS leads with a back-arrow (v8 Overlays.jsx:171):
+          deep-linked (?type= / ?community=) it goes back to wherever Create was opened
+          from; otherwise it pops to the Stage-0 chooser. Only the chooser closes with X. */}
       <ComposeHeader
-        leading={deepLinked ? "close" : "back"}
+        leading="back"
         onLeading={deepLinked ? closeCompose : () => setStage("choose")}
         title="Create a post"
         trailing={
@@ -459,10 +467,12 @@ function ComposePage() {
           <button
             onClick={() => setShowPostTo((v) => !v)}
             aria-expanded={showPostTo}
-            style={{ display: "flex", alignItems: "center", gap: 5, background: "var(--paper-soft)", border: "1px solid var(--border-strong)", borderRadius: 999, padding: "5px 10px 5px 12px", cursor: "pointer", fontFamily: "var(--font-body)", whiteSpace: "nowrap" }}
+            style={{ display: "flex", alignItems: "center", gap: 4, background: "var(--paper-soft)", border: "1px solid var(--border-strong)", borderRadius: 999, padding: "5px 10px 5px 12px", cursor: "pointer", fontFamily: "var(--font-body)", whiteSpace: "nowrap" }}
           >
             <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{postToSummary}</span>
-            <ChevronDown size={13} strokeWidth={2.4} style={{ color: "var(--ink-faint)", transform: showPostTo ? "rotate(180deg)" : "none", transition: "transform 140ms" }} />
+            {/* DV8 §2#10 — chevron 12/2.4 in ink like the label (v8 Overlays.jsx:182);
+                the open/close rotation is a kept web affordance. */}
+            <ChevronDown size={12} strokeWidth={2.4} style={{ color: "var(--ink)", transform: showPostTo ? "rotate(180deg)" : "none", transition: "transform 140ms" }} />
           </button>
         </div>
         {showPostTo && (
@@ -785,7 +795,7 @@ function ComposePage() {
 // (same wrapper as /add/catalogue).
 export default function ComposePageWrapper() {
   return (
-    <Suspense fallback={<div className="w-full max-w-[680px]" style={{ minHeight: "100vh", background: "var(--canvas)" }} />}>
+    <Suspense fallback={<div className="w-full max-w-[680px]" style={{ minHeight: "100vh", background: "var(--paper)" }} />}>
       <ComposePage />
     </Suspense>
   );

@@ -7,6 +7,7 @@ import { X, Shield, Check, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { SectionLabel } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
+import { fireToast } from "@/components/gamification";
 import { ADD_CATEGORIES } from "@/lib/catalog";
 
 // v8 (CreateCommunity.jsx) — rules carry ONE budget: 900 characters TOTAL, hard-
@@ -135,7 +136,12 @@ export default function CreateCommunityPage() {
   const invalid = miss.name || miss.desc || nameTaken || rulesInvalid;
 
   const submit = async () => {
-    if (invalid) { setTried(true); return; }
+    if (invalid) {
+      setTried(true);
+      // #46 (v8 CreateCommunity.jsx:75) — the invalid submit says what's missing.
+      fireToast(nameTaken ? "A community with this name already exists" : "Add a name and a short description");
+      return;
+    }
     if (submitting) return;
     setSubmitting(true);
     setError(null);
@@ -159,6 +165,8 @@ export default function CreateCommunityPage() {
         ...(photo ? { avatar_url: photo } : {}),
       });
       if (forEvent) {
+        // #44 (v8 :91) — the event flow announces the bind; fireToast survives navigation.
+        fireToast("Community created — bound to your event");
         router.push(`/events/new?newCommunity=${id}`);
       } else {
         // v8 (CreateCommunity.jsx:94) — exact toast copy, then back to the directory.
@@ -179,8 +187,13 @@ export default function CreateCommunityPage() {
             <X size={18} />
           </Link>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Create a community</div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Reviewed before it goes public · members are approved</div>
+            {/* #44 (v8 CreateCommunity.jsx:100) — the event flow gets its own framing. */}
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>
+              {forEvent ? "Community for your event" : "Create a community"}
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>
+              {forEvent ? "Attendees can talk, network & post" : "Reviewed before it goes public · members are approved"}
+            </div>
           </div>
           <button onClick={submit} disabled={submitting} style={{ height: 36, padding: "0 16px", borderRadius: 9, border: "none", background: invalid ? "var(--bone)" : "var(--stamp-red)", color: invalid ? "var(--ink-ghost)" : "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, cursor: submitting ? "wait" : "pointer" }}>
             {submitting ? "Submitting…" : "Submit"}
@@ -231,7 +244,8 @@ export default function CreateCommunityPage() {
                 border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
                 fontFamily: "var(--font-body)", fontWeight: 500, fontSize: 13,
               }}>
-                {c.label}
+                {/* #4 (v8 CreateCommunity.jsx:144) — chips read the singular chipLabel. */}
+                {c.chipLabel}
               </button>
             );
           })}
@@ -266,6 +280,7 @@ export default function CreateCommunityPage() {
 
         {error && <div style={{ marginTop: 16, fontSize: 13, color: "var(--stamp-red)" }}>{error}</div>}
 
+        {/* #44 (v8 :103-106) — the event flow's CTA binds, with the check glyph. */}
         <button onClick={submit} disabled={submitting} type="button" style={{
           display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
           height: 48, marginTop: 22, borderRadius: 12, border: "none",
@@ -273,11 +288,14 @@ export default function CreateCommunityPage() {
           fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15,
           cursor: submitting ? "wait" : "pointer", opacity: invalid ? 0.5 : 1,
         }}>
-          <Shield size={18} />{submitting ? "Submitting…" : "Submit for review"}
+          {forEvent ? <Check size={18} /> : <Shield size={18} />}
+          {submitting ? "Submitting…" : forEvent ? "Create & bind to event" : "Submit for review"}
         </button>
-        <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.5 }}>
-          Scorred reviews new communities before they&rsquo;re public — and every member who joins is approved by you.
-        </div>
+        {!forEvent && (
+          <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.5 }}>
+            Scorred reviews new communities before they&rsquo;re public — and every member who joins is approved by you.
+          </div>
+        )}
       </div>
 
       {toast && (

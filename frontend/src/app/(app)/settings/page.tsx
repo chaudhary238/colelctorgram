@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { cloneElement, isValidElement, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronLeft, ChevronRight, Eye, EyeOff, UserCog, Image as ImageIcon,
@@ -44,8 +44,11 @@ function Row({ icon, label, sub, trailing, onClick, danger }: {
       }}
     >
       {icon && (
-        <div style={{ width: 34, height: 34, borderRadius: 9, background: danger ? "var(--stamp-red-wash, #FEE2E2)" : "var(--paper-soft)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: danger ? "var(--stamp-red)" : "var(--ink-mute)" }}>
-          {icon}
+        /* v8 ProfileSettings.jsx:44-45 — row glyphs read ink-soft at stroke 1.8
+           (danger rows stay stamp-red); the stroke is applied here, Row-level,
+           exactly as v8's `<Ico … stroke={1.8}/>` does. */
+        <div style={{ width: 34, height: 34, borderRadius: 9, background: danger ? "var(--stamp-red-wash, #FEE2E2)" : "var(--paper-soft)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: danger ? "var(--stamp-red)" : "var(--ink-soft)" }}>
+          {isValidElement(icon) ? cloneElement(icon as React.ReactElement<{ strokeWidth?: number }>, { strokeWidth: 1.8 }) : icon}
         </div>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -78,10 +81,11 @@ function RadioGroup<T extends string>({ value, onChange, options }: { value: T; 
           <button
             key={o.id} onClick={() => onChange(o.id)}
             style={{
-              padding: "6px 12px", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap",
+              /* v8 ProfileSettings.jsx:73-77 — 12px chips at 5px 11px pads. */
+              padding: "5px 11px", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap",
               border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
               background: on ? "var(--ink)" : "var(--paper-soft)", color: on ? "var(--paper)" : "var(--ink)",
-              fontFamily: "var(--font-body)", fontSize: 12.5, fontWeight: 500,
+              fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500,
             }}
           >
             {o.label}
@@ -134,6 +138,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!user) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- re-seed local form state whenever the auth user refreshes
     setNotif({ ...DEFAULT_NOTIF, ...(user.notif_prefs ?? {}) });
     setPrivacy({ ...DEFAULT_PRIVACY, ...(user.privacy_prefs ?? {}) });
     const pp = user.privacy_portfolio;
@@ -276,7 +281,8 @@ export default function SettingsPage() {
         options={[{ id: "public", label: "Everyone" }, { id: "followers", label: "Followers" }, { id: "private", label: "Only me" }]}
       />
       <Row icon={<Eye size={17} />} label="Show online status" trailing={<Toggle on={privacy.show_online} onToggle={() => updatePrivacy({ show_online: !privacy.show_online })} />} />
-      <Row icon={<Ban size={17} />} label="Blocked users" sub="Manage users you've blocked" onClick={() => router.push("/settings/blocked")} />
+      {/* v8 ProfileSettings.jsx:126 — exact sub copy */}
+      <Row icon={<Ban size={17} />} label="Blocked users" sub="Manage users you have blocked" onClick={() => router.push("/settings/blocked")} />
 
       {/* ── Support ───────────────────────────────────────── */}
       <SectionHeader id="support">Support</SectionHeader>

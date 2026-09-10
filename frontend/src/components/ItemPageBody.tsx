@@ -10,14 +10,14 @@
  * each page supplies itself.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ChevronRight, Clock, Eye, Heart, MessageCircle, MoreHorizontal, Pencil, Send, Star, Trash2, User,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { FeedBadge, goldFrameRing, hasGoldFrame, type FeedBadgeT } from "@/components/gamification";
-import { Avatar, IconButton, ProductPhoto, SealMark } from "@/components/ui";
+import { Avatar, ClampText, Disclosure, IconButton, ProductPhoto, SealMark, Tag, statusLabel } from "@/components/ui";
 import { MentionInput, renderCommentBody } from "@/components/cards";
 import { formatMoney } from "@/lib/catalog";
 import { timeAgo } from "@/lib/utils";
@@ -36,31 +36,6 @@ export interface RatingAggregate {
   rating_avg: number | null;
   rating_count: number;
   my_rating: number | null;
-}
-
-/* ── Status tag — v8 shared.jsx Tag, verbatim styles/kinds ─────
-   Uppercase 10px chip; kinds map to v8: default (bone), po (gold), teal
-   (soft teal + border), sale (stamp red), sold (forest). */
-export function ItemTag({ kind = "default", children }: {
-  kind?: "default" | "sale" | "po" | "teal" | "sold";
-  children: React.ReactNode;
-}) {
-  const styles: Record<string, React.CSSProperties> = {
-    sale: { background: "var(--stamp-red)", color: "var(--paper)" },
-    po: { background: "var(--grail-gold)", color: "var(--ink)" },
-    sold: { background: "var(--forest)", color: "var(--paper)" },
-    teal: { background: "var(--verified-teal-soft)", color: "var(--verified-teal)", border: "1px solid var(--verified-teal)" },
-    default: { background: "var(--bone)", color: "var(--ink)" },
-  };
-  return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 4,
-      padding: "4px 8px", borderRadius: 6, lineHeight: 1,
-      fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 10,
-      letterSpacing: "0.08em", textTransform: "uppercase",
-      ...styles[kind],
-    }}>{children}</span>
-  );
 }
 
 /* ── Photo / carousel ────────────────────────────────────────── */
@@ -171,6 +146,7 @@ export function OwnershipCard({
   listingHref = "/market",
   listingPrice = null,
   listingCurrency,
+  listingStatus,
   preorder = null,
   sold = false,
   soldPrice = null,
@@ -190,6 +166,8 @@ export function OwnershipCard({
   listingHref?: string;
   listingPrice?: number | null; // minor units (listing_price from GET /items/{id})
   listingCurrency?: string | null;
+  /** v8 :301 — the Sale row's tag is statusLabel(ownerListing.status); a live row is "available". */
+  listingStatus?: string | null;
   preorder?: PreorderFacts | null;
   /** v8 sold treatment (ItemDetail :244-246): sold_at set → the whole card greys
       out, header reads "Your copy — sold", no gaps/finish CTAs, listing row closed. */
@@ -230,9 +208,11 @@ export function OwnershipCard({
     ? "Needs " + (gaps.length > 1 ? gaps.slice(0, -1).join(", ") + " & " + gaps[gaps.length - 1] : gaps[0])
     : "";
 
-  // Every ownership card opens collapsed for consistency; only a pre-order or an
-  // incomplete copy opens expanded, because there the rows are the call to action (v8 :50).
-  const [open, setOpen] = useState(isPo || gaps.length > 0);
+  // Every ownership card opens collapsed for consistency; only the OWNER's pre-order
+  // or incomplete copy opens expanded, because there the rows are the call to action
+  // (v8 :50 — `mine` is only set when viewing your own copy, so visitors always
+  // land on the collapsed header).
+  const [open, setOpen] = useState(viewerIsOwner && (isPo || gaps.length > 0));
 
   // DV8 "Ask about it" — a privacy 403 swaps the button for this quiet note, once,
   // in place (no toast spam). A network blip keeps the button so a retry works.
@@ -375,8 +355,8 @@ export function OwnershipCard({
               border: "1px solid var(--border-strong)", background: "var(--paper)", textDecoration: "none",
               fontFamily: "var(--font-body)",
             }}>
-              {/* v8 :301 tags the row with the live listing's status label ("Available"). */}
-              <ItemTag kind="sale">Available</ItemTag>
+              {/* v8 :301 — statusLabel(ownerListing.status), never a hardcoded string. */}
+              <Tag kind="sale">{statusLabel(listingStatus ?? "available")}</Tag>
               {listingPrice != null && (
                 <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 13, color: "var(--ink)" }}>{formatMoney(listingPrice, listingCurrency ?? currency)}</span>
               )}
@@ -461,44 +441,14 @@ export function AboutSection({ description, brand, year, title }: {
   year?: string | null;
   title: string;
 }) {
-  const [open, setOpen] = useState(true);       // Disclosure defaultOpen (v8 :346)
-  const [expanded, setExpanded] = useState(false);
-  const [overflows, setOverflows] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
   // v8 :348 — the fallback composes brand + the title's tail into catalogue boilerplate.
   const tail = title.split("·").slice(1).join("·").trim() || title;
   const desc = description?.trim()
     || `${[brand, tail].filter(Boolean).join(" ")}. Catalogue entry from the Scorred database${year ? `, ${year}` : ""}.`;
-  useEffect(() => {
-    const el = ref.current;
-    if (el) setOverflows(el.scrollHeight > el.clientHeight + 2);
-  }, [desc, open, expanded]);
   return (
-    <div style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
-      <button type="button" onClick={() => setOpen((o) => !o)} style={{
-        display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "13px 0",
-        background: "none", border: "none", cursor: "pointer", textAlign: "left", fontFamily: "var(--font-body)",
-      }}>
-        <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, letterSpacing: "-0.015em", color: "var(--ink)" }}>About this item</span>
-        <ChevronRight size={15} style={{ marginLeft: "auto", color: "var(--ink-faint)", flexShrink: 0, transform: open ? "rotate(90deg)" : "none", transition: "transform 130ms" }} />
-      </button>
-      {open && (
-        <div style={{ paddingBottom: 16 }}>
-          <div ref={ref} style={{
-            fontSize: 15, lineHeight: 1.6, color: "var(--ink-soft)",
-            ...({ textWrap: "pretty" } as React.CSSProperties),
-            ...(expanded ? {} : { display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }),
-          }}>
-            {desc}
-          </div>
-          {(overflows || expanded) && (
-            <button type="button" onClick={() => setExpanded((m) => !m)} style={{ marginTop: 5, padding: 0, border: "none", background: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12.5, color: "var(--ink-mute)" }}>
-              {expanded ? "Read less" : "Read more"}
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+    <Disclosure title="About this item" defaultOpen style={{ borderBottom: "1px solid var(--border)" }}>
+      <ClampText lines={4} size={15}>{desc}</ClampText>
+    </Disclosure>
   );
 }
 
@@ -506,11 +456,12 @@ export function AboutSection({ description, brand, year, title }: {
    Large "{avg} /5", 5 gold stars filled to the TRUE fraction (overflow clip),
    "{count} ratings", divider, then the viewer's own tappable stars. POST returns
    the fresh aggregate; tapping your current score clears it (my_rating → null). */
+/* v8 StarMeter (shared.jsx:520) — stroke 1.6, gap 1 */
 function StaticStars({ size, color, fill }: { size: number; color: string; fill: string }) {
   return (
-    <div style={{ display: "flex", gap: 2, width: "max-content" }}>
+    <div style={{ display: "flex", gap: 1, width: "max-content" }}>
       {Array.from({ length: 5 }).map((_, i) => (
-        <Star key={i} size={size} fill={fill} style={{ color, flexShrink: 0 }} />
+        <Star key={i} size={size} strokeWidth={1.6} fill={fill} style={{ color, flexShrink: 0 }} />
       ))}
     </div>
   );
@@ -532,6 +483,8 @@ export function StarMeter({ value, size = 13 }: { value: number; size?: number }
 export function RatingBlock({ sku, initial }: { sku: string; initial: RatingAggregate }) {
   const [agg, setAgg] = useState<RatingAggregate>(initial);
   const [busy, setBusy] = useState(false);
+  // v8 StarRow (ExploreView.jsx:223-236) — hovering previews the fill ahead of the cursor.
+  const [hover, setHover] = useState(0);
   const avg = agg.rating_avg ?? 0;
   const mine = agg.my_rating ?? 0;
 
@@ -557,7 +510,8 @@ export function RatingBlock({ sku, initial }: { sku: string; initial: RatingAggr
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "stretch", gap: 14, padding: "16px 0 8px" }}>
+    /* v8 :355 — paddingTop 16 only; the body container carries the bottom rhythm. */
+    <div style={{ display: "flex", alignItems: "stretch", gap: 14, paddingTop: 16 }}>
       <div style={{ flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
           {/* v8 :358 — avg.toFixed(1) always, so an unrated entry reads "0.0", not a dash */}
@@ -577,13 +531,16 @@ export function RatingBlock({ sku, initial }: { sku: string; initial: RatingAggr
         <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink-mute)", marginBottom: 6 }}>
           {mine ? "Your rating" : "Rate this item"}
         </div>
-        <div style={{ display: "flex", gap: 4 }}>
+        {/* v8 StarRow (ExploreView.jsx:223-236) — gap 3, zero button padding, hover
+            fills ahead of the cursor, active fill+stroke grail-gold, idle slate-300. */}
+        <div style={{ display: "flex", gap: 3 }}>
           {[1, 2, 3, 4, 5].map((n) => (
             <button key={n} type="button" onClick={() => rate(n)} disabled={busy}
+              onMouseEnter={() => setHover(n)} onMouseLeave={() => setHover(0)}
               aria-label={`Rate ${n} star${n === 1 ? "" : "s"}`}
-              style={{ padding: 2, border: "none", background: "none", cursor: busy ? "wait" : "pointer", lineHeight: 0 }}>
-              <Star size={24} fill={n <= mine ? "var(--grail-gold)" : "none"}
-                style={{ color: n <= mine ? "var(--grail-gold-deep)" : "var(--bone-deep)" }} />
+              style={{ padding: 0, border: "none", background: "none", cursor: busy ? "wait" : "pointer", lineHeight: 0 }}>
+              <Star size={24} fill={(hover || mine) >= n ? "var(--grail-gold)" : "none"}
+                style={{ color: (hover || mine) >= n ? "var(--grail-gold)" : "var(--slate-300)" }} />
             </button>
           ))}
         </div>
@@ -780,12 +737,15 @@ export function CatalogueComments({ sku }: { sku: string }) {
   }
 
   return (
-    <div style={{ padding: "12px 0 4px" }}>
-      {/* v8 :373-376 — display-font "Comments" with a mono count beside it, no rule above */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 14 }}>
+    /* v8 :372-377 — the header sits OUTSIDE the thread block at the page gutter
+       (v8 '0 16px 2px'; ours 20px), and the thread block itself carries the
+       borderTop hairline + 14px top pad (Cards.jsx CommentThread :367). */
+    <div style={{ paddingTop: 4 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "0 20px 2px" }}>
         <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15.5, letterSpacing: "-0.015em", color: "var(--ink)" }}>Comments</div>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-faint)" }}>{comments.length}</span>
       </div>
+      <div style={{ borderTop: "1px solid var(--border)", padding: "14px 20px 16px" }}>
       {/* v8 CommentThread :369-391 — gap 16 between threads, replies indented 30 */}
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {parents.map((c) => (
@@ -828,6 +788,7 @@ export function CatalogueComments({ sku }: { sku: string }) {
           placeholder="Add a comment… type @ to tag"
         />
         <IconButton icon={<Send size={17} />} active={!!draft.trim()} onClick={() => send()} />
+      </div>
       </div>
     </div>
   );
@@ -873,7 +834,8 @@ export function ItemPageBody({
   return (
     <>
       <ItemPhotoCarousel images={images} tone={tone} label={photoLabel} countInLabel={photoCountInLabel} />
-      <div style={{ padding: "14px 20px 0" }}>
+      {/* v8 :169 — the body carries its own bottom rhythm (20); comments sit OUTSIDE it. */}
+      <div style={{ padding: "14px 20px 20px" }}>
         {tags && <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8, alignItems: "center" }}>{tags}</div>}
         <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 23, letterSpacing: "-0.025em", lineHeight: 1.15, margin: "0 0 4px" }}>
           {title}
@@ -897,8 +859,9 @@ export function ItemPageBody({
         {stats && <CommunityStatsRow {...stats} />}
         <AboutSection {...about} title={title} />
         {rating && <RatingBlock key={`rating-${rating.sku}`} sku={rating.sku} initial={rating.initial} />}
-        {sku && <CatalogueComments key={`comments-${sku}`} sku={sku} />}
       </div>
+      {/* v8 :372-377 — comments live OUTSIDE the padded body: gutter header + full-bleed rule */}
+      {sku && <CatalogueComments key={`comments-${sku}`} sku={sku} />}
     </>
   );
 }

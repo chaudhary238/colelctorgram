@@ -10,7 +10,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
-import { Avatar, Money, ProductPhoto } from "@/components/ui";
+import { Avatar, Money, ProductPhoto, toneVar } from "@/components/ui";
 import { ApiCommunity, ApiEvent, ApiListing } from "@/components/cards";
 import {
   RewardCard, EarnRow, type LbRow, type Standing, type EarnAction,
@@ -262,11 +262,9 @@ function CommunitiesWidget() {
   return (
     <Widget title="Communities for you" href="/community" linkLabel="Browse">
       {comms.map((c, i) => {
-        const tone = c.tone || "plum";
-        const toneVar = tone.startsWith("var(--") ? tone : `var(--${tone})`;
         return (
           <Link key={c.id} href={`/community/${c.id}`} className="flex items-center gap-2.5 py-[7px]" style={i > 0 ? rowDivider : undefined}>
-            <span style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 10, background: toneVar, color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15 }}>
+            <span style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 10, background: toneVar(c.tone || "plum"), color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15 }}>
               {c.name[0]?.toUpperCase()}
             </span>
             <span className="min-w-0">

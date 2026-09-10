@@ -29,6 +29,7 @@ const cityRegion = (c: CityRow) => (c.region ? `${c.region}, ${c.country}` : c.c
 
 export function CityField({
   value,
+  country = "",
   onChange,
   label,
   placeholder = "Start typing your city…",
@@ -36,6 +37,10 @@ export function CityField({
   height = 46,
 }: {
   value: string;
+  /** The picked city's country — when provided, the closed field displays
+      "City, Country" (v8 shared.jsx:342). Storage stays split: onChange still
+      reports city and country separately. */
+  country?: string;
   /** Reports city and country separately — callers that only store city can ignore the 2nd arg. */
   onChange: (city: string, country: string) => void;
   /** Optional built-in label; pages that render their own label row can omit it. */
@@ -90,9 +95,15 @@ export function CityField({
     setOpen(false);
   };
 
+  // v8 shared.jsx:342 — the closed field shows the pick as "City, Country".
+  const shown = value ? (country ? `${value}, ${country}` : value) : "";
+
+  // v8 shared.jsx:345,354 — at the 48px field spec the pin sits at left 14 and the
+  // input pads '0 40px'; the 46px events-form variant keeps its original metrics.
+  const v8Spec = height >= 48;
   const fieldStyle: React.CSSProperties = {
-    display: "block", width: "100%", boxSizing: "border-box", height, padding: "0 40px 0 38px",
-    borderRadius: height >= 48 ? 12 : 11, border: `1px solid ${missing ? "var(--stamp-red)" : "var(--border-strong)"}`,
+    display: "block", width: "100%", boxSizing: "border-box", height, padding: v8Spec ? "0 40px" : "0 40px 0 38px",
+    borderRadius: v8Spec ? 12 : 11, border: `1px solid ${missing ? "var(--stamp-red)" : "var(--border-strong)"}`,
     background: "var(--paper-soft)",
     fontFamily: "var(--font-body)", fontSize: 15, color: "var(--ink)", outline: "none",
   };
@@ -103,9 +114,9 @@ export function CityField({
         <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--ink-mute)", letterSpacing: "0.02em", marginBottom: 7 }}>{label}</span>
       )}
       <div style={{ position: "relative" }}>
-        <MapPin size={16} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "var(--ink-faint)", pointerEvents: "none" }} />
+        <MapPin size={16} style={{ position: "absolute", left: v8Spec ? 14 : 13, top: "50%", transform: "translateY(-50%)", color: "var(--ink-faint)", pointerEvents: "none" }} />
         <input
-          value={open ? q : value}
+          value={open ? q : shown}
           onFocus={() => { setQ(""); setOpen(true); setHi(0); }}
           onChange={(e) => { setQ(e.target.value); setOpen(true); setHi(0); }}
           onKeyDown={(e) => {
@@ -115,7 +126,7 @@ export function CityField({
             else if (e.key === "Enter") { e.preventDefault(); if (matches[hi]) pick(matches[hi]); }
             else if (e.key === "Escape") setOpen(false);
           }}
-          placeholder={value || placeholder}
+          placeholder={shown || placeholder}
           style={fieldStyle}
         />
         {value && !open && (

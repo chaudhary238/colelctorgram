@@ -4,17 +4,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
-  ArrowLeft, ArrowLeftRight, Check, Clock, Flag, Lock, Pencil, PlusCircle, Send, SlidersHorizontal, Star, Tag, Trash2, X,
+  ArrowLeft, ArrowLeftRight, Check, Clock, Flag, Gift, Lock, MoreHorizontal, Pencil, PlusCircle, Search, Send, SlidersHorizontal, Star, Tag as TagIcon, Trash2, X,
 } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { ReportCatalogueSheet } from "@/components/ReportCatalogueSheet";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
-import { SectionLabel } from "@/components/ui";
+import { SectionLabel, Tag } from "@/components/ui";
 import { ReleaseWindowPicker } from "@/components/forms";
 import { fireToast, fireXpToast } from "@/components/gamification";
 import {
-  ItemPageBody, ItemTag, OwnershipCard, type RatingAggregate,
+  ItemPageBody, OwnershipCard, type RatingAggregate,
 } from "@/components/ItemPageBody";
 import { buildPoEta, formatMoney, type PoPrecision } from "@/lib/catalog";
 
@@ -92,14 +92,22 @@ interface CatEntry {
   viewer_item: { id: string; status: string } | null;
 }
 
-// DV4-04: remove-from-collection reasons (design_v4 ItemDetail "Remove from collection?" sheet).
-const REMOVE_REASONS: { id: string; label: string }[] = [
-  { id: "sold", label: "Sold offline" },
-  { id: "traded", label: "Traded offline" },
-  { id: "lost", label: "Lost" },
-  { id: "broken", label: "Broken or damaged" },
-  { id: "gifted", label: "Gifted to someone" },
-  { id: "other", label: "Other reason" },
+// v8 ItemDetail :420-431 — the remove sheet's reason sets. Owned ids stay the
+// backend's logged vocabulary (items.py REMOVE_REASONS); the pre-order variant's
+// ids follow v8 (the reason is optional log data either way).
+const REMOVE_REASONS: { id: string; label: string; icon: React.ReactNode }[] = [
+  { id: "sold", label: "Sold offline", icon: <TagIcon size={16} /> },
+  { id: "traded", label: "Traded offline", icon: <ArrowLeftRight size={16} /> },
+  { id: "lost", label: "Lost", icon: <Search size={16} /> },
+  { id: "broken", label: "Broken or damaged", icon: <X size={16} /> },
+  { id: "gifted", label: "Gifted to someone", icon: <Gift size={16} /> },
+  { id: "other", label: "Other reason", icon: <MoreHorizontal size={16} /> },
+];
+const PO_REMOVE_REASONS: { id: string; label: string; icon: React.ReactNode }[] = [
+  { id: "po-cancelled", label: "Pre-order cancelled", icon: <X size={16} /> },
+  { id: "po-refunded", label: "Refunded by the seller", icon: <ArrowLeftRight size={16} /> },
+  { id: "po-transfer", label: "Slot transferred to someone", icon: <TagIcon size={16} /> },
+  { id: "other", label: "Other reason", icon: <MoreHorizontal size={16} /> },
 ];
 
 // v8 shared.jsx STATUS_LABEL vocabulary — "Owned", never "In collection".
@@ -112,35 +120,57 @@ const STATUS_LABEL: Record<string, string> = {
 
 const TONES = ["teal", "plum", "forest", "gold", "red", "ink"];
 
-// DV4-04: "Remove from collection?" reason sheet.
+// v8 ItemDetail :411-465 — "Remove from collection?" / "Cancel this pre-order?"
+// reason sheet: 34px icon boxes, selected = bone row + solid red icon box +
+// trailing check; the red confirm sits at 0.45 opacity until a reason is picked.
 
-function RemoveSheet({ reason, setReason, onConfirm, onClose, removing }: {
-  reason: string; setReason: (r: string) => void; onConfirm: () => void; onClose: () => void; removing: boolean;
+function RemoveSheet({ isPreorder, reason, setReason, onConfirm, onClose, removing }: {
+  isPreorder: boolean; reason: string; setReason: (r: string) => void; onConfirm: () => void; onClose: () => void; removing: boolean;
 }) {
+  const reasons = isPreorder ? PO_REMOVE_REASONS : REMOVE_REASONS;
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-4)] p-5">
-        <h2 className="font-bold text-base text-[var(--ink)] mb-1" style={{ fontFamily: "var(--font-display)" }}>Remove from collection?</h2>
-        <p className="text-xs text-[var(--ink-faint)] mb-4">Tell us why — it helps keep collection value and trade signals accurate.</p>
-        <div className="space-y-2">
-          {REMOVE_REASONS.map((r) => (
-            <button key={r.id} onClick={() => setReason(r.id)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 text-left transition-colors"
-              style={{ borderColor: reason === r.id ? "var(--stamp-red)" : "var(--border)", background: reason === r.id ? "var(--stamp-red-soft)" : "var(--surface)" }}>
-              <span className="w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center"
-                style={{ borderColor: reason === r.id ? "var(--stamp-red)" : "var(--border-strong)", background: reason === r.id ? "var(--stamp-red)" : "transparent" }}>
-                {reason === r.id && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-              </span>
-              <span className="text-sm font-medium text-[var(--ink)]">{r.label}</span>
-            </button>
-          ))}
+      <div className="relative z-10 w-full max-w-sm bg-[var(--paper)] rounded-t-[20px] sm:rounded-2xl shadow-[var(--shadow-4)]" style={{ padding: "8px 0 36px" }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 18px" }} />
+        <div style={{ padding: "0 20px 16px", textAlign: "center" }}>
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, letterSpacing: "-0.02em", color: "var(--ink)" }}>
+            {isPreorder ? "Cancel this pre-order?" : "Remove from collection?"}
+          </div>
+          <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 4 }}>
+            {isPreorder ? "What happened? It leaves your pre-order calendar either way." : "Tell us why — this helps keep your collection accurate."}
+          </div>
         </div>
-        <div className="flex gap-2 mt-5">
-          <button onClick={onClose} className="flex-1 h-11 rounded-xl border border-[var(--border-strong)] text-[var(--ink)] font-semibold text-sm">Cancel</button>
-          <button onClick={onConfirm} disabled={!reason || removing}
-            className="flex-1 h-11 rounded-xl bg-[var(--stamp-red)] text-white font-semibold text-sm disabled:opacity-50">
-            {removing ? "Removing…" : "Remove"}
+        {reasons.map((r) => (
+          <button key={r.id} type="button" onClick={() => setReason(r.id)} style={{
+            width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "13px 20px",
+            background: reason === r.id ? "var(--bone)" : "none", border: "none",
+            borderBottom: "1px solid var(--border)", cursor: "pointer", textAlign: "left",
+          }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 10, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+              background: reason === r.id ? "var(--stamp-red)" : "var(--paper-soft)",
+              color: reason === r.id ? "var(--paper)" : "var(--ink-mute)",
+            }}>
+              {r.icon}
+            </div>
+            <span style={{ fontFamily: "var(--font-body)", fontSize: 14.5, fontWeight: reason === r.id ? 600 : 400, color: "var(--ink)" }}>{r.label}</span>
+            {reason === r.id && <Check size={16} style={{ marginLeft: "auto", color: "var(--stamp-red)", flexShrink: 0 }} />}
+          </button>
+        ))}
+        <div style={{ padding: "16px 20px 0" }}>
+          <button type="button" onClick={() => { if (reason && !removing) onConfirm(); }} style={{
+            width: "100%", height: 46, borderRadius: 12, border: "none", background: "var(--stamp-red)", color: "var(--paper)",
+            fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14.5,
+            cursor: reason && !removing ? "pointer" : "default", opacity: reason && !removing ? 1 : 0.45,
+          }}>
+            {removing ? "Removing…" : isPreorder ? "Cancel pre-order" : "Remove item"}
+          </button>
+          <button type="button" onClick={onClose} style={{
+            width: "100%", height: 46, marginTop: 8, borderRadius: 12, border: "1px solid var(--border-strong)",
+            background: "var(--bone)", color: "var(--ink)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14.5, cursor: "pointer",
+          }}>
+            Cancel
           </button>
         </div>
       </div>
@@ -265,8 +295,9 @@ function MarkSoldSheet({ isListed, busy, onConfirm, onClose }: {
           style={{ width: "100%", height: 46, marginTop: 18, borderRadius: 12, border: "none", background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14.5, cursor: busy ? "wait" : "pointer", opacity: busy ? 0.6 : 1 }}>
           {busy ? "Marking…" : "Mark as sold"}
         </button>
+        {/* v8 Button secondary (shared.jsx :557) — bone ground. */}
         <button onClick={onClose} disabled={busy}
-          style={{ width: "100%", height: 46, marginTop: 8, borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper)", color: "var(--ink)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14.5, cursor: "pointer" }}>
+          style={{ width: "100%", height: 46, marginTop: 8, borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--bone)", color: "var(--ink)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14.5, cursor: "pointer" }}>
           Cancel
         </button>
       </div>
@@ -282,7 +313,10 @@ export default function ItemDetailPage() {
   const [cat, setCat] = useState<CatEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
-  const [added, setAdded] = useState(false);
+  // v8 :68-79 — the visitor's own fresh copy after "I own this too" flips the CTA
+  // to the reactive secondary "In your collection" state (also covers skuless items
+  // where there is no catalogue record to hang viewer_item on).
+  const [myCopy, setMyCopy] = useState<{ id: string; status: string } | null>(null);
   // remove-from-collection sheet (DV4-04)
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeReason, setRemoveReason] = useState("");
@@ -319,7 +353,8 @@ export default function ItemDetailPage() {
     try {
       await api.post(`/items/${item.id}/sold`, priceRupees != null && priceRupees > 0 ? { price: priceRupees * 100 } : {});
       setSoldOpen(false);
-      fireToast("Marked as sold — greyed out in your collection, undo any time");
+      // v8 :403 — two-line toast: title + what changed.
+      fireToast("Marked as sold", "Greyed out in your collection — undo any time");
       const fresh = await api.get<ApiItem>(`/items/${item.id}`);
       setItem(fresh);
     } catch (e) {
@@ -336,7 +371,8 @@ export default function ItemDetailPage() {
     try {
       await api.delete(`/items/${item.id}/sold`);
       setManageOpen(false);
-      fireToast("Back on your shelf as owned");
+      // v8 :111 copy.
+      fireToast("Back in your collection");
       const fresh = await api.get<ApiItem>(`/items/${item.id}`);
       setItem(fresh);
     } catch (e) {
@@ -352,7 +388,11 @@ export default function ItemDetailPage() {
     try {
       const qs = removeReason ? `?reason=${encodeURIComponent(removeReason)}` : "";
       await api.delete(`/items/${item.id}${qs}`);
-      router.push("/profile");
+      // v8 :455-456 — toast, then POP back to wherever the item was opened from
+      // (never a hard /profile jump); /profile only as the cold-entry fallback.
+      fireToast(item.status === "preorder" ? "Pre-order cancelled" : "Removed from your collection");
+      if (window.history.length > 1) router.back();
+      else router.push("/profile");
     } catch (e) {
       console.error(e);
       setRemoving(false);
@@ -373,28 +413,51 @@ export default function ItemDetailPage() {
     router.push(`/chat/${thread.id}${qs}`);
   }
 
+  // v8 :75-78 — the visitor CTA QUICK-adds (+5 XP now, +20 when finished later);
+  // the wishlist-conversion + duplicate guard live server-side behind quick:true.
+  // Same staged toast pattern as the /db grid (db/page.tsx quickAdd).
   async function addToCollection() {
-    if (adding || added || !item) return;
+    if (adding || !item) return;
     setAdding(true);
     try {
-      await api.post("/items", item.sku ? { sku: item.sku } : { custom_title: item.custom_title });
-      setAdded(true);
+      const res = await api.post<{ id: string; add_xp?: number; complete_xp?: number }>(
+        "/items",
+        item.sku ? { sku: item.sku, quick: true, status: "owned" } : { custom_title: item.custom_title, status: "owned" },
+      );
+      if (res.add_xp && res.add_xp > 0) fireXpToast(res.add_xp, "Added to collection");
+      else fireToast("Added to collection");
+      // Quick adds land without condition & price — teach the +20 XP finish, staggered
+      // so the two toasts don't overlap (they share the same fixed slot).
+      if (!(res.complete_xp && res.complete_xp > 0)) {
+        setTimeout(() => fireToast("+20 XP when you add condition & price"), 2500);
+      }
+      // Flip the local state in place — the CTA re-renders as "In your collection".
+      setMyCopy({ id: res.id, status: "owned" });
+      setCat((c) => (c ? { ...c, viewer_item: { id: res.id, status: "owned" } } : c));
     } catch (e) {
-      console.error(e);
+      const msg = e instanceof Error ? e.message : "";
+      fireToast(msg.includes("Already") ? "Already in your collection" : msg || "Could not add this item");
     } finally {
       setAdding(false);
     }
   }
 
-  // DV8-07 — "Change to pre-order" / "It arrived — mark as owned". The server clears
-  // the pre-order fields on the preorder → owned flip.
+  // DV8-07 — "Change to pre-order" / "It arrived — mark as owned" / wish-intel
+  // conversion. The server clears the pre-order fields on the preorder → owned flip.
   async function setStatus(status: "owned" | "preorder") {
     if (!item || statusBusy) return;
     setStatusBusy(true);
+    // v8 splits the owned-flip copy: a pre-order ARRIVING (:113) vs a wish/intel
+    // row CONVERTING (:87) — the old code toasted the arrived line for both.
+    const arrived = status === "owned" && item.status === "preorder";
     try {
       const out = await api.patch<ApiItem>(`/items/${item.id}`, { status });
       if ((out.complete_xp ?? 0) > 0) fireXpToast(out.complete_xp as number, "Item complete");
-      fireToast(status === "owned" ? "It’s yours — moved to Owned" : "Moved to pre-orders");
+      if (status === "preorder") fireToast("Moved to pre-orders");
+      else if (arrived) fireToast("It’s yours — moved to Owned", "Check the condition and what you paid");
+      // Conversion: the PATCH grants no add XP (server truth — no invented "+5"),
+      // and the finish teaching sub only while the copy is actually incomplete.
+      else fireToast("Moved to your collection", out.is_complete ? undefined : "+20 XP when you add condition & price");
       // Refetch: the PATCH response lacks the owner/catalogue enrichment GET adds.
       const fresh = await api.get<ApiItem>(`/items/${item.id}`);
       setItem(fresh);
@@ -550,18 +613,15 @@ export default function ItemDetailPage() {
             /* v8 :170-174 — tags describe YOUR copy only (status + Listed); a visitor
                sees a clean title. */
             isOwnItem ? (
-              isSold ? (
-                /* v8 sold — the forest Sold tag REPLACES Owned/Listed: the copy's one
-                   state is "sold", nothing else about it is live. */
-                <ItemTag kind="sold">Sold</ItemTag>
-              ) : (
-                <>
-                  <ItemTag kind={isPreorder ? "po" : (isWish || isIntel) ? "teal" : "default"}>
-                    {STATUS_LABEL[item.status] ?? item.status}
-                  </ItemTag>
-                  {item.is_listed && isOwned && <ItemTag kind="sale">Listed</ItemTag>}
-                </>
-              )
+              /* v8 :171-173 — sold STACKS the forest Sold tag beside the status tag;
+                 only the "Listed" tag is suppressed (nothing is on the market). */
+              <>
+                <Tag kind={isPreorder ? "po" : (isWish || isIntel) ? "teal" : "default"}>
+                  {STATUS_LABEL[item.status] ?? item.status}
+                </Tag>
+                {isSold && <Tag kind="sold">Sold</Tag>}
+                {item.is_listed && isOwned && !isSold && <Tag kind="sale">Listed</Tag>}
+              </>
             ) : undefined
           }
           title={title}
@@ -575,9 +635,11 @@ export default function ItemDetailPage() {
                 }
               : null
           }
-          // v8 :200 — Est. value shows unless the copy is a wish or your card already
-          // carries a private price (a visitor's payload has value nulled by the API).
-          estValue={!isWish && !(isOwnItem && item.value) ? cat?.est_retail_price ?? null : null}
+          // v8 :200/:45 — "isWish" is the INTEL status: a DB-contribution row hides the
+          // Est. value (the teal attribution pill covers it); a wishlist-status row
+          // SHOWS it. Suppressed too when your card already carries a private price
+          // (a visitor's payload has value nulled by the API). Mirrors /db/[sku].
+          estValue={!isIntel && !(isOwnItem && item.value) ? cat?.est_retail_price ?? null : null}
           ownershipCard={
             showCard ? (
               <OwnershipCard
@@ -639,12 +701,13 @@ export default function ItemDetailPage() {
                about it is urgent any more, but its record still opens the sheet. */
             <button onClick={() => setManageOpen(true)} style={{
               width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13,
-              background: isSold ? "var(--paper)" : "var(--stamp-red)",
+              /* v8 :81 — sold drops to the SECONDARY treatment: bone ground (shared.jsx :557). */
+              background: isSold ? "var(--bone)" : "var(--stamp-red)",
               color: isSold ? "var(--ink)" : "var(--paper)",
               border: isSold ? "1px solid var(--border-strong)" : "none",
               fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: "pointer",
             }}>
-              <SlidersHorizontal size={17} />
+              <SlidersHorizontal size={18} />
               {isSold ? "Manage — sold" : isPreorder ? "Manage pre-order" : item.is_listed ? "Manage — listed" : "Manage this item"}
             </button>
           ) : (
@@ -655,16 +718,21 @@ export default function ItemDetailPage() {
           )
         ) : (
           <div style={{ display: "flex", gap: 10 }}>
-            {cat?.viewer_item && (cat.viewer_item.status === "owned" || cat.viewer_item.status === "preorder") ? (
-              /* v8 :70-73 — you already hold this sku yourself; don't offer to add it twice. */
-              <Link href={`/item/${cat.viewer_item.id}`} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--bone)", border: "1px solid var(--border-strong)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, color: "var(--ink)", textDecoration: "none" }}>
-                <Check size={17} /> In your collection
-              </Link>
-            ) : (
-              <button onClick={addToCollection} disabled={adding || added} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: added ? "var(--bone)" : "var(--ink)", color: added ? "var(--ink)" : "var(--paper)", border: added ? "1px solid var(--border-strong)" : "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: adding || added ? "default" : "pointer" }}>
-                {added ? "Added to collection ✓" : adding ? "Adding…" : "I own this too"}
-              </button>
-            )}
+            {(() => {
+              const viewerCopy = myCopy ?? cat?.viewer_item;
+              return viewerCopy && (viewerCopy.status === "owned" || viewerCopy.status === "preorder") ? (
+                /* v8 :70-73 — you already hold this sku yourself; don't offer to add it
+                   twice. The secondary state deep-links to YOUR copy's page. */
+                <Link href={`/item/${viewerCopy.id}`} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--bone)", border: "1px solid var(--border-strong)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, color: "var(--ink)", textDecoration: "none" }}>
+                  <Check size={18} /> In your collection
+                </Link>
+              ) : (
+                /* v8 :75-78 — dark quick-add with the plus-circle glyph. */
+                <button onClick={addToCollection} disabled={adding} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 13, background: "var(--ink)", color: "var(--paper)", border: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, cursor: adding ? "wait" : "pointer" }}>
+                  <PlusCircle size={18} /> {adding ? "Adding…" : "I own this too"}
+                </button>
+              );
+            })()}
             {/* Star = wishlist (icon law 2026-07-11); v8 :92-98 active = soft red tint, red star */}
             <button
               type="button"
@@ -710,14 +778,14 @@ export default function ItemDetailPage() {
         }
         if (canRelist) {
           rows.push({
-            icon: <Tag size={16} />, label: "Relist for sale",
+            icon: <TagIcon size={16} />, label: "Relist for sale",
             desc: `Back on the market at ${formatMoney(item.closed_listing_price ?? 0, item.closed_listing_currency ?? "INR")}`,
             onClick: relist,
           });
         }
         if (isOwned && !isSold && !item.is_listed && !canRelist) {
           rows.push({
-            icon: <Tag size={16} />, label: "List for sale",
+            icon: <TagIcon size={16} />, label: "List for sale",
             desc: "Set a price and put it on the market",
             // v8 :266 forSale:true — the sell form arrives with the toggle pre-ON.
             onClick: () => { setManageOpen(false); router.push(`/item/${item.id}/sell?list=1`); },
@@ -778,10 +846,13 @@ export default function ItemDetailPage() {
         return (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setManageOpen(false)} />
-            <div className="relative z-10 w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-4)] pb-4">
+            {/* v8 :138 — the 11-row sheet scrolls inside itself on short viewports:
+                maxHeight 86%, r20 top corners, 8/0/34 padding. */}
+            <div className="relative z-10 w-full max-w-sm bg-[var(--paper)] rounded-t-[20px] sm:rounded-2xl shadow-[var(--shadow-4)]"
+              style={{ maxHeight: "86%", overflowY: "auto", padding: "8px 0 34px" }}>
               {/* v8 :139 — the sheet's 36×4 drag handle */}
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 0" }} />
-              <div style={{ padding: "10px 20px 12px" }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 16px" }} />
+              <div style={{ padding: "0 20px 12px" }}>
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17 }}>Manage this item</div>
                 <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {isSold ? "Sold" : isPreorder ? "On pre-order" : item.is_listed ? "Owned · listed for sale" : "Owned"} · {title}
@@ -807,7 +878,7 @@ export default function ItemDetailPage() {
       })()}
 
       {removeOpen && (
-        <RemoveSheet reason={removeReason} setReason={setRemoveReason} onConfirm={removeItem} onClose={() => setRemoveOpen(false)} removing={removing} />
+        <RemoveSheet isPreorder={isPreorder} reason={removeReason} setReason={setRemoveReason} onConfirm={removeItem} onClose={() => setRemoveOpen(false)} removing={removing} />
       )}
       {soldOpen && isOwnItem && (
         <MarkSoldSheet isListed={item.is_listed} busy={soldBusy} onConfirm={markSold} onClose={() => setSoldOpen(false)} />
