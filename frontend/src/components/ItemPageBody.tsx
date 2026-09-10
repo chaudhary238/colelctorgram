@@ -53,8 +53,10 @@ export function ItemPhotoCarousel({ images, tone, label, countInLabel = false }:
   return (
     <>
       <div style={{ position: "relative", aspectRatio: "1/1", overflow: "hidden", background: "var(--bone)" }}>
+        {/* contain, not cover — the frame stays 1:1 for layout but the photo
+            must never crop; off-ratio uploads letterbox on the bone ground. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={images[Math.min(photo, images.length - 1)]} alt={label ?? "Item photo"} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        <img src={images[Math.min(photo, images.length - 1)]} alt={label ?? "Item photo"} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
         {/* Same corner label ProductPhoto stamps on tone renders (ui.tsx :461), with a
             faint shadow so it survives light photos. */}
         {label && (

@@ -394,6 +394,7 @@ export function ProductPhoto({
   label,
   ratio = "4/3",
   rounded = 10,
+  fit = "cover",
   style,
   children,
 }: {
@@ -402,6 +403,9 @@ export function ProductPhoto({
   label?: string;
   ratio?: string;
   rounded?: number;
+  /** "cover" (default) for uniform grid tiles; "contain" on detail heroes,
+      where cropping the upload would hide part of the photo. */
+  fit?: "cover" | "contain";
   style?: React.CSSProperties;
   children?: React.ReactNode;
 }) {
@@ -419,7 +423,7 @@ export function ProductPhoto({
     >
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={label || ""} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+        <img src={src} alt={label || ""} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: fit }} />
       ) : (
         <>
           <div

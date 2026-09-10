@@ -904,14 +904,12 @@ export function PollBlock({
   );
 }
 
-/* ── Post image gallery — 1 full, 2 side-by-side, 3+ grid (first big) */
-function PostImg({ src, ratio, style }: { src: string; ratio?: string; style?: React.CSSProperties }) {
-  const pb = ratio === "1/1" ? "100%" : ratio === "auto" ? "100%" : "66.67%";
+/* ── Post image gallery — natural aspect ratio, never cropped. Tall images
+   clamp to 560px and letterbox on bone so one 9:16 shot can't own the feed. */
+function PostImg({ src, style }: { src: string; style?: React.CSSProperties }) {
   return (
-    <div style={{ position: "relative", paddingBottom: pb, overflow: "hidden", ...style }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt="" style={{ display: "block", width: "100%", height: "auto", maxHeight: 560, objectFit: "contain", background: "var(--bone)", ...style }} />
   );
 }
 export function PostImages({ images }: { images: string[] }) {
@@ -919,7 +917,7 @@ export function PostImages({ images }: { images: string[] }) {
   if (n === 1) {
     return (
       <div style={{ borderRadius: 12, overflow: "hidden" }}>
-        <PostImg src={images[0]} ratio="3/2" />
+        <PostImg src={images[0]} />
       </div>
     );
   }
@@ -951,8 +949,10 @@ function PostCarousel({ images }: { images: string[] }) {
         style={{ display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
       >
         {images.map((src, i) => (
-          <div key={i} style={{ flex: "0 0 100%", scrollSnapAlign: "center" }}>
-            <PostImg src={src} ratio="3/2" />
+          // Mixed-ratio slides: the scroller is as tall as the tallest photo;
+          // shorter ones centre on bone instead of cropping to a shared ratio.
+          <div key={i} style={{ flex: "0 0 100%", scrollSnapAlign: "center", display: "flex", alignItems: "center", background: "var(--bone)" }}>
+            <PostImg src={src} />
           </div>
         ))}
       </div>

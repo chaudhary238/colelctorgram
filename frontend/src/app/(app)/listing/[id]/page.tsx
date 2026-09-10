@@ -381,7 +381,7 @@ export default function ListingDetailPage() {
             </button>
           </div>
         </div>
-        <ProductPhoto tone="ink" src={gallery[photo]} ratio="1/1" rounded={0} label={gallery.length ? `${photo + 1} of ${gallery.length}` : undefined}>
+        <ProductPhoto tone="ink" src={gallery[photo]} ratio="1/1" rounded={0} fit="contain" label={gallery.length ? `${photo + 1} of ${gallery.length}` : undefined}>
           {!available && (
             /* v8:160 — Tag kind="sold" (forest/paper) for EVERY non-available status,
                label via statusLabel ("Sold" / "Closed"), fontSize 12, 5x10 padding. */
