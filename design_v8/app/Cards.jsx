@@ -4,8 +4,8 @@
 
 // Small author line: avatar + name + single feed badge + handle + time (+ in-feed follow)
 // per-type ribbon tag — top-right corner, paired with a matching card border
-function TypeRibbon({ label, bg, fg = '#fff' }) {
-  return <span style={{ position: 'absolute', top: 14, right: 16, fontSize: 10.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999, letterSpacing: '0.02em', background: bg, color: fg, zIndex: 1 }}>{label}</span>;
+function TypeRibbon({ label, fg }) {
+  return <span style={{ position: 'absolute', top: 14, right: 16, fontSize: 8.5, fontWeight: 800, letterSpacing: '0.06em', padding: '2px 6px', borderRadius: 2, border: `1px solid ${fg}`, color: fg, transform: 'rotate(-8deg)', zIndex: 1 }}>{label}</span>;
 }
 
 function AuthorLine({ handle, time, community, onOpen, showFollow, reserveRight = 0 }) {
@@ -24,7 +24,7 @@ function AuthorLine({ handle, time, community, onOpen, showFollow, reserveRight 
         <Avatar name={u.name} color={u.color} size={38} verified={u.tier === 'Top Seller' || u.tier === 'Trusted'}/>
       </button>
       <div style={{ flex: 1, minWidth: 0, paddingRight: reserveRight }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'nowrap', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', rowGap: 4 }}>
           <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 1, minWidth: 0 }}>{u.name}</span>
           {comRole && <RoleBadge role={comRole}/>}
           {/* Single feed badge — priority: First Start > Monthly > Rank */}
@@ -73,13 +73,13 @@ function PostCard({ post, showFollow = false, canModerate = false, onRemove }) {
   const isReview = post.type === 'review';
   return (
     <div
-      style={{ background: 'var(--card-surface)', borderRadius: 20, margin: '0 14px 12px', boxShadow: 'var(--card-shadow)', border: `1.5px solid ${isReview ? 'var(--grail-gold)' : 'var(--border)'}`, position: 'relative', transition: 'transform 200ms cubic-bezier(0.22,1,0.36,1), box-shadow 200ms' }}
+      style={{ background: 'var(--card-surface)', borderRadius: 20, margin: '0 14px 12px', boxShadow: 'var(--card-shadow)', border: 'none', position: 'relative', transition: 'transform 200ms cubic-bezier(0.22,1,0.36,1), box-shadow 200ms' }}
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = 'var(--card-shadow-lifted)'; }}
       onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'var(--card-shadow)'; }}>
-      {isReview && <TypeRibbon label="★ Review" bg="var(--grail-gold)"/>}
+      {isReview && <TypeRibbon label="REVIEW" fg="var(--grail-gold-deep)"/>}
       <div style={{ padding: '16px 18px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <AuthorLine handle={post.user} time={post.time} community={post.community} onOpen={openUser} showFollow={showFollow} reserveRight={isReview ? 72 : 0}/>
+          <AuthorLine handle={post.user} time={post.time} community={post.community} onOpen={openUser} showFollow={showFollow} reserveRight={isReview ? 52 : 0}/>
         </div>
         <div onClick={open} style={{ cursor: 'pointer', marginTop: 11 }}>
           {post.type === 'review' && post.rating && (
@@ -433,8 +433,8 @@ function AdminCard({ post }) {
   const { interested, toggleInterested } = useAppState();
   const item = post.sku ? catOf(post.sku) : null;
   return (
-    <div style={{ background: 'var(--card-surface)', borderRadius: 20, margin: '0 14px 12px', padding: '16px 18px', boxShadow: 'var(--card-shadow)', border: '1.5px solid var(--stamp-red)', position: 'relative' }}>
-      <TypeRibbon label="Release" bg="var(--stamp-red)"/>
+    <div style={{ background: 'var(--card-surface)', borderRadius: 20, margin: '0 14px 12px', padding: '16px 18px', boxShadow: 'var(--card-shadow)', border: 'none', position: 'relative' }}>
+      <TypeRibbon label="RELEASE" fg="var(--stamp-red)"/>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <SealMark size={30}/>
         <div style={{ flex: 1 }}>
@@ -474,8 +474,8 @@ function ListingFeedCard({ id }) {
   if (!c) return null;
   const seller = userOf(l.seller);
   return (
-    <div style={{ background: 'var(--card-surface)', borderRadius: 20, margin: '0 14px 12px', padding: '16px 18px', boxShadow: 'var(--card-shadow)', border: '1.5px solid var(--verified-teal)', position: 'relative' }}>
-      <TypeRibbon label="For sale" bg="var(--verified-teal)"/>
+    <div style={{ background: 'var(--card-surface)', borderRadius: 20, margin: '0 14px 12px', padding: '16px 18px', boxShadow: 'var(--card-shadow)', border: 'none', position: 'relative' }}>
+      <TypeRibbon label="FOR SALE" fg="var(--verified-teal)"/>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <Avatar name={seller.name} color={seller.color} size={34}/>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -756,10 +756,10 @@ function ISOCard({ post }) {
 
   return (
     <div
-      style={{ background: 'var(--card-surface)', borderRadius: 20, margin: '0 14px 12px', boxShadow: 'var(--card-shadow)', border: '1.5px solid var(--plum)', position: 'relative', transition: 'transform 200ms cubic-bezier(0.22,1,0.36,1), box-shadow 200ms' }}
+      style={{ background: 'var(--card-surface)', borderRadius: 20, margin: '0 14px 12px', boxShadow: 'var(--card-shadow)', border: 'none', position: 'relative', transition: 'transform 200ms cubic-bezier(0.22,1,0.36,1), box-shadow 200ms' }}
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = 'var(--card-shadow-lifted)'; }}
       onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'var(--card-shadow)'; }}>
-      <TypeRibbon label="Wanted" bg="var(--verified-teal)"/>
+      <TypeRibbon label="WANTED" fg="var(--verified-teal)"/>
       <div style={{ padding: '16px 18px 0' }}>
         <AuthorLine handle={post.user} time={post.time} community={post.community}
           onOpen={() => push({ name: 'profile', user: post.user })}/>
@@ -855,8 +855,8 @@ function SharedListingCard({ post }) {
   const baseComments = COMMENTS[post.id] || [];
   const commentCount = baseComments.length || post.comments || 0;
   return (
-    <div style={{ background: 'var(--card-surface)', borderRadius: 20, margin: '0 14px 12px', padding: '16px 18px 4px', boxShadow: 'var(--card-shadow)', border: '1.5px solid var(--verified-teal)', position: 'relative' }}>
-      <TypeRibbon label="For sale" bg="var(--verified-teal)"/>
+    <div style={{ background: 'var(--card-surface)', borderRadius: 20, margin: '0 14px 12px', padding: '16px 18px 4px', boxShadow: 'var(--card-shadow)', border: 'none', position: 'relative' }}>
+      <TypeRibbon label="FOR SALE" fg="var(--verified-teal)"/>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}><AuthorLine handle={post.user} time={post.time} community={post.community} onOpen={() => push({ name: 'profile', user: post.user })}/></div>
       </div>

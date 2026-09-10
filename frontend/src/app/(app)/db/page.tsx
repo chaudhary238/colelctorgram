@@ -323,7 +323,9 @@ export default function DatabasePage() {
   // 2026-09-06); pre-order tracking starts from Create → Add item.
   async function quickAdd(it: DbItem) {
     if (OWNS(it.viewer_status)) {
-      fireToast("Already in your collection");
+      // v8 ExploreView :119 — once owned the check OPENS the item instead of
+      // offering to add it again (/db/{sku} hands off to your copy's page).
+      router.push(`/db/${encodeURIComponent(it.sku)}`);
       return;
     }
     const prev = it.viewer_status;
@@ -682,7 +684,8 @@ function DbTile({ item, onWishlist, onQuickAdd }: { item: DbItem; onWishlist: ()
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >
-          {owned ? <SealMark size={17} /> : <PlusCircle size={17} strokeWidth={2} />}
+          {/* v8 ExploreView :126 — owned reads as a bold CHECK (18/3), not the seal */}
+          {owned ? <Check size={18} strokeWidth={3} /> : <PlusCircle size={17} strokeWidth={2} />}
         </button>
       </div>
 

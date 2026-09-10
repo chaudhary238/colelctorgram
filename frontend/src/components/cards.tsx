@@ -263,16 +263,15 @@ function liftOff(e: React.MouseEvent<HTMLElement>) {
 }
 
 /* ── Per-type ribbon (v8 post-type differentiation) ──────────────────
-   Absolute top-right pill, always paired with a matching 1.5px card border:
-   Review = grail-gold border + "★ Review" gold ribbon · ISO = plum border +
-   "Wanted" teal ribbon · listing share = teal border + "For sale" teal ribbon.
-   Plain post/showcase/poll/discussion cards keep the neutral border, no ribbon. */
-function TypeRibbon({ label, bg, fg = "#fff" }: { label: string; bg: string; fg?: string }) {
+   v8 Aug-25 update: an OUTLINED rotated stamp (8.5px/800, r2, -8deg) in the type
+   colour — REVIEW gold-deep · WANTED teal · FOR SALE teal — on borderless
+   shadow-only cards. Plain post/showcase/poll/discussion cards get no stamp. */
+function TypeRibbon({ label, fg }: { label: string; fg: string }) {
   return (
     <span style={{
-      position: "absolute", top: 14, right: 16, fontSize: 10.5, fontWeight: 700,
-      padding: "4px 10px", borderRadius: 999, letterSpacing: "0.02em",
-      background: bg, color: fg, zIndex: 1,
+      position: "absolute", top: 14, right: 16, fontSize: 8.5, fontWeight: 800,
+      letterSpacing: "0.06em", padding: "2px 6px", borderRadius: 2,
+      border: `1px solid ${fg}`, color: fg, transform: "rotate(-8deg)", zIndex: 1,
     }}>
       {label}
     </span>
@@ -402,7 +401,7 @@ function AuthorLine({ post, showFollow, authorRole, reserveRight = 0 }: {
   showFollow?: boolean;
   authorRole?: AuthorRole;
   /** v8 — right padding (px) reserved so name/badges never collide with an
-      absolute TypeRibbon in the card corner (~72 for the "★ Review" pill). */
+      absolute TypeRibbon in the card corner (~52 for the "REVIEW" stamp). */
   reserveRight?: number;
 }) {
   const { user } = useUser();
@@ -436,7 +435,7 @@ function AuthorLine({ post, showFollow, authorRole, reserveRight = 0 }: {
         {/* v8 25-Aug polish — nowrap + minWidth 0: the NAME truncates first, so the
             role chip / badge / Follow button never wrap into or collide with a
             review ribbon or the card edge. */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", rowGap: 4, minWidth: 0 }}>
           <Link
             href={`/profile/${post.handle ?? "unknown"}`}
             style={{ textDecoration: "none", flexShrink: 1, minWidth: 0, overflow: "hidden" }}
@@ -999,18 +998,18 @@ export function PostCard({ post, showFollow = false, authorRole = null, canModer
     <div
       style={{
         ...CARD_BASE,
-        // v8 ribbon system — review cards carry the grail-gold border + ribbon;
-        // every other plain post keeps the neutral border and no ribbon.
-        border: `1.5px solid ${isReview ? "var(--grail-gold)" : "var(--border)"}`,
+        // v8 (Aug-25 update) — cards are shadow-only; the corner ribbon alone
+        // carries the type, no per-type border.
+        border: "none",
         position: "relative",
         transition: "transform 200ms var(--ease-out), box-shadow 200ms",
       }}
       onMouseEnter={liftOn}
       onMouseLeave={liftOff}
     >
-      {isReview && <TypeRibbon label="★ Review" bg="var(--grail-gold)" />}
+      {isReview && <TypeRibbon label="REVIEW" fg="var(--grail-gold-deep)" />}
       <div style={{ padding: "16px 18px 0" }}>
-        <AuthorLine post={post} showFollow={showFollow} authorRole={authorRole} reserveRight={isReview ? 72 : 0} />
+        <AuthorLine post={post} showFollow={showFollow} authorRole={authorRole} reserveRight={isReview ? 52 : 0} />
         <Link href={`/post/${post.id}`} style={{ display: "block", marginTop: 11, textDecoration: "none", color: "inherit" }}>
           {post.type === "review" && post.review_rating && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -1205,11 +1204,11 @@ export function ISOCard({ post, authorRole = null, detail = false }: { post: Api
 
   return (
     <div
-      style={{ ...CARD_BASE, border: "1.5px solid var(--plum)", position: "relative", transition: "transform 200ms var(--ease-out), box-shadow 200ms" }}
+      style={{ ...CARD_BASE, border: "none", position: "relative", transition: "transform 200ms var(--ease-out), box-shadow 200ms" }}
       onMouseEnter={liftOn}
       onMouseLeave={liftOff}
     >
-      <TypeRibbon label="Wanted" bg="var(--verified-teal)" />
+      <TypeRibbon label="WANTED" fg="var(--verified-teal)" />
       <div style={{ padding: "16px 18px 0" }}>
         <AuthorLine post={post} authorRole={authorRole} />
 
@@ -1286,9 +1285,9 @@ export function ListingFeedCard({ listing }: { listing: ApiListing }) {
   const retail = listing.retail_price != null ? Math.round(listing.retail_price / 100) : null;
   const metaLine = [listing.ships_from_city, timeAgo(listing.created_at)].filter(Boolean).join(" · ");
   return (
-    <div style={{ ...CARD_BASE, padding: "16px 18px", border: "1.5px solid var(--verified-teal)", position: "relative" }}>
+    <div style={{ ...CARD_BASE, padding: "16px 18px", border: "none", position: "relative" }}>
       {/* v8 ribbon system — the corner ribbon replaces the old "For sale" Badge. */}
-      <TypeRibbon label="For sale" bg="var(--verified-teal)" />
+      <TypeRibbon label="FOR SALE" fg="var(--verified-teal)" />
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <Link href={`/profile/${listing.handle ?? "unknown"}`} className="shrink-0">
           <Avatar name={listing.name ?? "?"} photo={listing.avatar_url} size={34} />

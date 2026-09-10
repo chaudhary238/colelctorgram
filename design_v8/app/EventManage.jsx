@@ -145,9 +145,9 @@ function GuestRow({ handle, muted, onOpen }) {
   );
 }
 
-function ManageStat({ n, l, accent }) {
+function ManageStat({ n, l, accent, onClick }) {
   return (
-    <div style={{ flex: 1, background: 'var(--paper-soft)', border: '1px solid var(--border)', borderRadius: 13, padding: '12px 10px', textAlign: 'center' }}>
+    <div onClick={onClick} style={{ flex: 1, background: 'var(--paper-soft)', border: '1px solid var(--border)', borderRadius: 13, padding: '12px 10px', textAlign: 'center', cursor: onClick ? 'pointer' : 'default' }}>
       <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 22, color: accent, lineHeight: 1 }}>{n}</div>
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--ink-faint)', marginTop: 5 }}>{l}</div>
     </div>

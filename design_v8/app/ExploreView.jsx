@@ -123,7 +123,7 @@ function ExploreView() {
                 position: 'absolute', bottom: 8, right: 8, width: 32, height: 32, borderRadius: 999, flexShrink: 0, border: 'none',
                 background: inCollection(c.sku) ? 'var(--forest)' : 'var(--stamp-red)', color: '#fff', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {inCollection(c.sku) ? <SealMark size={17}/> : <Ico d={Icons.plusCircle} size={17}/>}
+                {inCollection(c.sku) ? <Ico d={Icons.check} size={18} stroke={3}/> : <Ico d={Icons.plusCircle} size={17}/>}
               </button>
             </div>
             <button onClick={() => push({ name: 'explore-item', sku: c.sku })} style={{ display: 'block', width: '100%', border: 'none', background: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>

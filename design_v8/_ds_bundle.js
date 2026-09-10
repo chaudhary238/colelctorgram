@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"CollectorHubDesignSystemRC_293274","components":[{"name":"Button","sourcePath":"components/actions/Button.jsx"},{"name":"IconButton","sourcePath":"components/actions/IconButton.jsx"},{"name":"CategoryChip","sourcePath":"components/forms/CategoryChip.jsx"},{"name":"Input","sourcePath":"components/forms/Input.jsx"},{"name":"Segmented","sourcePath":"components/forms/Segmented.jsx"},{"name":"Avatar","sourcePath":"components/identity/Avatar.jsx"},{"name":"TierChip","sourcePath":"components/identity/TierChip.jsx"},{"name":"Badge","sourcePath":"components/labels/Badge.jsx"},{"name":"PostTypeTag","sourcePath":"components/labels/PostTypeTag.jsx"},{"name":"Stamp","sourcePath":"components/labels/Stamp.jsx"},{"name":"Tag","sourcePath":"components/labels/Tag.jsx"}],"sourceHashes":{"Scorred BRD (Aug 2026)/doc-page.js":"371bab66f42d","app/AddListing.jsx":"18601df2b8d4","app/AddToCollection.jsx":"bc0ad5cfd543","app/App.jsx":"dfb33535dbbe","app/Cards.jsx":"52118ea16510","app/Chat.jsx":"ededb19b1027","app/Chrome.jsx":"de6fb2884d8c","app/CommunityDetail.jsx":"5c8123166a6c","app/CommunityManage.jsx":"4dcbc294f558","app/CommunityView.jsx":"ab87e1e56e65","app/CompleteItems.jsx":"9f6966fa00cf","app/CreateCommunity.jsx":"f2d71a560675","app/EventCreate.jsx":"607a8538ff0a","app/EventDetail.jsx":"cee98683df8c","app/EventManage.jsx":"51062badedd4","app/EventsView.jsx":"dd68cf14e6d8","app/ExploreView.jsx":"6304ae6d503f","app/FeedView.jsx":"e1e8b5e9f88f","app/IOSFrame.jsx":"d67eb3ffe562","app/ItemDetail.jsx":"fbc00699a664","app/ListingView.jsx":"77ce380e06e9","app/MarketView.jsx":"870ca4868084","app/Nav.jsx":"d1a3bd3237a1","app/Onboarding.jsx":"216043129196","app/Overlays.jsx":"ca9bb5f73535","app/PostDetail.jsx":"9966baa230ca","app/ProfileCollection.jsx":"dd54cbb09c20","app/ProfileEdit.jsx":"45c6eed190aa","app/ProfileSettings.jsx":"605b71559495","app/ProfileView.jsx":"64885f7bb48a","app/ReferView.jsx":"92da3a5d0078","app/Rewards.jsx":"3b3f5ef5ebb4","app/data.jsx":"9e52e3ee3001","app/shared.jsx":"0b61877ab88a","app/tweaks-panel.jsx":"6591467622ed","components/actions/Button.jsx":"4e96ef0448a9","components/actions/IconButton.jsx":"a29b67a27746","components/forms/CategoryChip.jsx":"ca8690329cc5","components/forms/Input.jsx":"36f89ce86824","components/forms/Segmented.jsx":"e39016cc53e8","components/identity/Avatar.jsx":"8db614a890e9","components/identity/TierChip.jsx":"402864cb8957","components/labels/Badge.jsx":"6ea6fd872bde","components/labels/PostTypeTag.jsx":"e94e19dcb8bb","components/labels/Stamp.jsx":"94834e3a18ad","components/labels/Tag.jsx":"c93b07f3360d","deck-stage.js":"94b80df773e6","doc-page.js":"371bab66f42d","web/Web.jsx":"fe702f8240ef"},"inlinedExternals":[],"unexposedExports":[]} */
+/* @ds-bundle: {"format":4,"namespace":"CollectorHubDesignSystemRC_293274","components":[{"name":"Button","sourcePath":"components/actions/Button.jsx"},{"name":"IconButton","sourcePath":"components/actions/IconButton.jsx"},{"name":"CategoryChip","sourcePath":"components/forms/CategoryChip.jsx"},{"name":"Input","sourcePath":"components/forms/Input.jsx"},{"name":"Segmented","sourcePath":"components/forms/Segmented.jsx"},{"name":"Avatar","sourcePath":"components/identity/Avatar.jsx"},{"name":"TierChip","sourcePath":"components/identity/TierChip.jsx"},{"name":"Badge","sourcePath":"components/labels/Badge.jsx"},{"name":"PostTypeTag","sourcePath":"components/labels/PostTypeTag.jsx"},{"name":"Stamp","sourcePath":"components/labels/Stamp.jsx"},{"name":"Tag","sourcePath":"components/labels/Tag.jsx"}],"sourceHashes":{"Scorred BRD (Aug 2026)/doc-page.js":"371bab66f42d","app/AddListing.jsx":"18601df2b8d4","app/AddToCollection.jsx":"bc0ad5cfd543","app/App.jsx":"dfb33535dbbe","app/Cards.jsx":"0c2a088a0b65","app/Chat.jsx":"ededb19b1027","app/Chrome.jsx":"de6fb2884d8c","app/CommunityDetail.jsx":"819e70f4d121","app/CommunityManage.jsx":"6e7654151cf7","app/CommunityView.jsx":"ab87e1e56e65","app/CompleteItems.jsx":"9f6966fa00cf","app/CreateCommunity.jsx":"f2d71a560675","app/EventCreate.jsx":"607a8538ff0a","app/EventDetail.jsx":"cee98683df8c","app/EventManage.jsx":"45a23a6ca644","app/EventsView.jsx":"dd68cf14e6d8","app/ExploreView.jsx":"e46f4ca18519","app/FeedView.jsx":"e1e8b5e9f88f","app/IOSFrame.jsx":"d67eb3ffe562","app/ItemDetail.jsx":"fbc00699a664","app/ListingView.jsx":"77ce380e06e9","app/MarketView.jsx":"870ca4868084","app/Nav.jsx":"d1a3bd3237a1","app/Onboarding.jsx":"216043129196","app/Overlays.jsx":"ca9bb5f73535","app/PostDetail.jsx":"9966baa230ca","app/ProfileCollection.jsx":"dd54cbb09c20","app/ProfileEdit.jsx":"45c6eed190aa","app/ProfileSettings.jsx":"605b71559495","app/ProfileView.jsx":"64885f7bb48a","app/ReferView.jsx":"92da3a5d0078","app/Rewards.jsx":"3b3f5ef5ebb4","app/data.jsx":"9e52e3ee3001","app/shared.jsx":"0b61877ab88a","app/tweaks-panel.jsx":"6591467622ed","components/actions/Button.jsx":"4e96ef0448a9","components/actions/IconButton.jsx":"a29b67a27746","components/forms/CategoryChip.jsx":"ca8690329cc5","components/forms/Input.jsx":"36f89ce86824","components/forms/Segmented.jsx":"e39016cc53e8","components/identity/Avatar.jsx":"8db614a890e9","components/identity/TierChip.jsx":"402864cb8957","components/labels/Badge.jsx":"6ea6fd872bde","components/labels/PostTypeTag.jsx":"e94e19dcb8bb","components/labels/Stamp.jsx":"94834e3a18ad","components/labels/Tag.jsx":"c93b07f3360d","deck-stage.js":"94b80df773e6","doc-page.js":"371bab66f42d","web/Web.jsx":"fe702f8240ef"},"inlinedExternals":[],"unexposedExports":[]} */
 
 (() => {
 
@@ -4236,21 +4236,21 @@ try { (() => {
 // per-type ribbon tag — top-right corner, paired with a matching card border
 function TypeRibbon({
   label,
-  bg,
-  fg = '#fff'
+  fg
 }) {
   return /*#__PURE__*/React.createElement("span", {
     style: {
       position: 'absolute',
       top: 14,
       right: 16,
-      fontSize: 10.5,
-      fontWeight: 700,
-      padding: '4px 10px',
-      borderRadius: 999,
-      letterSpacing: '0.02em',
-      background: bg,
+      fontSize: 8.5,
+      fontWeight: 800,
+      letterSpacing: '0.06em',
+      padding: '2px 6px',
+      borderRadius: 2,
+      border: `1px solid ${fg}`,
       color: fg,
+      transform: 'rotate(-8deg)',
       zIndex: 1
     }
   }, label);
@@ -4310,8 +4310,8 @@ function AuthorLine({
       display: 'flex',
       alignItems: 'center',
       gap: 5,
-      flexWrap: 'nowrap',
-      overflow: 'hidden'
+      flexWrap: 'wrap',
+      rowGap: 4
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
@@ -4423,7 +4423,7 @@ function PostCard({
       borderRadius: 20,
       margin: '0 14px 12px',
       boxShadow: 'var(--card-shadow)',
-      border: `1.5px solid ${isReview ? 'var(--grail-gold)' : 'var(--border)'}`,
+      border: 'none',
       position: 'relative',
       transition: 'transform 200ms cubic-bezier(0.22,1,0.36,1), box-shadow 200ms'
     },
@@ -4436,8 +4436,8 @@ function PostCard({
       e.currentTarget.style.boxShadow = 'var(--card-shadow)';
     }
   }, isReview && /*#__PURE__*/React.createElement(TypeRibbon, {
-    label: "\u2605 Review",
-    bg: "var(--grail-gold)"
+    label: "REVIEW",
+    fg: "var(--grail-gold-deep)"
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: '16px 18px 0'
@@ -4455,7 +4455,7 @@ function PostCard({
     community: post.community,
     onOpen: openUser,
     showFollow: showFollow,
-    reserveRight: isReview ? 72 : 0
+    reserveRight: isReview ? 52 : 0
   })), /*#__PURE__*/React.createElement("div", {
     onClick: open,
     style: {
@@ -5411,12 +5411,12 @@ function AdminCard({
       margin: '0 14px 12px',
       padding: '16px 18px',
       boxShadow: 'var(--card-shadow)',
-      border: '1.5px solid var(--stamp-red)',
+      border: 'none',
       position: 'relative'
     }
   }, /*#__PURE__*/React.createElement(TypeRibbon, {
-    label: "Release",
-    bg: "var(--stamp-red)"
+    label: "RELEASE",
+    fg: "var(--stamp-red)"
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
@@ -5529,12 +5529,12 @@ function ListingFeedCard({
       margin: '0 14px 12px',
       padding: '16px 18px',
       boxShadow: 'var(--card-shadow)',
-      border: '1.5px solid var(--verified-teal)',
+      border: 'none',
       position: 'relative'
     }
   }, /*#__PURE__*/React.createElement(TypeRibbon, {
-    label: "For sale",
-    bg: "var(--verified-teal)"
+    label: "FOR SALE",
+    fg: "var(--verified-teal)"
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
@@ -6306,7 +6306,7 @@ function ISOCard({
       borderRadius: 20,
       margin: '0 14px 12px',
       boxShadow: 'var(--card-shadow)',
-      border: '1.5px solid var(--plum)',
+      border: 'none',
       position: 'relative',
       transition: 'transform 200ms cubic-bezier(0.22,1,0.36,1), box-shadow 200ms'
     },
@@ -6319,8 +6319,8 @@ function ISOCard({
       e.currentTarget.style.boxShadow = 'var(--card-shadow)';
     }
   }, /*#__PURE__*/React.createElement(TypeRibbon, {
-    label: "Wanted",
-    bg: "var(--verified-teal)"
+    label: "WANTED",
+    fg: "var(--verified-teal)"
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: '16px 18px 0'
@@ -6568,12 +6568,12 @@ function SharedListingCard({
       margin: '0 14px 12px',
       padding: '16px 18px 4px',
       boxShadow: 'var(--card-shadow)',
-      border: '1.5px solid var(--verified-teal)',
+      border: 'none',
       position: 'relative'
     }
   }, /*#__PURE__*/React.createElement(TypeRibbon, {
-    label: "For sale",
-    bg: "var(--verified-teal)"
+    label: "FOR SALE",
+    fg: "var(--verified-teal)"
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
@@ -8180,7 +8180,8 @@ function CommunityDetail({
     posts: userPosts,
     approveCommunityDemo,
     declineUserPost,
-    dismissPendingPost
+    dismissPendingPost,
+    setCommunityRole
   } = useAppState();
   const com = COMMUNITIES.find(c => c.id === route.id) || (userCommunities || []).find(c => c.id === route.id);
   if (!com) return /*#__PURE__*/React.createElement(Screen, {
@@ -8202,10 +8203,13 @@ function CommunityDetail({
     role: 'Founder'
   }];
   const myRole = roleOfWithOverride(com.id, 'you', communityRoleOverrides);
-  const isAdmin = roleCanManage(myRole); // any manage access (Founder/Admin/Mod)
-  const isFullAdmin = roleCanFullAdmin(myRole); // Founder/Admin — settings, remove member/post
-  const [leaveConfirm, setLeaveConfirm] = React.useState(false);
+  const isAdmin = roleCanManage(myRole); // any manage access (Admin/Mod)
+  const isFullAdmin = roleCanFullAdmin(myRole); // Admin (incl. creator) — settings, remove member/post
+  const [leaveStep, setLeaveStep] = React.useState(null); // null | 'confirm' | 'promote' | 'sole'
+  const [succHandle, setSuccHandle] = React.useState(null);
   const members = membersOf(com.id).filter(h => !(communityRemoved[com.id] && communityRemoved[com.id][h]));
+  const otherMembers = members.filter(h => h !== 'you');
+  const successorCandidates = otherMembers.filter(h => roleCanManage(roleOfWithOverride(com.id, h, communityRoleOverrides)));
   const reqCount = joinRequestsOf(com.id).length;
   const pendCount = pendingPostsOf(com.id).length;
   const tones = {
@@ -8252,7 +8256,26 @@ function CommunityDetail({
   const leaveCommunity = () => {
     toggleJoin(com.id);
     flashToast(`Left ${com.name}`);
-    setLeaveConfirm(false);
+    setLeaveStep(null);
+  };
+  const openLeaveFlow = () => {
+    if (!isAdmin || successorCandidates.length > 0) {
+      setLeaveStep('confirm');
+      return;
+    }
+    if (otherMembers.length > 0) {
+      setSuccHandle(null);
+      setLeaveStep('promote');
+    } else setLeaveStep('sole');
+  };
+  const confirmSuccessionAndLeave = () => {
+    if (!succHandle) return;
+    const newRole = 'Admin';
+    setCommunityRole(com.id, succHandle, newRole);
+    setCommunityRole(com.id, 'you', null);
+    toggleJoin(com.id);
+    flashToast(`Left ${com.name} — @${succHandle} is now ${newRole}`);
+    setLeaveStep(null);
   };
   const realTabs = locked || pendingReview ? [{
     id: 'posts',
@@ -8421,14 +8444,14 @@ function CommunityDetail({
     size: "sm",
     variant: requested ? 'secondary' : 'dark',
     onClick: onJoinClick
-  }, requested ? 'Requested' : isPrivate ? 'Request to join' : 'Join'), !isAdmin && isMember && /*#__PURE__*/React.createElement(Button, {
+  }, requested ? 'Requested' : isPrivate ? 'Request to join' : 'Join'), isMember && !isAdmin && /*#__PURE__*/React.createElement(Button, {
     size: "sm",
     variant: "secondary",
     icon: /*#__PURE__*/React.createElement(Ico, {
       d: Icons.close,
       size: 15
     }),
-    onClick: () => setLeaveConfirm(true)
+    onClick: openLeaveFlow
   }, "Leave"))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
@@ -8459,24 +8482,38 @@ function CommunityDetail({
       marginTop: 10,
       fontSize: 12.5,
       color: 'var(--ink-faint)',
-      flexWrap: 'wrap'
+      flexWrap: 'wrap',
+      rowGap: 4
     }
-  }, /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", {
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      whiteSpace: 'nowrap'
+    }
+  }, /*#__PURE__*/React.createElement("b", {
     style: {
       color: 'var(--ink)',
       fontFamily: 'var(--font-mono)'
     }
-  }, com.members.toLocaleString('en-IN')), " members"), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", {
+  }, com.members.toLocaleString('en-IN')), " members"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      whiteSpace: 'nowrap'
+    }
+  }, /*#__PURE__*/React.createElement("b", {
     style: {
       color: 'var(--ink)',
       fontFamily: 'var(--font-mono)'
     }
-  }, com.posts.toLocaleString('en-IN')), " posts"), /*#__PURE__*/React.createElement("span", null, "by @", founder.handle)), /*#__PURE__*/React.createElement("div", {
+  }, com.posts.toLocaleString('en-IN')), " posts"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      whiteSpace: 'nowrap'
+    }
+  }, "by @", founder.handle)), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 8,
       marginTop: 12,
-      flexWrap: 'wrap'
+      flexWrap: 'wrap',
+      rowGap: 8
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
@@ -8486,19 +8523,23 @@ function CommunityDetail({
       padding: '5px 10px',
       borderRadius: 999,
       background: 'var(--bone)',
-      border: '1px solid var(--border-strong)'
+      border: '1px solid var(--border-strong)',
+      flexShrink: 0,
+      whiteSpace: 'nowrap'
     }
   }, /*#__PURE__*/React.createElement(Ico, {
     d: isPrivate ? Icons.shield : Icons.globe,
     size: 13,
     style: {
-      color: 'var(--ink-mute)'
+      color: 'var(--ink-mute)',
+      flexShrink: 0
     }
   }), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 11.5,
       fontWeight: 600,
-      color: 'var(--ink-soft)'
+      color: 'var(--ink-soft)',
+      whiteSpace: 'nowrap'
     }
   }, isPrivate ? 'Private' : 'Public')), !pendingReview && /*#__PURE__*/React.createElement("span", {
     style: {
@@ -8508,19 +8549,23 @@ function CommunityDetail({
       padding: '5px 10px',
       borderRadius: 999,
       background: postMode === 'approval' ? 'var(--grail-gold-soft)' : 'var(--forest-soft)',
-      border: `1px solid ${postMode === 'approval' ? 'var(--grail-gold)' : 'var(--forest)'}`
+      border: `1px solid ${postMode === 'approval' ? 'var(--grail-gold)' : 'var(--forest)'}`,
+      flexShrink: 0,
+      whiteSpace: 'nowrap'
     }
   }, /*#__PURE__*/React.createElement(Ico, {
     d: postMode === 'approval' ? Icons.shield : Icons.check,
     size: 13,
     style: {
-      color: postMode === 'approval' ? 'var(--grail-gold-deep)' : 'var(--forest)'
+      color: postMode === 'approval' ? 'var(--grail-gold-deep)' : 'var(--forest)',
+      flexShrink: 0
     }
   }), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 11.5,
       fontWeight: 600,
-      color: postMode === 'approval' ? 'var(--grail-gold-deep)' : 'var(--forest)'
+      color: postMode === 'approval' ? 'var(--grail-gold-deep)' : 'var(--forest)',
+      whiteSpace: 'nowrap'
     }
   }, postMode === 'approval' ? 'Posts reviewed' : 'Open posting')), pendingReview && /*#__PURE__*/React.createElement("span", {
     style: {
@@ -8530,19 +8575,23 @@ function CommunityDetail({
       padding: '5px 10px',
       borderRadius: 999,
       background: 'var(--grail-gold-soft)',
-      border: '1px solid var(--grail-gold)'
+      border: '1px solid var(--grail-gold)',
+      flexShrink: 0,
+      whiteSpace: 'nowrap'
     }
   }, /*#__PURE__*/React.createElement(Ico, {
     d: Icons.clock,
     size: 13,
     style: {
-      color: 'var(--grail-gold-deep)'
+      color: 'var(--grail-gold-deep)',
+      flexShrink: 0
     }
   }), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 11.5,
       fontWeight: 600,
-      color: 'var(--grail-gold-deep)'
+      color: 'var(--grail-gold-deep)',
+      whiteSpace: 'nowrap'
     }
   }, "Pending platform review")))), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -8918,7 +8967,7 @@ function CommunityDetail({
       role: role
     }));
   })), isMember && !isAdmin && /*#__PURE__*/React.createElement("button", {
-    onClick: () => setLeaveConfirm(true),
+    onClick: openLeaveFlow,
     style: {
       marginTop: 20,
       width: '100%',
@@ -8966,7 +9015,7 @@ function CommunityDetail({
     size: 16,
     stroke: 2.4
   }), "You\u2019ve accepted these guidelines."), isMember && !isAdmin && /*#__PURE__*/React.createElement("button", {
-    onClick: () => setLeaveConfirm(true),
+    onClick: openLeaveFlow,
     style: {
       marginTop: 20,
       width: '100%',
@@ -8979,8 +9028,8 @@ function CommunityDetail({
       fontWeight: 600,
       fontSize: 13
     }
-  }, "Leave community")), leaveConfirm && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    onClick: () => setLeaveConfirm(false),
+  }, "Leave community")), leaveStep === 'confirm' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    onClick: () => setLeaveStep(null),
     style: {
       position: 'fixed',
       inset: 0,
@@ -9026,7 +9075,7 @@ function CommunityDetail({
       flex: 1,
       justifyContent: 'center'
     },
-    onClick: () => setLeaveConfirm(false)
+    onClick: () => setLeaveStep(null)
   }, "Cancel"), /*#__PURE__*/React.createElement(Button, {
     variant: "destructive",
     style: {
@@ -9034,7 +9083,184 @@ function CommunityDetail({
       justifyContent: 'center'
     },
     onClick: leaveCommunity
-  }, "Leave")))), /*#__PURE__*/React.createElement("div", {
+  }, "Leave")))), leaveStep === 'promote' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    onClick: () => setLeaveStep(null),
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(20,17,15,0.4)',
+      zIndex: 140
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      left: 20,
+      right: 20,
+      top: '50%',
+      transform: 'translateY(-50%)',
+      zIndex: 141,
+      background: 'var(--paper)',
+      borderRadius: 18,
+      padding: 20,
+      boxShadow: 'var(--shadow-2)',
+      maxHeight: '76vh',
+      overflowY: 'auto'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: 'var(--font-display)',
+      fontWeight: 700,
+      fontSize: 17,
+      color: 'var(--ink)'
+    }
+  }, "Pick a new admin before you leave"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13.5,
+      color: 'var(--ink-soft)',
+      lineHeight: 1.5,
+      marginTop: 6
+    }
+  }, "You're the only admin left. Every community needs someone managing it, so choose a member to make Admin."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8,
+      marginTop: 14
+    }
+  }, otherMembers.map(h => {
+    const mu = userOf(h);
+    const role = roleOfWithOverride(com.id, h, communityRoleOverrides);
+    const on = succHandle === h;
+    return /*#__PURE__*/React.createElement("button", {
+      key: h,
+      onClick: () => setSuccHandle(h),
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        width: '100%',
+        textAlign: 'left',
+        padding: 10,
+        cursor: 'pointer',
+        background: on ? 'var(--bone)' : 'var(--paper-soft)',
+        border: `1.5px solid ${on ? 'var(--ink)' : 'var(--border)'}`,
+        borderRadius: 13
+      }
+    }, /*#__PURE__*/React.createElement(Avatar, {
+      name: mu.name,
+      color: mu.color,
+      size: 36
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 600,
+        fontSize: 13.5,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }
+    }, mu.name), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11.5,
+        color: 'var(--ink-faint)'
+      }
+    }, "@", mu.handle)), role && /*#__PURE__*/React.createElement(RoleBadge, {
+      role: role
+    }), on && /*#__PURE__*/React.createElement(Ico, {
+      d: Icons.check,
+      size: 16,
+      style: {
+        color: 'var(--ink)'
+      }
+    }));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      marginTop: 18
+    }
+  }, /*#__PURE__*/React.createElement(Button, {
+    variant: "secondary",
+    style: {
+      flex: 1,
+      justifyContent: 'center'
+    },
+    onClick: () => setLeaveStep(null)
+  }, "Cancel"), /*#__PURE__*/React.createElement(Button, {
+    variant: "destructive",
+    disabled: !succHandle,
+    style: {
+      flex: 1,
+      justifyContent: 'center',
+      opacity: succHandle ? 1 : 0.5
+    },
+    onClick: confirmSuccessionAndLeave
+  }, "Promote & leave")))), leaveStep === 'sole' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    onClick: () => setLeaveStep(null),
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(20,17,15,0.4)',
+      zIndex: 140
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      left: 20,
+      right: 20,
+      top: '50%',
+      transform: 'translateY(-50%)',
+      zIndex: 141,
+      background: 'var(--paper)',
+      borderRadius: 18,
+      padding: 20,
+      boxShadow: 'var(--shadow-2)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: 'var(--font-display)',
+      fontWeight: 700,
+      fontSize: 17,
+      color: 'var(--ink)'
+    }
+  }, "You're the only member"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13.5,
+      color: 'var(--ink-soft)',
+      lineHeight: 1.5,
+      marginTop: 6
+    }
+  }, "There's no one to hand this community to. Leaving isn't available \\u2014 close the community instead if you're done with it."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      marginTop: 18
+    }
+  }, /*#__PURE__*/React.createElement(Button, {
+    variant: "secondary",
+    style: {
+      flex: 1,
+      justifyContent: 'center'
+    },
+    onClick: () => setLeaveStep(null)
+  }, "Cancel"), /*#__PURE__*/React.createElement(Button, {
+    variant: "destructive",
+    style: {
+      flex: 1,
+      justifyContent: 'center'
+    },
+    onClick: () => {
+      setLeaveStep(null);
+      push({
+        name: 'community-manage',
+        id: com.id
+      });
+    }
+  }, "Go to settings")))), /*#__PURE__*/React.createElement("div", {
     style: {
       height: 24
     }
@@ -9204,7 +9430,8 @@ function CommunityManageView({
     declineUserPost,
     removedCommunityPosts,
     removeCommunityPost,
-    approveCommunityDemo
+    approveCommunityDemo,
+    toggleJoin
   } = useAppState();
   const com = COMMUNITIES.find(c => c.id === route.id) || (userCommunities || []).find(c => c.id === route.id);
   if (!com) return /*#__PURE__*/React.createElement(Screen, {
@@ -9216,8 +9443,11 @@ function CommunityManageView({
   const isPrivate = com.privacy === 'private' || com.invite;
   const myRole = roleOfWithOverride(com.id, 'you', communityRoleOverrides);
   const isFullAdmin = roleCanFullAdmin(myRole);
+  const isAdmin = roleCanManage(myRole);
   const pendingReview = !communityApproved(com);
   const [seg, setSeg] = React.useState('requests');
+  const [leaveStep, setLeaveStep] = React.useState(null); // null | 'confirm' | 'transfer' | 'promote' | 'sole'
+  const [succHandle, setSuccHandle] = React.useState(null);
 
   // local moderation state (seeded from data)
   const [requests, setRequests] = React.useState(joinRequestsOf(com.id));
@@ -9232,12 +9462,42 @@ function CommunityManageView({
   const [removeReason, setRemoveReason] = React.useState('');
   const [editOpen, setEditOpen] = React.useState(false);
   const [closeOpen, setCloseOpen] = React.useState(false);
+  const [expandedMember, setExpandedMember] = React.useState(null);
+  const [roleChangeTarget, setRoleChangeTarget] = React.useState(null); // { handle, role, label }
+
   const rosterAll = membersOf(com.id).map(h => ({
     handle: h,
     role: roleOfWithOverride(com.id, h, communityRoleOverrides)
   }));
   const removedSet = communityRemoved[com.id] || {};
   const members = rosterAll.filter(m => !removedSet[m.handle]);
+  const otherMembers = members.filter(m => m.handle !== 'you');
+  const successorCandidates = otherMembers.filter(m => roleCanManage(m.role));
+  const openLeaveFlow = () => {
+    if (!isAdmin || successorCandidates.length > 0) {
+      setLeaveStep('confirm');
+      return;
+    }
+    if (otherMembers.length > 0) {
+      setSuccHandle(null);
+      setLeaveStep('promote');
+    } else setLeaveStep('sole');
+  };
+  const leaveCommunity = () => {
+    toggleJoin(com.id);
+    flashToast(`Left ${com.name}`);
+    setLeaveStep(null);
+    pop();
+  };
+  const confirmSuccessionAndLeave = () => {
+    if (!succHandle) return;
+    setCommunityRole(com.id, succHandle, 'Admin');
+    setCommunityRole(com.id, 'you', null);
+    toggleJoin(com.id);
+    flashToast(`Left ${com.name} — @${succHandle} is now Admin`);
+    setLeaveStep(null);
+    pop();
+  };
   const approveReq = h => {
     setRequests(r => r.filter(x => x !== h));
     setMemberCount(c => c + 1);
@@ -9264,6 +9524,17 @@ function CommunityManageView({
     setDeclineReasonText('');
   };
   const setRole = (h, role) => setCommunityRole(com.id, h, role);
+  const requestRoleChange = (h, role, label) => setRoleChangeTarget({
+    handle: h,
+    role,
+    label
+  });
+  const confirmRoleChange = () => {
+    if (!roleChangeTarget) return;
+    setRole(roleChangeTarget.handle, roleChangeTarget.role);
+    flashToast(`@${roleChangeTarget.handle} is now ${roleChangeTarget.label}`);
+    setRoleChangeTarget(null);
+  };
   const confirmRemove = () => {
     removeCommunityMember(com.id, removeTarget, removeReason.trim());
     setMemberCount(c => Math.max(0, c - 1));
@@ -9297,7 +9568,62 @@ function CommunityManageView({
   }), closeOpen && /*#__PURE__*/React.createElement(CloseCommunitySheet, {
     com: com,
     onClose: () => setCloseOpen(false)
-  }), removeTarget && /*#__PURE__*/React.createElement(OverlayShell, {
+  }), roleChangeTarget && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    onClick: () => setRoleChangeTarget(null),
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(20,17,15,0.4)',
+      zIndex: 140
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      left: 20,
+      right: 20,
+      top: '50%',
+      transform: 'translateY(-50%)',
+      zIndex: 141,
+      background: 'var(--paper)',
+      borderRadius: 18,
+      padding: 20,
+      boxShadow: 'var(--shadow-2)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: 'var(--font-display)',
+      fontWeight: 700,
+      fontSize: 17,
+      color: 'var(--ink)'
+    }
+  }, "Change role to ", roleChangeTarget.label, "?"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13.5,
+      color: 'var(--ink-soft)',
+      lineHeight: 1.5,
+      marginTop: 6
+    }
+  }, "@", roleChangeTarget.handle, " will ", roleChangeTarget.role ? `become a ${roleChangeTarget.label}` : 'lose their moderation role', " in ", com.name, "."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      marginTop: 18
+    }
+  }, /*#__PURE__*/React.createElement(Button, {
+    variant: "secondary",
+    style: {
+      flex: 1,
+      justifyContent: 'center'
+    },
+    onClick: () => setRoleChangeTarget(null)
+  }, "Cancel"), /*#__PURE__*/React.createElement(Button, {
+    variant: "dark",
+    style: {
+      flex: 1,
+      justifyContent: 'center'
+    },
+    onClick: confirmRoleChange
+  }, "Confirm")))), removeTarget && /*#__PURE__*/React.createElement(OverlayShell, {
     title: `Remove @${removeTarget}`,
     onClose: () => {
       setRemoveTarget(null);
@@ -9394,15 +9720,18 @@ function CommunityManageView({
   }, /*#__PURE__*/React.createElement(ManageStat, {
     n: memberCount,
     l: "Members",
-    accent: "var(--ink)"
+    accent: "var(--ink)",
+    onClick: () => setSeg('members')
   }), /*#__PURE__*/React.createElement(ManageStat, {
     n: requests.length,
     l: "Requests",
-    accent: requests.length ? 'var(--stamp-red)' : 'var(--ink-mute)'
+    accent: requests.length ? 'var(--stamp-red)' : 'var(--ink-mute)',
+    onClick: () => setSeg('requests')
   }), /*#__PURE__*/React.createElement(ManageStat, {
     n: seedPending.length + livePending.length,
     l: "To review",
-    accent: seedPending.length + livePending.length ? 'var(--grail-gold-deep)' : 'var(--ink-mute)'
+    accent: seedPending.length + livePending.length ? 'var(--grail-gold-deep)' : 'var(--ink-mute)',
+    onClick: () => setSeg('posts')
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'sticky',
@@ -9874,7 +10203,8 @@ function CommunityManageView({
       handle: 'you'
     } : userOf(m.handle);
     const isYou = m.handle === 'you';
-    const isFounder = m.role === 'Founder';
+    const canEdit = isFullAdmin && !isYou;
+    const isOpen = expandedMember === m.handle;
     return /*#__PURE__*/React.createElement("div", {
       key: m.handle,
       style: {
@@ -9885,6 +10215,12 @@ function CommunityManageView({
         background: 'var(--paper-soft)',
         border: '1px solid var(--border)',
         borderRadius: 13
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8
       }
     }, /*#__PURE__*/React.createElement("button", {
       onClick: () => push({
@@ -9900,7 +10236,8 @@ function CommunityManageView({
         padding: 0,
         cursor: 'pointer',
         textAlign: 'left',
-        width: '100%'
+        flex: 1,
+        minWidth: 0
       }
     }, /*#__PURE__*/React.createElement(Avatar, {
       name: u.name,
@@ -9913,28 +10250,39 @@ function CommunityManageView({
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
         fontWeight: 600,
         fontSize: 14,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-        flex: 1,
-        minWidth: 0
+        whiteSpace: 'nowrap'
       }
-    }, u.name), /*#__PURE__*/React.createElement(RoleBadge, {
-      role: m.role
-    })), /*#__PURE__*/React.createElement("div", {
+    }, u.name), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 12,
         color: 'var(--ink-faint)'
       }
-    }, "@", u.handle))), isFullAdmin && !isFounder && !isYou && /*#__PURE__*/React.createElement("div", {
+    }, "@", u.handle))), /*#__PURE__*/React.createElement(RoleBadge, {
+      role: m.role
+    }), canEdit && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setExpandedMember(isOpen ? null : m.handle),
+      "aria-label": "Edit member",
+      style: {
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        border: '1px solid var(--border-strong)',
+        background: isOpen ? 'var(--ink)' : 'var(--paper)',
+        color: isOpen ? 'var(--paper)' : 'var(--ink-mute)',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0
+      }
+    }, /*#__PURE__*/React.createElement(Ico, {
+      d: Icons.edit,
+      size: 13
+    }))), canEdit && isOpen && /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         alignItems: 'flex-end',
@@ -9971,7 +10319,7 @@ function CommunityManageView({
       const on = (m.role || null) === r.id;
       return /*#__PURE__*/React.createElement("button", {
         key: String(r.id),
-        onClick: () => setRole(m.handle, r.id),
+        onClick: () => on ? null : requestRoleChange(m.handle, r.id, r.label),
         style: {
           fontSize: 11.5,
           fontWeight: 600,
@@ -10076,7 +10424,253 @@ function CommunityManageView({
       stroke: 2.4
     }),
     onClick: () => setCloseOpen(true)
-  }, "Close or delete community")))), /*#__PURE__*/React.createElement("div", {
+  }, "Close or delete community")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12
+    }
+  }, /*#__PURE__*/React.createElement(Button, {
+    variant: "secondary",
+    size: "block",
+    icon: /*#__PURE__*/React.createElement(Ico, {
+      d: Icons.close,
+      size: 16,
+      stroke: 2.4
+    }),
+    onClick: openLeaveFlow
+  }, "Leave community"))), seg === 'members' && !isFullAdmin && isAdmin && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 16,
+      paddingTop: 16,
+      borderTop: '1px solid var(--border)'
+    }
+  }, /*#__PURE__*/React.createElement(Button, {
+    variant: "secondary",
+    size: "block",
+    icon: /*#__PURE__*/React.createElement(Ico, {
+      d: Icons.close,
+      size: 16,
+      stroke: 2.4
+    }),
+    onClick: openLeaveFlow
+  }, "Leave community"))), leaveStep === 'confirm' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    onClick: () => setLeaveStep(null),
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(20,17,15,0.4)',
+      zIndex: 140
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      left: 20,
+      right: 20,
+      top: '50%',
+      transform: 'translateY(-50%)',
+      zIndex: 141,
+      background: 'var(--paper)',
+      borderRadius: 18,
+      padding: 20,
+      boxShadow: 'var(--shadow-2)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: 'var(--font-display)',
+      fontWeight: 700,
+      fontSize: 17,
+      color: 'var(--ink)'
+    }
+  }, "Leave ", com.name, "?"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13.5,
+      color: 'var(--ink-soft)',
+      lineHeight: 1.5,
+      marginTop: 6
+    }
+  }, "You can rejoin anytime, but you'll lose your role and any unread activity here."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      marginTop: 18
+    }
+  }, /*#__PURE__*/React.createElement(Button, {
+    variant: "secondary",
+    style: {
+      flex: 1,
+      justifyContent: 'center'
+    },
+    onClick: () => setLeaveStep(null)
+  }, "Cancel"), /*#__PURE__*/React.createElement(Button, {
+    variant: "destructive",
+    style: {
+      flex: 1,
+      justifyContent: 'center'
+    },
+    onClick: leaveCommunity
+  }, "Leave")))), leaveStep === 'promote' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    onClick: () => setLeaveStep(null),
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(20,17,15,0.4)',
+      zIndex: 140
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      left: 20,
+      right: 20,
+      top: '50%',
+      transform: 'translateY(-50%)',
+      zIndex: 141,
+      background: 'var(--paper)',
+      borderRadius: 18,
+      padding: 20,
+      boxShadow: 'var(--shadow-2)',
+      maxHeight: '76vh',
+      overflowY: 'auto'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: 'var(--font-display)',
+      fontWeight: 700,
+      fontSize: 17,
+      color: 'var(--ink)'
+    }
+  }, "Pick a new admin before you leave"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13.5,
+      color: 'var(--ink-soft)',
+      lineHeight: 1.5,
+      marginTop: 6
+    }
+  }, "You're the only admin left. Every community needs someone managing it, so choose a member to make Admin."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8,
+      marginTop: 14
+    }
+  }, otherMembers.map(m => {
+    const mu = userOf(m.handle);
+    const on = succHandle === m.handle;
+    return /*#__PURE__*/React.createElement("button", {
+      key: m.handle,
+      onClick: () => setSuccHandle(m.handle),
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        width: '100%',
+        textAlign: 'left',
+        padding: 10,
+        cursor: 'pointer',
+        background: on ? 'var(--bone)' : 'var(--paper-soft)',
+        border: `1.5px solid ${on ? 'var(--ink)' : 'var(--border)'}`,
+        borderRadius: 13
+      }
+    }, /*#__PURE__*/React.createElement(Avatar, {
+      name: mu.name,
+      color: mu.color,
+      size: 36
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 600,
+        fontSize: 13.5,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }
+    }, mu.name), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11.5,
+        color: 'var(--ink-faint)'
+      }
+    }, "@", mu.handle)), m.role && /*#__PURE__*/React.createElement(RoleBadge, {
+      role: m.role
+    }), on && /*#__PURE__*/React.createElement(Ico, {
+      d: Icons.check,
+      size: 16,
+      style: {
+        color: 'var(--ink)'
+      }
+    }));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      marginTop: 18
+    }
+  }, /*#__PURE__*/React.createElement(Button, {
+    variant: "secondary",
+    style: {
+      flex: 1,
+      justifyContent: 'center'
+    },
+    onClick: () => setLeaveStep(null)
+  }, "Cancel"), /*#__PURE__*/React.createElement(Button, {
+    variant: "destructive",
+    disabled: !succHandle,
+    style: {
+      flex: 1,
+      justifyContent: 'center',
+      opacity: succHandle ? 1 : 0.5
+    },
+    onClick: confirmSuccessionAndLeave
+  }, "Promote & leave")))), leaveStep === 'sole' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    onClick: () => setLeaveStep(null),
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(20,17,15,0.4)',
+      zIndex: 140
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      left: 20,
+      right: 20,
+      top: '50%',
+      transform: 'translateY(-50%)',
+      zIndex: 141,
+      background: 'var(--paper)',
+      borderRadius: 18,
+      padding: 20,
+      boxShadow: 'var(--shadow-2)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: 'var(--font-display)',
+      fontWeight: 700,
+      fontSize: 17,
+      color: 'var(--ink)'
+    }
+  }, "You're the only member"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13.5,
+      color: 'var(--ink-soft)',
+      lineHeight: 1.5,
+      marginTop: 6
+    }
+  }, "There's no one to hand this community to. Close or delete it below instead if you're done with it."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      marginTop: 18
+    }
+  }, /*#__PURE__*/React.createElement(Button, {
+    variant: "secondary",
+    style: {
+      flex: 1,
+      justifyContent: 'center'
+    },
+    onClick: () => setLeaveStep(null)
+  }, "Got it")))), /*#__PURE__*/React.createElement("div", {
     style: {
       height: 24
     }
@@ -13491,16 +14085,19 @@ function GuestRow({
 function ManageStat({
   n,
   l,
-  accent
+  accent,
+  onClick
 }) {
   return /*#__PURE__*/React.createElement("div", {
+    onClick: onClick,
     style: {
       flex: 1,
       background: 'var(--paper-soft)',
       border: '1px solid var(--border)',
       borderRadius: 13,
       padding: '12px 10px',
-      textAlign: 'center'
+      textAlign: 'center',
+      cursor: onClick ? 'pointer' : 'default'
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -14608,8 +15205,10 @@ function ExploreView() {
       alignItems: 'center',
       justifyContent: 'center'
     }
-  }, inCollection(c.sku) ? /*#__PURE__*/React.createElement(SealMark, {
-    size: 17
+  }, inCollection(c.sku) ? /*#__PURE__*/React.createElement(Ico, {
+    d: Icons.check,
+    size: 18,
+    stroke: 3
   }) : /*#__PURE__*/React.createElement(Ico, {
     d: Icons.plusCircle,
     size: 17

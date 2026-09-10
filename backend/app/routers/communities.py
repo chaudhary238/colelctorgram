@@ -13,8 +13,14 @@ from app.models.community import Community, CommunityMember, CommunityJoinReques
 from app.models.deal import Vouch
 from app.models.user import User
 
-# Founder first, then mods, then members — shared ordering for roster/member lists.
-_ROLE_ORDER = case((CommunityMember.role == "founder", 0), (CommunityMember.role == "mod", 1), else_=2)
+# Founder first, then admins, then mods, then members (v8 multi-admin) — shared
+# ordering for roster/member lists.
+_ROLE_ORDER = case(
+    (CommunityMember.role == "founder", 0),
+    (CommunityMember.role == "admin", 1),
+    (CommunityMember.role == "mod", 2),
+    else_=3,
+)
 
 router = APIRouter(prefix="/communities", tags=["communities"])
 
@@ -84,7 +90,7 @@ async def _require_mod(db: AsyncSession, community_id: str, user: User):
     if not community:
         raise HTTPException(status_code=404, detail=NOT_FOUND)
     member = await _get_member(db, community_id, user.id)
-    if not (user.is_admin or (member and member.role in ("founder", "mod"))):
+    if not (user.is_admin or (member and member.role in ("founder", "admin", "mod"))):
         raise HTTPException(status_code=403, detail="Not a community moderator")
     return community, member
 
@@ -99,7 +105,9 @@ async def _require_admin(db: AsyncSession, community_id: str, user: User):
     if not community:
         raise HTTPException(status_code=404, detail=NOT_FOUND)
     member = await _get_member(db, community_id, user.id)
-    if not (user.is_admin or (member and member.role == "founder")):
+    # v8 data.jsx :1152 roleCanFullAdmin — Founder OR Admin (multi-admin: full
+    # admins can grant/revoke roles and remove members, incl. other admins).
+    if not (user.is_admin or (member and member.role in ("founder", "admin"))):
         raise HTTPException(status_code=403, detail="Admin only")
     return community, member
 
@@ -123,18 +131,19 @@ async def list_communities(
             .join(CommunityMember, CommunityMember.community_id == Community.id)
             .where(
                 CommunityMember.user_id == current_user.id,
-                CommunityMember.role.in_(("founder", "mod")),
+                CommunityMember.role.in_(("founder", "admin", "mod")),
                 Community.status.in_(("approved", "pending")),
             )
             .order_by(Community.name)
             .offset((page - 1) * limit)
             .limit(limit)
         )
-        communities = (await db.execute(stmt)).scalars().all()
+        rows = (await db.execute(
+            stmt.add_columns(CommunityMember.role)
+        )).all()
         return [
-            {**_community_dict(c, True),
-             "member_role": "founder" if c.founder_id == current_user.id else "mod"}
-            for c in communities
+            {**_community_dict(c, True), "member_role": role}
+            for c, role in rows
         ]
 
     stmt = select(Community)
@@ -279,7 +288,7 @@ async def get_community(
         .join(User, CommunityMember.user_id == User.id)
         .where(
             CommunityMember.community_id == community_id,
-            CommunityMember.role.in_(["founder", "mod"]),
+            CommunityMember.role.in_(["founder", "admin", "mod"]),
         )
         .order_by(_ROLE_ORDER, CommunityMember.joined_at.asc())
     )
@@ -415,11 +424,20 @@ async def leave_community(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # DV8 — the admin can't walk out of their own community (the endpoint used to
-    # allow it, orphaning the community; the UI only *hid* the button).
+    # v8 CommunityDetail leave flow — a full admin CAN leave once another full
+    # admin exists (the client promotes a successor first, then calls leave).
+    # The LAST admin can't walk out and orphan the community.
     me = await _get_member(db, community_id, current_user.id)
-    if me and me.role == "founder":
-        raise HTTPException(status_code=409, detail="Admins can't leave their own community — delete it instead.")
+    if me and me.role in ("founder", "admin"):
+        another_admin = (await db.execute(
+            select(CommunityMember.user_id).where(
+                CommunityMember.community_id == community_id,
+                CommunityMember.user_id != current_user.id,
+                CommunityMember.role.in_(("founder", "admin")),
+            ).limit(1)
+        )).scalar_one_or_none()
+        if not another_admin:
+            raise HTTPException(status_code=409, detail="Promote another admin before leaving — a community can't be left without one.")
     # B-75/B-76 — race-safe leave: delete decides, counter moves atomically in SQL
     removed = await db.execute(
         delete(CommunityMember).where(
@@ -501,10 +519,10 @@ async def get_community_posts(
             select(CommunityMember.user_id, CommunityMember.role).where(
                 CommunityMember.community_id == community_id,
                 CommunityMember.user_id.in_(author_ids),
-                CommunityMember.role.in_(["founder", "mod"]),
+                CommunityMember.role.in_(["founder", "admin", "mod"]),
             )
         )
-        role_by_author = {uid: ("admin" if role == "founder" else "mod") for uid, role in role_rows.all()}
+        role_by_author = {uid: ("mod" if role == "mod" else "admin") for uid, role in role_rows.all()}
 
     return [
         {
@@ -650,16 +668,18 @@ async def community_roster(
 async def set_member_role(
     community_id: str,
     handle: str,
-    role: str = Query(..., pattern="^(mod|member)$"),
+    # v8 CommunityManage :277 — Member | Mod | Admin are all grantable.
+    role: str = Query(..., pattern="^(mod|member|admin)$"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    _, actor = await _require_mod(db, community_id, current_user)
-    if not (current_user.is_admin or (actor and actor.role == "founder")):
-        raise HTTPException(status_code=403, detail="Only the founder can change roles")
+    # v8 :20/:253 — ANY full admin manages roles, not just the creator.
+    await _require_admin(db, community_id, current_user)
     target_user = (await db.execute(select(User).where(User.handle == handle))).scalar_one_or_none()
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
+    if target_user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="You can't change your own role")
     member = await _get_member(db, community_id, target_user.id)
     if not member:
         raise HTTPException(status_code=404, detail="Not a member")

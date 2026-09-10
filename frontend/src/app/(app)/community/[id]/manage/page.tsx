@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Check, X, Shield } from "lucide-react";
+import { ArrowLeft, Check, Pencil, X, Shield } from "lucide-react";
 import { api } from "@/lib/api";
 import { PostImages, type ApiCommunity } from "@/components/cards";
 import { Avatar, Segmented, SectionLabel, EmptyNote, PostTypeTag } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
+import { fireToast } from "@/components/gamification";
+import { useUser } from "@/lib/auth-context";
 import { timeAgo } from "@/lib/utils";
 
 interface CommunityDetail extends ApiCommunity {
@@ -98,6 +100,7 @@ const pillBase: React.CSSProperties = {
 export default function CommunityManagePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { user } = useUser();
   const [community, setCommunity] = useState<CommunityDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [denied, setDenied] = useState(false);
@@ -111,6 +114,9 @@ export default function CommunityManagePage() {
   // Member removal now requires a reason ({reason} body — DV8-14).
   const [removeTarget, setRemoveTarget] = useState<string | null>(null);
   const [removeReason, setRemoveReason] = useState("");
+  // v8 :36/:41 — member controls hide behind the pencil; role changes confirm first.
+  const [expandedMember, setExpandedMember] = useState<string | null>(null);
+  const [roleChange, setRoleChange] = useState<{ handle: string; role: "member" | "mod" | "admin"; label: string } | null>(null);
 
   // Settings (admin only, saved via PATCH)
   const [privacy, setPrivacy] = useState<"public" | "private">("public");
@@ -124,9 +130,9 @@ export default function CommunityManagePage() {
   const [detailsSaved, setDetailsSaved] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
 
-  // Only the community ADMIN (API role: founder) edits settings / removes people;
-  // mods approve requests and posts (DV8-14 permission split).
-  const isAdmin = community?.member_role === "founder";
+  // v8 roleCanFullAdmin (data.jsx :1152) — the founder OR any granted Admin edits
+  // settings and manages members; mods approve requests and posts only.
+  const isAdmin = community?.member_role === "founder" || community?.member_role === "admin";
 
   useEffect(() => {
     let active = true;
@@ -134,7 +140,7 @@ export default function CommunityManagePage() {
       try {
         const c = await api.get<CommunityDetail>(`/communities/${id}`);
         if (!active) return;
-        if (c.member_role !== "founder" && c.member_role !== "mod") { setDenied(true); return; }
+        if (c.member_role !== "founder" && c.member_role !== "admin" && c.member_role !== "mod") { setDenied(true); return; }
         setCommunity(c);
         setPrivacy(c.is_invite_only ? "private" : "public");
         setPosting(c.post_mode === "approval" ? "approval" : "open");
@@ -174,11 +180,16 @@ export default function CommunityManagePage() {
     } finally { setBusy(null); }
   };
 
-  const setRole = async (m: Member, role: "member" | "mod") => {
-    if (busy || m.role === role) return; setBusy(m.handle);
+  // v8 :73 — role changes confirm first, then toast "@handle is now X".
+  const confirmRoleChange = async () => {
+    const rc = roleChange;
+    if (!rc || busy) return;
+    setBusy(rc.handle);
     try {
-      await api.patch(`/communities/${id}/members/${m.handle}/role?role=${role}`);
-      setMembers((ms) => ms.map((x) => x.handle === m.handle ? { ...x, role } : x));
+      await api.patch(`/communities/${id}/members/${rc.handle}/role?role=${rc.role}`);
+      setMembers((ms) => ms.map((x) => x.handle === rc.handle ? { ...x, role: rc.role } : x));
+      fireToast(`@${rc.handle} is now ${rc.label}`);
+      setRoleChange(null);
     } finally { setBusy(null); }
   };
 
@@ -191,6 +202,7 @@ export default function CommunityManagePage() {
       await deleteWithBody(`/communities/${id}/members/${handle}`, { reason });
       setMembers((ms) => ms.filter((x) => x.handle !== handle));
       setCommunity((c) => c ? { ...c, member_count: Math.max(0, c.member_count - 1) } : c);
+      fireToast(`@${handle} removed`);
       setRemoveTarget(null);
       setRemoveReason("");
     } finally { setBusy(null); }
@@ -278,6 +290,47 @@ export default function CommunityManagePage() {
 
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-10">
+      {/* v8 :88-100 — role changes confirm in a centred dialog before applying */}
+      {roleChange && (
+        <>
+          <div onClick={() => setRoleChange(null)} style={{ position: "fixed", inset: 0, background: "rgba(20,17,15,0.4)", zIndex: 140 }} />
+          <div style={{ position: "fixed", left: 20, right: 20, top: "50%", transform: "translateY(-50%)", zIndex: 141, maxWidth: 440, margin: "0 auto", background: "var(--paper)", borderRadius: 18, padding: 20, boxShadow: "var(--shadow-2)" }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--ink)" }}>Change role to {roleChange.label}?</div>
+            <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5, marginTop: 6 }}>
+              @{roleChange.handle} will {roleChange.role !== "member" ? `become a ${roleChange.label}` : "lose their moderation role"} in {community.name}.
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+              <button type="button" onClick={() => setRoleChange(null)} style={{ flex: 1, height: 42, borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--bone)", color: "var(--ink-soft)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>Cancel</button>
+              <button type="button" onClick={confirmRoleChange} disabled={busy === roleChange.handle} style={{ flex: 1, height: 42, borderRadius: 12, border: "none", background: "var(--ink)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>Confirm</button>
+            </div>
+          </div>
+        </>
+      )}
+      {/* v8 :101-111 — removal reason collected in its own sheet, kept in the mod log */}
+      {removeTarget && (
+        <>
+          <div onClick={() => { setRemoveTarget(null); setRemoveReason(""); }} style={{ position: "fixed", inset: 0, background: "rgba(20,17,15,0.4)", zIndex: 140 }} />
+          <div style={{ position: "fixed", left: 20, right: 20, top: "50%", transform: "translateY(-50%)", zIndex: 141, maxWidth: 440, margin: "0 auto", background: "var(--paper)", borderRadius: 18, padding: 16, boxShadow: "var(--shadow-2)" }}>
+            <div style={{ display: "flex", alignItems: "center", marginBottom: 10 }}>
+              <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--ink)" }}>Remove @{removeTarget}</span>
+              <button type="button" onClick={() => { setRemoveTarget(null); setRemoveReason(""); }} aria-label="Close" style={{ marginLeft: "auto", width: 30, height: 30, borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--ink-mute)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <X size={15} />
+              </button>
+            </div>
+            <div style={{ fontSize: 13.5, color: "var(--ink-mute)", marginBottom: 12, lineHeight: 1.5 }}>Give a reason — it helps the member understand why they were removed, and is kept in the moderation log.</div>
+            <textarea
+              value={removeReason}
+              onChange={(e) => setRemoveReason(e.target.value.slice(0, 300))}
+              rows={4}
+              autoFocus
+              placeholder="e.g. Repeated rule violations, spam, off-platform trade dispute…"
+              style={{ width: "100%", boxSizing: "border-box", padding: 12, borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none", resize: "vertical" }}
+            />
+            <div style={{ fontSize: 11, color: "var(--ink-faint)", textAlign: "right", margin: "5px 0 16px" }}>{removeReason.length}/300</div>
+            <button type="button" onClick={confirmRemove} disabled={!removeReason.trim() || busy === removeTarget} style={{ width: "100%", height: 46, borderRadius: 13, border: "none", background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14.5, cursor: removeReason.trim() ? "pointer" : "default", opacity: removeReason.trim() ? 1 : 0.5 }}>Remove member</button>
+          </div>
+        </>
+      )}
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Link href={`/community/${id}`} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: "var(--ink)" }}>
@@ -373,62 +426,55 @@ export default function CommunityManagePage() {
         {tab === "members" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {members.map((m) => {
-              const founderRow = m.role === "founder";
-              const removing = removeTarget === m.handle;
+              // v8 :253 canEdit — any full admin edits everyone but themselves;
+              // the founder's row stays untouchable (server enforces it too).
+              const canEdit = isAdmin && m.role !== "founder" && m.handle !== user?.handle;
+              const isOpen = expandedMember === m.handle;
               return (
                 <div key={m.handle} style={{ display: "flex", flexDirection: "column", gap: 9, padding: 10, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13 }}>
-                  {/* v8 member header links to the profile; badge sits at the end of the name line. */}
-                  <Link href={`/profile/${m.handle}`} style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", textDecoration: "none", color: "inherit" }}>
-                    <Avatar name={m.name} photo={m.avatar_url} size={38} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{m.name}</span>
-                        {memberRoleChip(m.role)}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Link href={`/profile/${m.handle}`} style={{ display: "flex", alignItems: "center", gap: 11, flex: 1, minWidth: 0, textDecoration: "none", color: "inherit" }}>
+                      <Avatar name={m.name} photo={m.avatar_url} size={38} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</div>
+                        <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{m.handle}</div>
                       </div>
-                      <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>@{m.handle}</div>
-                    </div>
-                  </Link>
-                  {/* v8 second row — Role picker under its micro-label, Remove pill bottom-right,
-                      both the same 32px control. (Only member/mod here — the API has no
-                      grantable admin role; the founder IS the admin.) */}
-                  {!founderRow && isAdmin && (
+                    </Link>
+                    {memberRoleChip(m.role)}
+                    {/* v8 :267 — controls hide behind a 28×28 pencil (ink-filled while open) */}
+                    {canEdit && (
+                      <button type="button" onClick={() => setExpandedMember(isOpen ? null : m.handle)} aria-label="Edit member" style={{
+                        width: 28, height: 28, borderRadius: 8, border: "1px solid var(--border-strong)",
+                        background: isOpen ? "var(--ink)" : "var(--paper)", color: isOpen ? "var(--paper)" : "var(--ink-mute)",
+                        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                      }}>
+                        <Pencil size={13} />
+                      </button>
+                    )}
+                  </div>
+                  {/* v8 :272-289 — expanded: ROLE segmented Member|Mod|Admin (changes confirm
+                      first) + red-outline Remove, both 32px controls. */}
+                  {canEdit && isOpen && (
                     <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                       <div>
                         <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--ink-faint)", marginBottom: 6 }}>Role</div>
                         <div style={{ display: "inline-flex", border: "1px solid var(--border-strong)", borderRadius: 9, overflow: "hidden" }}>
-                          {(["member", "mod"] as const).map((role, i) => {
-                            const on = m.role === role;
+                          {([{ id: "member", label: "Member" }, { id: "mod", label: "Mod" }, { id: "admin", label: "Admin" }] as const).map((r, i) => {
+                            const on = m.role === r.id;
                             return (
-                              <button key={role} onClick={() => setRole(m, role)} disabled={busy === m.handle} style={{
-                                ...pillBase, border: "none", borderLeft: i > 0 ? "1px solid var(--border-strong)" : "none",
-                                background: on ? "var(--ink)" : "var(--paper)", color: on ? "var(--paper)" : "var(--ink-soft)",
-                              }}>{role === "mod" ? "Mod" : "Member"}</button>
+                              <button key={r.id} type="button" disabled={busy === m.handle}
+                                onClick={() => { if (!on) setRoleChange({ handle: m.handle, role: r.id, label: r.label }); }}
+                                style={{
+                                  ...pillBase, border: "none", borderLeft: i > 0 ? "1px solid var(--border-strong)" : "none",
+                                  background: on ? "var(--ink)" : "var(--paper)", color: on ? "var(--paper)" : "var(--ink-soft)",
+                                }}>{r.label}</button>
                             );
                           })}
                         </div>
                       </div>
-                      <button onClick={() => { setRemoveTarget(removing ? null : m.handle); setRemoveReason(""); }} disabled={busy === m.handle} style={{
-                        ...pillBase, borderRadius: 9, border: "1px solid var(--stamp-red)", background: removing ? "var(--stamp-red)" : "var(--paper)", color: removing ? "var(--paper)" : "var(--stamp-red)",
+                      <button type="button" onClick={() => { setRemoveTarget(m.handle); setRemoveReason(""); }} disabled={busy === m.handle} style={{
+                        ...pillBase, borderRadius: 9, border: "1px solid var(--stamp-red)", background: "var(--paper)", color: "var(--stamp-red)",
                       }}>Remove member</button>
-                    </div>
-                  )}
-                  {/* Removal needs a reason — sent as the {reason} body (DV8-14). */}
-                  {removing && (
-                    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--stamp-red-deep)", marginBottom: 7 }}>Remove @{m.handle} — why?</div>
-                      <textarea
-                        value={removeReason}
-                        onChange={(e) => setRemoveReason(e.target.value.slice(0, 300))}
-                        rows={3}
-                        autoFocus
-                        placeholder="e.g. Repeated rule violations, spam, harassment…"
-                        style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ink)", outline: "none", resize: "vertical" }}
-                      />
-                      <div style={{ fontSize: 11, color: "var(--ink-faint)", textAlign: "right", margin: "4px 0 8px" }}>{removeReason.length}/300</div>
-                      <div style={{ display: "flex", gap: 9 }}>
-                        <button onClick={() => { setRemoveTarget(null); setRemoveReason(""); }} style={{ flex: 1, height: 36, borderRadius: 9, border: "1px solid var(--border-strong)", background: "var(--paper)", color: "var(--ink-soft)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Cancel</button>
-                        <button onClick={confirmRemove} disabled={!removeReason.trim() || busy === m.handle} style={{ flex: 1, height: 36, borderRadius: 9, border: "none", background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: removeReason.trim() ? "pointer" : "default", opacity: removeReason.trim() ? 1 : 0.5 }}>Remove</button>
-                      </div>
                     </div>
                   )}
                 </div>

@@ -11,6 +11,7 @@ import { useUser } from "@/lib/auth-context";
 import { ApiPost } from "@/components/cards";
 import { Avatar, Segmented, SectionLabel, EmptyNote, Button } from "@/components/ui";
 import { PostCard } from "@/components/cards";
+import { fireToast } from "@/components/gamification";
 
 interface CommunityAdmin {
   handle: string;
@@ -140,7 +141,11 @@ export default function CommunityDetailPage() {
   const [shared, setShared] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pendingCount, setPendingCount] = useState(0); // join requests + posts awaiting review (admin only)
-  const [leaveConfirm, setLeaveConfirm] = useState(false); // v8 styled leave modal
+  // v8 leave flow — null | confirm | promote (last admin picks a successor) | sole
+  const [leaveStep, setLeaveStep] = useState<null | "confirm" | "promote" | "sole">(null);
+  const [succHandle, setSuccHandle] = useState<string | null>(null);
+  const [succMembers, setSuccMembers] = useState<{ handle: string; name: string; avatar_url: string | null; role: string }[] | null>(null);
+  const [succBusy, setSuccBusy] = useState(false);
 
   async function toggleJoin() {
     if (!community || joinBusy) return;
@@ -197,15 +202,44 @@ export default function CommunityDetailPage() {
     }
   }
 
-  // Leave needs a confirm step — rejoining now goes back through admin approval.
-  // v8 (CommunityDetail.jsx:297-310) — a styled modal card, not window.confirm.
+  // v8 leave flow (updated CommunityDetail) — a plain member confirms; the LAST
+  // full admin must first hand the community to a successor; a sole member is
+  // pointed at Close instead. (v8's own Leave buttons hide for admins, which
+  // orphans its promote branch — we surface the foot link to every joined role.)
   function confirmLeave() {
     if (!community) return;
-    setLeaveConfirm(true);
+    const fullAdmin = community.member_role === "founder" || community.member_role === "admin";
+    const otherAdmins = community.admins.filter((a) => (a.role === "founder" || a.role === "admin") && a.handle !== user?.handle);
+    if (!fullAdmin || otherAdmins.length > 0) { setLeaveStep("confirm"); return; }
+    if (community.member_count > 1) {
+      setSuccHandle(null);
+      setSuccMembers(null);
+      setLeaveStep("promote");
+      api.get<{ handle: string; name: string; avatar_url: string | null; role: string }[]>(`/communities/${id}/members`)
+        .then((ms) => setSuccMembers((ms ?? []).filter((m) => m.handle !== user?.handle)))
+        .catch(() => setSuccMembers([]));
+    } else {
+      setLeaveStep("sole");
+    }
   }
   function doLeave() {
-    setLeaveConfirm(false);
+    setLeaveStep(null);
     toggleJoin();
+  }
+  // v8 confirmSuccessionAndLeave — promote, then leave, one toast.
+  async function promoteAndLeave() {
+    if (!succHandle || succBusy || !community) return;
+    setSuccBusy(true);
+    try {
+      await api.patch(`/communities/${id}/members/${succHandle}/role?role=admin`);
+      setLeaveStep(null);
+      await toggleJoin();
+      fireToast(`Left ${community.name} — @${succHandle} is now Admin`);
+    } catch (e) {
+      fireToast(e instanceof Error && e.message ? e.message : "Couldn't hand over — try again");
+    } finally {
+      setSuccBusy(false);
+    }
   }
 
   async function share() {
@@ -234,7 +268,7 @@ export default function CommunityDetailPage() {
   }, [id]);
 
   // Admins see a "Manage · N" badge counting pending join requests + posts to review (v3 parity).
-  const isModView = community?.member_role === "founder" || community?.member_role === "mod";
+  const isModView = community?.member_role === "founder" || community?.member_role === "admin" || community?.member_role === "mod";
   useEffect(() => {
     if (!community || !isModView) return;
     Promise.all([
@@ -446,7 +480,7 @@ export default function CommunityDetailPage() {
                         key={p.id}
                         post={p}
                         authorRole={p.author_role ?? null}
-                        canModerate={community.member_role === "founder" || !!user?.is_admin}
+                        canModerate={community.member_role === "founder" || community.member_role === "admin" || !!user?.is_admin}
                         onRemove={(reason) => removePost(p.id, reason)}
                       />
                     ))
@@ -475,10 +509,10 @@ export default function CommunityDetailPage() {
               </div>
               {/* v8 (CommunityDetail.jsx:275-277) — a member's exit lives at the list's
                   foot as a red text link; admins manage, they don't "leave". */}
-              {joined && !isMod && (
+              {joined && (
                 <button
                   type="button"
-                  onClick={() => setLeaveConfirm(true)}
+                  onClick={confirmLeave}
                   style={{ marginTop: 20, width: "100%", textAlign: "center", background: "none", border: "none", cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13 }}
                 >
                   Leave community
@@ -499,10 +533,10 @@ export default function CommunityDetailPage() {
                 </div>
               )}
               {/* v8 (CommunityDetail.jsx:292-294) — same red exit link under the rules. */}
-              {joined && !isMod && (
+              {joined && (
                 <button
                   type="button"
-                  onClick={() => setLeaveConfirm(true)}
+                  onClick={confirmLeave}
                   style={{ marginTop: 20, width: "100%", textAlign: "center", background: "none", border: "none", cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13 }}
                 >
                   Leave community
@@ -541,12 +575,12 @@ export default function CommunityDetailPage() {
       )}
 
       {/* v8 (CommunityDetail.jsx:297-310) — styled leave-confirm modal card. */}
-      {leaveConfirm && (
+      {leaveStep === "confirm" && (
         <>
           <button
             type="button"
             aria-label="Cancel"
-            onClick={() => setLeaveConfirm(false)}
+            onClick={() => setLeaveStep(null)}
             style={{ position: "fixed", inset: 0, background: "rgba(20,17,15,0.4)", zIndex: 140, border: "none", cursor: "default" }}
           />
           <div style={{
@@ -563,8 +597,77 @@ export default function CommunityDetailPage() {
                 : "You can ask to rejoin anytime, but you'll lose your role and any unread activity here."}
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-              <Button variant="secondary" style={{ flex: 1, justifyContent: "center" }} onClick={() => setLeaveConfirm(false)}>Cancel</Button>
+              <Button variant="secondary" style={{ flex: 1, justifyContent: "center" }} onClick={() => setLeaveStep(null)}>Cancel</Button>
               <Button variant="destructive" style={{ flex: 1, justifyContent: "center" }} disabled={joinBusy} onClick={doLeave}>Leave</Button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* v8 leave flow 'promote' — the last full admin hands the community over first. */}
+      {leaveStep === "promote" && community && (
+        <>
+          <button type="button" aria-label="Cancel" onClick={() => setLeaveStep(null)}
+            style={{ position: "fixed", inset: 0, background: "rgba(20,17,15,0.4)", zIndex: 140, border: "none", cursor: "default" }} />
+          <div style={{
+            position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)", zIndex: 141,
+            width: "min(calc(100% - 40px), 380px)", background: "var(--paper)", borderRadius: 18, padding: 20,
+            boxShadow: "var(--shadow-2)", boxSizing: "border-box", maxHeight: "76vh", overflowY: "auto",
+          }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--ink)" }}>Pick a new admin before you leave</div>
+            <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5, marginTop: 6 }}>
+              You&rsquo;re the only admin left. Every community needs someone managing it, so choose a member to make Admin.
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+              {succMembers === null && <div style={{ fontSize: 13, color: "var(--ink-faint)" }}>Loading members…</div>}
+              {succMembers?.map((m) => {
+                const on = succHandle === m.handle;
+                return (
+                  <button key={m.handle} type="button" onClick={() => setSuccHandle(m.handle)} style={{
+                    display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", padding: 10, cursor: "pointer",
+                    background: on ? "var(--bone)" : "var(--paper-soft)", border: `1.5px solid ${on ? "var(--ink)" : "var(--border)"}`, borderRadius: 13,
+                  }}>
+                    <Avatar name={m.name} photo={m.avatar_url} size={36} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13.5, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</div>
+                      <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>@{m.handle}</div>
+                    </div>
+                    {m.role !== "member" && <RoleChip role={m.role} />}
+                    {on && <Check size={16} style={{ color: "var(--ink)", flexShrink: 0 }} />}
+                  </button>
+                );
+              })}
+              {succMembers?.length === 0 && <EmptyNote>No other members to promote.</EmptyNote>}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+              <Button variant="secondary" style={{ flex: 1, justifyContent: "center" }} onClick={() => setLeaveStep(null)}>Cancel</Button>
+              <Button variant="destructive" disabled={!succHandle || succBusy} style={{ flex: 1, justifyContent: "center", opacity: succHandle ? 1 : 0.5 }} onClick={promoteAndLeave}>
+                Promote &amp; leave
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* v8 leave flow 'sole' — nobody to hand it to; Close lives in Manage → settings. */}
+      {leaveStep === "sole" && community && (
+        <>
+          <button type="button" aria-label="Cancel" onClick={() => setLeaveStep(null)}
+            style={{ position: "fixed", inset: 0, background: "rgba(20,17,15,0.4)", zIndex: 140, border: "none", cursor: "default" }} />
+          <div style={{
+            position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)", zIndex: 141,
+            width: "min(calc(100% - 40px), 380px)", background: "var(--paper)", borderRadius: 18, padding: 20,
+            boxShadow: "var(--shadow-2)", boxSizing: "border-box",
+          }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--ink)" }}>You&rsquo;re the only member</div>
+            <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5, marginTop: 6 }}>
+              There&rsquo;s no one to hand this community to. Leaving isn&rsquo;t available — close the community instead if you&rsquo;re done with it.
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+              <Button variant="secondary" style={{ flex: 1, justifyContent: "center" }} onClick={() => setLeaveStep(null)}>Cancel</Button>
+              <Button variant="destructive" style={{ flex: 1, justifyContent: "center" }} onClick={() => { setLeaveStep(null); window.location.href = `/community/${id}/manage`; }}>
+                Go to settings
+              </Button>
             </div>
           </div>
         </>

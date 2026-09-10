@@ -17,7 +17,7 @@ function CommunityDetail({ route }) {
   const {
     joined, toggleJoin, comRequested, requestJoin, cancelRequest, userCommunities, guidelinesAccepted, acceptGuidelines,
     communityRoleOverrides, communityRemoved, removedCommunityPosts, removeCommunityPost, posts: userPosts,
-    approveCommunityDemo, declineUserPost, dismissPendingPost,
+    approveCommunityDemo, declineUserPost, dismissPendingPost, setCommunityRole,
   } = useAppState();
   const com = COMMUNITIES.find(c => c.id === route.id) || (userCommunities || []).find(c => c.id === route.id);
   if (!com) return <Screen nav={false} header={<DetailHeader title="Community"/>}><EmptyNote>This community isn’t available.</EmptyNote></Screen>;
@@ -33,10 +33,13 @@ function CommunityDetail({ route }) {
   let admins = adminsOf(com.id);
   if (!admins.length && com.founder) admins = [{ handle: com.founder, role: 'Founder' }];
   const myRole = roleOfWithOverride(com.id, 'you', communityRoleOverrides);
-  const isAdmin = roleCanManage(myRole);           // any manage access (Founder/Admin/Mod)
-  const isFullAdmin = roleCanFullAdmin(myRole);    // Founder/Admin — settings, remove member/post
-  const [leaveConfirm, setLeaveConfirm] = React.useState(false);
+  const isAdmin = roleCanManage(myRole);           // any manage access (Admin/Mod)
+  const isFullAdmin = roleCanFullAdmin(myRole);    // Admin (incl. creator) — settings, remove member/post
+  const [leaveStep, setLeaveStep] = React.useState(null); // null | 'confirm' | 'promote' | 'sole'
+  const [succHandle, setSuccHandle] = React.useState(null);
   const members = membersOf(com.id).filter(h => !(communityRemoved[com.id] && communityRemoved[com.id][h]));
+  const otherMembers = members.filter(h => h !== 'you');
+  const successorCandidates = otherMembers.filter(h => roleCanManage(roleOfWithOverride(com.id, h, communityRoleOverrides)));
   const reqCount = joinRequestsOf(com.id).length;
   const pendCount = pendingPostsOf(com.id).length;
 
@@ -60,7 +63,21 @@ function CommunityDetail({ route }) {
       else { requestJoin(com.id); flashToast('Request sent — an admin will review it'); }
     } else { toggleJoin(com.id); flashToast(`Joined ${com.name}`); }
   };
-  const leaveCommunity = () => { toggleJoin(com.id); flashToast(`Left ${com.name}`); setLeaveConfirm(false); };
+  const leaveCommunity = () => { toggleJoin(com.id); flashToast(`Left ${com.name}`); setLeaveStep(null); };
+  const openLeaveFlow = () => {
+    if (!isAdmin || successorCandidates.length > 0) { setLeaveStep('confirm'); return; }
+    if (otherMembers.length > 0) { setSuccHandle(null); setLeaveStep('promote'); }
+    else setLeaveStep('sole');
+  };
+  const confirmSuccessionAndLeave = () => {
+    if (!succHandle) return;
+    const newRole = 'Admin';
+    setCommunityRole(com.id, succHandle, newRole);
+    setCommunityRole(com.id, 'you', null);
+    toggleJoin(com.id);
+    flashToast(`Left ${com.name} — @${succHandle} is now ${newRole}`);
+    setLeaveStep(null);
+  };
 
   const realTabs = locked || pendingReview
     ? [{ id: 'posts', label: 'Rules' }]
@@ -115,8 +132,8 @@ function CommunityDetail({ route }) {
                 {requested ? 'Requested' : (isPrivate ? 'Request to join' : 'Join')}
               </Button>
             )}
-            {!isAdmin && isMember && (
-              <Button size="sm" variant="secondary" icon={<Ico d={Icons.close} size={15}/>} onClick={() => setLeaveConfirm(true)}>Leave</Button>
+            {isMember && !isAdmin && (
+              <Button size="sm" variant="secondary" icon={<Ico d={Icons.close} size={15}/>} onClick={openLeaveFlow}>Leave</Button>
             )}
           </div>
         </div>
@@ -128,28 +145,28 @@ function CommunityDetail({ route }) {
         <div style={{ fontSize: 14, color: 'var(--ink-mute)', lineHeight: 1.5 }}>{com.short}</div>
 
         {/* meta row */}
-        <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: 12.5, color: 'var(--ink-faint)', flexWrap: 'wrap' }}>
-          <span><b style={{ color: 'var(--ink)', fontFamily: 'var(--font-mono)' }}>{com.members.toLocaleString('en-IN')}</b> members</span>
-          <span><b style={{ color: 'var(--ink)', fontFamily: 'var(--font-mono)' }}>{com.posts.toLocaleString('en-IN')}</b> posts</span>
-          <span>by @{founder.handle}</span>
+        <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: 12.5, color: 'var(--ink-faint)', flexWrap: 'wrap', rowGap: 4 }}>
+          <span style={{ whiteSpace: 'nowrap' }}><b style={{ color: 'var(--ink)', fontFamily: 'var(--font-mono)' }}>{com.members.toLocaleString('en-IN')}</b> members</span>
+          <span style={{ whiteSpace: 'nowrap' }}><b style={{ color: 'var(--ink)', fontFamily: 'var(--font-mono)' }}>{com.posts.toLocaleString('en-IN')}</b> posts</span>
+          <span style={{ whiteSpace: 'nowrap' }}>by @{founder.handle}</span>
         </div>
 
         {/* privacy + posting badges */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 999, background: 'var(--bone)', border: '1px solid var(--border-strong)' }}>
-            <Ico d={isPrivate ? Icons.shield : Icons.globe} size={13} style={{ color: 'var(--ink-mute)' }}/>
-            <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink-soft)' }}>{isPrivate ? 'Private' : 'Public'}</span>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', rowGap: 8 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 999, background: 'var(--bone)', border: '1px solid var(--border-strong)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+            <Ico d={isPrivate ? Icons.shield : Icons.globe} size={13} style={{ color: 'var(--ink-mute)', flexShrink: 0 }}/>
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink-soft)', whiteSpace: 'nowrap' }}>{isPrivate ? 'Private' : 'Public'}</span>
           </span>
           {!pendingReview && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 999, background: postMode === 'approval' ? 'var(--grail-gold-soft)' : 'var(--forest-soft)', border: `1px solid ${postMode === 'approval' ? 'var(--grail-gold)' : 'var(--forest)'}` }}>
-              <Ico d={postMode === 'approval' ? Icons.shield : Icons.check} size={13} style={{ color: postMode === 'approval' ? 'var(--grail-gold-deep)' : 'var(--forest)' }}/>
-              <span style={{ fontSize: 11.5, fontWeight: 600, color: postMode === 'approval' ? 'var(--grail-gold-deep)' : 'var(--forest)' }}>{postMode === 'approval' ? 'Posts reviewed' : 'Open posting'}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 999, background: postMode === 'approval' ? 'var(--grail-gold-soft)' : 'var(--forest-soft)', border: `1px solid ${postMode === 'approval' ? 'var(--grail-gold)' : 'var(--forest)'}`, flexShrink: 0, whiteSpace: 'nowrap' }}>
+              <Ico d={postMode === 'approval' ? Icons.shield : Icons.check} size={13} style={{ color: postMode === 'approval' ? 'var(--grail-gold-deep)' : 'var(--forest)', flexShrink: 0 }}/>
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: postMode === 'approval' ? 'var(--grail-gold-deep)' : 'var(--forest)', whiteSpace: 'nowrap' }}>{postMode === 'approval' ? 'Posts reviewed' : 'Open posting'}</span>
             </span>
           )}
           {pendingReview && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 999, background: 'var(--grail-gold-soft)', border: '1px solid var(--grail-gold)' }}>
-              <Ico d={Icons.clock} size={13} style={{ color: 'var(--grail-gold-deep)' }}/>
-              <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--grail-gold-deep)' }}>Pending platform review</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 999, background: 'var(--grail-gold-soft)', border: '1px solid var(--grail-gold)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+              <Ico d={Icons.clock} size={13} style={{ color: 'var(--grail-gold-deep)', flexShrink: 0 }}/>
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--grail-gold-deep)', whiteSpace: 'nowrap' }}>Pending platform review</span>
             </span>
           )}
         </div>
@@ -273,7 +290,7 @@ function CommunityDetail({ route }) {
             })}
           </div>
           {isMember && !isAdmin && (
-            <button onClick={() => setLeaveConfirm(true)} style={{ marginTop: 20, width: '100%', textAlign: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--stamp-red)', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13 }}>Leave community</button>
+            <button onClick={openLeaveFlow} style={{ marginTop: 20, width: '100%', textAlign: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--stamp-red)', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13 }}>Leave community</button>
           )}
         </div>
       ) : (
@@ -290,21 +307,73 @@ function CommunityDetail({ route }) {
             </div>
           )}
           {isMember && !isAdmin && (
-            <button onClick={() => setLeaveConfirm(true)} style={{ marginTop: 20, width: '100%', textAlign: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--stamp-red)', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13 }}>Leave community</button>
+            <button onClick={openLeaveFlow} style={{ marginTop: 20, width: '100%', textAlign: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--stamp-red)', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13 }}>Leave community</button>
           )}
         </div>
       )}
-      {leaveConfirm && (
+      {leaveStep === 'confirm' && (
         <>
-          <div onClick={() => setLeaveConfirm(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(20,17,15,0.4)', zIndex: 140 }}/>
+          <div onClick={() => setLeaveStep(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(20,17,15,0.4)', zIndex: 140 }}/>
           <div style={{ position: 'fixed', left: 20, right: 20, top: '50%', transform: 'translateY(-50%)', zIndex: 141, background: 'var(--paper)', borderRadius: 18, padding: 20, boxShadow: 'var(--shadow-2)' }}>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>Leave {com.name}?</div>
             <div style={{ fontSize: 13.5, color: 'var(--ink-soft)', lineHeight: 1.5, marginTop: 6 }}>
               {isPrivate ? "You'll need to request to join again to get back in." : "You can rejoin anytime, but you'll lose your role and any unread activity here."}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
-              <Button variant="secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setLeaveConfirm(false)}>Cancel</Button>
+              <Button variant="secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setLeaveStep(null)}>Cancel</Button>
               <Button variant="destructive" style={{ flex: 1, justifyContent: 'center' }} onClick={leaveCommunity}>Leave</Button>
+            </div>
+          </div>
+        </>
+      )}
+      {leaveStep === 'promote' && (
+        <>
+          <div onClick={() => setLeaveStep(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(20,17,15,0.4)', zIndex: 140 }}/>
+          <div style={{ position: 'fixed', left: 20, right: 20, top: '50%', transform: 'translateY(-50%)', zIndex: 141, background: 'var(--paper)', borderRadius: 18, padding: 20, boxShadow: 'var(--shadow-2)', maxHeight: '76vh', overflowY: 'auto' }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>
+              Pick a new admin before you leave
+            </div>
+            <div style={{ fontSize: 13.5, color: 'var(--ink-soft)', lineHeight: 1.5, marginTop: 6 }}>
+              You're the only admin left. Every community needs someone managing it, so choose a member to make Admin.
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
+              {otherMembers.map(h => {
+                const mu = userOf(h);
+                const role = roleOfWithOverride(com.id, h, communityRoleOverrides);
+                const on = succHandle === h;
+                return (
+                  <button key={h} onClick={() => setSuccHandle(h)} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: 10, cursor: 'pointer',
+                    background: on ? 'var(--bone)' : 'var(--paper-soft)', border: `1.5px solid ${on ? 'var(--ink)' : 'var(--border)'}`, borderRadius: 13 }}>
+                    <Avatar name={mu.name} color={mu.color} size={36}/>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mu.name}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--ink-faint)' }}>@{mu.handle}</div>
+                    </div>
+                    {role && <RoleBadge role={role}/>}
+                    {on && <Ico d={Icons.check} size={16} style={{ color: 'var(--ink)' }}/>}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+              <Button variant="secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setLeaveStep(null)}>Cancel</Button>
+              <Button variant="destructive" disabled={!succHandle} style={{ flex: 1, justifyContent: 'center', opacity: succHandle ? 1 : 0.5 }} onClick={confirmSuccessionAndLeave}>Promote &amp; leave</Button>
+            </div>
+          </div>
+        </>
+      )}
+      {leaveStep === 'sole' && (
+        <>
+          <div onClick={() => setLeaveStep(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(20,17,15,0.4)', zIndex: 140 }}/>
+          <div style={{ position: 'fixed', left: 20, right: 20, top: '50%', transform: 'translateY(-50%)', zIndex: 141, background: 'var(--paper)', borderRadius: 18, padding: 20, boxShadow: 'var(--shadow-2)' }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>You're the only member</div>
+            <div style={{ fontSize: 13.5, color: 'var(--ink-soft)', lineHeight: 1.5, marginTop: 6 }}>
+              There's no one to hand this community to. Leaving isn't available \u2014 close the community instead if you're done with it.
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+              <Button variant="secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setLeaveStep(null)}>Cancel</Button>
+              <Button variant="destructive" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { setLeaveStep(null); push({ name: 'community-manage', id: com.id }); }}>Go to settings</Button>
             </div>
           </div>
         </>
