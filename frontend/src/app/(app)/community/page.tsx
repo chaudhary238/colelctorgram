@@ -1,12 +1,11 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, PlusCircle, Users, Compass } from "lucide-react";
+import { Search, PlusCircle, Users, Compass, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiCommunity } from "@/components/cards";
-import { CategoryChip, SectionLabel, EmptyNote, Button, Segmented } from "@/components/ui";
+import { CategoryChip, EmptyNote, Button, Segmented } from "@/components/ui";
 import { CommunityCard } from "@/components/cards";
 import { ADD_CATEGORIES } from "@/lib/catalog";
 
@@ -25,14 +24,13 @@ function loadPins(): string[] {
 type Tab = "discover" | "joined";
 
 /**
- * QA 2026-08-04 §15 — "how do I tell my created communities from the ones I joined?"
- *
- * The answer is sections, not a third tab. Nearly every collector creates zero
- * communities, so a permanent "Created" tab would be an empty screen for most people
- * and would push Discover — the tab that actually grows the product — further away. A
- * section header costs nothing when it has no rows: it simply doesn't render. Cards you
- * own also carry an Owner chip (see CommunityCard) so the distinction survives outside
- * this screen, in Discover and in search.
+ * QA #11 full v8 revert (founder 2026-09-13) — this page now matches
+ * design_v8/app/CommunityView.jsx: a REAL in-page search input (local filter,
+ * tabs hidden while searching, flat merged results + mono counter) and a plain
+ * card list per tab with no section headers or helper prose. This supersedes
+ * QA 2026-08-04 §15's "Created by you" section split — the teal Admin badge on
+ * the card carries the created-vs-joined distinction now. ONE deliberate
+ * divergence stays by founder call: the pin button + pin-first ordering.
  *
  * The tab is called "Your communities" (v8 §8) rather than "Joined" because it holds both.
  */
@@ -52,6 +50,7 @@ function CommunityPageInner() {
     router.replace(t === "discover" ? "/community?tab=discover" : "/community", { scroll: false });
 
   const [cats, setCats] = useState<string[]>([]); // [] = all
+  const [q, setQ] = useState(""); // v8 in-page search — filters both lists locally
   const [communities, setCommunities] = useState<ApiCommunity[]>([]);
   const [pins, setPins] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,11 +87,6 @@ function CommunityPageInner() {
     return [...pinnedCards, ...rest];
   }, [communities, pins, cats]);
 
-  // The split. `created` renders its own header only when non-empty, so a collector who
-  // has never created one sees exactly the list they saw before.
-  const created = useMemo(() => mine.filter((c) => c.is_founder), [mine]);
-  const joined = useMemo(() => mine.filter((c) => !c.is_founder), [mine]);
-
   const discover = useMemo(
     () =>
       communities
@@ -101,24 +95,45 @@ function CommunityPageInner() {
     [communities, cats],
   );
 
+  // v8 CommunityView.jsx:17 — search matches name or description, across BOTH lists.
+  const qNorm = q.trim().toLowerCase();
+  const results = useMemo(() => {
+    if (!qNorm) return [];
+    const qMatch = (c: ApiCommunity) =>
+      c.name.toLowerCase().includes(qNorm)
+      || (c.short_desc ?? c.description ?? "").toLowerCase().includes(qNorm);
+    return [...mine, ...discover].filter(qMatch);
+  }, [mine, discover, qNorm]);
+
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-7">
       {/* v8 (CommunityView.jsx:31-60) — search row + category chips + tabs live in ONE
           sticky header block: top 0, paper bg, slate-200 bottom rule. */}
-      <div style={{ position: "sticky", top: 0, zIndex: 4, background: "var(--paper)", borderBottom: "1px solid var(--slate-200)", padding: "12px 20px 10px" }}>
+      {/* QA #11 follow-up — the app bar is lg:hidden, so the offset must be
+          responsive: 56px below lg (pin under the app bar), 0 on desktop
+          (a fixed 56 left a gap cards scrolled through — the "overlap"). */}
+      <div className="top-[56px] lg:top-0" style={{ position: "sticky", zIndex: 4, background: "var(--paper)", borderBottom: "1px solid var(--slate-200)", padding: "12px 16px 10px" }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-          <Link
-            href="/search?scope=communities"
-            style={{
-              flex: 1, display: "flex", alignItems: "center", gap: 9,
-              height: 40, padding: "0 14px", borderRadius: 11,
-              border: "1px solid var(--border-strong)", background: "var(--paper-soft)",
-              color: "var(--ink-faint)", fontSize: 14,
-            }}
-          >
-            <Search size={18} />
-            Find a community…
-          </Link>
+          {/* v8 CommunityView.jsx:33-42 — a REAL search input (local filter),
+              not a link to the global search page. */}
+          <div style={{
+            flex: 1, display: "flex", alignItems: "center", gap: 9, height: 40, padding: "0 14px",
+            borderRadius: 13, border: "1px solid var(--slate-200)", background: "var(--card-surface)",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+          }}>
+            <Search size={17} style={{ color: "var(--slate-400)", flexShrink: 0 }} />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search communities…"
+              style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)" }}
+            />
+            {q && (
+              <button onClick={() => setQ("")} aria-label="Clear search" style={{ background: "none", border: "none", padding: 2, cursor: "pointer", color: "var(--slate-400)", display: "flex", alignItems: "center" }}>
+                <X size={14} strokeWidth={2} />
+              </button>
+            )}
+          </div>
           <Button size="sm" variant="primary" icon={<PlusCircle size={15} />} onClick={() => router.push("/community/new")}>
             Create
           </Button>
@@ -144,66 +159,60 @@ function CommunityPageInner() {
         </div>
 
         {/* QA2 — Discover / Joined as explicit tabs so Discover stays reachable after you've
-            joined several communities; the tab is URL-backed so back-navigation restores it. */}
-        <Segmented
-          style={{ marginTop: 10 }}
-          value={tab}
-          onChange={(v) => selectTab(v as Tab)}
-          options={[
-            /* v8 (CommunityView.jsx:50-58) — yours first with its count in parentheses,
-               Discover second; each segment carries its glyph. */
-            { id: "joined", label: mine.length ? `Your communities (${mine.length})` : "Your communities", icon: <Users size={14} /> },
-            { id: "discover", label: "Discover", icon: <Compass size={14} /> },
-          ]}
-        />
+            joined several communities; the tab is URL-backed so back-navigation restores it.
+            v8 :49 — the tabs hide while a search query is active (flat merged results). */}
+        {!q && (
+          <Segmented
+            style={{ marginTop: 10 }}
+            value={tab}
+            onChange={(v) => selectTab(v as Tab)}
+            options={[
+              /* v8 (CommunityView.jsx:50-58) — yours first with its count in parentheses,
+                 Discover second; each segment carries its glyph. */
+              { id: "joined", label: mine.length ? `Your communities (${mine.length})` : "Your communities", icon: <Users size={14} /> },
+              { id: "discover", label: "Discover", icon: <Compass size={14} /> },
+            ]}
+          />
+        )}
       </div>
 
       {loading ? (
-        <div style={{ padding: "24px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ padding: "24px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} style={{ height: 76, borderRadius: 14, background: "var(--bone)" }} />
           ))}
         </div>
-      ) : tab === "joined" ? (
-        <div style={{ padding: "16px 20px 0" }}>
-          {/* Created by you — only rendered when you actually own one (§15). */}
-          {created.length > 0 && (
-            <div style={{ marginBottom: 22 }}>
-              <SectionLabel>Created by you</SectionLabel>
-              <div style={{ fontSize: 12, color: "var(--ink-faint)", margin: "5px 0 12px" }}>
-                You run {created.length === 1 ? "this one" : "these"} — open it to manage moderation, members and rules.
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {created.map((c) => (
-                  <CommunityCard key={c.id} community={c} pinned={pins.includes(c.id)} onTogglePin={() => togglePin(c.id)} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          <SectionLabel>{created.length > 0 ? "Joined" : "Your communities"}</SectionLabel>
-          <div style={{ fontSize: 12, color: "var(--ink-faint)", margin: "5px 0 12px" }}>
-            Pin a community to keep it on top; otherwise the most active (last 24h) leads.
+      ) : q ? (
+        /* v8 :64-70 — search mode: flat merged results (yours first) + mono counter. */
+        <div style={{ padding: "16px 16px 32px" }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", marginBottom: 12 }}>
+            {results.length} result{results.length !== 1 ? "s" : ""} for &ldquo;{q}&rdquo;
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {joined.map((c) => (
+            {results.map((c) => <CommunityCard key={c.id} community={c} />)}
+          </div>
+          {results.length === 0 && <EmptyNote>No communities match &ldquo;{q}&rdquo;.</EmptyNote>}
+        </div>
+      ) : tab === "joined" ? (
+        /* v8 :72-77 — a plain card list; no section headers, no helper prose.
+           Pin-first ordering (the kept divergence) is already baked into `mine`. */
+        <div style={{ padding: "18px 16px 32px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {mine.map((c) => (
               <CommunityCard key={c.id} community={c} pinned={pins.includes(c.id)} onTogglePin={() => togglePin(c.id)} />
             ))}
-            {joined.length === 0 && (
-              /* v8 (CommunityView.jsx:75) exact copy; the created>0 variant keeps our
-                 created-vs-joined section split (§15). */
+            {mine.length === 0 && (
+              /* v8 (CommunityView.jsx:75) exact copy. */
               <EmptyNote>
                 {cats.length > 0
                   ? "No communities in this category yet."
-                  : created.length > 0
-                    ? "You haven't joined anyone else's community yet — check Discover."
-                    : "You haven't joined any communities yet — check Discover."}
+                  : "You haven't joined any communities yet — check Discover."}
               </EmptyNote>
             )}
           </div>
         </div>
       ) : (
-        <div style={{ padding: "16px 20px 0" }}>
+        <div style={{ padding: "18px 16px 32px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {discover.map((c) => <CommunityCard key={c.id} community={c} />)}
             {/* v8 (CommunityView.jsx:82) exact copy for both Discover empties. */}

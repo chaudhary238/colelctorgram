@@ -99,7 +99,11 @@ DEFAULT_PRIVACY_PREFS = {
 # chart/calendar views all render from the same /collection items, so this is a
 # display choice the owner makes — stored under privacy_prefs.collection_views and
 # returned to ALL viewers so the client hides views the owner marked private.
-DEFAULT_COLLECTION_VIEWS = {"grid": "public", "chart": "public", "calendar": "public"}
+DEFAULT_COLLECTION_VIEWS = {"grid": "public", "chart": "public", "calendar": "public",
+                            # QA #19 — the profile Posts tab gets the same eye toggle;
+                            # unlike the display-only collection gate this one is
+                            # enforced server-side in get_user_posts.
+                            "posts": "public"}
 
 
 def _collection_views(user: User) -> dict:
@@ -786,6 +790,11 @@ async def get_user_posts(
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    is_owner = bool(current_user and current_user.id == target_user.id)
+    # QA #19 — Posts tab honours the owner's eye toggle, enforced here.
+    if not is_owner and _collection_views(target_user).get("posts") == "private":
+        return {"page": page, "items": []}
+
     stmt = (
         select(Post)
         .where(Post.user_id == target_user.id)
@@ -794,6 +803,10 @@ async def get_user_posts(
         .offset((page - 1) * limit)
         .limit(limit)
     )
+    if not is_owner:
+        # QA #29 — a community post awaiting mod review must not leak to
+        # other viewers via the author's profile.
+        stmt = stmt.where(Post.status == "published")
     result = await db.execute(stmt)
     posts = list(result.scalars().all())
 
@@ -939,7 +952,10 @@ async def get_collection(
     # completeness denominator (item_is_complete also short-circuits on sold_at).
     port_rows = [r for r in all_rows if r.sold_at is None]
     incomplete_count = sum(1 for r in port_rows if not item_is_complete(r))
-    owned_value = sum((r.value or 0) for r in port_rows if r.status == "owned")
+    # QA #16 — pre-orders count at their committed total (their money lives in
+    # preorder_total, never in value, which the add forms zero for POs).
+    owned_value = sum((r.value or 0) for r in port_rows if r.status == "owned") \
+        + sum((r.preorder_total or 0) for r in port_rows if r.status == "preorder")
     value_shared = len(port_rows) > 0 and incomplete_count == 0
     portfolio = {
         "item_count": len(port_rows),

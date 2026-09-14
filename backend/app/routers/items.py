@@ -363,6 +363,25 @@ async def my_wishlist(
     ]}
 
 
+@router.get("/preorder-sellers")
+async def list_preorder_sellers(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """QA #23 — distinct seller/store names for the PO seller combobox, so typing
+    suggests existing spellings instead of minting duplicates. Names only, no
+    user linkage (preorder_seller stays owner-only in item payloads)."""
+    rows = (await db.execute(
+        select(Item.preorder_seller).where(Item.preorder_seller.isnot(None)).distinct()
+    )).scalars().all()
+    seen: dict[str, str] = {}
+    for name in rows:
+        trimmed = (name or "").strip()
+        if trimmed and trimmed.casefold() not in seen:
+            seen[trimmed.casefold()] = trimmed
+    return {"sellers": sorted(seen.values(), key=str.casefold)}
+
+
 @router.get("/by-sku/{sku}")
 async def get_my_item_by_sku(
     sku: str,
@@ -453,22 +472,23 @@ async def get_item(
             out["image_url"] = cat.thumbnail_url
     # DV8 §1 — resolve the live listing behind the Listed tag (newest available
     # wins) so the ownership card can deep-link and show the asking price.
-    if item.is_listed:
-        from app.models.listing import Listing
-        lrow = (await db.execute(
-            select(Listing.id, Listing.price, Listing.currency)
-            .where(Listing.item_id == item.id, Listing.status == "available")
-            .order_by(Listing.created_at.desc()).limit(1)
-        )).first()
-        if lrow:
-            out["listing_id"] = lrow.id
-            out["listing_price"] = lrow.price
-            out["listing_currency"] = lrow.currency
+    # QA #3 — the listings table is the truth, not item.is_listed: rows corrupted
+    # before the unlist fix (stale flag, no live listing) self-heal here.
+    from app.models.listing import Listing
+    lrow = (await db.execute(
+        select(Listing.id, Listing.price, Listing.currency)
+        .where(Listing.item_id == item.id, Listing.status == "available")
+        .order_by(Listing.created_at.desc()).limit(1)
+    )).first()
+    out["is_listed"] = lrow is not None
+    if lrow:
+        out["listing_id"] = lrow.id
+        out["listing_price"] = lrow.price
+        out["listing_currency"] = lrow.currency
     elif is_owner and getattr(item, "sold_at", None) is None:
         # v8 ItemDetail :40-42/:114 "Relist for sale — back on the market at ₹X":
         # unlisting keeps the closed listing row, so relisting is one tap at the
         # archived terms. Owner-only, and pointless on a sold copy.
-        from app.models.listing import Listing
         crow = (await db.execute(
             select(Listing.id, Listing.price, Listing.currency)
             .where(Listing.item_id == item.id, Listing.status == "closed")
@@ -630,6 +650,19 @@ async def delete_item(
     # sold/traded removals); stored items have no removal table yet, so we just log it.
     if reason and reason in REMOVE_REASONS:
         logger.info("item_removed item=%s user=%s reason=%s", item.id, current_user.id, reason)
+    # QA #3 — clear dependents first: listings/saved_searches FKs are NO ACTION and
+    # post/message refs are nullable, so a bare delete 500s on any ever-listed or
+    # ever-referenced item (and the photos relationship nullifies a NOT NULL column).
+    from sqlalchemy import delete as sa_delete
+    from app.models.listing import Listing
+    from app.models.post import Post
+    from app.models.search import SavedSearch
+    from app.models.thread import Message
+    await db.execute(sa_delete(Listing).where(Listing.item_id == item.id))
+    await db.execute(sa_delete(ItemPhoto).where(ItemPhoto.item_id == item.id))
+    await db.execute(sa_delete(SavedSearch).where(SavedSearch.item_id == item.id))
+    await db.execute(update(Post).where(Post.ref_item_id == item.id).values(ref_item_id=None))
+    await db.execute(update(Message).where(Message.offer_item_id == item.id).values(offer_item_id=None))
     await db.delete(item)
 
 

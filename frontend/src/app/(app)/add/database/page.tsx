@@ -25,15 +25,16 @@
  * "Hot Toys" / "hot toys" / "HotToys".
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, Info, PlusCircle, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { BackButton } from "@/components/BackButton";
 import { ProductPhoto, SectionLabel } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
+import { SuggestInput } from "@/components/SuggestInput";
 import { fireToast, fireXpToast } from "@/components/gamification";
-import { ADD_CATEGORIES, CAT_BRANDS } from "@/lib/catalog";
+import { ADD_CATEGORIES, CAT_BRANDS, CAT_SCALES } from "@/lib/catalog";
 
 const DB_NEW_XP = 50;      // EARN_RULES.db_new — keep in step with the backend
 const PHOTO_MAX = 6;       // v7/v8: "At least 1 required · up to 6"
@@ -44,6 +45,15 @@ const field = (bad: boolean): React.CSSProperties => ({
   border: `1px solid ${bad ? "var(--stamp-red)" : "var(--border-strong)"}`,
   background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 15,
   color: "var(--ink)", outline: "none",
+});
+
+// Same pill styling as the category chips above — QA #14 scale chips reuse it.
+const chip = (on: boolean): React.CSSProperties => ({
+  padding: "8px 13px", borderRadius: 999, cursor: "pointer",
+  border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
+  background: on ? "var(--ink)" : "var(--paper-soft)",
+  color: on ? "var(--paper)" : "var(--ink)",
+  fontFamily: "var(--font-body)", fontWeight: on ? 600 : 500, fontSize: 13, lineHeight: 1,
 });
 
 /** Section label with the required asterisk + inline "Required" once submit was tried. */
@@ -81,7 +91,23 @@ export default function AddToDatabasePage() {
   const missPhoto = photos.length < 1;
   const invalid = missTitle || missBrand || missPhoto;
 
-  const brandOptions = useMemo(() => CAT_BRANDS[cat] ?? [], [cat]);
+  // QA #13 — canonical brands ∪ brands other contributors already added, so
+  // typing suggests existing spellings instead of minting near-duplicates.
+  const [apiBrands, setApiBrands] = useState<string[]>([]);
+  useEffect(() => {
+    api.get<{ brands: string[] }>(`/catalogue/brands?category=${cat}`)
+      .then((r) => setApiBrands(r.brands ?? []))
+      .catch(() => setApiBrands([]));
+  }, [cat]);
+  const brandOptions = useMemo(() => {
+    const canon = CAT_BRANDS[cat] ?? [];
+    const seen = new Set(canon.map((b) => b.toLowerCase()));
+    return [...canon, ...apiBrands.filter((b) => b && !seen.has(b.toLowerCase()))];
+  }, [cat, apiBrands]);
+  // QA #14 — scale becomes chips + "Other" (the /add/catalogue pattern) instead
+  // of free text; designer/tcg are scaleless (CAT_SCALES null).
+  const scaleChips = CAT_SCALES[cat] ?? null;
+  const [scaleIsOther, setScaleIsOther] = useState(false);
 
   async function submit() {
     // DV8 — invalid submit toasts, per v8 (ExploreView.jsx:402).
@@ -203,7 +229,7 @@ export default function AddToDatabasePage() {
               <button
                 key={c.id}
                 type="button"
-                onClick={() => { setCat(c.id); setBrand(""); }}
+                onClick={() => { setCat(c.id); setBrand(""); setScale(""); setScaleIsOther(false); }}
                 style={{
                   padding: "8px 13px", borderRadius: 999, cursor: "pointer",
                   border: `1px solid ${on ? "var(--ink)" : "var(--border-strong)"}`,
@@ -218,17 +244,34 @@ export default function AddToDatabasePage() {
           })}
         </div>
 
-        <div style={{ marginTop: 18 }}><Req missing={missBrand} tried={tried}>Brand</Req></div>
-        <input list="db-brands" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. Hot Toys" style={field(missBrand && tried)} />
-        <datalist id="db-brands">
-          {brandOptions.map((b) => <option key={b} value={b} />)}
-        </datalist>
+        {/* QA #13 — real filtering combobox (the native <datalist> had no visible
+            list on iOS and accepted anything silently). */}
+        <div style={{ marginTop: 18, marginBottom: 9 }}><Req missing={missBrand} tried={tried}>Brand</Req></div>
+        <SuggestInput
+          value={brand}
+          onChange={setBrand}
+          options={brandOptions}
+          placeholder="e.g. Hot Toys — search or type"
+          addLabel="as new brand"
+          borderColor={missBrand && tried ? "var(--stamp-red)" : undefined}
+        />
+
+        {scaleChips && (
+          <>
+            <div style={{ marginTop: 18, marginBottom: 9 }}><SectionLabel>Scale</SectionLabel></div>
+            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+              {scaleChips.map((s) => (
+                <button key={s} type="button" onClick={() => { setScale(s); setScaleIsOther(false); }} style={chip(scale === s && !scaleIsOther)}>{s}</button>
+              ))}
+              <button type="button" onClick={() => { setScaleIsOther(true); setScale(""); }} style={chip(scaleIsOther)}>+ Other</button>
+            </div>
+            {scaleIsOther && (
+              <input value={scale} onChange={(e) => setScale(e.target.value)} placeholder="e.g. 1/20, non-scale" style={{ ...field(false), marginTop: 9 }} />
+            )}
+          </>
+        )}
 
         <div style={{ display: "flex", gap: 12, marginTop: 18 }}>
-          <div style={{ flex: 1 }}>
-            <SectionLabel>Scale</SectionLabel>
-            <input value={scale} onChange={(e) => setScale(e.target.value)} placeholder="1/6, N/A" style={{ ...field(false), marginTop: 9 }} />
-          </div>
           <div style={{ flex: 1 }}>
             <SectionLabel>Year</SectionLabel>
             <input value={year} onChange={(e) => setYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))} inputMode="numeric" placeholder="2026" style={{ ...field(false), marginTop: 9, fontFamily: "var(--font-mono)" }} />

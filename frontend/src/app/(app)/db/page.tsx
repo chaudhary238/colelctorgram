@@ -75,7 +75,9 @@ const SORTS: { id: SortId; label: string }[] = [
   { id: "wishlisted", label: "Most wishlisted" },
   { id: "newest", label: "Newest" },
 ];
-const DEFAULT_SORT: SortId = "owned";
+// QA #15 — default to latest-added: "most owned" produced huge zero-owner ties
+// that read as random ordering on a young catalogue.
+const DEFAULT_SORT: SortId = "newest";
 
 // Change Spec §3.2 — 8 up front, +8 per tap. Server-side paging, so "show more" is one
 // request for one page rather than a slice of an oversized payload.

@@ -186,8 +186,16 @@ function ComposePage() {
   // v8 — category is OPTIONAL (the QA2 mandatory gate is dropped). Multi-select is
   // allowed; the first pick is the primary the feed filters/scores on.
   const [categories, setCategories] = useState<string[]>([]);
+  // QA #6 + founder 2026-09-14 — ISO and Review are SINGLE-select (one item, one
+  // category; a tap swaps, re-tapping clears). Other types stay multi-select
+  // with the user's latest tap leading (categories[0] is the persisted primary;
+  // extra picks ride along as tags at publish).
+  const singleCategory = type === "iso" || type === "review";
   const toggleCategory = (id: string) =>
-    setCategories((cs) => (cs.includes(id) ? cs.filter((x) => x !== id) : [...cs, id]));
+    setCategories((cs) => {
+      if (singleCategory) return cs[0] === id ? [] : [id];
+      return cs.includes(id) ? cs.filter((x) => x !== id) : [id, ...cs];
+    });
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
@@ -278,7 +286,13 @@ function ComposePage() {
     // field IS the "what are you looking for" (founder 2026-09-06) — fill if empty.
     if (type === "iso") setTitle((v) => (v.trim() ? v : h.title));
     if (h.category && ADD_CATEGORIES.some((c) => c.id === h.category)) {
-      setCategories((cs) => (cs.includes(h.category!) ? cs : [...cs, h.category!]));
+      setCategories((cs) => {
+        if (cs.includes(h.category!)) return cs;
+        // Single-select types: the SKU's category only fills an EMPTY selection —
+        // it never overrides or joins the user's own pick.
+        if (singleCategory) return cs.length ? cs : [h.category!];
+        return [...cs, h.category!];
+      });
     }
   }
   const untagItem = () => { setRefItem(null); setShowItem(false); };
@@ -288,13 +302,25 @@ function ComposePage() {
   function switchType(t: ComposeType) {
     setType(t);
     if (t === "iso" && refItem) setTitle((v) => (v.trim() ? v : refItem.title));
+    // Entering a single-select type with several categories picked keeps only
+    // the primary (the user's latest tap) — the rest silently drop.
+    if (t === "iso" || t === "review") setCategories((cs) => cs.slice(0, 1));
   }
 
   useEffect(() => {
     api.get<ApiCommunity[]>("/communities?limit=50")
-      .then((data) => setCommunities((data ?? []).filter((c) => c.is_member)))
+      .then((data) => {
+        const mine = (data ?? []).filter((c) => c.is_member);
+        setCommunities(mine);
+        // QA #31 — composing FROM a community defaults the category to the
+        // community's own (still changeable; only seeds an empty selection).
+        const c = mine.find((x) => x.id === preCommunity);
+        if (c?.category && ADD_CATEGORIES.some((x) => x.id === c.category)) {
+          setCategories((cs) => (cs.length ? cs : [c.category]));
+        }
+      })
       .catch(console.error);
-  }, []);
+  }, [preCommunity]);
 
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -367,11 +393,18 @@ function ComposePage() {
         type: type === "post" ? "showcase" : type,
         title: title.trim() || null,
         body: body.trim(),
-        // Primary category (first selected) is what the feed filters/scores on.
-        // Optional per v8 — an uncategorised post simply skips category filters.
+        // Primary category (the user's latest pick) is what the feed filters/
+        // scores on. Optional per v8 — an uncategorised post skips the filters.
         category: categories[0] ?? null,
         images: type === "poll" ? [] : images,
-        tags,
+        // QA #6 — extra category picks persist as tags (Post.category is a single
+        // column), so multi-select finally survives the round-trip.
+        tags: [
+          ...tags,
+          ...categories.slice(1)
+            .map((c) => `#${(ADD_CATEGORIES.find((x) => x.id === c)?.chipLabel ?? c).replace(/[^A-Za-z0-9]/g, "")}`)
+            .filter((t) => t.length > 1 && !tags.includes(t)),
+        ],
         poll_options: pollOptions,
         review_rating: type === "review" ? rating : null,
         // v8 — every type carries the tagged SKU; an ISO uses the tagged item's title
@@ -771,8 +804,12 @@ function ComposePage() {
         )}
 
         {/* category — LAST and OPTIONAL (v8), shared chips with singular labels.
-            Multi-select stays; only categories[0] persists today. */}
-        <div style={{ marginTop: 10 }}><SectionLabel>Category</SectionLabel></div>
+            ISO/Review are single-select (founder 2026-09-14); other types
+            multi-select with categories[0] as the persisted primary. */}
+        <div style={{ marginTop: 10, display: "flex", alignItems: "baseline", gap: 7 }}>
+          <SectionLabel>Category</SectionLabel>
+          {singleCategory && <span style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>pick one</span>}
+        </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 8 }}>
           {ADD_CATEGORIES.map((c) => (
             <CategoryChip key={c.id} active={categories.includes(c.id)} onClick={() => toggleCategory(c.id)}>

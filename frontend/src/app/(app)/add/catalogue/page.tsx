@@ -9,6 +9,7 @@ import { fireXpToast, fireToast } from "@/components/gamification";
 import { SectionLabel, ProductPhoto, CategoryChip } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
 import { MoneyField, ReleaseWindowPicker } from "@/components/forms";
+import { SuggestInput } from "@/components/SuggestInput";
 import {
   ADD_CATEGORIES, CAT_SCALES, CAT_BRANDS, CAT_META, symOf, formatMoney, buildPoEta, conditionsFor,
   TCG_LANGUAGES, TCG_PRODUCT_TYPES, GRADERS, isGradedCondition, type PoPrecision,
@@ -184,6 +185,13 @@ function AddListingPageInner() {
   const [poQuarter, setPoQuarter] = useState("");
   const [poYear, setPoYear] = useState("2026");
   const [poSeller, setPoSeller] = useState("");
+  // QA #23 — distinct store names already in the system (names only, no linkage).
+  const [sellerOptions, setSellerOptions] = useState<string[]>([]);
+  useEffect(() => {
+    api.get<{ sellers: string[] }>("/items/preorder-sellers")
+      .then((r) => setSellerOptions(r.sellers ?? []))
+      .catch(() => setSellerOptions([]));
+  }, []);
   const [poOrderDate, setPoOrderDate] = useState("");
   const [poTotal, setPoTotal] = useState("");
   const [poDeposit, setPoDeposit] = useState("");
@@ -825,9 +833,10 @@ function AddListingPageInner() {
                 monthIdx={poMonth} onMonth={setPoMonth} quarter={poQuarter} onQuarter={setPoQuarter} year={poYear} onYear={setPoYear} />
             </div>
 
-            <div style={{ marginTop: 14 }}><SectionLabel>Seller / Store</SectionLabel></div>
-            <input value={poSeller} onChange={(e) => setPoSeller(e.target.value)} placeholder="e.g. BBToyStore, Bangalore"
-              style={{ ...fieldStyle, marginTop: 9, background: "var(--paper)", fontSize: 14.5 }} />
+            <div style={{ marginTop: 14, marginBottom: 9 }}><SectionLabel>Seller / Store</SectionLabel></div>
+            {/* QA #23 — suggest existing store spellings to avoid duplicates. */}
+            <SuggestInput value={poSeller} onChange={setPoSeller} options={sellerOptions}
+              placeholder="e.g. BBToyStore, Bangalore" addLabel="as new seller" />
 
             <div style={{ display: "flex", gap: 11, marginTop: 14 }}>
               <div style={{ flex: 1 }}>

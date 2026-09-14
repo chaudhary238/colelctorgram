@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { timeAgo } from "@/lib/utils";
 import { ApiListing, ApiPost, MarketCard, refTone } from "@/components/cards";
-import { Avatar, Button, ProductPhoto } from "@/components/ui";
+import { Avatar, Button, Money, ProductPhoto } from "@/components/ui";
 import { goldFrameRing, hasGoldFrame } from "@/components/gamification";
 import { ADD_CATEGORIES, conditionsFor } from "@/lib/catalog";
 
@@ -123,16 +123,31 @@ function WantedCard({ post }: { post: ApiPost }) {
   const router = useRouter();
   const { user } = useUser();
   const [dmBusy, setDmBusy] = useState(false);
+  const [liked, setLiked] = useState(post.is_liked ?? false);
+  const [likeBusy, setLikeBusy] = useState(false);
   const isOwn = !!user && user.id === post.user_id;
 
   const title = post.iso_item ?? post.title ?? post.body.slice(0, 60);
-  const conds = (post.iso_cond ?? "").split(",").map((x) => x.trim()).filter((x) => x && x.toLowerCase() !== "any");
   const firstName = (post.name ?? post.handle ?? "Collector").split(" ")[0];
+
+  // Same glass heart as MarketCard, on the post's own like endpoint.
+  async function toggleLike(e: React.MouseEvent) {
+    e.preventDefault();
+    if (likeBusy) return;
+    const next = !liked;
+    setLiked(next); // optimistic
+    setLikeBusy(true);
+    try { await api.post(`/posts/${post.id}/like`); }
+    catch { setLiked(!next); }
+    finally { setLikeBusy(false); }
+  }
 
   // DV8 §10#22 (v8 Chat.jsx:90) — an EDITABLE draft, never auto-sent: create/reuse
   // the pair thread with NO initial_message, then open the chat composer pre-filled
   // + focused (?draft=1&intent=iso); a referenced catalogue sku rides the first send.
-  async function haveThis() {
+  async function haveThis(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
     if (dmBusy) return;
     setDmBusy(true);
     try {
@@ -148,55 +163,82 @@ function WantedCard({ post }: { post: ApiPost }) {
     }
   }
 
+  // QA design-consistency (founder 2026-09-13, round 2) — the Wanted tile is a
+  // STRUCTURAL TWIN of MarketCard: same Link shell with hover lift + shadow,
+  // same glass heart on the photo, same body rows (title → money → author →
+  // 34px ink CTA). The condition/city pills moved to the post detail page —
+  // MarketCard shows none on the tile either. Wanted keeps only the BUDGET
+  // micro-label and the "I have this" wording.
   return (
-    <div style={{ background: "var(--card-surface)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-      <Link href={`/post/${post.id}`} style={{ display: "block", width: "100%" }}>
+    <Link
+      href={`/post/${post.id}`}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.025) translateY(-3px)"; e.currentTarget.style.boxShadow = "var(--card-shadow-lifted)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "var(--card-shadow)"; }}
+      onPointerDown={(e) => { e.currentTarget.style.transform = "scale(0.96)"; e.currentTarget.style.boxShadow = "none"; }}
+      onPointerUp={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "var(--card-shadow)"; }}
+      onPointerLeave={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "var(--card-shadow)"; }}
+      style={{
+        background: "var(--card-surface)",
+        border: `1px solid ${isOwn ? "var(--verified-teal)" : "var(--slate-200)"}`,
+        borderRadius: 16, overflow: "hidden", textAlign: "left",
+        padding: 0, display: "flex", flexDirection: "column", textDecoration: "none",
+        boxShadow: "var(--card-shadow)", transition: "transform 80ms var(--ease-out), box-shadow 80ms",
+      }}
+    >
+      <div style={{ position: "relative" }}>
         <ProductPhoto tone={refTone(post.ref_sku ?? null)} src={post.images[0]} ratio="1/1" rounded={0} />
-      </Link>
+        <div
+          onClick={toggleLike}
+          title={liked ? "Unlike" : "Like"}
+          style={{
+            position: "absolute", bottom: 8, right: 8, width: 32, height: 32, borderRadius: 10,
+            background: liked ? "rgba(255,36,66,0.80)" : "rgba(15,23,42,0.46)",
+            backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+            border: "1px solid rgba(255,255,255,0.20)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "var(--paper)", cursor: likeBusy ? "default" : "pointer", transition: "background 150ms",
+          }}
+        >
+          <Heart size={16} fill={liked ? "var(--stamp-red)" : "none"} />
+        </div>
+      </div>
 
-      <div style={{ padding: "9px 11px 11px", display: "flex", flexDirection: "column", gap: 7, flex: 1 }}>
-        <Link href={`/post/${post.id}`} style={{ textDecoration: "none" }}>
-          <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: "var(--ink)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{title}</div>
-        </Link>
+      <div style={{ padding: "11px 12px 14px", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.25, color: "var(--ink)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", minHeight: 32 }}>{title}</div>
 
-        <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ink-faint)", letterSpacing: "0.04em" }}>BUDGET</span>
           {/* iso_budget arrives in PAISE (same as ISOCard) — divide before rendering. */}
-          <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 14.5, color: "#9A6010" }}>
-            {post.iso_budget ? `₹${Math.round(Number(post.iso_budget) / 100).toLocaleString("en-IN")}` : "Open"}
+          <span style={{ fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>
+            {post.iso_budget ? <Money value={Math.round(Number(post.iso_budget) / 100)} /> : "Open"}
           </span>
         </div>
 
-        {(conds.length > 0 || post.iso_city) && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-            {conds.map((x) => (
-              <span key={x} style={{ padding: "2px 6px", borderRadius: 5, background: "var(--bone)", fontSize: 10.5, fontWeight: 600, color: "var(--ink-mute)" }}>{x}</span>
-            ))}
-            {post.iso_city && <span style={{ padding: "2px 6px", borderRadius: 5, background: "var(--bone)", fontSize: 10.5, color: "var(--ink-mute)" }}>{post.iso_city}</span>}
-          </div>
-        )}
-
-        <Link href={`/profile/${post.handle ?? "unknown"}`} style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-faint)" }}>
           {/* v8:474 avatarFrame — Pioneer/Early Believer authors ring gold, the
               same First-Start rule the feed's comment rows use. */}
           <span style={{ display: "inline-flex", flexShrink: 0, ...(hasGoldFrame(post.badge) ? goldFrameRing : {}) }}>
-            <Avatar name={post.name ?? "?"} photo={post.avatar_url} size={20} />
+            <Avatar name={post.name ?? "?"} photo={post.avatar_url} size={16} />
           </span>
-          <span style={{ fontSize: 11.5, color: "var(--ink-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{firstName} · {timeAgo(post.created_at)}</span>
-        </Link>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{firstName} · {timeAgo(post.created_at)}</span>
+        </div>
 
-        <div style={{ flex: 1 }} />
         {!isOwn && (
-          <button type="button" onClick={haveThis} disabled={dmBusy} style={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", height: 36, marginTop: 1,
-            borderRadius: 10, border: "1px solid var(--verified-teal)", background: "var(--verified-teal-soft)",
-            color: "var(--verified-teal)", cursor: dmBusy ? "default" : "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12.5,
-          }}>
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={haveThis}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: "auto", height: 34,
+              borderRadius: 11, background: "var(--ink)", color: "var(--paper)", cursor: dmBusy ? "default" : "pointer",
+              fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5,
+            }}
+          >
             <MessageSquare size={14} />{dmBusy ? "Opening…" : "I have this"}
-          </button>
+          </div>
         )}
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -511,7 +553,9 @@ export default function MarketPage() {
             )}
           </div>
           {isoLoading ? (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, padding: "0 14px 32px" }}>
+            /* QA design-consistency — same responsive grid as the For-sale board
+               (2-up mobile, 3-up from sm), not a hardcoded 2-up. */
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 px-3.5 pb-8">
               {Array.from({ length: 4 }).map((_, i) => <div key={i} style={{ borderRadius: 16, background: "var(--slate-100)", aspectRatio: "1/1.5" }} />)}
             </div>
           ) : isoList.length === 0 ? (
@@ -530,7 +574,7 @@ export default function MarketPage() {
               )}
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, padding: "0 14px 32px" }}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 px-3.5 pb-8">
               {isoList.map((p) => <WantedCard key={p.id} post={p} />)}
             </div>
           )}

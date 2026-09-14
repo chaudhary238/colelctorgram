@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Clock, Calendar, MapPin, Globe, ChevronRight, X, Pencil, Share2, MessageCircle, Settings2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiEvent } from "@/components/cards";
-import { Avatar, SectionLabel, EmptyNote, Segmented } from "@/components/ui";
+import { Avatar, ConfirmDialog, SectionLabel, EmptyNote, Segmented } from "@/components/ui";
 import { BackButton } from "@/components/BackButton";
 import { ImageUploader } from "@/components/ImageUploader";
 import { CityField } from "@/components/CityField";
@@ -228,13 +228,14 @@ export default function EventManagePage() {
     }
   };
 
+  // QA #27 — the live-event cancel confirms via the shared on-brand dialog
+  // (was the native window.confirm); withdrawing a pending event stays one tap.
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const cancelEvent = async () => {
     if (!event || busy) return;
     const isPending = event.status === "pending_approval";
-    // v8 confirms nothing and toasts after the fact. We keep ONE lightweight confirm
-    // for the live-event cancel (destructive: attendees get notified); withdrawing a
-    // pending event is low-stakes, so it just happens.
-    if (!isPending && !window.confirm("Cancel this event? Attendees will be notified.")) return;
+    if (!isPending && !confirmCancel) { setConfirmCancel(true); return; }
+    setConfirmCancel(false);
     setBusy(true);
     try {
       await api.post(`/events/${event.id}/cancel`);
@@ -493,6 +494,17 @@ export default function EventManagePage() {
           </button>
         )}
       </div>
+
+      {confirmCancel && (
+        <ConfirmDialog
+          title="Cancel this event?"
+          body="Attendees are notified and the event comes off the calendar."
+          confirmLabel="Cancel event"
+          busy={busy}
+          onConfirm={cancelEvent}
+          onCancel={() => setConfirmCancel(false)}
+        />
+      )}
     </div>
   );
 }

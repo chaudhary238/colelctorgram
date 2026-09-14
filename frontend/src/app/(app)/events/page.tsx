@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Calendar, Plus, MapPin, Search, X, ChevronRight } from "lucide-react";
+import { Calendar, Clock, Plus, MapPin, Search, X, ChevronRight } from "lucide-react";
+import { formatTime12FromDate } from "@/components/CityField";
 import { api } from "@/lib/api";
 import { ApiEvent, EventCard } from "@/components/cards";
 import { BackButton } from "@/components/BackButton";
@@ -220,15 +221,9 @@ export default function EventsPage() {
         </div>
       ) : (
         // My Events (hosting)
+        // QA follow-up 2026-09-13 — no in-tab "List an event" CTA: the header
+        // button is always visible right above it, so the duplicate read as noise.
         <div style={{ padding: "16px 20px 28px" }}>
-          <Link href="/events/new" style={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 46,
-            // v8 EventsView:137 — slate-900, matching the row-1 "List an event" CTA.
-            borderRadius: 14, background: "var(--slate-900)", color: "var(--paper)", textDecoration: "none",
-            fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14.5, marginBottom: 16,
-          }}>
-            <Plus size={18} />List an event
-          </Link>
           {mineLoading && mine === null ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
               {Array.from({ length: 2 }).map((_, i) => <div key={i} style={{ height: 74, borderRadius: 14, background: "var(--bone)" }} />)}
@@ -253,39 +248,52 @@ function featuredWhen(ev: ApiEvent): string {
 }
 
 function HostingRow({ event }: { event: ApiEvent }) {
-  // v8 parseDate zero-pads the tile day ("05"); month uppercases via the span's CSS.
+  // QA design-consistency (founder 2026-09-13) — My Events rows carry the SAME
+  // grammar as the Upcoming/Going/Past EventCard (54px slate-800 date tile with
+  // gold month + weekday, display-font title, venue + time lines, mono going
+  // count); only the manage affordances differ: status tag + chevron, and the
+  // row links to /manage instead of the public detail page.
   const { dayPadded, month } = eventDateParts(event.starts_at);
+  const weekday = new Date(event.starts_at).toLocaleString("en-IN", { weekday: "short" });
   const pending = event.status === "pending_approval";
   const cancelled = event.status === "cancelled" || event.status === "rejected";
   return (
     <Link href={`/events/${event.id}/manage`} style={{
-      display: "flex", gap: 12, width: "100%", textDecoration: "none", alignItems: "center",
+      display: "flex", gap: 12, width: "100%", textDecoration: "none", alignItems: "stretch",
       background: "var(--card-surface)", border: "1px solid var(--slate-200)", borderRadius: 16, padding: 14,
-      boxShadow: "var(--card-shadow)",
+      boxShadow: "var(--card-shadow)", opacity: cancelled ? 0.72 : 1, color: "inherit",
     }}>
       <div style={{
-        width: 50, height: 50, borderRadius: 11, flexShrink: 0,
-        background: pending ? "var(--grail-gold-soft)" : "var(--ink)",
-        color: pending ? "var(--grail-gold-deep)" : "var(--paper)",
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        width: 54, flexShrink: 0, borderRadius: 10, background: "var(--slate-800)", color: "var(--paper)",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "8px 0", gap: 1,
       }}>
-        <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>{month}</span>
-        <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, lineHeight: 1 }}>{dayPadded}</span>
+        <span style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.09em", color: "var(--grail-gold)" }}>{month}</span>
+        <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 26, lineHeight: 1 }}>{dayPadded}</span>
+        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginTop: 1 }}>{weekday}</span>
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.25, color: "var(--ink)" }}>{event.title}</div>
-        <div style={{ marginTop: 5 }}>
-          {pending ? (
-            // v8 — the pending state is the shared Tag primitive, "po" (gold) kind.
-            <Tag kind="po">Pending approval</Tag>
-          ) : cancelled ? (
-            <Tag kind="default">{event.status === "rejected" ? "Not approved" : "Cancelled"}</Tag>
-          ) : (
-            <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>{event.going_count ?? 0} going · tap to manage</span>
-          )}
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 4 }}>
+        <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15.5, letterSpacing: "-0.02em", lineHeight: 1.2, color: "var(--ink)" }}>{event.title}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "var(--ink-mute)" }}>
+          <MapPin size={13} strokeWidth={2} style={{ flexShrink: 0 }} /> {event.mode === "online" ? "Online" : event.where ?? event.venue ?? event.city}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--slate-400)" }}>
+            <Clock size={13} strokeWidth={2} style={{ flexShrink: 0 }} />
+            {formatTime12FromDate(new Date(event.starts_at))}
+            {event.ends_at ? ` – ${formatTime12FromDate(new Date(event.ends_at))}` : ""}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+            {pending ? (
+              <Tag kind="po">Pending approval</Tag>
+            ) : cancelled ? (
+              <Tag kind="default">{event.status === "rejected" ? "Not approved" : "Cancelled"}</Tag>
+            ) : (
+              <span style={{ fontSize: 12, color: "var(--slate-400)", fontFamily: "var(--font-mono)" }}>{event.going_count ?? 0} going</span>
+            )}
+          </div>
         </div>
       </div>
-      <ChevronRight size={18} style={{ color: "var(--ink-faint)", flexShrink: 0 }} />
+      <ChevronRight size={18} style={{ color: "var(--ink-faint)", flexShrink: 0, alignSelf: "center" }} />
     </Link>
   );
 }

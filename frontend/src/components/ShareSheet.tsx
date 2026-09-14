@@ -22,17 +22,20 @@ function WhatsAppMark() {
   );
 }
 
-export function ShareSheet({ url, label, title, onClose }: {
+export function ShareSheet({ url, label, title, text: shareText, onClose }: {
   /** The canonical link being shared — shown verbatim in the Copy-link row. */
   url: string;
   /** What's being shared — heads the sheet as "Share {label}" (v8 defaults to 'this'). */
   label?: string;
-  /** Share text for the targets that carry one (X / Telegram / Email). */
+  /** Short name of the thing (tab/native-sheet title). */
   title?: string;
+  /** QA #35 — the composed share message (event name + date + place, listing
+      title + price, …). Falls back to `title` so old call sites keep working. */
+  text?: string;
   onClose: () => void;
 }) {
   const what = label || "this";
-  const text = title || "Scorred";
+  const text = shareText || title || "Scorred";
   const eUrl = encodeURIComponent(url);
   const eText = encodeURIComponent(text);
 
@@ -75,7 +78,9 @@ export function ShareSheet({ url, label, title, onClose }: {
   const canNative = typeof navigator !== "undefined" && typeof navigator.share === "function";
   async function nativeShare() {
     try {
-      await navigator.share({ title: text, url });
+      // QA #35 — `text` is what most OS targets actually paste; omitting it
+      // shared a bare link with no words at all.
+      await navigator.share({ title: title || "Scorred", text, url });
       onClose();
     } catch {
       /* cancelled — keep the sheet open */
@@ -95,12 +100,12 @@ export function ShareSheet({ url, label, title, onClose }: {
   };
 
   return (
-    <div onClick={onClose} className="fixed inset-0 z-[70] flex items-end justify-center" style={{ background: "rgba(20,17,15,0.45)" }}>
+    <div onClick={onClose} className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center" style={{ background: "rgba(20,17,15,0.45)" }}>
       {/* box-sizing keeps the 18px padding INSIDE the 100% width (v8's own fix, :736) */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[680px]"
-        style={{ boxSizing: "border-box", overflowX: "hidden", background: "var(--paper)", borderRadius: "20px 20px 0 0", padding: "10px 18px 30px", boxShadow: "0 -4px 24px rgba(0,0,0,0.12)" }}
+        className="w-full max-w-[680px] sm:max-w-[420px] rounded-t-[20px] sm:rounded-2xl"
+        style={{ boxSizing: "border-box", overflowX: "hidden", background: "var(--paper)", padding: "10px 18px 30px", boxShadow: "0 -4px 24px rgba(0,0,0,0.12)" }}
       >
         <div style={{ width: 38, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "0 auto 14px" }} />
         <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>

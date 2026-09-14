@@ -50,7 +50,7 @@ interface SearchResult {
     // DV8 provenance — unverified community entries credit their contributor.
     is_verified?: boolean; intel_by?: string | null;
   }[];
-  communities: { id: string; name: string; description: string | null; category: string; member_count: number }[];
+  communities: { id: string; name: string; description: string | null; category: string; member_count: number; avatar_url?: string | null }[];
   events: { id: string; title: string; city: string | null; mode: string; starts_at: string }[];
   // True totals per type (DV7-06) — present on /search responses, absent on browse.
   counts?: { users: number; posts: number; catalogue: number; communities: number; events: number };
@@ -291,7 +291,8 @@ function SearchPageInner() {
                 key={c.id}
                 onClick={() => router.push(`/community/${c.id}`)}
                 // DV8 — solid ink square, initials in paper (Overlays.jsx:515).
-                media={<div style={{ width: 40, height: 40, borderRadius: 9, background: "var(--ink)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, textTransform: "uppercase" }}>{c.name.replace(/[^a-zA-Z]/g, "").slice(0, 2) || "C"}</div>}
+                // QA #30 — the community's chosen photo wins over the initials.
+                media={<div style={{ width: 40, height: 40, borderRadius: 9, background: c.avatar_url ? `center/cover url(${c.avatar_url})` : "var(--ink)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, textTransform: "uppercase" }}>{!c.avatar_url && (c.name.replace(/[^a-zA-Z]/g, "").slice(0, 2) || "C")}</div>}
                 title={c.name}
                 sub={`${c.member_count.toLocaleString("en-IN")} members`}
               />

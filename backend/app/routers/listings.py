@@ -289,6 +289,13 @@ async def update_listing(
             update(User).where(User.id == current_user.id)
             .values(active_listings_count=func.greatest(User.active_listings_count - 1, 0))
         )
+        # QA #3/#4 — closing (not just selling) must clear the item's Listed flag,
+        # or the item page keeps "listed" state forever and re-listing is blocked.
+        if listing.item_id:
+            await db.execute(
+                update(Item).where(Item.id == listing.item_id, Item.user_id == current_user.id)
+                .values(is_listed=False)
+            )
     # DV8 sold state — marking the LISTING sold stamps the copy itself, so the
     # item page/tiles read one truth (item.sold_at) for on- and off-platform sales.
     if just_sold and listing.item_id:
@@ -594,7 +601,9 @@ async def price_vote(
             user_id=listing.seller_id,
             kind="price_vote",
             title="Price feedback on your listing",
-            body=f'A collector weighed in on "{listing.title}" — open the listing to see the split.',
+            # QA #10 — Listing has no title column (it's derived at serialise time);
+            # listing.title raised AttributeError here, rolling back EVERY vote.
+            body=f'A collector weighed in on "{listing.sku or "your listing"}" — open the listing to see the split.',
             ref_type="listing",
             ref_id=str(listing.id),
         )
@@ -626,12 +635,14 @@ async def _enrich_listings(listings: list[Listing], db: AsyncSession, viewer: Op
     items = {i.id: i for i in items_result.scalars().all()}
 
     # Real uploaded photos (DF-17) — grouped by item, ordered oldest→newest so the
-    # first photo the seller added is the cover. DV6-13: a public marketplace only shows
-    # PUBLIC photos (listing photos are public by nature); items with none fall back to the
-    # shared catalogue reference image below.
+    # first photo the seller added is the cover. QA 2026-09-14: ALL of the item's
+    # photos, not just is_public ones — uploads default PRIVATE (DV6-13), so every
+    # fresh listing rendered blank. Listing an item is the seller's explicit
+    # "show buyers this copy" (the sell form presents these photos as the
+    # listing's); the is_public flag keeps gating profile/DB surfaces only.
     photos_result = await db.execute(
         select(ItemPhoto)
-        .where(ItemPhoto.item_id.in_(item_ids), ItemPhoto.is_public == True)
+        .where(ItemPhoto.item_id.in_(item_ids))
         .order_by(ItemPhoto.uploaded_at)
     )
     photos_by_item: dict = {}

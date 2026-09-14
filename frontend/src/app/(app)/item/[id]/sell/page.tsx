@@ -37,7 +37,7 @@ import { Tag as TagIcon, Shield, X, PlusCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { BackButton } from "@/components/BackButton";
-import { ProductPhoto, SectionLabel, Tag, CategoryChip } from "@/components/ui";
+import { ConfirmDialog, ProductPhoto, SectionLabel, Tag, CategoryChip } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
 import { MoneyField } from "@/components/forms";
 import { fireToast, fireXpToast } from "@/components/gamification";
@@ -130,6 +130,7 @@ export default function EditItemPage() {
   const { user } = useUser();
 
   const [item, setItem] = useState<SellItem | null>(null);
+  const [confirmPhotoIdx, setConfirmPhotoIdx] = useState<number | null>(null); // QA #27
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -209,7 +210,9 @@ export default function EditItemPage() {
   const catLabel = (CAT_META[category ?? ""] ?? CAT_META.figures).label;
   const conds = conditionsFor(category);
   const isGraded = isGradedCondition(category, cond);
-  const alreadyListed = !!item?.is_listed;
+  // QA #4 — trust the live listing, not the is_listed flag: a stale flag with no
+  // listing behind it made every branch below false, so Save touched nothing.
+  const alreadyListed = !!item?.listing_id;
   const willList = sell && !alreadyListed;
   const willEditListing = sell && alreadyListed && !!item?.listing_id;
   // Toggle OFF on a listed item → close the live listing when saving (DV8-17).
@@ -389,15 +392,10 @@ export default function EditItemPage() {
                     Legacy rows without an id (pre-photos-payload cache) keep no X. */}
                 {(i >= photos.length || photoRows[i]?.id) && (
                   <button type="button" aria-label="Remove photo" onClick={() => {
+                    // Session-queued photos just leave the array (undoable by re-adding);
+                    // QA #27 — deleting an UPLOADED photo confirms first.
                     if (i >= photos.length) { setNewPhotos((p) => p.filter((u) => u !== url)); return; }
-                    const row = photoRows[i];
-                    setPhotoRows((rows) => rows.filter((r) => r !== row));
-                    api.delete(`/items/${id}/photos/${row.id}`).catch(() => {
-                      setPhotoRows((rows) => {
-                        const next = [...rows]; next.splice(i, 0, row); return next;
-                      });
-                      fireToast("Couldn't remove that photo");
-                    });
+                    setConfirmPhotoIdx(i);
                   }} style={{
                     position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: "50%", cursor: "pointer",
                     background: "var(--ink)", color: "var(--paper)", border: "2px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center",
@@ -555,6 +553,29 @@ export default function EditItemPage() {
           </button>
         </div>
         </>
+      )}
+
+      {/* QA #27 — deleting an uploaded photo confirms; optimistic, restored on failure. */}
+      {confirmPhotoIdx !== null && (
+        <ConfirmDialog
+          title="Remove this photo?"
+          body="It's deleted from this item. You can upload it again later."
+          confirmLabel="Remove"
+          onConfirm={() => {
+            const i = confirmPhotoIdx;
+            setConfirmPhotoIdx(null);
+            const row = photoRows[i];
+            if (!row?.id) return;
+            setPhotoRows((rows) => rows.filter((r) => r !== row));
+            api.delete(`/items/${id}/photos/${row.id}`).catch(() => {
+              setPhotoRows((rows) => {
+                const next = [...rows]; next.splice(i, 0, row); return next;
+              });
+              fireToast("Couldn't remove that photo");
+            });
+          }}
+          onCancel={() => setConfirmPhotoIdx(null)}
+        />
       )}
     </div>
   );

@@ -31,6 +31,7 @@ import { CategoryChip, ProductPhoto, SectionLabel, Segmented } from "@/component
 import { ImageUploader } from "@/components/ImageUploader";
 import { fireToast, fireXpToast } from "@/components/gamification";
 import { MoneyField, ReleaseWindowPicker } from "@/components/forms";
+import { SuggestInput } from "@/components/SuggestInput";
 import { buildPoEta, conditionsFor, GRADERS, isGradedCondition, type PoPrecision } from "@/lib/catalog";
 
 interface Entry {
@@ -80,6 +81,13 @@ function AddToCollectionInner() {
   const [poQuarter, setPoQuarter] = useState("");
   const [poYear, setPoYear] = useState("2026");
   const [poSeller, setPoSeller] = useState("");
+  // QA #23 — distinct store names already in the system (names only, no linkage).
+  const [sellerOptions, setSellerOptions] = useState<string[]>([]);
+  useEffect(() => {
+    api.get<{ sellers: string[] }>("/items/preorder-sellers")
+      .then((r) => setSellerOptions(r.sellers ?? []))
+      .catch(() => setSellerOptions([]));
+  }, []);
   const [poOrderDate, setPoOrderDate] = useState("");
   const [poTotal, setPoTotal] = useState("");
   const [poDeposit, setPoDeposit] = useState("");
@@ -322,8 +330,9 @@ function AddToCollectionInner() {
               </div>
               <div>
                 <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 6 }}>Seller / Store</div>
-                <input value={poSeller} onChange={(e) => setPoSeller(e.target.value)} placeholder="e.g. BBToyStore, Bangalore"
-                  style={{ width: "100%", boxSizing: "border-box", height: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none" }} />
+                {/* QA #23 — suggest existing store spellings to avoid duplicates. */}
+                <SuggestInput value={poSeller} onChange={setPoSeller} options={sellerOptions}
+                  placeholder="e.g. BBToyStore, Bangalore" addLabel="as new seller" />
               </div>
               <div style={{ display: "flex", gap: 11 }}>
                 <div style={{ flex: 1 }}>

@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Heart, MessageCircle, Share2, Bookmark, Star, Send, Calendar, MapPin, Clock,
-  Users, MessageSquare, Shield, Tag as TagIcon, Pencil, Trash2, FileText, Pin,
-  ChevronRight,
+  MessageSquare, Shield, Tag as TagIcon, Pencil, Trash2, Pin,
+  ChevronRight, X,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
@@ -14,7 +14,7 @@ import { timeAgo, shortDate } from "@/lib/utils";
 import { symOf, conditionLabel } from "@/lib/catalog";
 import {
   Avatar, Stars, Money, ProductPhoto, SealMark,
-  Badge, Button, IconButton, LocationTag, statusLabel, toneVar,
+  Badge, Button, ConfirmDialog, IconButton, LocationTag, statusLabel, toneVar,
 } from "@/components/ui";
 import { FeedBadge, fireToast, goldFrameRing, hasGoldFrame, type FeedBadgeT } from "@/components/gamification";
 import { formatTime12FromDate } from "@/components/CityField";
@@ -57,6 +57,9 @@ export interface ApiPost {
   is_liked?: boolean;
   is_saved?: boolean;
   is_following?: boolean;
+  /** QA #29 — published | pending | declined (community routing status for the
+      viewer's own posts; the API only returns non-published rows to their author). */
+  status?: string;
   created_at: string;
   // admin post extras
   title?: string;
@@ -260,6 +263,9 @@ export interface ApiCommunity {
   is_founder?: boolean;
   join_state?: string; // member | requested | none (QA2 — persists a private "Requested")
   status?: string; // pending | approved | rejected (founder sees own pending)
+  /** QA #30 — the creator's chosen community photo; the tile shows it over the tone square. */
+  avatar_url?: string | null;
+  banner_url?: string | null;
   created_at: string;
 }
 
@@ -499,6 +505,18 @@ export function AuthorLine({ post, showFollow, authorRole, reserveRight = 0 }: {
             <span style={{ display: "block", fontWeight: 600, fontSize: 14, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.name}</span>
           </Link>
           {authorRole && <AuthorRoleChip role={authorRole} />}
+          {/* QA #29 — the author's own not-yet-published community post is tagged
+              inline, so it can't be mistaken for a live post. */}
+          {post.status === "pending" && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 7px", borderRadius: 6, background: "var(--grail-gold-soft)", color: "var(--grail-gold-deep)", fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", whiteSpace: "nowrap", flexShrink: 0 }}>
+              <Clock size={11} /> Pending review
+            </span>
+          )}
+          {post.status === "declined" && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 7px", borderRadius: 6, background: "var(--stamp-red-soft)", color: "var(--stamp-red)", fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", whiteSpace: "nowrap", flexShrink: 0 }}>
+              <X size={11} /> Declined
+            </span>
+          )}
           {/* v3 §3: the single rewards badge (First Start badge, else rank badge) */}
           <FeedBadge badge={post.badge} />
           {showFollow && !isOwn && (
@@ -669,6 +687,7 @@ export function CommentThread({ postId, onCountChange }: { postId: string; onCou
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
   const [menuId, setMenuId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null); // QA #27
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
 
@@ -762,10 +781,19 @@ export function CommentThread({ postId, onCountChange }: { postId: string; onCou
                       <button onClick={() => { setEditingId(c.id); setEditDraft(c.body); setMenuId(null); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "none", border: "none", borderBottom: "1px solid var(--border)", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--ink)", textAlign: "left" }}>
                         <Pencil size={14} />Edit
                       </button>
-                      <button onClick={() => remove(c.id)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--stamp-red)", textAlign: "left" }}>
+                      {/* QA #27 — deleting a comment confirms first. */}
+                      <button onClick={() => { setConfirmDelete(c.id); setMenuId(null); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--stamp-red)", textAlign: "left" }}>
                         <Trash2 size={14} />Delete
                       </button>
                     </div>
+                  )}
+                  {confirmDelete === c.id && (
+                    <ConfirmDialog
+                      title="Delete this comment?"
+                      confirmLabel="Delete"
+                      onConfirm={() => { setConfirmDelete(null); remove(c.id); }}
+                      onCancel={() => setConfirmDelete(null)}
+                    />
                   )}
                 </div>
               )}
@@ -1783,13 +1811,16 @@ export function CommunityCard({ community, pinned, onTogglePin }: {
   return (
     <div style={{ display: "flex", gap: 14, alignItems: "center", background: "var(--card-surface)", border: `1px solid ${pinned ? "var(--stamp-red)" : "var(--slate-200)"}`, borderRadius: 16, padding: 14, boxShadow: "var(--card-shadow)" }}>
       <Link href={`/community/${community.id}`} className="shrink-0">
+        {/* QA #30 — the creator's photo IS the icon when set (same pattern as the
+            community detail header); the tone square + initials stay the fallback. */}
         <div style={{
           width: 50, height: 50, borderRadius: 12,
-          background: toneBg, color: "var(--paper)",
+          background: community.avatar_url ? `center/cover url(${community.avatar_url})` : toneBg,
+          color: "var(--paper)",
           display: "flex", alignItems: "center", justifyContent: "center",
           fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 19, letterSpacing: "-0.02em",
         }}>
-          {community.tag ?? "🏷️"}
+          {!community.avatar_url && (community.tag ?? "🏷️")}
         </div>
       </Link>
       <Link href={`/community/${community.id}`} style={{ flex: 1, minWidth: 0, textDecoration: "none" }}>
@@ -1810,14 +1841,11 @@ export function CommunityCard({ community, pinned, onTogglePin }: {
             {isRequested && <Badge variant="secondary">Requested</Badge>}
           </div>
         )}
-        <div style={{ fontSize: 12.5, color: "var(--ink-mute)", margin: "3px 0 4px", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {community.short_desc ?? community.description}
-        </div>
-        <div style={{ display: "flex", gap: 14, fontSize: 11.5, color: "var(--slate-400)", fontFamily: "var(--font-mono)" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Users size={11} />{community.member_count.toLocaleString("en-IN")}</span>
-          {/* QA 6.2 — post count uses a post icon, not the message icon. */}
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><FileText size={11} />{community.post_count.toLocaleString("en-IN")}</span>
-          {fresh > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--stamp-red)" }}><Clock size={11} />{fresh} new · 24h</span>}
+        {/* QA #11 full v8 revert (founder 2026-09-13) — the card body is name →
+            badges → ONE members line (Cards.jsx:733); the description line and
+            icon stat row are gone, so the card is back to v8's 3-line height. */}
+        <div style={{ fontSize: 11.5, color: "var(--slate-400)", fontFamily: "var(--font-mono)", marginTop: 4 }}>
+          {community.member_count.toLocaleString("en-IN")} members
         </div>
       </Link>
       {/* QA2 — pin to keep a community at the top of "Joined" (client-only, localStorage — no DB cost) */}

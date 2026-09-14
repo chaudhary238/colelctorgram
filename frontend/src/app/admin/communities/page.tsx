@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { ConfirmDialog } from "@/components/ui";
 
 interface PendingCommunity {
   id: string;
@@ -22,6 +23,7 @@ export default function CommunitiesAdminPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [actioned, setActioned] = useState<{ name: string; action: "approved" | "rejected" }[]>([]);
+  const [confirmReject, setConfirmReject] = useState<PendingCommunity | null>(null); // QA #27
 
   useEffect(() => {
     api.get<PendingCommunity[]>("/admin/communities/pending")
@@ -70,7 +72,8 @@ export default function CommunitiesAdminPage() {
                 )}
               </div>
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                <button onClick={() => act(c, "rejected")} disabled={busy === c.id} style={{ height: 36, padding: "0 14px", borderRadius: 9, border: "1px solid var(--border-strong)", background: "transparent", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer", color: "var(--ink)" }}>Reject</button>
+                {/* QA #27 — reject confirms first. */}
+                <button onClick={() => setConfirmReject(c)} disabled={busy === c.id} style={{ height: 36, padding: "0 14px", borderRadius: 9, border: "1px solid var(--border-strong)", background: "transparent", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer", color: "var(--ink)" }}>Reject</button>
                 <button onClick={() => act(c, "approved")} disabled={busy === c.id} style={{ height: 36, padding: "0 14px", borderRadius: 9, border: "none", background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Approve</button>
               </div>
             </div>
@@ -90,6 +93,17 @@ export default function CommunitiesAdminPage() {
             ))}
           </div>
         </>
+      )}
+
+      {confirmReject && (
+        <ConfirmDialog
+          title={`Reject "${confirmReject.name}"?`}
+          body="The creator is notified and the community never opens."
+          confirmLabel="Reject"
+          busy={busy === confirmReject.id}
+          onConfirm={() => { const c = confirmReject; setConfirmReject(null); act(c, "rejected"); }}
+          onCancel={() => setConfirmReject(null)}
+        />
       )}
     </div>
   );

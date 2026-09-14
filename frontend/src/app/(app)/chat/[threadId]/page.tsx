@@ -274,7 +274,7 @@ function ChatThread() {
       />
       {/* ── Attach sheet (v3) ── */}
       {attachOpen && (
-        <div onClick={() => setAttachOpen(false)} className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.38)" }}>
+        <div onClick={() => setAttachOpen(false)} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ background: "rgba(0,0,0,0.38)" }}>
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl sm:mb-4" style={{ boxShadow: "0 -4px 24px rgba(0,0,0,0.12)", padding: "8px 0 28px" }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 18px" }} />
             {/* DV8 (Chat.jsx:105-118) — 3-col grid, Photo · Share listing · Make offer in
@@ -308,7 +308,7 @@ function ChatThread() {
 
       {/* ── Offer sheet (v3) ── */}
       {offerOpen && (
-        <div onClick={() => setOfferOpen(false)} className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.38)" }}>
+        <div onClick={() => setOfferOpen(false)} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ background: "rgba(0,0,0,0.38)" }}>
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl sm:mb-4" style={{ boxShadow: "0 -4px 24px rgba(0,0,0,0.12)", padding: "8px 20px 28px" }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 18px" }} />
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, marginBottom: 4 }}>Make an offer</div>
@@ -586,7 +586,7 @@ function ChatMoreMenu({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-end justify-center"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
       style={{ background: "rgba(0,0,0,0.38)" }}
     >
       <div

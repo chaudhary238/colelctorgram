@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { ConfirmDialog } from "@/components/ui";
 import { timeAgo } from "@/lib/utils";
 
 interface Report {
@@ -73,6 +74,9 @@ export default function ModerationPage() {
     } catch (e) { console.error(e); } finally { setBusy(null); }
   };
 
+  // QA #27 — takedowns and suspensions confirm first.
+  const [confirming, setConfirming] = useState<{ r: Report; kind: "remove" | "suspend" } | null>(null);
+
   return (
     <div style={{ maxWidth: 860 }}>
       <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em", margin: "0 0 6px" }}>Moderation queue</h1>
@@ -96,11 +100,12 @@ export default function ModerationPage() {
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
               <button onClick={() => dismiss(r)} disabled={busy === r.id} style={{ height: 34, padding: "0 12px", borderRadius: 9, border: "1px solid var(--border-strong)", background: "transparent", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer", color: "var(--ink)" }}>Dismiss</button>
+              {/* QA #27 — both takedown paths confirm before firing. */}
               {r.target_type !== "user" && r.target_exists && (
-                <button onClick={() => removeContent(r)} disabled={busy === r.id} style={{ height: 34, padding: "0 12px", borderRadius: 9, border: "none", background: "var(--grail-gold)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>Remove content</button>
+                <button onClick={() => setConfirming({ r, kind: "remove" })} disabled={busy === r.id} style={{ height: 34, padding: "0 12px", borderRadius: 9, border: "none", background: "var(--grail-gold)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>Remove content</button>
               )}
               {r.target_author_id && (
-                <button onClick={() => suspend(r)} disabled={busy === r.id} style={{ height: 34, padding: "0 12px", borderRadius: 9, border: "none", background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>Suspend user</button>
+                <button onClick={() => setConfirming({ r, kind: "suspend" })} disabled={busy === r.id} style={{ height: 34, padding: "0 12px", borderRadius: 9, border: "none", background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>Suspend user</button>
               )}
             </div>
           </div>
@@ -119,6 +124,23 @@ export default function ModerationPage() {
             ))}
           </div>
         </>
+      )}
+
+      {confirming && (
+        <ConfirmDialog
+          title={confirming.kind === "remove" ? "Remove this content?" : "Suspend this user?"}
+          body={confirming.kind === "remove"
+            ? "It comes down site-wide immediately. The record is kept for audit."
+            : "They lose access to their account until an admin restores it."}
+          confirmLabel={confirming.kind === "remove" ? "Remove" : "Suspend"}
+          busy={busy === confirming.r.id}
+          onConfirm={() => {
+            const { r, kind } = confirming;
+            setConfirming(null);
+            if (kind === "remove") removeContent(r); else suspend(r);
+          }}
+          onCancel={() => setConfirming(null)}
+        />
       )}
     </div>
   );

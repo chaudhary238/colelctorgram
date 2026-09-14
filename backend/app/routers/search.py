@@ -226,7 +226,8 @@ async def global_search(
     ]
 
     communities_base = (
-        select(Community.id, Community.name, Community.description, Community.category, Community.member_count)
+        select(Community.id, Community.name, Community.description, Community.category,
+               Community.member_count, Community.avatar_url)
         # QA2 — only approved communities are discoverable; pending/rejected ones stay hidden.
         .where(
             Community.status == "approved",
@@ -237,7 +238,8 @@ async def global_search(
         communities_base.order_by(_rank(q, Community.name).desc()).limit(limit)
     )
     communities = [
-        {"id": r.id, "name": r.name, "description": r.description, "category": r.category, "member_count": r.member_count}
+        {"id": r.id, "name": r.name, "description": r.description, "category": r.category,
+         "member_count": r.member_count, "avatar_url": r.avatar_url}
         for r in communities_q
     ]
 

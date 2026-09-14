@@ -140,6 +140,9 @@ export default function PostDetailPage() {
           url={`${window.location.origin}/post/${id}`}
           label="post"
           title={post.title ?? "Scorred"}
+          // QA #35 — untitled posts shared the literal word "Scorred"; use the
+          // author + a body snippet so the message says what it links to.
+          text={post.title ?? [post.handle ? `@${post.handle} on Scorred` : null, post.body?.slice(0, 120) || null].filter(Boolean).join(": ")}
           onClose={() => setSharing(false)}
         />
       )}

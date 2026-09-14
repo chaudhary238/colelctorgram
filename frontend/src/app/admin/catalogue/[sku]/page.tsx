@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, BadgeCheck, Check, Trash2, RotateCcw, Users, Star } from "lucide-react";
 import { api } from "@/lib/api";
+import { ConfirmDialog } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
 import { ADD_CATEGORIES, CAT_SCALES, formatMoney } from "@/lib/catalog";
 
@@ -45,6 +46,7 @@ export default function CatalogueDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false); // QA #27
   const [saved, setSaved] = useState(false);
 
   // editable form
@@ -183,7 +185,7 @@ export default function CatalogueDetailPage() {
             </ActionBtn>
             {removed
               ? <ActionBtn onClick={restore} disabled={busy} bg="var(--forest)" fg="var(--paper)"><RotateCcw size={15} />Restore entry</ActionBtn>
-              : <ActionBtn onClick={remove} disabled={busy} bg="var(--stamp-red)" fg="var(--paper)"><Trash2 size={15} />Take down</ActionBtn>}
+              : <ActionBtn onClick={() => setConfirmRemove(true)} disabled={busy} bg="var(--stamp-red)" fg="var(--paper)"><Trash2 size={15} />Take down</ActionBtn>}
           </div>
         </div>
 
@@ -226,6 +228,18 @@ export default function CatalogueDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* QA #27 — takedown confirms first. */}
+      {confirmRemove && (
+        <ConfirmDialog
+          title="Take down this entry?"
+          body="It disappears from the database for everyone; collectors' own copies keep working. You can restore it later."
+          confirmLabel="Take down"
+          busy={busy}
+          onConfirm={() => { setConfirmRemove(false); remove(); }}
+          onCancel={() => setConfirmRemove(false)}
+        />
+      )}
 
       <style>{`@media (max-width: 720px) { .cat-detail-grid { grid-template-columns: 1fr !important; } }`}</style>
     </div>

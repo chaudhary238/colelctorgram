@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { ConfirmDialog } from "@/components/ui";
 import { shortDate } from "@/lib/utils";
 
 interface PendingEvent {
@@ -24,6 +25,7 @@ export default function EventsAdminPage() {
   const [pending, setPending] = useState<PendingEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [confirmReject, setConfirmReject] = useState<PendingEvent | null>(null); // QA #27
   const [loadError, setLoadError] = useState(false);
   const [actioned, setActioned] = useState<{ title: string; action: "approved" | "rejected" }[]>([]);
 
@@ -78,7 +80,8 @@ export default function EventsAdminPage() {
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                  <button onClick={() => act(e, "rejected")} disabled={busy === e.id} style={{ height: 36, padding: "0 14px", borderRadius: 9, border: "1px solid var(--border-strong)", background: "transparent", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer", color: "var(--ink)" }}>Reject</button>
+                  {/* QA #27 — reject confirms first. */}
+                  <button onClick={() => setConfirmReject(e)} disabled={busy === e.id} style={{ height: 36, padding: "0 14px", borderRadius: 9, border: "1px solid var(--border-strong)", background: "transparent", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer", color: "var(--ink)" }}>Reject</button>
                   <button onClick={() => act(e, "approved")} disabled={busy === e.id} style={{ height: 36, padding: "0 14px", borderRadius: 9, border: "none", background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Approve</button>
                 </div>
               </div>
@@ -99,6 +102,17 @@ export default function EventsAdminPage() {
             ))}
           </div>
         </>
+      )}
+
+      {confirmReject && (
+        <ConfirmDialog
+          title={`Reject "${confirmReject.title}"?`}
+          body="The host is notified and the event never goes live."
+          confirmLabel="Reject"
+          busy={busy === confirmReject.id}
+          onConfirm={() => { const e = confirmReject; setConfirmReject(null); act(e, "rejected"); }}
+          onCancel={() => setConfirmReject(null)}
+        />
       )}
     </div>
   );

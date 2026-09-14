@@ -256,9 +256,9 @@ async def browse_catalogue(
     if sort == "wishlisted":
         order = [wishes_n.desc(), owners_n.desc()]
     elif sort == "newest":
-        # `year` is a free-text String(8); 4-digit years sort correctly lexicographically
-        # and created_at breaks ties / carries year-less rows.
-        order = [Catalogue.year.desc().nullslast()]
+        # QA #15 — "newest" means latest ADDED to the database, not release year
+        # (year is free text and pushed year-less rows to the bottom).
+        order = [Catalogue.created_at.desc()]
     else:  # owned — the default "most owned" ranking
         order = [owners_n.desc(), wishes_n.desc()]
     stmt = stmt.order_by(*order, Catalogue.created_at.desc()).offset((page - 1) * limit).limit(limit)
@@ -339,9 +339,7 @@ async def get_catalogue_entry(
     # previously only ever stated in grey text in the prototype; the web shows the
     # aggregate plus the caller's own stars. Scope: catalogue entries ONLY — the
     # 2026-07-18 removal still stands for user/seller ratings.
-    rating_avg, rating_count = (await db.execute(
-        select(func.avg(CatalogueRating.rating), func.count()).where(CatalogueRating.sku == sku)
-    )).one()
+    rating_avg, rating_count = await _merged_rating(db, sku)
     my_rating = (await db.execute(
         select(CatalogueRating.rating).where(
             CatalogueRating.sku == sku, CatalogueRating.user_id == current_user.id
@@ -492,6 +490,26 @@ class RateCatalogueBody(BaseModel):
     rating: int
 
 
+async def _merged_rating(db: AsyncSession, sku: str) -> tuple[float | None, int]:
+    """QA follow-up 2026-09-13 — the entry score merges quick star-ratings with
+    review-POST stars, one voice per user (a written review overrides the same
+    user's quick rating, so rating + reviewing never double-counts)."""
+    from app.models.post import Post
+    quick_rows = (await db.execute(
+        select(CatalogueRating.user_id, CatalogueRating.rating).where(CatalogueRating.sku == sku)
+    )).all()
+    review_rows = (await db.execute(
+        select(Post.user_id, Post.review_rating).where(
+            Post.ref_sku == sku, Post.type == "review",
+            Post.status == "published", Post.review_rating.isnot(None),
+        )
+    )).all()
+    by_user = {uid: r for uid, r in quick_rows}
+    by_user.update({uid: r for uid, r in review_rows})
+    count = len(by_user)
+    return (sum(by_user.values()) / count) if count else None, count
+
+
 @router.post("/{sku}/rate")
 async def rate_catalogue_entry(
     sku: str,
@@ -527,9 +545,8 @@ async def rate_catalogue_entry(
         my_rating = body.rating
     await db.flush()
 
-    avg, count = (await db.execute(
-        select(func.avg(CatalogueRating.rating), func.count()).where(CatalogueRating.sku == sku)
-    )).one()
+    # Same merged math as GET /catalogue/{sku} — review-post stars included.
+    avg, count = await _merged_rating(db, sku)
     return {
         "rating_avg": round(float(avg), 2) if avg is not None else None,
         "rating_count": count or 0,
@@ -540,6 +557,26 @@ async def rate_catalogue_entry(
 class CatalogueCommentBody(BaseModel):
     body: str
     parent_id: Optional[uuid.UUID] = None
+
+
+@router.get("/{sku}/reviews")
+async def list_catalogue_reviews(
+    sku: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """QA #2 — review POSTS tagged to this SKU, for the entry page. Star ratings
+    (CatalogueRating) and review posts are separate systems; this surfaces the
+    posts so a written review finally shows up on the item it reviews."""
+    from app.models.post import Post
+    rows = (await db.execute(
+        select(Post)
+        .where(Post.ref_sku == sku, Post.type == "review", Post.status == "published")
+        .order_by(Post.created_at.desc())
+        .limit(20)
+    )).scalars().all()
+    from app.routers.feed import serialize_posts
+    return {"items": await serialize_posts(db, list(rows), current_user)}
 
 
 @router.get("/{sku}/comments")

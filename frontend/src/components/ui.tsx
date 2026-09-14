@@ -748,3 +748,49 @@ export function LocationTag({ children, style }: { children: React.ReactNode; st
     </span>
   );
 }
+
+/* QA #27 — shared yes/no confirmation modal for destructive actions (extracted
+   from the community leave-confirm card so every "Are you sure?" looks the same).
+   Render it conditionally: {confirming && <ConfirmDialog …/>} */
+export function ConfirmDialog({
+  title,
+  body,
+  confirmLabel = "Remove",
+  busy = false,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  body?: string;
+  confirmLabel?: string;
+  busy?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Cancel"
+        onClick={onCancel}
+        style={{ position: "fixed", inset: 0, background: "rgba(20,17,15,0.4)", zIndex: 140, border: "none", cursor: "default" }}
+      />
+      <div style={{
+        position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)", zIndex: 141,
+        width: "min(calc(100% - 40px), 380px)", background: "var(--paper)", borderRadius: 18, padding: 20,
+        boxShadow: "var(--shadow-2)", boxSizing: "border-box",
+      }}>
+        <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--ink)" }}>
+          {title}
+        </div>
+        {body && (
+          <div style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5, marginTop: 6 }}>{body}</div>
+        )}
+        <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+          <Button variant="secondary" style={{ flex: 1, justifyContent: "center" }} onClick={onCancel}>Cancel</Button>
+          <Button variant="destructive" style={{ flex: 1, justifyContent: "center" }} disabled={busy} onClick={onConfirm}>{confirmLabel}</Button>
+        </div>
+      </div>
+    </>
+  );
+}

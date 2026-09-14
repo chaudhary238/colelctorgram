@@ -59,7 +59,7 @@ export function ReportSheet({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-end justify-center"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
       style={{ background: "rgba(0,0,0,0.38)" }}
     >
       {/* DV8 §2#25 — v8 sheet chrome (ProfileView.jsx:117-146): r20 top corners,

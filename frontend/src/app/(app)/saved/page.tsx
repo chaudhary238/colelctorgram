@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Bookmark, Star, Edit3, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { PostCard, ApiPost } from "@/components/cards";
-import { Segmented, ProductPhoto } from "@/components/ui";
+import { ConfirmDialog, Segmented, ProductPhoto } from "@/components/ui";
 import { formatMoney } from "@/lib/catalog";
 
 // The Stash — one home for everything you've kept (taxonomy 2026-07-11; named
@@ -41,6 +41,7 @@ export default function SavedPage() {
   const [posts, setPosts] = useState<ApiPost[] | null>(null);
   const [wishlist, setWishlist] = useState<WishItem[] | null>(null);
   const [removing, setRemoving] = useState<Record<string, boolean>>({});
+  const [confirmWish, setConfirmWish] = useState<WishItem | null>(null); // QA #27
 
   // Lazy-load each tab on first open.
   useEffect(() => {
@@ -137,7 +138,7 @@ export default function SavedPage() {
                 </Link>
                 <button
                   type="button"
-                  onClick={() => removeWish(w)}
+                  onClick={() => setConfirmWish(w)}
                   title="Remove from wishlist"
                   aria-label="Remove from wishlist"
                   style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--ink-faint)", cursor: "pointer", flexShrink: 0 }}
@@ -148,6 +149,17 @@ export default function SavedPage() {
             ))}
           </div>
         )
+      )}
+
+      {/* QA #27 — removing a wish deletes the row; confirm first. */}
+      {confirmWish && (
+        <ConfirmDialog
+          title={`Remove "${confirmWish.title}" from your wishlist?`}
+          confirmLabel="Remove"
+          busy={!!removing[confirmWish.id]}
+          onConfirm={() => { const w = confirmWish; setConfirmWish(null); removeWish(w); }}
+          onCancel={() => setConfirmWish(null)}
+        />
       )}
     </div>
   );

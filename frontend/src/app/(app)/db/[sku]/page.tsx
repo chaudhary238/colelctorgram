@@ -166,7 +166,8 @@ export default function DbEntryPage() {
         <ItemPageBody
           images={entry.thumbnail_url ? [entry.thumbnail_url] : []}
           tone={entry.tone || "ink"}
-          photoLabel="catalogue reference"
+          /* QA #20 — no "catalogue reference" stamp over real photos; the
+             placeholder path keeps its default label when there's no image. */
           tags={
             viewerStatus === "wishlist" ? (
               <Tag kind="teal">Wishlist</Tag>

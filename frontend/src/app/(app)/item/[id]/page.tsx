@@ -10,7 +10,7 @@ import { BackButton } from "@/components/BackButton";
 import { ReportCatalogueSheet } from "@/components/ReportCatalogueSheet";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
-import { SectionLabel, Tag } from "@/components/ui";
+import { ConfirmDialog, SectionLabel, Tag } from "@/components/ui";
 import { ReleaseWindowPicker } from "@/components/forms";
 import { fireToast, fireXpToast } from "@/components/gamification";
 import {
@@ -236,9 +236,11 @@ function EditPreorderSheet({ item, onClose, onSaved }: { item: ApiItem; onClose:
           <div style={{ marginTop: 14 }}><SectionLabel>Seller / Store</SectionLabel></div>
           <input value={seller} onChange={(e) => setSeller(e.target.value)} placeholder="e.g. BBToyStore, Bangalore"
             style={{ width: "100%", boxSizing: "border-box", height: 44, marginTop: 7, padding: "0 13px", borderRadius: 11, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14.5, color: "var(--ink)", outline: "none" }} />
+          {/* QA #22 — minWidth:0 so the uppercase mono labels can't force the
+              columns wider than the sheet on small screens. */}
           <div style={{ display: "flex", gap: 11, marginTop: 14 }}>
-            <div style={{ flex: 1 }}><SectionLabel>Total price (₹)</SectionLabel>{moneyInput(total, setTotal)}</div>
-            <div style={{ flex: 1 }}><SectionLabel>Deposit paid (₹)</SectionLabel>{moneyInput(deposit, setDeposit)}</div>
+            <div style={{ flex: 1, minWidth: 0 }}><SectionLabel>Total price (₹)</SectionLabel>{moneyInput(total, setTotal)}</div>
+            <div style={{ flex: 1, minWidth: 0 }}><SectionLabel>Deposit paid (₹)</SectionLabel>{moneyInput(deposit, setDeposit)}</div>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
             <span style={{ fontSize: 13.5, fontWeight: 600 }}>Balance due</span>
@@ -324,6 +326,7 @@ export default function ItemDetailPage() {
   // DV8-07 — the owner's kebab / manage sheet
   const [manageOpen, setManageOpen] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
+  const [confirmUnlist, setConfirmUnlist] = useState(false); // QA #27
   // v8 sold treatment — the Mark-as-sold confirm sheet + its POST/DELETE round trips
   const [soldOpen, setSoldOpen] = useState(false);
   const [soldBusy, setSoldBusy] = useState(false);
@@ -395,6 +398,7 @@ export default function ItemDetailPage() {
       else router.push("/profile");
     } catch (e) {
       console.error(e);
+      fireToast("Couldn't remove this item — try again"); // QA #3: failure was silent
       setRemoving(false);
     }
   }
@@ -605,9 +609,10 @@ export default function ItemDetailPage() {
         <ItemPageBody
           images={item.images ?? []}
           tone={tone}
-          // v8 :166 — "your photo · {i} of {n}" is the OWNER's label (mine.photos);
-          // a visitor keeps "catalogue reference" even over the owner's photos.
-          photoLabel={isOwnItem && item.photo_count > 0 ? "your photo" : "catalogue reference"}
+          // v8 :166 — "your photo · {i} of {n}" is the OWNER's label (mine.photos).
+          // QA #20 — nobody else gets a stamp: "catalogue reference" over an owner's
+          // real photos was wrong, and over an actual reference image it was noise.
+          photoLabel={isOwnItem && item.photo_count > 0 ? "your photo" : undefined}
           photoCountInLabel={isOwnItem && item.photo_count > 0}
           tags={
             /* v8 :170-174 — tags describe YOUR copy only (status + Listed); a visitor
@@ -756,6 +761,17 @@ export default function ItemDetailPage() {
 
       {/* ── DV8-07 — Manage this item (owner kebab): every action for this copy in one
           sheet, each with a "what does this do" line. ── */}
+      {confirmUnlist && (
+        <ConfirmDialog
+          title="Unlist from the market?"
+          body="It stays in your collection; Relist brings it back at the same terms."
+          confirmLabel="Unlist"
+          busy={statusBusy}
+          onConfirm={() => { setConfirmUnlist(false); unlist(); }}
+          onCancel={() => setConfirmUnlist(false)}
+        />
+      )}
+
       {manageOpen && isOwnItem && (() => {
         // v8 ItemDetail :109-134 — EXACT row set and order:
         // undo-sold / arrived / relist / list-for-sale / edit / add-another-copy /
@@ -827,7 +843,8 @@ export default function ItemDetailPage() {
           rows.push({
             icon: <X size={16} />, label: "Unlist from market",
             desc: "Stop selling it — Relist later at these same terms",
-            onClick: unlist,
+            // QA #27 — same confirm the listing page's own Unlist already has.
+            onClick: () => setConfirmUnlist(true),
           });
         }
         if (!isSold && !isPreorder && isOwned) {

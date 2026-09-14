@@ -150,9 +150,11 @@ export default function EventDetailPage() {
     setMyRsvp(mine); setGoingCount(Math.max(0, g)); setIntCount(Math.max(0, i));
     setBusy(true);
     try {
-      // DV8 §8#2 — the RSVP response returns the refreshed event, so the withheld
-      // address/where appear immediately once the viewer is on the guest list.
-      const updated = await api.post<EventPayload>(`/events/${id}/interest?status=${next}`);
+      // DV8 §8#2 intent: the withheld address/where appear once the viewer is on
+      // the guest list. The POST is a 204 (no body), so refetch explicitly — the
+      // old `updated?.id` check was always false and nothing ever refreshed.
+      await api.post(`/events/${id}/interest?status=${next}`);
+      const updated = await api.get<EventPayload>(`/events/${id}`).catch(() => null);
       if (updated?.id) {
         setEvent(updated);
         setMyRsvp(updated.my_rsvp ?? null);
@@ -403,11 +405,8 @@ export default function EventDetailPage() {
                 <Star size={18} fill={myRsvp === "interested" ? "var(--grail-gold-deep)" : "none"} />Interested
               </button>
             </div>
-            {event.community_id && (
-              <Link href={`/community/${event.community_id}`} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", marginTop: 10, height: 40, borderRadius: 11, border: "1px solid var(--border-strong)", background: "transparent", color: "var(--ink-soft)", textDecoration: "none", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13.5 }}>
-                <MessageCircle size={16} />Open event community
-              </Link>
-            )}
+            {/* QA #36 — footer "Open event community" removed: the Event community
+                card in the body (above "Hosted by") is the one entry point. */}
             {/* DV8 §8#17 — a site admin on someone else's event keeps the normal RSVP
                 footer and host line, plus this quiet manage affordance (can_manage
                 covers host + site admin; is_host alone hides the RSVP footer). */}
@@ -433,6 +432,13 @@ export default function EventDetailPage() {
           url={`${window.location.origin}/events/${id}`}
           label="event"
           title={event.title}
+          // QA #35 — the message says what/when/where, not just a bare link.
+          text={[
+            event.title,
+            whenStr,
+            online ? "Online event" : (event.where ?? event.venue ?? event.city ?? null),
+            priceLabel,
+          ].filter(Boolean).join("\n")}
           onClose={() => setShareOpen(false)}
         />
       )}

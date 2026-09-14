@@ -79,6 +79,8 @@ interface CollectionItem {
   preorder_seller?: string | null;
   /** ISO date the pre-order was placed. Owner-only. */
   preorder_ordered_at?: string | null;
+  /** figures | diecast | kits | designer | tcg — owner value, catalogue fallback. */
+  category?: string | null;
   /** paise — catalogue est. retail, finish-flow price anchor (v8 CompleteItems:95). */
   est_value?: number | null;
   /** v8 :451 — teal NEW DB chip on a DB-contribution tile whose entry the user
@@ -179,9 +181,18 @@ function skuPrefix(sku: string | null): string {
   const m = (sku ?? "").match(/SKU-([A-Z]+)-/);
   return m ? m[1] : "";
 }
+// QA #17 — group by the item's real category (the API sends it: owner value with
+// catalogue fallback). The SKU-prefix parse only ever matched seeded SKU-XXX rows;
+// user entries are UGC-… so everything real landed in "Other".
+const CAT_TONE: Record<string, { key: string; label: string; tone: string }> = {
+  figures: SKU_CAT.FIG, kits: SKU_CAT.KIT, designer: SKU_CAT.DSN, diecast: SKU_CAT.DCS, tcg: SKU_CAT.TCG,
+};
 function catForItem(it: CollectionItem) {
-  return SKU_CAT[skuPrefix(it.sku)] ?? { key: "other", label: "Other", tone: "bone" };
+  return CAT_TONE[it.category ?? ""] ?? SKU_CAT[skuPrefix(it.sku)] ?? { key: "other", label: "Other", tone: "bone" };
 }
+/** QA #5/#16 — the money an item represents: a pre-order commits preorder_total
+    (the add forms zero `value` for POs); everything else is what you paid. */
+const amountFor = (i: CollectionItem) => (i.status === "preorder" ? (i.preorder_total ?? i.value) : i.value);
 // Prefer the server-resolved `title` (custom_title → catalogue title → sku). The old
 // client-side chain stays as the fallback so nothing breaks if an older/cached payload
 // arrives without it — items added from the Database carry only a `sku`, which is why
@@ -680,7 +691,9 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
   const completeCount = portfolio?.complete_count ?? owned.length;
   const itemCount = portfolio?.item_count ?? owned.length;
   // Visitors only get a number when the owner's collection shares it (complete).
-  const valueShared = portfolio ? portfolio.value_shared : true;
+  // QA #18 — a missing portfolio payload fails CLOSED for visitors (was: true,
+  // which rendered a fake ₹0 from the nulled per-item values).
+  const valueShared = portfolio ? portfolio.value_shared : isOwn;
   // v8 :54 `valuePublic` = allComplete — drives the pills row's bottom margin for
   // EVERY viewer (the meter that follows is owner-only, but the tighter gap isn't).
   const allComplete = (portfolio?.incomplete_count ?? 0) === 0;
@@ -927,7 +940,9 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
             </>
           )}
 
-          {view === "chart" && <PortfolioChart items={owned} inHand={items.filter((i) => i.status === "owned").length} preorder={items.filter((i) => i.status === "preorder").length} />}
+          {/* QA #16/#18 — sold copies are history (out of the donut), and the money
+              column defers to the server's privacy call for visitors. */}
+          {view === "chart" && <PortfolioChart items={owned.filter((i) => !isSoldItem(i))} inHand={items.filter((i) => i.status === "owned" && !isSoldItem(i)).length} preorder={items.filter((i) => i.status === "preorder").length} showValues={isOwn || valueShared} portfolioValue={portfolioValue} />}
           {view === "calendar" && <PortfolioCalendar items={items} />}
         </>
       )}
@@ -1073,9 +1088,9 @@ function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
             >
               {gapText} →
             </button>
-          ) : item.value != null ? (
+          ) : amountFor(item) != null ? (
             <div style={{ fontSize: 12.5, marginTop: 5, color: "var(--ink-mute)" }}>
-              <Money value={paiseToRupees(item.value)} />
+              <Money value={paiseToRupees(amountFor(item) ?? 0)} />
             </div>
           ) : null
         )}
@@ -1087,27 +1102,38 @@ function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
 // SVG donut by category value — converted from design ProfileCollection PortfolioChart.
 // DV7-01 adds the in-hand vs pre-order split above the donut: the donut answers "what
 // kinds of things do I own", this answers "how much of it has actually landed".
-function PortfolioChart({ items, inHand, preorder }: { items: CollectionItem[]; inHand: number; preorder: number }) {
+function PortfolioChart({ items, inHand, preorder, showValues = true, portfolioValue }: {
+  items: CollectionItem[]; inHand: number; preorder: number;
+  /** QA #18 — false for visitors when the owner's value isn't shared: money
+      column and total render as "not shared" instead of a fake ₹0. */
+  showValues?: boolean;
+  /** Server-computed total (the source of truth the pill already uses). */
+  portfolioValue?: number | null;
+}) {
   const byCat: Record<string, { count: number; value: number; label: string; tone: string }> = {};
   items.forEach((i) => {
     const c = catForItem(i);
     byCat[c.key] = byCat[c.key] || { count: 0, value: 0, label: c.label, tone: c.tone };
     byCat[c.key].count++;
-    byCat[c.key].value += i.value ?? 0;
+    byCat[c.key].value += amountFor(i) ?? 0;
   });
   const tokenTone: Record<string, string> = {
     red: "var(--stamp-red)", forest: "var(--forest)", plum: "var(--plum)", teal: "var(--verified-teal)", gold: "var(--grail-gold)", bone: "var(--ink-mute)",
   };
-  const rows = Object.values(byCat).sort((a, b) => b.value - a.value);
+  const rows = Object.values(byCat).sort((a, b) => b.value - a.value || b.count - a.count);
   if (rows.length === 0) return <EmptyNote>No items to chart yet.</EmptyNote>;
 
-  const total = rows.reduce((s, v) => s + v.value, 0) || 1;
+  const valueTotal = rows.reduce((s, v) => s + v.value, 0);
+  // Visitors get no per-item money, so slice the donut by count when value is
+  // all-zero — an empty ring told them nothing.
+  const sliceBy: "value" | "count" = valueTotal > 0 ? "value" : "count";
+  const total = (sliceBy === "value" ? valueTotal : rows.reduce((s, v) => s + v.count, 0)) || 1;
   const totalCount = rows.reduce((s, v) => s + v.count, 0);
   const cx = 100, cy = 100, R = 76, ir = 44;
   // Cumulative start fraction per slice, computed purely (no closure mutation
   // during render — react-hooks/immutability).
   const START = -Math.PI / 2;
-  const pcts = rows.map((v) => v.value / total);
+  const pcts = rows.map((v) => (sliceBy === "value" ? v.value : v.count) / total);
   const offsets = pcts.map((_, i) => pcts.slice(0, i).reduce((s, x) => s + x, 0));
   const slices = rows.map((v, idx) => {
     const pct = pcts[idx];
@@ -1163,15 +1189,19 @@ function PortfolioChart({ items, inHand, preorder }: { items: CollectionItem[]; 
             <div style={{ width: 10, height: 10, borderRadius: "50%", background: tokenTone[s.tone] || "var(--ink-mute)", flexShrink: 0 }} />
             <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600 }}>{s.label}</span>
             <span style={{ fontSize: 12, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>{s.count} · {Math.round(s.pct * 100)}%</span>
-            <span style={{ fontSize: 12, color: "var(--ink-mute)", fontFamily: "var(--font-mono)", minWidth: 76, textAlign: "right" }}>
-              <Money value={paiseToRupees(s.value)} />
-            </span>
+            {showValues && (
+              <span style={{ fontSize: 12, color: "var(--ink-mute)", fontFamily: "var(--font-mono)", minWidth: 76, textAlign: "right" }}>
+                <Money value={paiseToRupees(s.value)} />
+              </span>
+            )}
           </div>
         ))}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid var(--border)" }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-soft)" }}>Portfolio value</span>
-        <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: "var(--stamp-red)" }}><Money value={paiseToRupees(total)} /></span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-soft)" }}>{showValues ? "Portfolio value" : "Value not shared"}</span>
+        <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 15, color: showValues ? "var(--stamp-red)" : "var(--ink-faint)" }}>
+          {showValues ? <Money value={paiseToRupees(portfolioValue ?? valueTotal)} /> : "—"}
+        </span>
       </div>
     </div>
   );
@@ -1308,10 +1338,46 @@ function PortfolioCalendar({ items }: { items: CollectionItem[] }) {
 
 /* ── Posts tab ──────────────────────────────────────────────────── */
 function PostsTab({ posts, profile, isOwn }: { posts: RawPost[] | null; profile: ProfileUser; isOwn: boolean }) {
+  // QA #19 — the Posts tab gets the same eye toggle as the Collection views.
+  // Server-enforced: GET /users/{h}/posts returns [] to other viewers when private.
+  const [postsVis, setPostsVis] = useState<"public" | "private">(
+    (profile.collection_view_privacy?.posts as "public" | "private") ?? "public",
+  );
   if (posts === null) return <SkeletonRows />;
+
+  const eyeToggle = isOwn && (
+    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+      <button
+        onClick={() => {
+          const next: "public" | "private" = postsVis === "private" ? "public" : "private";
+          setPostsVis(next); // optimistic
+          fireToast(`Posts ${next === "public" ? "now public" : "now private"}`);
+          api.patch("/users/me/collection-privacy", { view: "posts", visibility: next }).catch(() => {
+            setPostsVis(postsVis); // revert
+          });
+        }}
+        title="Toggle who can see your posts"
+        style={{
+          width: 36, height: 36, borderRadius: 10, flexShrink: 0, cursor: "pointer",
+          border: "1px solid var(--border-strong)",
+          background: postsVis === "private" ? "var(--bone)" : "var(--paper-soft)",
+          color: postsVis === "private" ? "var(--ink-faint)" : "var(--verified-teal)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}
+      >
+        {postsVis === "private" ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </div>
+  );
+
   if (posts.length === 0) {
     // v8 :388 — exact copy.
-    return <EmptyNote>{isOwn ? "You haven't posted yet. Tap + to showcase a piece." : "No posts yet."}</EmptyNote>;
+    return (
+      <>
+        {eyeToggle}
+        <EmptyNote>{isOwn ? "You haven't posted yet. Tap + to showcase a piece." : "No posts yet."}</EmptyNote>
+      </>
+    );
   }
   // The per-user posts endpoint omits author fields; the author is this profile.
   // PostCard routes type "iso" to ISOCard itself (v8 renders ISOCard vs PostCard here).
@@ -1351,12 +1417,20 @@ function PostsTab({ posts, profile, isOwn }: { posts: RawPost[] | null; profile:
     created_at: p.created_at,
   }));
   return (
-    <div style={{ margin: "0 -16px" }}>
-      {/* Share-to-Feed posts (ref_listing set) render the v8 listing-share card. */}
-      {enriched.map((p) => p.ref_listing
-        ? <SharedListingCard key={p.id} post={p} />
-        : <PostCard key={p.id} post={p} />)}
-    </div>
+    <>
+      {eyeToggle}
+      {isOwn && postsVis === "private" && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--ink-faint)", marginBottom: 8 }}>
+          <EyeOff size={14} /> Only you can see your posts.
+        </div>
+      )}
+      <div style={{ margin: "0 -16px" }}>
+        {/* Share-to-Feed posts (ref_listing set) render the v8 listing-share card. */}
+        {enriched.map((p) => p.ref_listing
+          ? <SharedListingCard key={p.id} post={p} />
+          : <PostCard key={p.id} post={p} />)}
+      </div>
+    </>
   );
 }
 

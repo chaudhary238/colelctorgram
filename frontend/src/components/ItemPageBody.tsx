@@ -13,13 +13,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  ChevronRight, Clock, Eye, Heart, MessageCircle, MoreHorizontal, Pencil, Send, Star, Trash2, User,
+  ChevronLeft, ChevronRight, Clock, Eye, Heart, MessageCircle, MoreHorizontal, Pencil, Send, Star, Trash2, User,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { FeedBadge, goldFrameRing, hasGoldFrame, type FeedBadgeT } from "@/components/gamification";
-import { Avatar, ClampText, Disclosure, IconButton, ProductPhoto, SealMark, Tag, statusLabel } from "@/components/ui";
+import { Avatar, ClampText, ConfirmDialog, Disclosure, IconButton, ProductPhoto, SealMark, Tag, statusLabel } from "@/components/ui";
 import { MentionInput, renderCommentBody } from "@/components/cards";
-import { formatMoney } from "@/lib/catalog";
+import { conditionLabel, formatMoney } from "@/lib/catalog";
 import { timeAgo } from "@/lib/utils";
 import { useUser } from "@/lib/auth-context";
 
@@ -50,13 +50,38 @@ export function ItemPhotoCarousel({ images, tone, label, countInLabel = false }:
   if (images.length === 0) {
     return <ProductPhoto tone={tone} ratio="1/1" rounded={0} label={label ?? "catalogue reference"} />;
   }
+  const idx = Math.min(photo, images.length - 1);
   return (
     <>
-      <div style={{ position: "relative", aspectRatio: "1/1", overflow: "hidden", background: "var(--bone)" }}>
+      {/* QA 2026-09-14 — letterbox on INK, not bone: the market hero letterboxes
+          dark (ProductPhoto's ink tone), so the item/DB hero matches. */}
+      <div style={{ position: "relative", aspectRatio: "1/1", overflow: "hidden", background: "var(--ink)" }}>
         {/* contain, not cover — the frame stays 1:1 for layout but the photo
-            must never crop; off-ratio uploads letterbox on the bone ground. */}
+            must never crop; off-ratio uploads letterbox on the dark ground. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={images[Math.min(photo, images.length - 1)]} alt={label ?? "Item photo"} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+        <img src={images[idx]} alt={label ?? "Item photo"} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+        {/* QA 2026-09-14 — explicit prev/next arrows (the dots alone weren't
+            discoverable); same glass chrome as the market photo overlays. */}
+        {images.length > 1 && (
+          <>
+            <button
+              type="button"
+              aria-label="Previous photo"
+              onClick={() => setPhoto((p) => (p - 1 + images.length) % images.length)}
+              style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: 10, border: "1px solid rgba(255,255,255,0.20)", background: "rgba(15,23,42,0.46)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              type="button"
+              aria-label="Next photo"
+              onClick={() => setPhoto((p) => (p + 1) % images.length)}
+              style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: 10, border: "1px solid rgba(255,255,255,0.20)", background: "rgba(15,23,42,0.46)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+            >
+              <ChevronRight size={18} />
+            </button>
+          </>
+        )}
         {/* Same corner label ProductPhoto stamps on tone renders (ui.tsx :461), with a
             faint shadow so it survives light photos. */}
         {label && (
@@ -183,7 +208,9 @@ export function OwnershipCard({
   onAsk?: () => Promise<void>;
 }) {
   const isPo = status === "preorder";
-  const condLabel = condition ? CONDITION_LABEL[condition] ?? condition : null;
+  // QA #21 — resolve via the live per-category vocabulary (catalog.ts), not the
+  // retired 2026-07-18 map above: DV8-10 ids like "MISB" fell through it raw.
+  const condLabel = condition ? (CONDITION_LABEL[condition] ?? conditionLabel(condition)) : null;
   const handle = ownerHandle ?? "collector";
   const hasValue = value != null && value > 0;
 
@@ -313,14 +340,17 @@ export function OwnershipCard({
             // record is closed, so a bare "—" stays a dash, never a CTA.
             const isGap = r.value === "—" || r.value === "TBD";
             return (
-              <div key={r.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, fontSize: 13 }}>
-                <span style={{ color: "var(--ink-faint)" }}>{r.label}</span>
+              // QA #22 — flex items default to min-width:auto, so an unbreakable
+              // ₹12,50,000 or a long seller name clipped at the card edge. Wrap
+              // instead, and let the value shrink + break.
+              <div key={r.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, fontSize: 13 }}>
+                <span style={{ color: "var(--ink-faint)", flexShrink: 0 }}>{r.label}</span>
                 {viewerIsOwner && isGap && onComplete && !sold ? (
                   <button type="button" onClick={onComplete} style={{
                     padding: 0, border: "none", background: "none", cursor: "pointer", fontFamily: "var(--font-body)",
                     fontWeight: 700, fontSize: 12.5, color: "var(--grail-gold-deep)" }}>Add →</button>
                 ) : (
-                  <span style={{ fontFamily: "var(--font-mono)", fontWeight: r.accent ? 700 : 600, color: r.accent ? "var(--stamp-red)" : "var(--ink)" }}>{r.value}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontWeight: r.accent ? 700 : 600, color: r.accent ? "var(--stamp-red)" : "var(--ink)", minWidth: 0, textAlign: "right", overflowWrap: "anywhere" }}>{r.value}</span>
                 )}
               </div>
             );
@@ -569,6 +599,53 @@ interface CatComment {
   created_at: string;
 }
 
+/* QA #2 — review POSTS tagged to this SKU, so a written review finally shows on
+   the entry it reviews. Compact rows (stars + snippet) linking to the full post;
+   star ratings (RatingBlock) stay the quick-rate aggregate alongside. */
+type SkuReview = {
+  id: string; handle?: string | null; name?: string | null; avatar_url?: string | null;
+  title?: string | null; body?: string | null; review_rating?: number | null; created_at: string;
+};
+export function CatalogueReviews({ sku }: { sku: string }) {
+  const [reviews, setReviews] = useState<SkuReview[] | null>(null);
+  useEffect(() => {
+    api.get<{ items: SkuReview[] }>(`/catalogue/${encodeURIComponent(sku)}/reviews`)
+      .then((r) => setReviews(r.items ?? []))
+      .catch(() => setReviews([]));
+  }, [sku]);
+  if (!reviews || reviews.length === 0) return null;
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-faint)", marginBottom: 10 }}>
+        Reviews · {reviews.length}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {reviews.map((r) => (
+          <Link key={r.id} href={`/post/${r.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+            <div style={{ border: "1px solid var(--border)", borderRadius: 13, padding: "11px 13px", background: "var(--paper-soft)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Avatar name={r.name ?? r.handle ?? "?"} photo={r.avatar_url} size={24} />
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink-soft)" }}>@{r.handle}</span>
+                {typeof r.review_rating === "number" && (
+                  <span style={{ fontSize: 12, color: "var(--grail-gold-deep)", fontFamily: "var(--font-mono)" }}>
+                    {"★".repeat(r.review_rating)}{"☆".repeat(Math.max(0, 5 - r.review_rating))}
+                  </span>
+                )}
+                <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--ink-faint)", fontFamily: "var(--font-mono)" }}>{timeAgo(r.created_at)}</span>
+              </div>
+              {(r.title || r.body) && (
+                <div style={{ fontSize: 13, color: "var(--ink)", marginTop: 6, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                  {r.title ? <strong>{r.title} — </strong> : null}{r.body}
+                </div>
+              )}
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function CatalogueComments({ sku }: { sku: string }) {
   const { user } = useUser();
   const [comments, setComments] = useState<CatComment[]>([]);
@@ -578,6 +655,7 @@ export function CatalogueComments({ sku }: { sku: string }) {
   const [replyDraft, setReplyDraft] = useState("");
   // v8 Cards.jsx :304-309 — own-comment ··· menu with in-place Edit / Delete.
   const [menuId, setMenuId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null); // QA #27
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
 
@@ -695,10 +773,19 @@ export function CatalogueComments({ sku }: { sku: string }) {
                       <button type="button" onClick={() => { setEditingId(c.id); setEditDraft(c.body); setMenuId(null); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "none", border: "none", borderBottom: "1px solid var(--border)", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--ink)", textAlign: "left" }}>
                         <Pencil size={14} />Edit
                       </button>
-                      <button type="button" onClick={() => remove(c.id)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--stamp-red)", textAlign: "left" }}>
+                      {/* QA #27 — deleting a comment confirms first. */}
+                      <button type="button" onClick={() => { setConfirmDelete(c.id); setMenuId(null); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--stamp-red)", textAlign: "left" }}>
                         <Trash2 size={14} />Delete
                       </button>
                     </div>
+                  )}
+                  {confirmDelete === c.id && (
+                    <ConfirmDialog
+                      title="Delete this comment?"
+                      confirmLabel="Delete"
+                      onConfirm={() => { setConfirmDelete(null); remove(c.id); }}
+                      onCancel={() => setConfirmDelete(null)}
+                    />
                   )}
                 </div>
               )}
@@ -861,6 +948,7 @@ export function ItemPageBody({
         {stats && <CommunityStatsRow {...stats} />}
         <AboutSection {...about} title={title} />
         {rating && <RatingBlock key={`rating-${rating.sku}`} sku={rating.sku} initial={rating.initial} />}
+        {sku && <CatalogueReviews key={`reviews-${sku}`} sku={sku} />}
       </div>
       {/* v8 :372-377 — comments live OUTSIDE the padded body: gutter header + full-bleed rule */}
       {sku && <CatalogueComments key={`comments-${sku}`} sku={sku} />}

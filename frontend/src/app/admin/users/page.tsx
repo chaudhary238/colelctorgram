@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Search, ShieldCheck, Ban, RotateCcw, Star, X } from "lucide-react";
 import { api } from "@/lib/api";
-import { Avatar } from "@/components/ui";
+import { Avatar, ConfirmDialog } from "@/components/ui";
 
 interface AdminUser {
   id: string;
@@ -50,6 +50,7 @@ export default function UsersAdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [confirmSuspend, setConfirmSuspend] = useState<AdminUser | null>(null); // QA #27
   const [error, setError] = useState<string | null>(null);
   // Which row has its badge picker open (one at a time — the list can be long).
   const [badgeFor, setBadgeFor] = useState<string | null>(null);
@@ -177,7 +178,7 @@ export default function UsersAdminPage() {
                 {u.is_admin ? (
                   <span style={{ fontSize: 12, color: "var(--ink-faint)", flexShrink: 0, padding: "0 8px" }}>protected</span>
                 ) : (
-                  <button onClick={() => toggleSuspend(u)} disabled={busy === u.id}
+                  <button onClick={() => (u.is_suspended ? toggleSuspend(u) : setConfirmSuspend(u))} disabled={busy === u.id}
                     style={{ display: "flex", alignItems: "center", gap: 6, height: 34, padding: "0 13px", borderRadius: 9, flexShrink: 0, cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5,
                       border: u.is_suspended ? "1px solid var(--border-strong)" : "none",
                       background: u.is_suspended ? "transparent" : "var(--stamp-red)",
@@ -216,6 +217,18 @@ export default function UsersAdminPage() {
           );
         })}
       </div>
+
+      {/* QA #27 — suspending confirms; restoring stays one tap. */}
+      {confirmSuspend && (
+        <ConfirmDialog
+          title={`Suspend @${confirmSuspend.handle}?`}
+          body="They lose access to their account until an admin restores it."
+          confirmLabel="Suspend"
+          busy={busy === confirmSuspend.id}
+          onConfirm={() => { const u = confirmSuspend; setConfirmSuspend(null); toggleSuspend(u); }}
+          onCancel={() => setConfirmSuspend(null)}
+        />
+      )}
     </div>
   );
 }

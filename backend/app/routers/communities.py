@@ -987,6 +987,7 @@ async def my_community_posts(
         )
         .order_by(Post.created_at.desc())
     )
+    now = datetime.now(timezone.utc)
     return [
         {
             "id": str(p.id),
@@ -997,10 +998,48 @@ async def my_community_posts(
             "status": pc.status,
             "decline_reason": pc.decline_reason,
             "declined_at": pc.declined_at.isoformat() if pc.declined_at else None,
+            # QA #32 — declined posts can be edited & resubmitted for 48h.
+            "can_resubmit": pc.status == "declined"
+            and (pc.declined_at is None or now - pc.declined_at <= RESUBMIT_WINDOW),
             "created_at": p.created_at.isoformat(),
         }
         for p, pc in rows
     ]
+
+
+# QA #32 — how long a declined post stays editable/resubmittable for its author.
+RESUBMIT_WINDOW = timedelta(hours=48)
+
+
+@router.post("/{community_id}/posts/{post_id}/resubmit", status_code=204)
+async def resubmit_declined_post(
+    community_id: str,
+    post_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """QA #32 — the author edits (PATCH /posts/{id}) then resubmits: the declined
+    routing row re-enters the mod queue. Allowed within 48h of the decline."""
+    from app.models.post import Post, PostCommunity
+    pc = (
+        await db.execute(
+            select(PostCommunity).where(
+                PostCommunity.post_id == post_id,
+                PostCommunity.community_id == community_id,
+                PostCommunity.status == "declined",
+            )
+        )
+    ).scalar_one_or_none()
+    if not pc:
+        raise HTTPException(status_code=404, detail="No declined post to resubmit")
+    post = (await db.execute(select(Post).where(Post.id == pc.post_id))).scalar_one_or_none()
+    if not post or post.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the author can resubmit this")
+    if pc.declined_at and datetime.now(timezone.utc) - pc.declined_at > RESUBMIT_WINDOW:
+        raise HTTPException(status_code=410, detail="The 48-hour resubmit window has passed")
+    pc.status = "pending"
+    pc.decline_reason = None
+    pc.declined_at = None
 
 
 @router.delete("/{community_id}/posts/{post_id}/declined", status_code=204)

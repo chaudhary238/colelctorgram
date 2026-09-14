@@ -72,7 +72,9 @@ export const CAT_META: Record<string, { label: string; titleEg: string; brandEg:
 export interface ConditionOpt { id: string; label: string; hint: string }
 export const CAT_CONDITIONS: Record<string, ConditionOpt[]> = {
   figures: [
-    { id: "MISB",  label: "MISB",  hint: "Mint in sealed box" },
+    // QA #21 — collectors read "MISB" fine, everyone else doesn't; the id stays
+    // MISB (it's what rows store + market filters post), only the label changes.
+    { id: "MISB",  label: "Brand New",  hint: "Mint in sealed box" },
     { id: "MIB",   label: "MIB",   hint: "Mint in box · opened" },
     { id: "BIB",   label: "BIB",   hint: "Box in bad shape" },
     { id: "Loose", label: "Loose", hint: "No packaging" },

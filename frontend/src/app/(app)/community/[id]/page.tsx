@@ -64,6 +64,8 @@ interface MyPendingPost {
   status: string; // pending | declined
   decline_reason: string | null;
   declined_at: string | null;
+  /** QA #32 — declined posts stay editable/resubmittable for 48h. */
+  can_resubmit?: boolean;
   created_at: string;
 }
 
@@ -248,6 +250,36 @@ export default function CommunityDetailPage() {
     }
   }
 
+  // QA #32 — edit-and-resubmit a declined post (48h window; server enforces with
+  // a 410 past it). The sheet edits title/body in place, then re-queues.
+  const [resubmit, setResubmit] = useState<MyPendingPost | null>(null);
+  const [resubTitle, setResubTitle] = useState("");
+  const [resubBody, setResubBody] = useState("");
+  const [resubBusy, setResubBusy] = useState(false);
+  function openResubmit(p: MyPendingPost) {
+    setResubmit(p);
+    setResubTitle(p.title ?? "");
+    setResubBody(p.body);
+  }
+  async function doResubmit() {
+    if (!resubmit || resubBusy) return;
+    setResubBusy(true);
+    try {
+      await api.patch(`/posts/${resubmit.id}`, { title: resubTitle.trim() || null, body: resubBody.trim() });
+      await api.post(`/communities/${id}/posts/${resubmit.id}/resubmit`);
+      setMyPending((ps) => ps.map((p) => p.id === resubmit.id
+        ? { ...p, title: resubTitle.trim() || null, body: resubBody.trim(), status: "pending", decline_reason: null }
+        : p));
+      setResubmit(null);
+      fireToast("Resubmitted — back in the mod queue");
+    } catch (e) {
+      console.error(e);
+      fireToast(e instanceof Error && e.message.includes("48") ? "The 48-hour resubmit window has passed" : "Couldn't resubmit — try again");
+    } finally {
+      setResubBusy(false);
+    }
+  }
+
   // #23 — accepting is a real event now: persisted per community + toast (v8 :229,300).
   function acceptGuidelines() {
     setAccepted(true);
@@ -412,7 +444,8 @@ export default function CommunityDetailPage() {
     : [
         { id: "posts", label: "Posts" },
         { id: "members", label: "Members" },
-        ...(joined && myPending.length > 0 ? [{ id: "pending" as Tab, label: `Pending ${myPending.length}` }] : []),
+        // QA #32 — "In review", not "Pending": the tab also holds declined posts.
+        ...(joined && myPending.length > 0 ? [{ id: "pending" as Tab, label: `In review ${myPending.length}` }] : []),
         { id: "about", label: "Rules" },
       ];
   const activeTab: Tab = locked || pendingReview
@@ -616,9 +649,11 @@ export default function CommunityDetailPage() {
             /* #21 — YOUR review queue here (v8 :243-267): pending posts wait in gold;
                declined ones turn red, show the mod's reason and offer Dismiss. */
             <div style={{ padding: "14px 20px" }}>
-              <SectionLabel>Your posts awaiting review</SectionLabel>
+              <SectionLabel>Your posts in review</SectionLabel>
+              {/* QA #32 — the copy covers BOTH states this tab holds: waiting posts
+                  and declined ones (which can be edited & resubmitted for 48h). */}
               <div style={{ fontSize: 12.5, color: "var(--ink-faint)", margin: "8px 2px 14px", lineHeight: 1.5 }}>
-                These aren&rsquo;t visible to the community yet. Once approved, they&rsquo;ll publish and clear from here automatically.
+                These aren&rsquo;t visible to the community. Approved posts publish and clear from here automatically; declined ones can be edited &amp; resubmitted within 48 hours.
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {myPending.map((p) => {
@@ -638,13 +673,29 @@ export default function CommunityDetailPage() {
                       {declined && (
                         <>
                           {p.decline_reason && <div style={{ fontSize: 12, color: "var(--stamp-red)", marginTop: 8 }}>Reason: {p.decline_reason}</div>}
-                          <button
-                            type="button"
-                            onClick={() => dismissDeclined(p.id)}
-                            style={{ marginTop: 10, background: "none", border: "1px solid var(--border-strong)", borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-mute)", fontWeight: 600 }}
-                          >
-                            Dismiss
-                          </button>
+                          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                            {/* QA #32 — 48h edit-and-resubmit window; the button
+                                disappears once it lapses (server 410s as backup). */}
+                            {p.can_resubmit !== false && (
+                              <button
+                                type="button"
+                                onClick={() => openResubmit(p)}
+                                style={{ background: "var(--ink)", border: "1px solid var(--ink)", borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 12, color: "var(--paper)", fontWeight: 600 }}
+                              >
+                                Edit &amp; resubmit
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => dismissDeclined(p.id)}
+                              style={{ background: "none", border: "1px solid var(--border-strong)", borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink-mute)", fontWeight: 600 }}
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                          {p.can_resubmit === false && (
+                            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8 }}>The 48-hour resubmit window has passed.</div>
+                          )}
                         </>
                       )}
                     </div>
@@ -737,6 +788,45 @@ export default function CommunityDetailPage() {
               </Link>
             </div>
           )}
+        </>
+      )}
+
+      {/* QA #32 — edit-and-resubmit sheet for a declined post. */}
+      {resubmit && (
+        <>
+          <button
+            type="button"
+            aria-label="Cancel"
+            onClick={() => setResubmit(null)}
+            style={{ position: "fixed", inset: 0, background: "rgba(20,17,15,0.4)", zIndex: 140, border: "none", cursor: "default" }}
+          />
+          <div style={{
+            position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)", zIndex: 141,
+            width: "min(calc(100% - 40px), 420px)", background: "var(--paper)", borderRadius: 18, padding: 20,
+            boxShadow: "var(--shadow-2)", boxSizing: "border-box",
+          }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--ink)" }}>Edit &amp; resubmit</div>
+            {resubmit.decline_reason && (
+              <div style={{ fontSize: 12.5, color: "var(--stamp-red)", marginTop: 6 }}>Declined: {resubmit.decline_reason}</div>
+            )}
+            <input
+              value={resubTitle}
+              onChange={(e) => setResubTitle(e.target.value)}
+              placeholder="Title (optional)"
+              style={{ width: "100%", boxSizing: "border-box", height: 42, marginTop: 12, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none" }}
+            />
+            <textarea
+              value={resubBody}
+              onChange={(e) => setResubBody(e.target.value)}
+              rows={5}
+              placeholder="Say something…"
+              style={{ width: "100%", boxSizing: "border-box", marginTop: 9, padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--paper-soft)", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)", outline: "none", resize: "vertical" }}
+            />
+            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+              <Button variant="secondary" style={{ flex: 1, justifyContent: "center" }} onClick={() => setResubmit(null)}>Cancel</Button>
+              <Button style={{ flex: 1, justifyContent: "center" }} disabled={resubBusy || !resubBody.trim()} onClick={doResubmit}>Resubmit</Button>
+            </div>
+          </div>
         </>
       )}
 

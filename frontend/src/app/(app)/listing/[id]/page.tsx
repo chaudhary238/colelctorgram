@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Heart, Share2, MessageCircle, Shield, Info, ChevronRight, Pencil, Send, Check, Clock, Flag, SlidersHorizontal, Star, Tag as TagIcon, X } from "lucide-react";
+import { Heart, Share2, MessageCircle, Shield, Info, ChevronLeft, ChevronRight, Pencil, Send, Check, Clock, Flag, SlidersHorizontal, Star, Tag as TagIcon, X } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { ReportSheet } from "@/components/ReportSheet";
 import { ShareSheet } from "@/components/ShareSheet";
@@ -173,7 +173,9 @@ export default function ListingDetailPage() {
 
   // v8 spec-row copy (ListingView:210). Divergence kept: v8 has no shipping-cost
   // concept, so a seller-set cost still renders as "₹N extra" over the binary copy.
-  const shipIncluded = listing.ships_nationwide || listing.terms.includes("Shipping included");
+  // QA #7 — ships_nationwide ("I'll ship anywhere") is not "shipping is free";
+  // it's hardcoded true on create, so OR-ing it in made every listing "Included".
+  const shipIncluded = listing.terms.includes("Shipping included");
   const shippingValue = listing.shipping_cost > 0
     ? `${cur}${Math.round(listing.shipping_cost / 100).toLocaleString("en-IN")} extra`
     : shipIncluded ? "Included in price" : "Paid by buyer";
@@ -256,6 +258,7 @@ export default function ListingDetailPage() {
       setPriceVote(res.my_vote);
     } catch {
       setPriceVote(prev);
+      fireToast("Couldn't record your vote — try again"); // QA #10: failures were silent
     }
   }
 
@@ -318,15 +321,20 @@ export default function ListingDetailPage() {
           url={`${window.location.origin}/listing/${id}`}
           label="listing"
           title={listing.title ?? "Scorred"}
+          // QA #35 — say what's for sale and for how much, not a bare link.
+          text={[listing.title, `${cur}${Math.round(listing.price / 100).toLocaleString("en-IN")} on Scorred`].filter(Boolean).join(" — ")}
           onClose={() => setSharing(false)}
         />
       )}
 
       {/* v8 Manage sheet — one dark footer button opens this; rows above. */}
       {mine && manageOpen && (
-        <div onClick={() => { setManageOpen(false); setConfirmUnlist(false); }} className="fixed inset-0 z-[60] flex items-end justify-center" style={{ background: "rgba(0,0,0,0.38)" }}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-[680px]" style={{ background: "var(--paper)", borderRadius: "20px 20px 0 0", padding: "8px 0 34px", boxShadow: "0 -4px 24px rgba(0,0,0,0.12)" }}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 16px" }} />
+        /* QA 2026-09-14 — bottom sheet on phones, CENTERED modal from sm up
+           (the repo convention item-page sheets already follow); a viewport-
+           bottom sheet floats mid-page next to the sidebar on web. */
+        <div onClick={() => { setManageOpen(false); setConfirmUnlist(false); }} className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" style={{ background: "rgba(0,0,0,0.38)" }}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-[680px] sm:max-w-[420px] rounded-t-[20px] sm:rounded-2xl pt-2 pb-[34px] sm:pb-6" style={{ background: "var(--paper)", boxShadow: "0 -4px 24px rgba(0,0,0,0.12)" }}>
+            <div className="sm:hidden" style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 16px" }} />
             {confirmUnlist ? (
               <div style={{ padding: "0 20px" }}>
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, textAlign: "center" }}>Unlist from the market?</div>
@@ -382,6 +390,28 @@ export default function ListingDetailPage() {
           </div>
         </div>
         <ProductPhoto tone="ink" src={gallery[photo]} ratio="1/1" rounded={0} fit="contain" label={gallery.length ? `${photo + 1} of ${gallery.length}` : undefined}>
+          {/* QA 2026-09-14 — explicit prev/next arrows beside the dots (same
+              glass chrome as the item-page hero and the market tile overlays). */}
+          {gallery.length > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label="Previous photo"
+                onClick={() => setPhoto((p) => (p - 1 + gallery.length) % gallery.length)}
+                style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: 10, border: "1px solid rgba(255,255,255,0.20)", background: "rgba(15,23,42,0.46)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                type="button"
+                aria-label="Next photo"
+                onClick={() => setPhoto((p) => (p + 1) % gallery.length)}
+                style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: 10, border: "1px solid rgba(255,255,255,0.20)", background: "rgba(15,23,42,0.46)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+              >
+                <ChevronRight size={18} />
+              </button>
+            </>
+          )}
           {!available && (
             /* v8:160 — Tag kind="sold" (forest/paper) for EVERY non-available status,
                label via statusLabel ("Sold" / "Closed"), fontSize 12, 5x10 padding. */
@@ -740,8 +770,8 @@ function ShareToFeedSheet({ listing, onClose }: { listing: ApiListing; onClose: 
   }
 
   return (
-    <div onClick={onClose} className="fixed inset-0 z-[70] flex items-end justify-center" style={{ background: "rgba(20,17,15,0.45)" }}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-[680px]" style={{ boxSizing: "border-box", overflowX: "hidden", background: "var(--paper)", borderRadius: "20px 20px 0 0", padding: "10px 18px 30px", boxShadow: "0 -4px 24px rgba(0,0,0,0.12)" }}>
+    <div onClick={onClose} className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center" style={{ background: "rgba(20,17,15,0.45)" }}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-[680px] sm:max-w-[420px] rounded-t-[20px] sm:rounded-2xl" style={{ boxSizing: "border-box", overflowX: "hidden", background: "var(--paper)", padding: "10px 18px 30px", boxShadow: "0 -4px 24px rgba(0,0,0,0.12)" }}>
         <div style={{ width: 38, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "0 auto 14px" }} />
         <div style={{ display: "flex", alignItems: "center", marginBottom: 14 }}>
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, letterSpacing: "-0.01em" }}>Share to Feed</span>

@@ -5,7 +5,7 @@ import { X, Shield, Check, Repeat, ShoppingBag, Users, Globe } from "lucide-reac
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
-import { Avatar, Button } from "@/components/ui";
+import { Avatar, Button, ConfirmDialog } from "@/components/ui";
 import { fireXpToast, fireToast } from "@/components/gamification";
 import { useFollowMap, FollowRowButton } from "@/components/FollowListModal";
 
@@ -67,6 +67,7 @@ export function VouchGiveSheet({
   const editing = !!existing;
   const [rel, setRel] = useState<string | null>(existing?.relation ?? null);
   const [note, setNote] = useState(existing?.note ?? "");
+  const [confirmRemove, setConfirmRemove] = useState(false); // QA #27
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const first = targetName.split(" ")[0];
@@ -165,13 +166,24 @@ export function VouchGiveSheet({
         )}
         {editing && (
           <button
-            onClick={remove}
+            onClick={() => setConfirmRemove(true)}
             disabled={busy}
             className="w-full flex items-center justify-center gap-1.5 mt-2.5 py-2 rounded-full text-sm font-semibold border transition-colors"
             style={{ color: "var(--stamp-red)", borderColor: "var(--stamp-red)", background: "transparent" }}
           >
             <X size={16} /> Remove vouch
           </button>
+        )}
+        {/* QA #27 — removing a trust record confirms first. */}
+        {confirmRemove && (
+          <ConfirmDialog
+            title={`Remove your vouch for ${first}?`}
+            body="Their vouch count drops by one. You can vouch again later."
+            confirmLabel="Remove"
+            busy={busy}
+            onConfirm={() => { setConfirmRemove(false); remove(); }}
+            onCancel={() => setConfirmRemove(false)}
+          />
         )}
         <p style={{ fontSize: 11.5, color: "var(--ink-faint)", textAlign: "center", marginTop: 10, lineHeight: 1.5 }}>
           Your vouch will appear on @{targetHandle}&apos;s profile.
