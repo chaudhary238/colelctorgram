@@ -3,12 +3,12 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Ban, Check, ChevronRight, Flag, Link2, Plus, Send, Shield, Tag, ShoppingBag, Camera, MoreHorizontal } from "lucide-react";
+import { Ban, Check, ChevronRight, Flag, Link2, Plus, Send, Shield, Camera, MoreHorizontal } from "lucide-react";
 import { api } from "@/lib/api";
 import { useRealtime } from "@/lib/realtime";
 import { timeAgo } from "@/lib/utils";
 import { conditionLabel } from "@/lib/catalog";
-import { Avatar, Button, Money, ProductPhoto } from "@/components/ui";
+import { Avatar, Button, IconButton, Money, ProductPhoto } from "@/components/ui";
 import { fireToast } from "@/components/gamification";
 import { BackButton } from "@/components/BackButton";
 
@@ -94,8 +94,7 @@ function ChatThread() {
   );
   const [sending, setSending] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
-  const [offerOpen, setOfferOpen] = useState(false);
-  const [offerAmt, setOfferAmt] = useState("");
+  const [showEmoji, setShowEmoji] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [listingExtra, setListingExtra] = useState<ListingExtra | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -187,6 +186,7 @@ function ChatThread() {
     try {
       await sendText(draft);
       setDraft("");
+      setShowEmoji(false); // v8 Chat.jsx:95
     } catch (e) {
       console.error(e);
     } finally {
@@ -194,18 +194,6 @@ function ChatThread() {
     }
   };
 
-  // v3 attach actions — message-based, fully real (no mock/dead controls).
-  // DV8 §10#9 (v8 Chat.jsx:107-108,146) — each attach action confirms with a toast.
-  const shareListing = async () => {
-    if (!data?.listing) return;
-    setAttachOpen(false);
-    try {
-      await sendText(`📦 Sharing listing: ${data.listing.title}`);
-      fireToast("Listing shared");
-    } catch (e) {
-      console.error(e);
-    }
-  };
   // DV8 — Photo attach: same R2 presigned-PUT path the composer's uploader uses,
   // then the public URL goes out as an image message (messages carry image_url).
   const sendPhoto = async (file: File) => {
@@ -231,20 +219,6 @@ function ChatThread() {
     } finally {
       setPhotoBusy(false);
       if (photoRef.current) photoRef.current.value = "";
-    }
-  };
-  const sendOffer = async () => {
-    if (!offerAmt) return;
-    const amt = Number(offerAmt).toLocaleString("en-IN");
-    // v8 Chat.jsx:144 — the no-listing edge copy ends "for item" (DV8 §10#11).
-    const what = data?.listing?.title ?? "item";
-    setOfferOpen(false);
-    setOfferAmt("");
-    try {
-      await sendText(`💰 Offer: ₹${amt} for ${what}`);
-      fireToast("Offer sent!"); // v8 Chat.jsx:146
-    } catch (e) {
-      console.error(e);
     }
   };
 
@@ -277,50 +251,19 @@ function ChatThread() {
         <div onClick={() => setAttachOpen(false)} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ background: "rgba(0,0,0,0.38)" }}>
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl sm:mb-4" style={{ boxShadow: "0 -4px 24px rgba(0,0,0,0.12)", padding: "8px 0 28px" }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 18px" }} />
-            {/* DV8 (Chat.jsx:105-118) — 3-col grid, Photo · Share listing · Make offer in
-                that order. Share listing only renders when the thread has a listing (no
-                dead control on a plain DM). */}
-            <div style={{ padding: "0 20px", display: "grid", gridTemplateColumns: listing ? "1fr 1fr 1fr" : "1fr 1fr", gap: 12 }}>
+            {/* v8 Chat.jsx:106-113 — Photo is the only attach action (Share listing /
+                Make offer removed Sep 13-14: deals/offers aren't tracked). One
+                100px-wide tile, no grid. */}
+            <div style={{ padding: "0 20px" }}>
               <button
                 onClick={() => { setAttachOpen(false); photoRef.current?.click(); }}
                 disabled={photoBusy}
-                style={{ ...attachBtn, opacity: photoBusy ? 0.5 : 1 }}
+                style={{ ...attachBtn, width: 100, opacity: photoBusy ? 0.5 : 1 }}
               >
                 <span style={attachIcon}><Camera size={22} /></span>
                 <span style={{ fontSize: 12.5, fontWeight: 600 }}>{photoBusy ? "Sending…" : "Photo"}</span>
               </button>
-              {listing && (
-                <button onClick={shareListing} style={attachBtn}>
-                  <span style={attachIcon}><ShoppingBag size={22} /></span>
-                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>Share listing</span>
-                </button>
-              )}
-              {/* DV8 §10#10 (v8 Chat.jsx:49) — the amount seeds at 90% of asking when a
-                  listing is present (display units), re-seeded on every open. */}
-              <button onClick={() => { setAttachOpen(false); setOfferAmt(listing ? String(Math.round((listing.price / 100) * 0.9)) : ""); setOfferOpen(true); }} style={attachBtn}>
-                <span style={attachIcon}><Tag size={22} /></span>
-                <span style={{ fontSize: 12.5, fontWeight: 600 }}>Make offer</span>
-              </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Offer sheet (v3) ── */}
-      {offerOpen && (
-        <div onClick={() => setOfferOpen(false)} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ background: "rgba(0,0,0,0.38)" }}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm bg-[var(--paper)] rounded-t-2xl sm:rounded-2xl sm:mb-4" style={{ boxShadow: "0 -4px 24px rgba(0,0,0,0.12)", padding: "8px 20px 28px" }}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", margin: "8px auto 18px" }} />
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, marginBottom: 4 }}>Make an offer</div>
-            {listing && <div style={{ fontSize: 13, color: "var(--ink-faint)", marginBottom: 16 }}>Listed at <b style={{ color: "var(--ink)" }}><Money value={Math.round(listing.price / 100)} /></b></div>}
-            <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border-strong)", borderRadius: 12, overflow: "hidden", marginBottom: 14 }}>
-              <span style={{ padding: "0 14px", fontSize: 18, fontWeight: 700, color: "var(--ink-faint)", borderRight: "1px solid var(--border)", height: 50, display: "flex", alignItems: "center" }}>₹</span>
-              <input autoFocus type="number" value={offerAmt} onChange={(e) => setOfferAmt(e.target.value)} placeholder="Enter amount"
-                style={{ flex: 1, height: 50, padding: "0 14px", border: "none", outline: "none", fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 600, color: "var(--ink)", background: "none" }} />
-            </div>
-            <button onClick={sendOffer} disabled={!offerAmt} className="w-full py-2.5 rounded-xl font-semibold text-sm disabled:opacity-50" style={{ background: "var(--stamp-red)", color: "#fff" }}>
-              Send offer
-            </button>
           </div>
         </div>
       )}
@@ -465,10 +408,16 @@ function ChatThread() {
 
         {/* DV8 §10#21b (v8 Chat.jsx:272-275, shared IconButton) — plus/send are 40px
             r13; the ACTIVE send fills var(--ink), not stamp-red. */}
-        <div style={{ display: "flex", gap: 9, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 9, alignItems: "center", position: "relative" }}>
           <button onClick={() => setAttachOpen(true)} aria-label="Attach" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 13, border: "1px solid var(--border)", background: "transparent", color: "var(--ink-mute)", cursor: "pointer", flexShrink: 0 }}>
             <Plus size={20} />
           </button>
+          {/* v8 Chat.jsx:237 — emoji picker toggle */}
+          <IconButton
+            icon={<span style={{ fontSize: 18, lineHeight: 1 }}>😊</span>}
+            active={showEmoji}
+            onClick={() => setShowEmoji((v) => !v)}
+          />
           <input
             ref={inputRef}
             value={draft}
@@ -481,6 +430,20 @@ function ChatThread() {
             <Send size={18} />
           </button>
         </div>
+        {/* v8 Chat.jsx:242-248 — emoji panel below the composer row */}
+        {showEmoji && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8, padding: 10, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 12, maxHeight: 140, overflowY: "auto" }}>
+            {EMOJIS.map((e) => (
+              <button
+                key={e}
+                onClick={() => { setDraft((d) => d + e); inputRef.current?.focus(); }}
+                style={{ width: 36, height: 36, borderRadius: 9, border: "none", background: "transparent", cursor: "pointer", fontSize: 20, lineHeight: 1 }}
+              >
+                {e}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -499,6 +462,9 @@ export default function ChatPage() {
     </Suspense>
   );
 }
+
+// v8 Chat.jsx:49 — the exact composer emoji set, in order.
+const EMOJIS = ["😍", "🔥", "🤩", "😎", "🥹", "👀", "🙌", "👏", "💎", "🏆", "📦", "🚀", "✨", "❤️", "🤝", "💰", "🫡", "🧩", "🎯", "😱"];
 
 const attachBtn: React.CSSProperties = {
   display: "flex", flexDirection: "column", alignItems: "center", gap: 9, padding: "16px 8px",

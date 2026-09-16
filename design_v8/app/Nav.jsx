@@ -224,6 +224,8 @@ function AppStateProvider({ children, initialProfile }) {
   const approveUserPost = (id) => setPosts(p => p.map(x => x.id === id ? { ...x, status: 'approved' } : x));
   const declineUserPost = (id, reason) => setPosts(p => p.map(x => x.id === id ? { ...x, status: 'declined', declineReason: reason || '' } : x));
   const dismissPendingPost = (id) => setPosts(p => p.filter(x => x.id !== id));
+  const updatePost = (id, patch) => setPosts(p => p.map(x => x.id === id ? { ...x, ...patch, edited: true } : x));
+  const deletePost = (id) => setPosts(p => p.filter(x => x.id !== id));
   const bindEventCommunity = (id) => setEventCommunityDraft(id);
   const clearEventCommunityDraft = () => setEventCommunityDraft(null);
   const toggleReminder = (id) => setReminders(r => ({ ...r, [id]: !r[id] }));
@@ -238,7 +240,7 @@ function AppStateProvider({ children, initialProfile }) {
     setCommunityRole, removeCommunityMember, removeCommunityPost, approveCommunityDemo, approveUserPost, declineUserPost, dismissPendingPost,
     userItems, itemInfo, xp, priceVotes, priceTally,
     toggleHeart, toggleSave, toggleFollow, toggleJoin, requestJoin, cancelRequest, acceptGuidelines, toggleInterested,
-    markNotifsRead, addNotif, sendMessage, requestDeal, confirmDeal, setListing, unlistListing, relistListing, updateListing, setItemSold, addPost, addListing, updateProfile, addVouch, removeVouch,
+    markNotifsRead, addNotif, sendMessage, requestDeal, confirmDeal, setListing, unlistListing, relistListing, updateListing, setItemSold, addPost, updatePost, deletePost, addListing, updateProfile, addVouch, removeVouch,
     addEvent, updateEvent, approveEvent, cancelEvent, setEventRsvp, addCommunity, bindEventCommunity, clearEventCommunityDraft, toggleReminder, removeItem,
     toggleDbWishlist, rateDbItem, contributeToCatalogue,
     quickAddItem, saveItemInfo, addFullItem, addAnotherCopy, awardXp, setItemStatus, castPriceVote,

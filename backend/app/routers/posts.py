@@ -15,6 +15,7 @@ from app.models.catalogue import Catalogue
 from app.models.item import Item
 from app.models.listing import Listing
 from app.models.community import Community, CommunityMember
+from app.models.deal import Vouch
 from app.services import feed_cache
 from app.services.notifications import notify
 from app.services.gamification import award_xp, feed_badge
@@ -318,6 +319,10 @@ async def get_post(
         # Rewards badge (v3 §3): First Start badge if any, else the rank badge.
         # None for staff — they show the Official tag instead (QA 2026-08-04 §4).
         "badge": feed_badge(author) if author else None,
+        # v8 Sep-13 drop — seller-trust line on ISO/Wanted cards.
+        "vouches_count": (await db.scalar(
+            select(func.count(Vouch.id)).where(Vouch.to_user_id == post.user_id)
+        )) or 0,
         "is_official": bool(author is not None and author.is_admin),
         # QA §5 — up to 3 recent likers for the social-proof strip.
         "likers": (await likers_preview(db, [post.id])).get(post.id, []),

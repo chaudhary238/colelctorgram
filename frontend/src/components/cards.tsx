@@ -54,6 +54,8 @@ export interface ApiPost {
   likes_count: number;
   comments_count: number;
   saves_count: number;
+  // Author's received-vouch count — the ISO seller line's trust signal (v8 Cards.jsx:847-850).
+  vouches_count?: number;
   is_liked?: boolean;
   is_saved?: boolean;
   is_following?: boolean;
@@ -253,6 +255,9 @@ export interface ApiCommunity {
   member_count: number;
   post_count: number;
   recent_post_count?: number; // published posts in the last 24h (QA2 activity badge)
+  /** Pending join requests + posts to review (v8 Cards.jsx:754) — the server
+      zeroes it for non-managers, so the card needs no client-side role gate. */
+  manage_pending_count?: number;
   post_mode: string;
   rules: string[];
   is_invite_only: boolean;
@@ -1022,6 +1027,30 @@ export function PostCard({ post, showFollow = false, authorRole = null, canModer
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removeReason, setRemoveReason] = useState("");
 
+  // Own-post kebab (v8 Cards.jsx:88-99) — Delete ONLY. v8 also carries edit
+  // scaffolding, but it's unreachable there and founder-scoped OUT of this drop.
+  // Same own-check as AuthorLine's follow gate (user context vs post.user_id).
+  const { user } = useUser();
+  const isOwn = !!user && user.id === post.user_id;
+  const [postMenuOpen, setPostMenuOpen] = useState(false);
+  const [confirmDeletePost, setConfirmDeletePost] = useState(false);
+  // Deleted locally after a confirmed DELETE — feed lists don't re-fetch, the
+  // card just vanishes (the server hard-deletes + invalidates the feed cache).
+  const [deleted, setDeleted] = useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  // Close the kebab on an outside click — anchored dropdown, no backdrop to
+  // catch it (same pattern as db's filter panel; the own-comment ··· menu
+  // relies on its item clicks, but a post card has far more dead space).
+  useEffect(() => {
+    if (!postMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setPostMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [postMenuOpen]);
+
   // Adopt fresh server counts when the `post` prop changes (QA 2026-08-05 §3).
   // These useState calls only read their argument on the FIRST render, and the feed
   // keeps each card mounted under a stable key — so once a card existed, a refetch
@@ -1040,6 +1069,8 @@ export function PostCard({ post, showFollow = false, authorRole = null, canModer
     if (!saveBusy) setSaved(post.is_saved ?? false);
     setCommentCount(post.comments_count);
   }
+
+  if (deleted) return null;
 
   if (post.type === "iso") return <ISOCard post={post} authorRole={authorRole} />;
 
@@ -1083,6 +1114,16 @@ export function PostCard({ post, showFollow = false, authorRole = null, canModer
     } catch { /* user cancelled */ }
   }
 
+  async function deletePost() {
+    try {
+      await api.delete(`/posts/${post.id}`);
+      fireToast("Post deleted"); // v8 Cards.jsx:202
+      setDeleted(true);
+    } catch {
+      fireToast("Couldn't delete — try again");
+    }
+  }
+
   return (
     <div
       style={{
@@ -1098,7 +1139,27 @@ export function PostCard({ post, showFollow = false, authorRole = null, canModer
     >
       {isReview && <TypeRibbon label="REVIEW" fg="var(--grail-gold-deep)" />}
       <div style={{ padding: "16px 18px 0" }}>
-        <AuthorLine post={post} showFollow={showFollow} authorRole={authorRole} reserveRight={isReview ? 52 : 0} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          {/* flex:1 + minWidth:0 wrapper (v8 SharedListingCard's idiom) so the
+              author block keeps full width and name truncation beside the kebab. */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <AuthorLine post={post} showFollow={showFollow} authorRole={authorRole} reserveRight={isReview ? 52 : isOwn ? 28 : 0} />
+          </div>
+          {isOwn && (
+            <div ref={menuRef} style={{ position: "relative", flexShrink: 0 }}>
+              <button onClick={() => setPostMenuOpen((o) => !o)} style={{ background: "none", border: "none", padding: "2px 4px", cursor: "pointer", color: "var(--ink-faint)", fontSize: 17, lineHeight: 1, letterSpacing: "0.05em" }}>
+                ⋯
+              </button>
+              {postMenuOpen && (
+                <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 30, background: "var(--paper)", border: "1px solid var(--border-strong)", borderRadius: 11, boxShadow: "0 4px 18px rgba(0,0,0,0.13)", overflow: "hidden", minWidth: 120 }}>
+                  <button onClick={() => { setConfirmDeletePost(true); setPostMenuOpen(false); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13.5, color: "var(--stamp-red)", textAlign: "left" }}>
+                    <Trash2 size={14} />Delete
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <Link href={`/post/${post.id}`} style={{ display: "block", marginTop: 11, textDecoration: "none", color: "inherit" }}>
           {post.type === "review" && post.review_rating && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -1223,6 +1284,18 @@ export function PostCard({ post, showFollow = false, authorRole = null, canModer
         </div>
       )}
 
+      {/* v8 Cards.jsx:197-205 — inline own-post delete confirm; stays open on a
+          failed DELETE so the author can retry or cancel. */}
+      {confirmDeletePost && (
+        <div style={{ margin: "0 18px 14px", padding: 12, borderRadius: 12, background: "var(--stamp-red-soft)", border: "1px solid var(--stamp-red)" }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--stamp-red-deep)", marginBottom: 9 }}>Delete this post? This can&apos;t be undone.</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setConfirmDeletePost(false)} style={{ flex: 1, background: "none", border: "1px solid var(--border-strong)", borderRadius: 9, padding: "8px 0", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, color: "var(--ink-mute)" }}>Cancel</button>
+            <button onClick={deletePost} style={{ flex: 1, background: "var(--stamp-red)", border: "none", borderRadius: 9, padding: "8px 0", cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12.5, color: "#fff" }}>Delete</button>
+          </div>
+        </div>
+      )}
+
       {/* Social-proof + location strip (design_v7 Cards.jsx:137). The liker faces
           come from the server; `likes` is the optimistic local count, so your own
           like bumps the number the instant you tap. */}
@@ -1341,15 +1414,18 @@ export function ISOCard({ post, authorRole = null, detail = false }: { post: Api
                 <TagIcon size={11} />Up to ₹{Math.round(Number(post.iso_budget) / 100).toLocaleString("en-IN")}
               </span>
             )}
-            {post.iso_cond && post.iso_cond !== "Any" && (
-              <span style={{ display: "inline-flex", alignItems: "center", padding: "4px 9px", borderRadius: 6, background: "var(--bone)", fontSize: 12, fontWeight: 600, color: "var(--ink-mute)" }}>{post.iso_cond}</span>
-            )}
-            {post.iso_city && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, background: "var(--bone)", fontSize: 12, fontWeight: 500, color: "var(--ink-mute)" }}>
-                <MapPin size={11} />{post.iso_city}
-              </span>
-            )}
           </div>
+        </div>
+        {/* v8 Cards.jsx:844-852 — seller line under the chips: handle + Shield
+            vouch count (the trust signal, now that condition/city chips are gone). */}
+        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-faint)" }}>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{post.handle}</span>
+          {!isOwn && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+              <Shield size={12} strokeWidth={2} style={{ color: "var(--verified-teal)" }} />
+              {post.vouches_count ?? 0}
+            </span>
+          )}
         </div>
         {post.body && <div style={{ fontSize: 15, color: "var(--ink-soft)", lineHeight: 1.55, marginTop: 10 }}>{post.body}</div>}
       </div>
@@ -1367,7 +1443,8 @@ export function ISOCard({ post, authorRole = null, detail = false }: { post: Api
         <div style={{ flex: 1 }} />
         {!isOwn && (
           <Button size="sm" variant="teal" icon={<MessageSquare size={15} />} onClick={haveThis} disabled={dmBusy}>
-            {dmBusy ? "Opening…" : "I have this"}
+            {/* v8 Cards.jsx:876-879 — the CTA now reads "Message" (was "I have this") */}
+            {dmBusy ? "Opening…" : "Message"}
           </Button>
         )}
       </div>
@@ -1660,10 +1737,14 @@ export function MarketCard({ listing }: { listing: ApiListing }) {
           {listing.is_mine ? (
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>You · just now</span>
           ) : (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              <Shield size={12} strokeWidth={2} style={{ color: "var(--verified-teal)", flexShrink: 0 }} />
-              Vouched by {listing.vouches_count ?? 0}
-            </span>
+            /* v8 Cards.jsx:612-618 — seller handle + bare Shield count, not "Vouched by N" */
+            <>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{listing.handle}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+                <Shield size={12} strokeWidth={2} style={{ color: "var(--verified-teal)" }} />
+                {listing.vouches_count ?? 0}
+              </span>
+            </>
           )}
         </div>
         {!listing.is_mine && (
@@ -1730,7 +1811,8 @@ export function EventCard({ event }: { event: ApiEvent }) {
           <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
             {/* DV8 — the Free/price badge is gone; the card leads with the RSVP state. */}
             {going && <Badge variant="success">Going</Badge>}
-            {interested && <Badge variant="warning">Interested</Badge>}
+            {/* v8 Cards.jsx:678 — Interested leads with a filled star */}
+            {interested && <Badge variant="warning"><Star size={11} fill="currentColor" style={{ marginRight: 3, verticalAlign: -1 }} />Interested</Badge>}
             <span style={{ fontSize: 12, color: "var(--slate-400)", fontFamily: "var(--font-mono)" }}>{event.going_count ?? 0} going</span>
           </div>
         </div>
@@ -1814,13 +1896,21 @@ export function CommunityCard({ community, pinned, onTogglePin }: {
         {/* QA #30 — the creator's photo IS the icon when set (same pattern as the
             community detail header); the tone square + initials stay the fallback. */}
         <div style={{
-          width: 50, height: 50, borderRadius: 12,
+          width: 50, height: 50, borderRadius: 12, position: "relative",
           background: community.avatar_url ? `center/cover url(${community.avatar_url})` : toneBg,
           color: "var(--paper)",
           display: "flex", alignItems: "center", justifyContent: "center",
           fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 19, letterSpacing: "-0.02em",
         }}>
           {!community.avatar_url && (community.tag ?? "🏷️")}
+          {/* v8 Cards.jsx:763-765 — the manager's pending-work count (join requests
+              + posts to review). The server zeroes it for non-managers, so the
+              badge needs no client-side role gate. */}
+          {(community.manage_pending_count ?? 0) > 0 && (
+            <span style={{ position: "absolute", top: -5, right: -5, minWidth: 18, height: 18, borderRadius: 999, background: "var(--stamp-red)", color: "#fff", fontFamily: "var(--font-mono)", fontSize: 10.5, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", boxShadow: "0 0 0 2px var(--paper)" }}>
+              {community.manage_pending_count}
+            </span>
+          )}
         </div>
       </Link>
       <Link href={`/community/${community.id}`} style={{ flex: 1, minWidth: 0, textDecoration: "none" }}>

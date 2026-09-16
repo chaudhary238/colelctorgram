@@ -45,8 +45,8 @@ function ChatView({ route }) {
   const lName = l ? (l.sku ? catOf(l.sku).brand : l.brand) : 'item';
   const dealState = deals[handle];
   const [attachOpen, setAttachOpen] = React.useState(false);
-  const [offerOpen, setOfferOpen]   = React.useState(false);
-  const [offerAmt, setOfferAmt]     = React.useState(l ? String(Math.round((l.price || 0) * 0.9)) : '');
+  const [showEmoji, setShowEmoji] = React.useState(false);
+  const EMOJIS = ['😍', '🔥', '🤩', '😎', '🥹', '👀', '🙌', '👏', '💎', '🏆', '📦', '🚀', '✨', '❤️', '🤝', '💰', '🫡', '🧩', '🎯', '😱'];
 
   // ── More / Report / Block sheet ──
   const [moreOpen, setMoreOpen]       = React.useState(false);
@@ -86,13 +86,14 @@ function ChatView({ route }) {
     }, 1600);
   };
 
-  const closeSheets = () => { setMoreOpen(false); setReportOpen(false); setBlockOpen(false); setReportReason(null); setAttachOpen(false); setOfferOpen(false); };
+  const closeSheets = () => { setMoreOpen(false); setReportOpen(false); setBlockOpen(false); setReportReason(null); setAttachOpen(false); };
   const [draft, setDraft] = React.useState(route.intent === 'trade' ? `Hi! Would you trade the ${lName}? I can offer a sealed piece.` : (route.intent === 'buy' && l ? `Hi! Is the ${lName} still available?` : ''));
   const bodyRef = React.useRef(null);
 
   React.useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight; }, [thread.messages.length, dealState]);
 
-  const send = () => { if (draft.trim()) { sendMessage(handle, draft.trim()); setDraft(''); } };
+  const send = () => { if (draft.trim()) { sendMessage(handle, draft.trim()); setDraft(''); setShowEmoji(false); } };
+  const addEmoji = (e) => setDraft(d => d + e);
 
   return (
     <React.Fragment>
@@ -102,51 +103,14 @@ function ChatView({ route }) {
         <div onClick={() => setAttachOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.38)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }}>
           <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--paper)', borderRadius: '20px 20px 0 0', padding: '8px 0 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.12)' }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border-strong)', margin: '8px auto 20px' }}/>
-            <div style={{ padding: '0 20px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-              {[
-                { icon: Icons.camera,  label: 'Photo',         action: () => { sendMessage(handle, '📷 [Photo attached]'); setAttachOpen(false); flashToast('Photo sent'); } },
-                { icon: Icons.bag,     label: 'Share listing', action: () => { if (l) { sendMessage(handle, `📦 Sharing listing: ${l.title || catOf(l.sku).title}`); setAttachOpen(false); flashToast('Listing shared'); } else { setAttachOpen(false); flashToast('No listing in this thread'); } } },
-                { icon: Icons.tag,     label: 'Make offer',   action: () => { setAttachOpen(false); setTimeout(() => setOfferOpen(true), 80); } },
-              ].map(opt => (
-                <button key={opt.label} onClick={opt.action} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, padding: '16px 8px', background: 'var(--paper-soft)', border: '1px solid var(--border)', borderRadius: 16, cursor: 'pointer' }}>
-                  <div style={{ width: 46, height: 46, borderRadius: 14, background: 'var(--bone)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)' }}>
-                    <Ico d={opt.icon} size={22}/>
-                  </div>
-                  <span style={{ fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font-body)', color: 'var(--ink)' }}>{opt.label}</span>
-                </button>
-              ))}
+            <div style={{ padding: '0 20px' }}>
+              <button onClick={() => { sendMessage(handle, '📷 [Photo attached]'); setAttachOpen(false); flashToast('Photo sent'); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, padding: '16px 8px', background: 'var(--paper-soft)', border: '1px solid var(--border)', borderRadius: 16, cursor: 'pointer', width: 100 }}>
+                <div style={{ width: 46, height: 46, borderRadius: 14, background: 'var(--bone)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)' }}>
+                  <Ico d={Icons.camera} size={22}/>
+                </div>
+                <span style={{ fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font-body)', color: 'var(--ink)' }}>Photo</span>
+              </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Offer sheet ── */}
-      {offerOpen && (
-        <div onClick={() => setOfferOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.38)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }}>
-          <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--paper)', borderRadius: '20px 20px 0 0', padding: '8px 20px 36px', boxShadow: '0 -4px 24px rgba(0,0,0,0.12)' }}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border-strong)', margin: '8px auto 18px' }}/>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, marginBottom: 4 }}>Make an offer</div>
-            {l && <div style={{ fontSize: 13, color: 'var(--ink-faint)', marginBottom: 16 }}>Listed at <b style={{ color: 'var(--ink)' }}>₹{(l.price || 0).toLocaleString('en-IN')}</b></div>}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 0, border: '1px solid var(--border-strong)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
-              <span style={{ padding: '0 14px', fontSize: 18, fontWeight: 700, color: 'var(--ink-faint)', borderRight: '1px solid var(--border)', height: 50, display: 'flex', alignItems: 'center' }}>₹</span>
-              <input
-                autoFocus
-                type="number"
-                value={offerAmt}
-                onChange={e => setOfferAmt(e.target.value)}
-                placeholder="Enter amount"
-                style={{ flex: 1, height: 50, padding: '0 14px', border: 'none', outline: 'none', fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 600, color: 'var(--ink)', background: 'none' }}
-              />
-            </div>
-            <Button variant="primary" style={{ width: '100%', justifyContent: 'center', opacity: offerAmt ? 1 : 0.45 }}
-              onClick={() => {
-                if (!offerAmt) return;
-                sendMessage(handle, `💰 Offer: ₹${Number(offerAmt).toLocaleString('en-IN')} for ${l ? (l.title || catOf(l.sku).title) : 'item'}`);
-                setOfferOpen(false);
-                flashToast('Offer sent!');
-              }}>
-              Send offer
-            </Button>
           </div>
         </div>
       )}
@@ -268,12 +232,20 @@ function ChatView({ route }) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 9, alignItems: 'center', position: 'relative' }}>
             <IconButton icon={<Ico d={Icons.plus} size={20}/>} onClick={() => setAttachOpen(true)}/>
+            <IconButton icon={<span style={{ fontSize: 18, lineHeight: 1 }}>😊</span>} active={showEmoji} onClick={() => setShowEmoji(v => !v)}/>
             <input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder="Message…"
               style={{ flex: 1, height: 42, padding: '0 14px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--paper-soft)', fontFamily: 'var(--font-body)', fontSize: 14.5, color: 'var(--ink)', outline: 'none' }}/>
             <IconButton icon={<Ico d={Icons.send} size={18}/>} active={!!draft.trim()} onClick={send}/>
           </div>
+          {showEmoji && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8, padding: 10, background: 'var(--paper-soft)', border: '1px solid var(--border)', borderRadius: 12, maxHeight: 140, overflowY: 'auto' }}>
+              {EMOJIS.map(e => (
+                <button key={e} onClick={() => addEmoji(e)} style={{ width: 36, height: 36, borderRadius: 9, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>{e}</button>
+              ))}
+            </div>
+          )}
         </div>
       }>
       {/* listing context header — BRD §9.10 */}

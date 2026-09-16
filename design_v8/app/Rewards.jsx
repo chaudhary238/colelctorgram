@@ -147,6 +147,21 @@ function ArchetypeChip({ arche, size = 'md' }) {
 function RewardCard({ u, isMe }) {
   const { push } = useNav();
   const { tier, next, pct, need, idx } = rankProgress(u.xp);
+  if (!isMe) {
+    return (
+      <button onClick={() => push({ name: 'leaderboard' })} style={{
+        marginTop: 14, display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '9px 12px',
+        borderRadius: 12, border: `1px solid color-mix(in oklab, ${tier.c} 45%, var(--border))`,
+        background: `color-mix(in oklab, ${tier.c} 10%, var(--paper-soft))`, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+        <TierBadge tier={tier} size={26}/>
+        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)', flexShrink: 0 }}>{tier.name}</span>
+        <span style={{ flex: 1, height: 5, borderRadius: 999, background: 'rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+          <span style={{ display: 'block', height: '100%', width: pct + '%', background: tier.c, borderRadius: 999 }}/>
+        </span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 12.5, color: 'var(--ink)', flexShrink: 0 }}>{u.xp.toLocaleString('en-IN')} XP</span>
+      </button>
+    );
+  }
   return (
     <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'stretch' }}>
       <div style={{ flex: 1, background: `color-mix(in oklab, ${tier.c} 12%, var(--paper-soft))`, border: `1px solid color-mix(in oklab, ${tier.c} 45%, var(--border))`, borderRadius: 14, padding: '11px 13px' }}>

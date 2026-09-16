@@ -431,6 +431,30 @@ export function RewardCard({ handle, isMe }: { handle: string; isMe: boolean }) 
 
   const { tier, next, pct, need } = d.rank;
   const tcolor = (TIER_VIS[tier.id] ?? TIER_VIS.rookie).color;
+
+  // v8 Rewards.jsx :150 ("Rank Row" Option 1) — on someone ELSE's profile the full card
+  // collapses to a single-line pill (badge + tier + inline progress + XP) that opens the
+  // Leaderboard. Your own profile keeps the full card with the Earn-points CTA below.
+  if (!isMe) {
+    return (
+      <button
+        onClick={() => router.push("/leaderboard")}
+        style={{
+          marginTop: 14, display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 12px",
+          borderRadius: 12, border: `1px solid color-mix(in oklab, ${tcolor} 45%, var(--border))`,
+          background: `color-mix(in oklab, ${tcolor} 10%, var(--paper-soft))`, cursor: "pointer", fontFamily: "var(--font-body)",
+        }}
+      >
+        <TierBadge tierId={tier.id} size={26} />
+        <span style={{ fontWeight: 700, fontSize: 13, color: "var(--ink)", flexShrink: 0 }}>{tier.name}</span>
+        <span style={{ flex: 1, height: 5, borderRadius: 999, background: "rgba(0,0,0,0.08)", overflow: "hidden" }}>
+          <span style={{ display: "block", height: "100%", width: pct + "%", background: tcolor, borderRadius: 999 }} />
+        </span>
+        <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12.5, color: "var(--ink)", flexShrink: 0 }}>{fmt(d.xp)} XP</span>
+      </button>
+    );
+  }
+
   return (
     <div style={{ marginTop: 14, display: "flex", gap: 10, alignItems: "stretch" }}>
       <div

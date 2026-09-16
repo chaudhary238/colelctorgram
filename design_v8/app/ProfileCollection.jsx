@@ -42,7 +42,7 @@ function CollectionTab({ items, u, isMe }) {
   const views = [
     { id: 'grid', icon: Icons.grid, label: 'Grid' },
     { id: 'chart', icon: Icons.chart, label: 'Chart' },
-    { id: 'calendar', icon: Icons.calendar, label: 'PO Calendar', short: 'PO Cal.' },
+    ...(isMe ? [{ id: 'calendar', icon: Icons.calendar, label: 'PO Calendar', short: 'PO Cal.' }] : []),
   ];
   const isPrivate = vis[view] === 'private';
   const hiddenFromViewer = !isMe && isPrivate;
@@ -147,7 +147,7 @@ function CollectionTab({ items, u, isMe }) {
                 if (v === 'owned' && seg === 'owned') { setOwnedFilterOpen(o => !o); return; }
                 setSeg(v); setOwnedFilterOpen(false);
               }}
-              options={[{ id: 'owned', label: 'Owned', icon: Icons.sliders }, { id: 'wishlist', label: 'Wishlist' }, { id: 'intel', label: 'DB Contributions' }]}/>
+              options={[{ id: 'owned', label: 'Owned', icon: Icons.sliders }, ...(isMe ? [{ id: 'wishlist', label: 'Wishlist' }] : []), { id: 'intel', label: 'DB Contributions' }]}/>
             {ownedFilterOpen && seg === 'owned' && (
               <>
                 <div onClick={() => setOwnedFilterOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 30 }}/>

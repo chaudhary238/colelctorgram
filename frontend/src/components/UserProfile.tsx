@@ -712,7 +712,8 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
   const views: { id: CollView; Icon: React.ComponentType<{ size?: number; strokeWidth?: number }>; label: string }[] = [
     { id: "grid", Icon: LayoutGrid, label: "Grid" },
     { id: "chart", Icon: BarChart3, label: "Chart" },
-    { id: "calendar", Icon: CalendarDays, label: "PO Calendar" },
+    // v8 ProfileCollection :44 — the PO Calendar is owner-only; visitors get Grid + Chart.
+    ...(isOwn ? [{ id: "calendar" as const, Icon: CalendarDays, label: "PO Calendar" }] : []),
   ];
   const isPrivate = vis[view] === "private";
   const hiddenFromViewer = !isOwn && isPrivate;
@@ -869,7 +870,9 @@ function CollectionTab({ items, portfolio, isOwn, viewPrivacy }: { items: Collec
                   }}
                   options={[
                     { id: "owned", label: "Owned", icon: <SlidersHorizontal size={14} strokeWidth={seg === "owned" ? 2.2 : 1.9} /> },
-                    { id: "wishlist", label: "Wishlist" },
+                    // v8 ProfileCollection :149 — Wishlist is owner-only. Display-layer gate:
+                    // the server still sends wishlist rows to followers per privacy prefs.
+                    ...(isOwn ? [{ id: "wishlist" as const, label: "Wishlist" }] : []),
                     { id: "intel", label: "DB Contributions" },
                   ]}
                 />

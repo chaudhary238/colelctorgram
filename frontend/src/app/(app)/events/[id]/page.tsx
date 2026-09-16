@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Share2, Bell, Calendar, Check, MapPin, Globe, Users, Star, Settings2, Tag as TagIcon, ChevronRight, MessageCircle, X } from "lucide-react";
+import { Share2, Bell, Calendar, Check, ExternalLink, MapPin, Globe, Users, Star, Settings2, Tag as TagIcon, Ticket, ChevronRight, MessageCircle, X } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import { api } from "@/lib/api";
 import { ApiEvent } from "@/components/cards";
@@ -274,12 +274,14 @@ export default function EventDetailPage() {
             note={!online && !!event.venue && event.address == null && !event.is_host && !myRsvp ? "RSVP to see the exact address." : undefined}
           />
           {/* v8 — Entry + ticket + contact rows all carry the plain DetailRow chrome;
-              "What to bring" is gone (removed in v8, column kept for legacy). */}
-          <DetailRow icon={TagIcon} title={priceLabel} sub="Entry" last={event.categories.length === 0 && !event.ticket_url && !event.contact} />
+              "What to bring" is gone (removed in v8, column kept for legacy).
+              v8 EventDetail:109-111 icons — Entry=Ticket, ticket-link=ExternalLink,
+              Category keeps Tag. */}
+          <DetailRow icon={Ticket} title={priceLabel} sub="Entry" last={event.categories.length === 0 && !event.ticket_url && !event.contact} />
           {event.categories.length > 0 && <DetailRow icon={TagIcon} title={event.categories.map((c) => CAT_LABEL[c] ?? c).join(" · ")} sub={event.categories.length > 1 ? "Categories" : "Category"} last={!event.ticket_url && !event.contact} />}
           {event.ticket_url && (
             <DetailRow
-              icon={TagIcon}
+              icon={ExternalLink}
               title={<a href={event.ticket_url} target="_blank" rel="noreferrer" style={{ color: "var(--ink)" }}>{event.ticket_url}</a>}
               sub="Ticket link"
               last={!event.contact}

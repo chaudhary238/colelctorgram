@@ -3,13 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Filter, Heart, X, Plus, ShoppingBag, Eye, Tag, MessageSquare } from "lucide-react";
+import { Search, Filter, Heart, X, Plus, Shield, ShoppingBag, Eye, Tag, MessageSquare } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
-import { timeAgo } from "@/lib/utils";
 import { ApiListing, ApiPost, MarketCard, refTone } from "@/components/cards";
 import { Avatar, Button, Money, ProductPhoto } from "@/components/ui";
-import { goldFrameRing, hasGoldFrame } from "@/components/gamification";
 import { ADD_CATEGORIES, conditionsFor } from "@/lib/catalog";
 
 // Category multi-select (design: [] = All). ids match the substring stored on listings.
@@ -117,7 +115,7 @@ function MarketSearchRow({ q, onQ, placeholder, activeCount, onFilter, actionLab
 }
 
 // ── Wanted card — an ISO shown as a product tile, mirroring MarketCard (v8 WantedCard).
-// "I have this" opens a DM to the author with the wanted item as context — the exact
+// "Message" opens a DM to the author with the wanted item as context — the exact
 // mechanism ISOCard uses on the feed (POST /threads → /chat/{id}); hidden on own posts.
 function WantedCard({ post }: { post: ApiPost }) {
   const router = useRouter();
@@ -128,7 +126,6 @@ function WantedCard({ post }: { post: ApiPost }) {
   const isOwn = !!user && user.id === post.user_id;
 
   const title = post.iso_item ?? post.title ?? post.body.slice(0, 60);
-  const firstName = (post.name ?? post.handle ?? "Collector").split(" ")[0];
 
   // Same glass heart as MarketCard, on the post's own like endpoint.
   async function toggleLike(e: React.MouseEvent) {
@@ -166,9 +163,9 @@ function WantedCard({ post }: { post: ApiPost }) {
   // QA design-consistency (founder 2026-09-13, round 2) — the Wanted tile is a
   // STRUCTURAL TWIN of MarketCard: same Link shell with hover lift + shadow,
   // same glass heart on the photo, same body rows (title → money → author →
-  // 34px ink CTA). The condition/city pills moved to the post detail page —
+  // 36px teal CTA). The condition/city pills moved to the post detail page —
   // MarketCard shows none on the tile either. Wanted keeps only the BUDGET
-  // micro-label and the "I have this" wording.
+  // micro-label and the teal "Message" CTA (v8 WantedCard).
   return (
     <Link
       href={`/post/${post.id}`}
@@ -214,13 +211,17 @@ function WantedCard({ post }: { post: ApiPost }) {
           </span>
         </div>
 
+        {/* v8 MarketView.jsx WantedCard — plain non-navigating author row (no gold frame,
+            no timestamp): avatar + @handle + shield vouch count on others' posts. */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-faint)" }}>
-          {/* v8:474 avatarFrame — Pioneer/Early Believer authors ring gold, the
-              same First-Start rule the feed's comment rows use. */}
-          <span style={{ display: "inline-flex", flexShrink: 0, ...(hasGoldFrame(post.badge) ? goldFrameRing : {}) }}>
-            <Avatar name={post.name ?? "?"} photo={post.avatar_url} size={16} />
-          </span>
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{firstName} · {timeAgo(post.created_at)}</span>
+          <Avatar name={post.name ?? "?"} photo={post.avatar_url} size={16} />
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{post.handle}</span>
+          {!isOwn && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+              <Shield size={12} strokeWidth={2} style={{ color: "var(--verified-teal)" }} />
+              {post.vouches_count ?? 0}
+            </span>
+          )}
         </div>
 
         {!isOwn && (
@@ -229,12 +230,13 @@ function WantedCard({ post }: { post: ApiPost }) {
             tabIndex={0}
             onClick={haveThis}
             style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: "auto", height: 34,
-              borderRadius: 11, background: "var(--ink)", color: "var(--paper)", cursor: dmBusy ? "default" : "pointer",
-              fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", marginTop: "auto", height: 36,
+              borderRadius: 10, border: "1px solid var(--verified-teal)", background: "var(--verified-teal-soft)",
+              color: "var(--verified-teal)", cursor: dmBusy ? "default" : "pointer",
+              fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 12.5,
             }}
           >
-            <MessageSquare size={14} />{dmBusy ? "Opening…" : "I have this"}
+            <MessageSquare size={14} />{dmBusy ? "Opening…" : "Message"}
           </div>
         )}
       </div>

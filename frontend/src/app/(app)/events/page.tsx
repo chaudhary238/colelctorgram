@@ -2,18 +2,40 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Calendar, Clock, Plus, MapPin, Search, X, ChevronRight } from "lucide-react";
-import { formatTime12FromDate } from "@/components/CityField";
+import { Calendar, Filter, Plus, MapPin, Search, Star, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiEvent, EventCard } from "@/components/cards";
 import { BackButton } from "@/components/BackButton";
-import { Segmented, SectionLabel, EmptyNote, Tag, ProductPhoto, CategoryChip } from "@/components/ui";
+import { Segmented, SectionLabel, EmptyNote, Tag, ProductPhoto, CategoryChip, Badge, Button } from "@/components/ui";
 import { useUser } from "@/lib/auth-context";
 import { ADD_CATEGORIES } from "@/lib/catalog";
-import { eventDateParts, fmtEventWhen } from "./_date";
+import { fmtEventWhen } from "./_date";
 
 // v8 chips read the SINGULAR chipLabel (data.jsx) — only figures differs from label.
 const CHIP_LABEL: Record<string, string> = { figures: "Action Figure" };
+
+type PriceFilter = "all" | "free" | "paid";
+type RsvpFilter = "all" | "going" | "interested";
+
+/* DV8 §3#16 — v8's WINNING FilterChip definition (Rewards.jsx:564-578, same local
+   copy as db/page.tsx), extended with an optional leading icon for the Interested
+   star (v8 EventsView.jsx:189). */
+function FilterChip({ active, onClick, children, icon }: {
+  active?: boolean; onClick: () => void; children: React.ReactNode; icon?: React.ReactNode;
+}) {
+  return (
+    <button type="button" onClick={onClick} style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      padding: "7px 14px", borderRadius: 999, cursor: "pointer", transition: "all 120ms",
+      border: `1px solid ${active ? "var(--ink)" : "var(--border)"}`,
+      background: active ? "var(--ink)" : "var(--paper)", color: active ? "var(--paper)" : "var(--ink-mute)",
+      fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5, whiteSpace: "nowrap", lineHeight: 1.2,
+    }}>
+      {icon}
+      {children}
+    </button>
+  );
+}
 
 /* v8 shared.jsx IconLabel — rose-tint icon box beside a mono micro-label. */
 function IconLabel({ icon: Icon, children, style }: { icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties }>; children: React.ReactNode; style?: React.CSSProperties }) {
@@ -53,6 +75,13 @@ export default function EventsPage() {
   const [mineLoading, setMineLoading] = useState(false);
   const [q, setQ] = useState("");
   const [evCats, setEvCats] = useState<string[]>([]);
+  // v8 EventsView (Sep-13) filter sheet — applied values + drafts seeded on open.
+  const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
+  const [rsvpFilter, setRsvpFilter] = useState<RsvpFilter>("all");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [draftEvCats, setDraftEvCats] = useState<string[]>([]);
+  const [draftPriceFilter, setDraftPriceFilter] = useState<PriceFilter>("all");
+  const [draftRsvpFilter, setDraftRsvpFilter] = useState<RsvpFilter>("all");
 
   // Public (active) events — split into upcoming / past client-side, as the design does.
   // upcoming=false: this page owns the Past tab, so it wants the full set (the
@@ -68,7 +97,11 @@ export default function EventsPage() {
   // handler on first open (not an effect, to avoid synchronous setState-in-effect).
   const openTab = (v: TabId) => {
     setTab(v);
-    setEvCats([]);   // v4 clears the category filter on tab change
+    // ⚖ v8 EventsView.jsx:96 resets only evCats + priceFilter on tab change; leaving
+    // rsvpFilter silently armed looks like a prototype oversight — we reset all three.
+    setEvCats([]);
+    setPriceFilter("all");
+    setRsvpFilter("all");
     if (v === "hosting" && mine === null && !mineLoading) {
       setMineLoading(true);
       api.get<ApiEvent[]>("/events?scope=mine&limit=50")
@@ -79,6 +112,11 @@ export default function EventsPage() {
   };
   const toggleEvCat = (id: string) =>
     setEvCats((cs) => (cs.includes(id) ? cs.filter((x) => x !== id) : [...cs, id]));
+  const toggleDraftEvCat = (id: string) =>
+    setDraftEvCats((cs) => (cs.includes(id) ? cs.filter((x) => x !== id) : [...cs, id]));
+  const openSheet = () => { setDraftEvCats(evCats); setDraftPriceFilter(priceFilter); setDraftRsvpFilter(rsvpFilter); setSheetOpen(true); };
+  const applySheet = () => { setEvCats(draftEvCats); setPriceFilter(draftPriceFilter); setRsvpFilter(draftRsvpFilter); setSheetOpen(false); };
+  const clearSheet = () => { setDraftEvCats([]); setDraftPriceFilter("all"); setDraftRsvpFilter("all"); };
 
   const [now] = useState(() => Date.now());   // stable "now" for the upcoming/past split
   const myCity = (user?.city ?? "").toLowerCase();
@@ -87,6 +125,12 @@ export default function EventsPage() {
   const qMatch = (e: ApiEvent) =>
     !q || e.title.toLowerCase().includes(q.toLowerCase()) || (e.city ?? "").toLowerCase().includes(q.toLowerCase());
   const catMatch = (e: ApiEvent) => evCats.length === 0 || e.categories.some((c) => evCats.includes(c));
+  // "Free" mirrors how events/[id] derives priceLabel: paid ⇔ is_free === false
+  // AND price > 0; anything else displays (and filters) as free.
+  const isFreeEvent = (e: ApiEvent) => !(e.is_free === false && (e.price ?? 0) > 0);
+  const priceMatch = (e: ApiEvent) => priceFilter === "all" || (priceFilter === "free" ? isFreeEvent(e) : !isFreeEvent(e));
+  const rsvpMatch = (e: ApiEvent) => rsvpFilter === "all" || e.my_rsvp === rsvpFilter;
+  const activeFilterCount = evCats.length + (priceFilter !== "all" ? 1 : 0) + (rsvpFilter !== "all" ? 1 : 0);
 
   const past = events.filter((e) => new Date(e.starts_at).getTime() < now);
 
@@ -101,8 +145,9 @@ export default function EventsPage() {
   // "Going" = anything the viewer RSVP'd to (going or interested), past or future.
   const goingList = events.filter((e) => e.my_rsvp);
 
-  const filteredUpcoming = upcoming.filter((e) => qMatch(e) && catMatch(e));
-  const filteredPast = past.filter((e) => qMatch(e) && catMatch(e));
+  // v8 — price/RSVP filters apply to Upcoming and Past; the Going tab stays search-only.
+  const filteredUpcoming = upcoming.filter((e) => qMatch(e) && catMatch(e) && priceMatch(e) && rsvpMatch(e));
+  const filteredPast = past.filter((e) => qMatch(e) && catMatch(e) && priceMatch(e) && rsvpMatch(e));
   const filteredGoing = goingList.filter(qMatch);
 
   const cityCount = myCity ? upcoming.filter((e) => e.city?.toLowerCase() === myCity).length : 0;
@@ -125,6 +170,15 @@ export default function EventsPage() {
             <Search size={16} style={{ color: "var(--slate-400)", flexShrink: 0 }} />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search events…" style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)" }} />
             {q && <button onClick={() => setQ("")} style={{ background: "none", border: "none", padding: 2, cursor: "pointer", color: "var(--slate-400)", display: "flex" }}><X size={14} strokeWidth={2} /></button>}
+            {/* v8 EventsView:76 — filter trigger lives INSIDE the search field (market/db pattern). */}
+            <button type="button" onClick={openSheet} aria-label={`Filters${activeFilterCount ? ` · ${activeFilterCount} active` : ""}`} style={{
+              display: "flex", alignItems: "center", gap: 4, flexShrink: 0, padding: 0,
+              background: "none", border: "none", cursor: "pointer",
+              color: activeFilterCount ? "var(--stamp-red)" : "var(--slate-400)",
+            }}>
+              <Filter size={17} strokeWidth={2} />
+              {activeFilterCount > 0 && <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700 }}>{activeFilterCount}</span>}
+            </button>
           </div>
           <Link href="/events/new" style={{ display: "flex", alignItems: "center", gap: 6, height: 40, padding: "0 13px", borderRadius: 12, border: "none", background: "var(--slate-900)", color: "var(--paper)", textDecoration: "none", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, flexShrink: 0, whiteSpace: "nowrap" }}>
             <Plus size={15} strokeWidth={2.2} />List an event
@@ -132,15 +186,16 @@ export default function EventsPage() {
         </div>
         {/* row 2: tabs */}
         <Segmented options={TABS as unknown as { id: string; label: string }[]} value={tab} onChange={(v) => openTab(v as TabId)} />
-        {/* row 3: category filter — upcoming / past only; singular chipLabel (v8) */}
-        {(tab === "upcoming" || tab === "past") && (
+        {/* row 3 (v8 EventsView:97-102, Sep-13) — the full chip row moved into the filter
+            sheet; inline we echo only the SELECTED chips (tap removes) + Clear. */}
+        {(tab === "upcoming" || tab === "past") && evCats.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 7, marginTop: 10, paddingBottom: 2 }}>
-            {ADD_CATEGORIES.map((c) => (
-              <CategoryChip key={c.id} active={evCats.includes(c.id)} onClick={() => toggleEvCat(c.id)}>{CHIP_LABEL[c.id] ?? c.label}</CategoryChip>
+            {evCats.map((id) => (
+              <CategoryChip key={id} active onClick={() => toggleEvCat(id)}>
+                {CHIP_LABEL[id] ?? ADD_CATEGORIES.find((c) => c.id === id)?.label ?? id}
+              </CategoryChip>
             ))}
-            {evCats.length > 0 && (
-              <button onClick={() => setEvCats([])} style={{ background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5 }}>Clear</button>
-            )}
+            <button onClick={() => setEvCats([])} style={{ background: "none", border: "none", padding: "4px 2px", cursor: "pointer", color: "var(--stamp-red)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12.5 }}>Clear</button>
           </div>
         )}
       </div>
@@ -226,14 +281,79 @@ export default function EventsPage() {
         <div style={{ padding: "16px 20px 28px" }}>
           {mineLoading && mine === null ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-              {Array.from({ length: 2 }).map((_, i) => <div key={i} style={{ height: 74, borderRadius: 14, background: "var(--bone)" }} />)}
+              {Array.from({ length: 2 }).map((_, i) => <div key={i} style={{ height: 96, borderRadius: 16, background: "var(--bone)" }} />)}
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-              {(mine ?? []).map((ev) => <HostingRow key={ev.id} event={ev} />)}
+              {/* v8 EventsView:163-169 (Sep-13) — hosted rows are the SHARED EventCard with a
+                  status overlay pinned top-right, not a bespoke manage row. */}
+              {(mine ?? []).map((ev) => {
+                const pending = ev.status === "pending_approval";
+                const cancelled = ev.status === "cancelled" || ev.status === "rejected";
+                return (
+                  <div key={ev.id} style={{ position: "relative" }}>
+                    <EventCard event={ev} />
+                    {/* v8 Sep-13 nav change — approved hosted rows open the DETAIL page (it
+                        carries the host "Manage your event" affordance); only PENDING rows
+                        go straight to manage. EventCard always links to detail, so pending
+                        gets a full-cover Link overlay retargeting the tap. */}
+                    {pending && (
+                      <Link href={`/events/${ev.id}/manage`} aria-label={`Manage ${ev.title}`} style={{ position: "absolute", inset: 0, borderRadius: 16 }} />
+                    )}
+                    <div style={{ position: "absolute", top: 10, right: 10, pointerEvents: "none" }}>
+                      {pending ? (
+                        <Tag kind="po">Pending approval</Tag>
+                      ) : cancelled ? (
+                        // ⚖ ours — v8 doesn't model cancelled/rejected hosted rows; keep the QA tags.
+                        <Tag kind="default">{ev.status === "rejected" ? "Not approved" : "Cancelled"}</Tag>
+                      ) : (
+                        <Badge variant="secondary">Hosting</Badge>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
               {(mine ?? []).length === 0 && <EmptyNote>You&rsquo;re not hosting any events yet. Tap &ldquo;List an event&rdquo;.</EmptyNote>}
             </div>
           )}
+        </div>
+      )}
+
+      {/* v8 EventsView:176-207 filter sheet, on OUR responsive sheet shell
+          (ReportSheet.tsx — bottom sheet on mobile, centered card on desktop). */}
+      {sheetOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div onClick={() => setSheetOpen(false)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} />
+          <div className="relative w-full" style={{ maxWidth: 480, maxHeight: "78%", overflowY: "auto", background: "var(--paper)", borderRadius: "20px 20px 0 0", padding: "10px 18px 20px", boxShadow: "var(--shadow-4)" }}>
+            <div style={{ width: 36, height: 4, borderRadius: 999, background: "var(--border-strong)", margin: "4px auto 14px" }} />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17 }}>Filters</div>
+              <button type="button" onClick={clearSheet} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--ink-faint)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13 }}>Clear</button>
+            </div>
+            <SectionLabel>RSVP</SectionLabel>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 9 }}>
+              <FilterChip active={draftRsvpFilter === "all"} onClick={() => setDraftRsvpFilter("all")}>All</FilterChip>
+              <FilterChip active={draftRsvpFilter === "going"} onClick={() => setDraftRsvpFilter("going")}>Going</FilterChip>
+              <FilterChip
+                active={draftRsvpFilter === "interested"}
+                onClick={() => setDraftRsvpFilter("interested")}
+                icon={<Star size={13} fill={draftRsvpFilter === "interested" ? "currentColor" : "none"} />}
+              >Interested</FilterChip>
+            </div>
+            <div style={{ marginTop: 20 }}><SectionLabel>Price</SectionLabel></div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 9 }}>
+              <FilterChip active={draftPriceFilter === "all"} onClick={() => setDraftPriceFilter("all")}>All</FilterChip>
+              <FilterChip active={draftPriceFilter === "free"} onClick={() => setDraftPriceFilter("free")}>Free</FilterChip>
+              <FilterChip active={draftPriceFilter === "paid"} onClick={() => setDraftPriceFilter("paid")}>Paid</FilterChip>
+            </div>
+            <div style={{ marginTop: 20 }}><SectionLabel>Category</SectionLabel></div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 9 }}>
+              {ADD_CATEGORIES.map((c) => (
+                <FilterChip key={c.id} active={draftEvCats.includes(c.id)} onClick={() => toggleDraftEvCat(c.id)}>{CHIP_LABEL[c.id] ?? c.label}</FilterChip>
+              ))}
+            </div>
+            <Button variant="dark" size="block" style={{ marginTop: 22 }} onClick={applySheet}>Apply filters</Button>
+          </div>
         </div>
       )}
     </div>
@@ -245,55 +365,4 @@ export default function EventsPage() {
 function featuredWhen(ev: ApiEvent): string {
   const when = fmtEventWhen(ev.starts_at, ev.ends_at, { compact: true });
   return ev.city ? `${when} · ${ev.city}` : when;
-}
-
-function HostingRow({ event }: { event: ApiEvent }) {
-  // QA design-consistency (founder 2026-09-13) — My Events rows carry the SAME
-  // grammar as the Upcoming/Going/Past EventCard (54px slate-800 date tile with
-  // gold month + weekday, display-font title, venue + time lines, mono going
-  // count); only the manage affordances differ: status tag + chevron, and the
-  // row links to /manage instead of the public detail page.
-  const { dayPadded, month } = eventDateParts(event.starts_at);
-  const weekday = new Date(event.starts_at).toLocaleString("en-IN", { weekday: "short" });
-  const pending = event.status === "pending_approval";
-  const cancelled = event.status === "cancelled" || event.status === "rejected";
-  return (
-    <Link href={`/events/${event.id}/manage`} style={{
-      display: "flex", gap: 12, width: "100%", textDecoration: "none", alignItems: "stretch",
-      background: "var(--card-surface)", border: "1px solid var(--slate-200)", borderRadius: 16, padding: 14,
-      boxShadow: "var(--card-shadow)", opacity: cancelled ? 0.72 : 1, color: "inherit",
-    }}>
-      <div style={{
-        width: 54, flexShrink: 0, borderRadius: 10, background: "var(--slate-800)", color: "var(--paper)",
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "8px 0", gap: 1,
-      }}>
-        <span style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.09em", color: "var(--grail-gold)" }}>{month}</span>
-        <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 26, lineHeight: 1 }}>{dayPadded}</span>
-        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginTop: 1 }}>{weekday}</span>
-      </div>
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 4 }}>
-        <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15.5, letterSpacing: "-0.02em", lineHeight: 1.2, color: "var(--ink)" }}>{event.title}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "var(--ink-mute)" }}>
-          <MapPin size={13} strokeWidth={2} style={{ flexShrink: 0 }} /> {event.mode === "online" ? "Online" : event.where ?? event.venue ?? event.city}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--slate-400)" }}>
-            <Clock size={13} strokeWidth={2} style={{ flexShrink: 0 }} />
-            {formatTime12FromDate(new Date(event.starts_at))}
-            {event.ends_at ? ` – ${formatTime12FromDate(new Date(event.ends_at))}` : ""}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-            {pending ? (
-              <Tag kind="po">Pending approval</Tag>
-            ) : cancelled ? (
-              <Tag kind="default">{event.status === "rejected" ? "Not approved" : "Cancelled"}</Tag>
-            ) : (
-              <span style={{ fontSize: 12, color: "var(--slate-400)", fontFamily: "var(--font-mono)" }}>{event.going_count ?? 0} going</span>
-            )}
-          </div>
-        </div>
-      </div>
-      <ChevronRight size={18} style={{ color: "var(--ink-faint)", flexShrink: 0, alignSelf: "center" }} />
-    </Link>
-  );
 }

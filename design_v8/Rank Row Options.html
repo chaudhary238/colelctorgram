@@ -1,0 +1,47 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;600;700;800&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="colors_and_type.css">
+<style>body{margin:0;font-family:var(--font-body)}.frame{position:absolute;left:0;top:-26px;font-size:11px;font-weight:700;color:var(--ink-faint);background:var(--bone);padding:3px 8px;border-radius:6px}.wrap{position:absolute;width:340px}</style>
+</head><body>
+<div style="position:absolute;left:40px;top:20px;font-family:var(--font-display);font-weight:800;font-size:20px">Compact rank row — other users' profiles</div>
+
+<div class="wrap" style="left:40px;top:90px"><div class="frame">1 · Single pill, icon+name+xp</div>
+  <button style="display:flex;align-items:center;gap:9px;width:100%;padding:9px 12px;border-radius:12px;border:1px solid color-mix(in oklab, #B0772480 45%, var(--border));background:color-mix(in oklab, #B07724 10%, var(--paper-soft));cursor:pointer;font-family:var(--font-body)">
+    <span style="width:26px;height:26px;border-radius:999px;background:#B07724;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">🔥</span>
+    <span style="font-weight:700;font-size:13px;color:var(--ink);flex-shrink:0">Archivist</span>
+    <span style="flex:1;height:5px;border-radius:999px;background:rgba(0,0,0,0.08);overflow:hidden"><span style="display:block;height:100%;width:83%;background:#B07724;border-radius:999px"></span></span>
+    <span style="font-family:var(--font-mono);font-weight:700;font-size:12.5px;color:var(--ink);flex-shrink:0">12,420 XP</span>
+  </button>
+</div>
+
+<div class="wrap" style="left:420px;top:90px"><div class="frame">2 · Tag chip, tap for details</div>
+  <button style="display:flex;align-items:center;gap:7px;padding:6px 12px 6px 6px;border-radius:999px;border:1px solid color-mix(in oklab, #B0772480 45%, var(--border));background:color-mix(in oklab, #B07724 10%, var(--paper-soft));cursor:pointer;font-family:var(--font-body)">
+    <span style="width:22px;height:22px;border-radius:999px;background:#B07724;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0">🔥</span>
+    <span style="font-weight:700;font-size:12.5px;color:var(--ink)">Archivist</span>
+    <span style="font-family:var(--font-mono);font-weight:600;font-size:11px;color:var(--ink-soft)">· 12,420 XP</span>
+    <span style="color:var(--ink-faint);font-size:11px">›</span>
+  </button>
+</div>
+
+<div class="wrap" style="left:40px;top:180px"><div class="frame">3 · Row with mini progress bar under</div>
+  <div style="padding:9px 12px;border-radius:12px;border:1px solid color-mix(in oklab, #B0772480 40%, var(--border));background:var(--paper-soft)">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="width:24px;height:24px;border-radius:999px;background:#B07724;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">🔥</span>
+      <span style="font-weight:700;font-size:13px;color:var(--ink);flex:1">Archivist</span>
+      <span style="font-family:var(--font-mono);font-weight:700;font-size:12.5px;color:var(--ink)">12,420 XP</span>
+      <button style="border:none;background:none;color:var(--ink-faint);font-size:11px;font-weight:600;cursor:pointer;padding:0 0 0 4px">🏆</button>
+    </div>
+    <div style="height:4px;border-radius:999px;background:rgba(0,0,0,0.08);overflow:hidden;margin-top:6px"><span style="display:block;height:100%;width:83%;background:#B07724;border-radius:999px"></span></div>
+  </div>
+</div>
+
+<div class="wrap" style="left:420px;top:180px"><div class="frame">4 · Plain text line, no card</div>
+  <button style="display:flex;align-items:center;gap:6px;padding:4px 0;border:none;background:none;cursor:pointer;font-family:var(--font-body)">
+    <span style="font-size:14px">🔥</span>
+    <span style="font-weight:700;font-size:13.5px;color:var(--ink)">Archivist</span>
+    <span style="color:var(--ink-faint);font-size:12.5px">·</span>
+    <span style="font-family:var(--font-mono);font-weight:600;font-size:12.5px;color:#B07724">12,420 XP</span>
+    <span style="color:var(--ink-faint);font-size:12px">· Leaderboard ›</span>
+  </button>
+</div>
+</body></html>

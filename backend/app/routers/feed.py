@@ -5,10 +5,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.models.deal import Vouch
 from app.models.user import User, Follow
 from app.models.post import Post, PostLike, PostSave, PostCommunity, PollVote
 from app.models.community import Community
@@ -206,6 +207,16 @@ async def serialize_posts(
     users_result = await db.execute(select(User).where(User.id.in_(author_ids)))
     users_by_id = {u.id: u for u in users_result.scalars().all()}
 
+    # v8 Sep-13 drop — ISO/Wanted cards show "@handle + vouch count", so every
+    # post carries its author's received-vouch total (same grouped count the
+    # market cards use, listings.py).
+    vouch_rows = await db.execute(
+        select(Vouch.to_user_id, func.count(Vouch.id))
+        .where(Vouch.to_user_id.in_(author_ids))
+        .group_by(Vouch.to_user_id)
+    )
+    vouches_by_author = dict(vouch_rows.all())
+
     liked_ids: set = set()
     saved_ids: set = set()
     if current_user:
@@ -298,6 +309,7 @@ async def serialize_posts(
             cat_titles.get(p.ref_sku or ""),
             community_names.get(p.community_id),
             ref_listings.get(p.ref_listing_id),
+            vouches_by_author.get(p.user_id, 0),
         )
         for p in page_posts
     ]
@@ -311,7 +323,7 @@ def _feed_badge(author: Optional[User]) -> Optional[dict]:
     return feed_badge(author)
 
 
-def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, is_following: bool = False, community_ids: Optional[list] = None, my_poll_vote: Optional[int] = None, likers: Optional[list] = None, ref_entry: Optional[dict] = None, community_name: Optional[str] = None, ref_listing: Optional[dict] = None) -> dict:
+def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, is_following: bool = False, community_ids: Optional[list] = None, my_poll_vote: Optional[int] = None, likers: Optional[list] = None, ref_entry: Optional[dict] = None, community_name: Optional[str] = None, ref_listing: Optional[dict] = None, vouches_count: int = 0) -> dict:
     return {
         # DV8 composer item-tagging — the tagged catalogue entry, when resolvable.
         "ref_sku": p.ref_sku,
@@ -326,6 +338,8 @@ def _post_dict(p: Post, author: Optional[User], is_liked: bool, is_saved: bool, 
         # the author has one, else their rank badge. Exactly one per post — and
         # None for staff, who carry the Official tag instead (QA 2026-08-04 §4).
         "badge": _feed_badge(author),
+        # v8 Sep-13 drop — seller-trust line on ISO/Wanted cards.
+        "vouches_count": vouches_count,
         # Authored by staff → renders as "Scorred · Official", not as the person.
         "is_official": bool(author is not None and author.is_admin),
         # QA §5 — up to 3 recent likers for the social-proof strip.

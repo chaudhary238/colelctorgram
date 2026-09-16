@@ -106,9 +106,9 @@ function EventDetail({ route }) {
         <div style={{ background: 'var(--paper-soft)', border: '1px solid var(--border)', borderRadius: 13, overflow: 'hidden', marginBottom: 18 }}>
           <DetailRow icon={Icons.calendar} title={ev.when} sub={remind ? 'Reminder on' : (ev.past ? 'Ended' : 'Tap the bell to get reminded')}/>
           <DetailRow icon={Icons.pin} title={ev.where} sub={ev.city}/>
-          <DetailRow icon={Icons.tag} title={ev.pricing && ev.pricing.type === 'paid' ? `${symOf(ev.pricing.currency)}${ev.pricing.amount.toLocaleString('en-IN')} entry` : 'Free entry'} sub="Entry"/>
+          <DetailRow icon={Icons.ticket} title={ev.pricing && ev.pricing.type === 'paid' ? `${symOf(ev.pricing.currency)}${ev.pricing.amount.toLocaleString('en-IN')} entry` : 'Free entry'} sub="Entry"/>
           {cats.length > 0 && <DetailRow icon={Icons.tag} title={cats.map(catLabel).join(' · ')} sub={cats.length > 1 ? 'Categories' : 'Category'} last={!ev.ticketLink && !ev.contact}/>}
-          {ev.ticketLink && <DetailRow icon={Icons.tag} title={<a href={ev.ticketLink} target="_blank" rel="noreferrer" style={{ color: 'var(--ink)' }}>{ev.ticketLink}</a>} sub="Ticket link" last={!ev.contact}/>}
+          {ev.ticketLink && <DetailRow icon={Icons.externalLink} title={<a href={ev.ticketLink} target="_blank" rel="noreferrer" style={{ color: 'var(--ink)' }}>{ev.ticketLink}</a>} sub="Ticket link" last={!ev.contact}/>}
           {ev.contact && <DetailRow icon={Icons.message} title={ev.contact} sub="Contact" last/>}
         </div>
 

@@ -197,6 +197,14 @@ async def list_communities(
     # over the page's communities (cheap; no per-card round-trips, no stored counter).
     recent_counts = await _recent_post_counts(db, [c.id for c in communities])
 
+    # v8 Sep-13 drop — pending-review badge on managed tiles (join requests +
+    # posts to review), computed only over the page rows the viewer manages.
+    managed_ids = [
+        c.id for c in communities
+        if roles_by_id.get(c.id) in ("founder", "admin", "mod")
+    ]
+    pending_counts = await _manage_pending_counts(db, managed_ids)
+
     def _js(cid: str) -> str:
         return "member" if cid in member_ids else "requested" if cid in requested_ids else "none"
 
@@ -204,9 +212,41 @@ async def list_communities(
         _community_dict(c, c.id in member_ids, join_state=_js(c.id),
                         recent_post_count=recent_counts.get(c.id, 0),
                         member_role=roles_by_id.get(c.id),
-                        is_founder=bool(current_user and c.founder_id == current_user.id))
+                        is_founder=bool(current_user and c.founder_id == current_user.id),
+                        manage_pending_count=pending_counts.get(c.id, 0))
         for c in communities
     ]
+
+
+async def _manage_pending_counts(db: AsyncSession, community_ids: list[str]) -> dict[str, int]:
+    """Pending join requests + posts awaiting review per community — the red
+    badge on managed directory tiles (v8 Sep-13 drop). Two grouped queries over
+    the page's managed rows only; empty dict for no ids."""
+    if not community_ids:
+        return {}
+    from app.models.post import PostCommunity
+    counts: dict[str, int] = {}
+    req_rows = await db.execute(
+        select(CommunityJoinRequest.community_id, func.count())
+        .where(
+            CommunityJoinRequest.community_id.in_(community_ids),
+            CommunityJoinRequest.status == "pending",
+        )
+        .group_by(CommunityJoinRequest.community_id)
+    )
+    for cid, n in req_rows.all():
+        counts[cid] = counts.get(cid, 0) + n
+    post_rows = await db.execute(
+        select(PostCommunity.community_id, func.count())
+        .where(
+            PostCommunity.community_id.in_(community_ids),
+            PostCommunity.status == "pending",
+        )
+        .group_by(PostCommunity.community_id)
+    )
+    for cid, n in post_rows.all():
+        counts[cid] = counts.get(cid, 0) + n
+    return counts
 
 
 async def _recent_post_counts(db: AsyncSession, community_ids: list[str], hours: int = 24) -> dict[str, int]:
@@ -1131,6 +1171,7 @@ def _community_dict(
     recent_post_count: int = 0,
     member_role: str | None = None,
     is_founder: bool = False,
+    manage_pending_count: int = 0,
 ) -> dict:
     return {
         "id": c.id,
@@ -1155,6 +1196,10 @@ def _community_dict(
         # The viewer CREATED this one (§15). Distinct from member_role == "founder"
         # only in theory, but the flag is what the UI groups on.
         "is_founder": is_founder,
+        # v8 Sep-13 drop — red badge on the directory tile for communities the
+        # viewer manages: pending join requests + posts awaiting review. Always 0
+        # for non-managers (the list endpoint only computes it for managed rows).
+        "manage_pending_count": manage_pending_count,
         "status": c.status,
         "created_at": c.created_at.isoformat(),
     }

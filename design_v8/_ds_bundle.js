@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"CollectorHubDesignSystemRC_293274","components":[{"name":"Button","sourcePath":"components/actions/Button.jsx"},{"name":"IconButton","sourcePath":"components/actions/IconButton.jsx"},{"name":"CategoryChip","sourcePath":"components/forms/CategoryChip.jsx"},{"name":"Input","sourcePath":"components/forms/Input.jsx"},{"name":"Segmented","sourcePath":"components/forms/Segmented.jsx"},{"name":"Avatar","sourcePath":"components/identity/Avatar.jsx"},{"name":"TierChip","sourcePath":"components/identity/TierChip.jsx"},{"name":"Badge","sourcePath":"components/labels/Badge.jsx"},{"name":"PostTypeTag","sourcePath":"components/labels/PostTypeTag.jsx"},{"name":"Stamp","sourcePath":"components/labels/Stamp.jsx"},{"name":"Tag","sourcePath":"components/labels/Tag.jsx"}],"sourceHashes":{"Scorred BRD (Aug 2026)/doc-page.js":"371bab66f42d","app/AddListing.jsx":"18601df2b8d4","app/AddToCollection.jsx":"bc0ad5cfd543","app/App.jsx":"dfb33535dbbe","app/Cards.jsx":"0c2a088a0b65","app/Chat.jsx":"ededb19b1027","app/Chrome.jsx":"de6fb2884d8c","app/CommunityDetail.jsx":"819e70f4d121","app/CommunityManage.jsx":"6e7654151cf7","app/CommunityView.jsx":"ab87e1e56e65","app/CompleteItems.jsx":"9f6966fa00cf","app/CreateCommunity.jsx":"f2d71a560675","app/EventCreate.jsx":"607a8538ff0a","app/EventDetail.jsx":"cee98683df8c","app/EventManage.jsx":"45a23a6ca644","app/EventsView.jsx":"dd68cf14e6d8","app/ExploreView.jsx":"e46f4ca18519","app/FeedView.jsx":"e1e8b5e9f88f","app/IOSFrame.jsx":"d67eb3ffe562","app/ItemDetail.jsx":"fbc00699a664","app/ListingView.jsx":"77ce380e06e9","app/MarketView.jsx":"870ca4868084","app/Nav.jsx":"d1a3bd3237a1","app/Onboarding.jsx":"216043129196","app/Overlays.jsx":"ca9bb5f73535","app/PostDetail.jsx":"9966baa230ca","app/ProfileCollection.jsx":"dd54cbb09c20","app/ProfileEdit.jsx":"45c6eed190aa","app/ProfileSettings.jsx":"605b71559495","app/ProfileView.jsx":"64885f7bb48a","app/ReferView.jsx":"92da3a5d0078","app/Rewards.jsx":"3b3f5ef5ebb4","app/data.jsx":"9e52e3ee3001","app/shared.jsx":"0b61877ab88a","app/tweaks-panel.jsx":"6591467622ed","components/actions/Button.jsx":"4e96ef0448a9","components/actions/IconButton.jsx":"a29b67a27746","components/forms/CategoryChip.jsx":"ca8690329cc5","components/forms/Input.jsx":"36f89ce86824","components/forms/Segmented.jsx":"e39016cc53e8","components/identity/Avatar.jsx":"8db614a890e9","components/identity/TierChip.jsx":"402864cb8957","components/labels/Badge.jsx":"6ea6fd872bde","components/labels/PostTypeTag.jsx":"e94e19dcb8bb","components/labels/Stamp.jsx":"94834e3a18ad","components/labels/Tag.jsx":"c93b07f3360d","deck-stage.js":"94b80df773e6","doc-page.js":"371bab66f42d","web/Web.jsx":"fe702f8240ef"},"inlinedExternals":[],"unexposedExports":[]} */
+/* @ds-bundle: {"format":4,"namespace":"CollectorHubDesignSystemRC_293274","components":[{"name":"Button","sourcePath":"components/actions/Button.jsx"},{"name":"IconButton","sourcePath":"components/actions/IconButton.jsx"},{"name":"CategoryChip","sourcePath":"components/forms/CategoryChip.jsx"},{"name":"Input","sourcePath":"components/forms/Input.jsx"},{"name":"Segmented","sourcePath":"components/forms/Segmented.jsx"},{"name":"Avatar","sourcePath":"components/identity/Avatar.jsx"},{"name":"TierChip","sourcePath":"components/identity/TierChip.jsx"},{"name":"Badge","sourcePath":"components/labels/Badge.jsx"},{"name":"PostTypeTag","sourcePath":"components/labels/PostTypeTag.jsx"},{"name":"Stamp","sourcePath":"components/labels/Stamp.jsx"},{"name":"Tag","sourcePath":"components/labels/Tag.jsx"}],"sourceHashes":{"Scorred BRD (Aug 2026)/doc-page.js":"371bab66f42d","app/AddListing.jsx":"18601df2b8d4","app/AddToCollection.jsx":"bc0ad5cfd543","app/App.jsx":"dfb33535dbbe","app/Cards.jsx":"ea530aa03940","app/Chat.jsx":"ff7f3d8ce6b7","app/Chrome.jsx":"de6fb2884d8c","app/CommunityDetail.jsx":"819e70f4d121","app/CommunityManage.jsx":"6e7654151cf7","app/CommunityView.jsx":"ffefee774efd","app/CompleteItems.jsx":"9f6966fa00cf","app/CreateCommunity.jsx":"f2d71a560675","app/EventCreate.jsx":"607a8538ff0a","app/EventDetail.jsx":"5172de735b4c","app/EventManage.jsx":"45a23a6ca644","app/EventsView.jsx":"02ee18d30300","app/ExploreView.jsx":"e46f4ca18519","app/FeedView.jsx":"e1e8b5e9f88f","app/IOSFrame.jsx":"d67eb3ffe562","app/ItemDetail.jsx":"fbc00699a664","app/ListingView.jsx":"77ce380e06e9","app/MarketView.jsx":"8962e738b0be","app/Nav.jsx":"2152265acc35","app/Onboarding.jsx":"216043129196","app/Overlays.jsx":"ca9bb5f73535","app/PostDetail.jsx":"9966baa230ca","app/ProfileCollection.jsx":"22cb12946da5","app/ProfileEdit.jsx":"45c6eed190aa","app/ProfileSettings.jsx":"605b71559495","app/ProfileView.jsx":"64885f7bb48a","app/ReferView.jsx":"92da3a5d0078","app/Rewards.jsx":"dacf442284b3","app/data.jsx":"9e52e3ee3001","app/shared.jsx":"33720aa07989","app/tweaks-panel.jsx":"6591467622ed","components/actions/Button.jsx":"4e96ef0448a9","components/actions/IconButton.jsx":"a29b67a27746","components/forms/CategoryChip.jsx":"ca8690329cc5","components/forms/Input.jsx":"36f89ce86824","components/forms/Segmented.jsx":"e39016cc53e8","components/identity/Avatar.jsx":"8db614a890e9","components/identity/TierChip.jsx":"402864cb8957","components/labels/Badge.jsx":"6ea6fd872bde","components/labels/PostTypeTag.jsx":"e94e19dcb8bb","components/labels/Stamp.jsx":"94834e3a18ad","components/labels/Tag.jsx":"c93b07f3360d","deck-stage.js":"94b80df773e6","doc-page.js":"f52ae9c02fca","web/Web.jsx":"fe702f8240ef"},"inlinedExternals":[],"unexposedExports":[]} */
 
 (() => {
 
@@ -4380,7 +4380,9 @@ function PostCard({
     toggleHeart,
     toggleSave,
     flashToast,
-    setOverlay
+    setOverlay,
+    updatePost,
+    deletePost
   } = {
     ...useAppState(),
     ...useNav()
@@ -4398,6 +4400,11 @@ function PostCard({
   });
   const [confirmRemove, setConfirmRemove] = React.useState(false);
   const [removeReason, setRemoveReason] = React.useState('');
+  const isOwn = post.user === 'you';
+  const [postMenuOpen, setPostMenuOpen] = React.useState(false);
+  const [editingPost, setEditingPost] = React.useState(false);
+  const [editBody, setEditBody] = React.useState(post.body || '');
+  const [confirmDeletePost, setConfirmDeletePost] = React.useState(false);
 
   // inline comments — BRD v1.2 §9.3 (expand in feed, no page nav)
   const baseComments = COMMENTS[post.id] || [];
@@ -4455,8 +4462,60 @@ function PostCard({
     community: post.community,
     onOpen: openUser,
     showFollow: showFollow,
-    reserveRight: isReview ? 52 : 0
-  })), /*#__PURE__*/React.createElement("div", {
+    reserveRight: isReview ? 52 : isOwn ? 28 : 0
+  }), isOwn && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'relative',
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPostMenuOpen(o => !o),
+    style: {
+      background: 'none',
+      border: 'none',
+      padding: '2px 4px',
+      cursor: 'pointer',
+      color: 'var(--ink-faint)',
+      fontSize: 17,
+      lineHeight: 1,
+      letterSpacing: '0.05em'
+    }
+  }, "\u22EF"), postMenuOpen && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      top: 'calc(100% + 4px)',
+      right: 0,
+      zIndex: 30,
+      background: 'var(--paper)',
+      border: '1px solid var(--border-strong)',
+      borderRadius: 11,
+      boxShadow: '0 4px 18px rgba(0,0,0,0.13)',
+      overflow: 'hidden',
+      minWidth: 120
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setConfirmDeletePost(true);
+      setPostMenuOpen(false);
+    },
+    style: {
+      width: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '10px 14px',
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      fontFamily: 'var(--font-body)',
+      fontSize: 13.5,
+      color: 'var(--stamp-red)',
+      textAlign: 'left'
+    }
+  }, /*#__PURE__*/React.createElement(Ico, {
+    d: Icons.trash,
+    size: 14
+  }), "Delete")))), /*#__PURE__*/React.createElement("div", {
     onClick: open,
     style: {
       cursor: 'pointer',
@@ -4485,7 +4544,51 @@ function PostCard({
       lineHeight: 1.22,
       marginBottom: 5
     }
-  }, post.title), post.body && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, post.title), editingPost ? /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: editBody,
+    onChange: e => setEditBody(e.target.value),
+    autoFocus: true,
+    rows: 3,
+    style: {
+      width: '100%',
+      boxSizing: 'border-box',
+      padding: '9px 11px',
+      borderRadius: 10,
+      border: '1px solid var(--border-strong)',
+      background: 'var(--paper-soft)',
+      fontFamily: 'var(--font-body)',
+      fontSize: 14.5,
+      color: 'var(--ink)',
+      outline: 'none',
+      resize: 'vertical'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement(Button, {
+    size: "sm",
+    variant: "dark",
+    onClick: () => {
+      updatePost(post.id, {
+        body: editBody
+      });
+      setEditingPost(false);
+      flashToast('Post updated');
+    }
+  }, "Save"), /*#__PURE__*/React.createElement(Button, {
+    size: "sm",
+    variant: "secondary",
+    onClick: () => setEditingPost(false)
+  }, "Cancel"))) : post.body && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 15,
       lineHeight: 1.55,
@@ -4743,7 +4846,58 @@ function PostCard({
       fontSize: 12.5,
       color: '#fff'
     }
-  }, "Remove post"))), (post.likes > 0 || post.city) && /*#__PURE__*/React.createElement("div", {
+  }, "Remove post"))), confirmDeletePost && /*#__PURE__*/React.createElement("div", {
+    style: {
+      margin: '0 18px 14px',
+      padding: 12,
+      borderRadius: 12,
+      background: 'var(--stamp-red-soft)',
+      border: '1px solid var(--stamp-red)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12.5,
+      fontWeight: 600,
+      color: 'var(--stamp-red-deep)',
+      marginBottom: 9
+    }
+  }, "Delete this post? This can't be undone."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setConfirmDeletePost(false),
+    style: {
+      flex: 1,
+      background: 'none',
+      border: '1px solid var(--border-strong)',
+      borderRadius: 9,
+      padding: '8px 0',
+      cursor: 'pointer',
+      fontFamily: 'var(--font-body)',
+      fontWeight: 600,
+      fontSize: 12.5,
+      color: 'var(--ink-mute)'
+    }
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      deletePost(post.id);
+      flashToast('Post deleted');
+    },
+    style: {
+      flex: 1,
+      background: 'var(--stamp-red)',
+      border: 'none',
+      borderRadius: 9,
+      padding: '8px 0',
+      cursor: 'pointer',
+      fontFamily: 'var(--font-body)',
+      fontWeight: 700,
+      fontSize: 12.5,
+      color: '#fff'
+    }
+  }, "Delete"))), (post.likes > 0 || post.city) && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -5833,24 +5987,27 @@ function MarketCard({
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap'
     }
-  }, "You \xB7 just now") : /*#__PURE__*/React.createElement("span", {
+  }, "You \xB7 just now") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
     style: {
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 4,
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap'
+    }
+  }, "@", seller.handle), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 3,
+      flexShrink: 0
     }
   }, /*#__PURE__*/React.createElement(Ico, {
     d: Icons.shield,
     size: 12,
     stroke: 2,
     style: {
-      color: 'var(--verified-teal)',
-      flexShrink: 0
+      color: 'var(--verified-teal)'
     }
-  }), "Vouched by ", seller.vouchesReceived)), !l.mine && /*#__PURE__*/React.createElement("div", {
+  }), seller.vouchesReceived))), !l.mine && /*#__PURE__*/React.createElement("div", {
     role: "button",
     tabIndex: 0,
     onClick: e => {
@@ -6011,7 +6168,15 @@ function EventCard({
     variant: "success"
   }, "Going"), status === 'interested' && /*#__PURE__*/React.createElement(Badge, {
     variant: "warning"
-  }, "Interested"), /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement(Ico, {
+    d: Icons.star,
+    size: 11,
+    fill: "currentColor",
+    style: {
+      marginRight: 3,
+      verticalAlign: -1
+    }
+  }), "Interested"), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 12,
       color: 'var(--slate-400)',
@@ -6184,6 +6349,7 @@ function CommunityCard({
     }
   };
   const label = isJoined ? 'Open' : isPrivate ? requested ? 'Requested' : 'Request' : 'Join';
+  const pendingCount = youAdmin ? joinRequestsOf(com.id).length + pendingPostsOf(com.id).length : 0;
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
@@ -6204,6 +6370,7 @@ function CommunityCard({
       flexShrink: 0,
       border: 'none',
       cursor: 'pointer',
+      position: 'relative',
       background: tones[com.tone] || 'var(--ink)',
       color: 'var(--paper)',
       fontFamily: 'var(--font-display)',
@@ -6214,7 +6381,26 @@ function CommunityCard({
       alignItems: 'center',
       justifyContent: 'center'
     }
-  }, com.tag), /*#__PURE__*/React.createElement("button", {
+  }, com.tag, pendingCount > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      position: 'absolute',
+      top: -5,
+      right: -5,
+      minWidth: 18,
+      height: 18,
+      borderRadius: 999,
+      background: 'var(--stamp-red)',
+      color: '#fff',
+      fontFamily: 'var(--font-mono)',
+      fontSize: 10.5,
+      fontWeight: 700,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '0 4px',
+      boxShadow: '0 0 0 2px var(--paper)'
+    }
+  }, pendingCount)), /*#__PURE__*/React.createElement("button", {
     onClick: onOpen,
     style: {
       flex: 1,
@@ -6300,6 +6486,7 @@ function ISOCard({
   const isSaved = saved[post.id];
   const [showComments, setShowComments] = React.useState(false);
   const refItem = post.refSku ? catOf(post.refSku) : null;
+  const seller = userOf(post.user);
   return /*#__PURE__*/React.createElement("div", {
     style: {
       background: 'var(--card-surface)',
@@ -6432,33 +6619,36 @@ function ISOCard({
   }, /*#__PURE__*/React.createElement(Ico, {
     d: Icons.tag,
     size: 11
-  }), "Up to \u20B9", Number(post.isoBudget).toLocaleString('en-IN')), post.isoCond && post.isoCond !== 'Any' && /*#__PURE__*/React.createElement("span", {
+  }), "Up to \u20B9", Number(post.isoBudget).toLocaleString('en-IN')))), /*#__PURE__*/React.createElement("div", {
     style: {
-      display: 'inline-flex',
+      display: 'flex',
       alignItems: 'center',
-      padding: '4px 9px',
-      borderRadius: 6,
-      background: 'var(--bone)',
-      fontSize: 12,
-      fontWeight: 600,
-      color: 'var(--ink-mute)'
+      gap: 6,
+      fontSize: 11,
+      color: 'var(--ink-faint)',
+      marginTop: 10
     }
-  }, post.isoCond), post.isoCity && /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    }
+  }, "@", seller.handle), post.user !== 'you' && /*#__PURE__*/React.createElement("span", {
     style: {
       display: 'inline-flex',
       alignItems: 'center',
-      gap: 4,
-      padding: '4px 9px',
-      borderRadius: 6,
-      background: 'var(--bone)',
-      fontSize: 12,
-      fontWeight: 500,
-      color: 'var(--ink-mute)'
+      gap: 3,
+      flexShrink: 0
     }
   }, /*#__PURE__*/React.createElement(Ico, {
-    d: Icons.pin,
-    size: 11
-  }), post.isoCity))), post.body && /*#__PURE__*/React.createElement("div", {
+    d: Icons.shield,
+    size: 12,
+    stroke: 2,
+    style: {
+      color: 'var(--verified-teal)'
+    }
+  }), seller.vouchesReceived)), post.body && /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 15,
       color: 'var(--ink-soft)',
@@ -6531,7 +6721,7 @@ function ISOCard({
       intent: 'iso',
       isoItem: post.isoItem
     })
-  }, "I have this")), showComments && /*#__PURE__*/React.createElement(CommentThread, {
+  }, "Message")), showComments && /*#__PURE__*/React.createElement(CommentThread, {
     post: post
   }));
 }
@@ -6894,8 +7084,8 @@ function ChatView({
   const lName = l ? l.sku ? catOf(l.sku).brand : l.brand : 'item';
   const dealState = deals[handle];
   const [attachOpen, setAttachOpen] = React.useState(false);
-  const [offerOpen, setOfferOpen] = React.useState(false);
-  const [offerAmt, setOfferAmt] = React.useState(l ? String(Math.round((l.price || 0) * 0.9)) : '');
+  const [showEmoji, setShowEmoji] = React.useState(false);
+  const EMOJIS = ['😍', '🔥', '🤩', '😎', '🥹', '👀', '🙌', '👏', '💎', '🏆', '📦', '🚀', '✨', '❤️', '🤝', '💰', '🫡', '🧩', '🎯', '😱'];
 
   // ── More / Report / Block sheet ──
   const [moreOpen, setMoreOpen] = React.useState(false);
@@ -6930,7 +7120,6 @@ function ChatView({
     setBlockOpen(false);
     setReportReason(null);
     setAttachOpen(false);
-    setOfferOpen(false);
   };
   const [draft, setDraft] = React.useState(route.intent === 'trade' ? `Hi! Would you trade the ${lName}? I can offer a sealed piece.` : route.intent === 'buy' && l ? `Hi! Is the ${lName} still available?` : '');
   const bodyRef = React.useRef(null);
@@ -6941,8 +7130,10 @@ function ChatView({
     if (draft.trim()) {
       sendMessage(handle, draft.trim());
       setDraft('');
+      setShowEmoji(false);
     }
   };
+  const addEmoji = e => setDraft(d => d + e);
   return /*#__PURE__*/React.createElement(React.Fragment, null, attachOpen && /*#__PURE__*/React.createElement("div", {
     onClick: () => setAttachOpen(false),
     style: {
@@ -6972,42 +7163,14 @@ function ChatView({
     }
   }), /*#__PURE__*/React.createElement("div", {
     style: {
-      padding: '0 20px',
-      display: 'grid',
-      gridTemplateColumns: '1fr 1fr 1fr',
-      gap: 12
+      padding: '0 20px'
     }
-  }, [{
-    icon: Icons.camera,
-    label: 'Photo',
-    action: () => {
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
       sendMessage(handle, '📷 [Photo attached]');
       setAttachOpen(false);
       flashToast('Photo sent');
-    }
-  }, {
-    icon: Icons.bag,
-    label: 'Share listing',
-    action: () => {
-      if (l) {
-        sendMessage(handle, `📦 Sharing listing: ${l.title || catOf(l.sku).title}`);
-        setAttachOpen(false);
-        flashToast('Listing shared');
-      } else {
-        setAttachOpen(false);
-        flashToast('No listing in this thread');
-      }
-    }
-  }, {
-    icon: Icons.tag,
-    label: 'Make offer',
-    action: () => {
-      setAttachOpen(false);
-      setTimeout(() => setOfferOpen(true), 80);
-    }
-  }].map(opt => /*#__PURE__*/React.createElement("button", {
-    key: opt.label,
-    onClick: opt.action,
+    },
     style: {
       display: 'flex',
       flexDirection: 'column',
@@ -7017,7 +7180,8 @@ function ChatView({
       background: 'var(--paper-soft)',
       border: '1px solid var(--border)',
       borderRadius: 16,
-      cursor: 'pointer'
+      cursor: 'pointer',
+      width: 100
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -7031,7 +7195,7 @@ function ChatView({
       color: 'var(--ink)'
     }
   }, /*#__PURE__*/React.createElement(Ico, {
-    d: opt.icon,
+    d: Icons.camera,
     size: 22
   })), /*#__PURE__*/React.createElement("span", {
     style: {
@@ -7040,103 +7204,7 @@ function ChatView({
       fontFamily: 'var(--font-body)',
       color: 'var(--ink)'
     }
-  }, opt.label)))))), offerOpen && /*#__PURE__*/React.createElement("div", {
-    onClick: () => setOfferOpen(false),
-    style: {
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0,0,0,0.38)',
-      zIndex: 50,
-      display: 'flex',
-      alignItems: 'flex-end'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    onClick: e => e.stopPropagation(),
-    style: {
-      width: '100%',
-      background: 'var(--paper)',
-      borderRadius: '20px 20px 0 0',
-      padding: '8px 20px 36px',
-      boxShadow: '0 -4px 24px rgba(0,0,0,0.12)'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      width: 36,
-      height: 4,
-      borderRadius: 2,
-      background: 'var(--border-strong)',
-      margin: '8px auto 18px'
-    }
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: 'var(--font-display)',
-      fontWeight: 700,
-      fontSize: 17,
-      marginBottom: 4
-    }
-  }, "Make an offer"), l && /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 13,
-      color: 'var(--ink-faint)',
-      marginBottom: 16
-    }
-  }, "Listed at ", /*#__PURE__*/React.createElement("b", {
-    style: {
-      color: 'var(--ink)'
-    }
-  }, "\u20B9", (l.price || 0).toLocaleString('en-IN'))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 0,
-      border: '1px solid var(--border-strong)',
-      borderRadius: 12,
-      overflow: 'hidden',
-      marginBottom: 14
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      padding: '0 14px',
-      fontSize: 18,
-      fontWeight: 700,
-      color: 'var(--ink-faint)',
-      borderRight: '1px solid var(--border)',
-      height: 50,
-      display: 'flex',
-      alignItems: 'center'
-    }
-  }, "\u20B9"), /*#__PURE__*/React.createElement("input", {
-    autoFocus: true,
-    type: "number",
-    value: offerAmt,
-    onChange: e => setOfferAmt(e.target.value),
-    placeholder: "Enter amount",
-    style: {
-      flex: 1,
-      height: 50,
-      padding: '0 14px',
-      border: 'none',
-      outline: 'none',
-      fontFamily: 'var(--font-mono)',
-      fontSize: 18,
-      fontWeight: 600,
-      color: 'var(--ink)',
-      background: 'none'
-    }
-  })), /*#__PURE__*/React.createElement(Button, {
-    variant: "primary",
-    style: {
-      width: '100%',
-      justifyContent: 'center',
-      opacity: offerAmt ? 1 : 0.45
-    },
-    onClick: () => {
-      if (!offerAmt) return;
-      sendMessage(handle, `💰 Offer: ₹${Number(offerAmt).toLocaleString('en-IN')} for ${l ? l.title || catOf(l.sku).title : 'item'}`);
-      setOfferOpen(false);
-      flashToast('Offer sent!');
-    }
-  }, "Send offer"))), (moreOpen || reportOpen || blockOpen) && /*#__PURE__*/React.createElement("div", {
+  }, "Photo"))))), (moreOpen || reportOpen || blockOpen) && /*#__PURE__*/React.createElement("div", {
     onClick: closeSheets,
     style: {
       position: 'fixed',
@@ -7535,7 +7603,8 @@ function ChatView({
       style: {
         display: 'flex',
         gap: 9,
-        alignItems: 'center'
+        alignItems: 'center',
+        position: 'relative'
       }
     }, /*#__PURE__*/React.createElement(IconButton, {
       icon: /*#__PURE__*/React.createElement(Ico, {
@@ -7543,6 +7612,15 @@ function ChatView({
         size: 20
       }),
       onClick: () => setAttachOpen(true)
+    }), /*#__PURE__*/React.createElement(IconButton, {
+      icon: /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 18,
+          lineHeight: 1
+        }
+      }, "\uD83D\uDE0A"),
+      active: showEmoji,
+      onClick: () => setShowEmoji(v => !v)
     }), /*#__PURE__*/React.createElement("input", {
       value: draft,
       onChange: e => setDraft(e.target.value),
@@ -7567,7 +7645,33 @@ function ChatView({
       }),
       active: !!draft.trim(),
       onClick: send
-    })))
+    })), showEmoji && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 4,
+        marginTop: 8,
+        padding: 10,
+        background: 'var(--paper-soft)',
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        maxHeight: 140,
+        overflowY: 'auto'
+      }
+    }, EMOJIS.map(e => /*#__PURE__*/React.createElement("button", {
+      key: e,
+      onClick: () => addEmoji(e),
+      style: {
+        width: 36,
+        height: 36,
+        borderRadius: 9,
+        border: 'none',
+        background: 'transparent',
+        cursor: 'pointer',
+        fontSize: 20,
+        lineHeight: 1
+      }
+    }, e))))
   }, l && (() => {
     const c = l.sku ? catOf(l.sku) : {
       tone: l.tone || 'ink',
@@ -10965,8 +11069,28 @@ function CommunityView() {
   } = useAppState();
   const [q, setQ] = React.useState('');
   const [cats, setCats] = React.useState([]);
+  const [sort, setSort] = React.useState('members'); // members | newest | name
   const [tab, setTab] = React.useState('yours');
+  const [sheetOpen, setSheetOpen] = React.useState(false);
+  const [draftCats, setDraftCats] = React.useState([]);
+  const [draftSort, setDraftSort] = React.useState('members');
   const toggleCat = id => setCats(cs => cs.includes(id) ? cs.filter(x => x !== id) : [...cs, id]);
+  const toggleDraftCat = id => setDraftCats(cs => cs.includes(id) ? cs.filter(x => x !== id) : [...cs, id]);
+  const openSheet = () => {
+    setDraftCats(cats);
+    setDraftSort(sort);
+    setSheetOpen(true);
+  };
+  const applySheet = () => {
+    setCats(draftCats);
+    setSort(draftSort);
+    setSheetOpen(false);
+  };
+  const clearSheet = () => {
+    setDraftCats([]);
+    setDraftSort('members');
+  };
+  const activeFilterCount = cats.length + (sort !== 'members' ? 1 : 0);
   const all = [...(userCommunities || []), ...COMMUNITIES];
   const seen = new Set();
   const deduped = all.filter(c => seen.has(c.id) ? false : seen.add(c.id));
@@ -10978,6 +11102,9 @@ function CommunityView() {
   const filteredJoined = joinedList.filter(c => qMatch(c) && catMatch(c));
   const filteredDiscover = discover.filter(c => qMatch(c) && catMatch(c));
   const hasResults = filteredJoined.length + filteredDiscover.length > 0;
+  const sortFn = (a, b) => sort === 'newest' ? (b.createdAt || 0) - (a.createdAt || 0) : sort === 'name' ? a.name.localeCompare(b.name) : (b.members || 0) - (a.members || 0);
+  const sortedJoined = [...filteredJoined].sort(sortFn);
+  const sortedDiscover = [...filteredDiscover].sort(sortFn);
   return /*#__PURE__*/React.createElement(Screen, {
     header: /*#__PURE__*/React.createElement(AppBar, {
       title: "Community"
@@ -11046,7 +11173,31 @@ function CommunityView() {
     d: Icons.close,
     size: 14,
     stroke: 2
-  }))), /*#__PURE__*/React.createElement(Button, {
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: openSheet,
+    "aria-label": `Filters${activeFilterCount ? ` · ${activeFilterCount} active` : ''}`,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4,
+      flexShrink: 0,
+      padding: 0,
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      color: activeFilterCount ? 'var(--stamp-red)' : 'var(--slate-400)'
+    }
+  }, /*#__PURE__*/React.createElement(Ico, {
+    d: Icons.filter,
+    size: 17,
+    stroke: 2
+  }), activeFilterCount > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: 'var(--font-mono)',
+      fontSize: 12,
+      fontWeight: 700
+    }
+  }, activeFilterCount))), /*#__PURE__*/React.createElement(Button, {
     size: "sm",
     variant: "primary",
     icon: /*#__PURE__*/React.createElement(Ico, {
@@ -11056,31 +11207,7 @@ function CommunityView() {
     onClick: () => push({
       name: 'create-community'
     })
-  }, "Create")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      flexWrap: 'wrap',
-      alignItems: 'center',
-      gap: 7,
-      paddingBottom: 2
-    }
-  }, CATEGORIES.map(c => /*#__PURE__*/React.createElement(CategoryChip, {
-    key: c.id,
-    active: cats.includes(c.id),
-    onClick: () => toggleCat(c.id)
-  }, c.chipLabel)), cats.length > 0 && /*#__PURE__*/React.createElement("button", {
-    onClick: () => setCats([]),
-    style: {
-      background: 'none',
-      border: 'none',
-      padding: '4px 2px',
-      cursor: 'pointer',
-      color: 'var(--stamp-red)',
-      fontFamily: 'var(--font-body)',
-      fontWeight: 600,
-      fontSize: 12.5
-    }
-  }, "Clear")), !q && /*#__PURE__*/React.createElement(Segmented, {
+  }, "Create")), !q && /*#__PURE__*/React.createElement(Segmented, {
     style: {
       marginTop: 10
     },
@@ -11112,7 +11239,7 @@ function CommunityView() {
       flexDirection: 'column',
       gap: 10
     }
-  }, [...filteredJoined, ...filteredDiscover].map(c => /*#__PURE__*/React.createElement(CommunityCard, {
+  }, [...sortedJoined, ...sortedDiscover].map(c => /*#__PURE__*/React.createElement(CommunityCard, {
     key: c.id,
     com: c,
     onOpen: () => push({
@@ -11129,7 +11256,7 @@ function CommunityView() {
       flexDirection: 'column',
       gap: 10
     }
-  }, filteredJoined.map(c => /*#__PURE__*/React.createElement(CommunityCard, {
+  }, sortedJoined.map(c => /*#__PURE__*/React.createElement(CommunityCard, {
     key: c.id,
     com: c,
     onOpen: () => push({
@@ -11146,14 +11273,111 @@ function CommunityView() {
       flexDirection: 'column',
       gap: 10
     }
-  }, filteredDiscover.map(c => /*#__PURE__*/React.createElement(CommunityCard, {
+  }, sortedDiscover.map(c => /*#__PURE__*/React.createElement(CommunityCard, {
     key: c.id,
     com: c,
     onOpen: () => push({
       name: 'community-detail',
       id: c.id
     })
-  })), filteredDiscover.length === 0 && /*#__PURE__*/React.createElement(EmptyNote, null, cats.length > 0 ? 'No communities in this category yet.' : "You've joined everything — check back soon."))));
+  })), filteredDiscover.length === 0 && /*#__PURE__*/React.createElement(EmptyNote, null, cats.length > 0 ? 'No communities in this category yet.' : "You've joined everything — check back soon."))), sheetOpen && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      inset: 0,
+      zIndex: 140,
+      display: 'flex',
+      alignItems: 'flex-end'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: () => setSheetOpen(false),
+    style: {
+      position: 'absolute',
+      inset: 0,
+      background: 'rgba(0,0,0,0.4)'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'relative',
+      width: '100%',
+      maxHeight: '78%',
+      overflowY: 'auto',
+      background: 'var(--paper)',
+      borderRadius: '20px 20px 0 0',
+      padding: '10px 18px 20px',
+      boxShadow: 'var(--shadow-4)',
+      animation: 'fadeIn 140ms ease'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 36,
+      height: 4,
+      borderRadius: 999,
+      background: 'var(--border-strong)',
+      margin: '4px auto 14px'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: 'var(--font-display)',
+      fontWeight: 700,
+      fontSize: 17
+    }
+  }, "Filters"), /*#__PURE__*/React.createElement("button", {
+    onClick: clearSheet,
+    style: {
+      border: 'none',
+      background: 'none',
+      cursor: 'pointer',
+      color: 'var(--ink-faint)',
+      fontFamily: 'var(--font-body)',
+      fontWeight: 600,
+      fontSize: 13
+    }
+  }, "Clear")), /*#__PURE__*/React.createElement(SectionLabel, null, "Sort by"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      flexWrap: 'wrap',
+      marginTop: 9
+    }
+  }, /*#__PURE__*/React.createElement(FilterChip, {
+    active: draftSort === 'members',
+    onClick: () => setDraftSort('members')
+  }, "Most members"), /*#__PURE__*/React.createElement(FilterChip, {
+    active: draftSort === 'newest',
+    onClick: () => setDraftSort('newest')
+  }, "Newest"), /*#__PURE__*/React.createElement(FilterChip, {
+    active: draftSort === 'name',
+    onClick: () => setDraftSort('name')
+  }, "Name (A\u2013Z)")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 20
+    }
+  }, /*#__PURE__*/React.createElement(SectionLabel, null, "Category")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      flexWrap: 'wrap',
+      marginTop: 9
+    }
+  }, CATEGORIES.map(c => /*#__PURE__*/React.createElement(FilterChip, {
+    key: c.id,
+    active: draftCats.includes(c.id),
+    onClick: () => toggleDraftCat(c.id)
+  }, c.chipLabel))), /*#__PURE__*/React.createElement(Button, {
+    variant: "dark",
+    size: "block",
+    style: {
+      marginTop: 22
+    },
+    onClick: applySheet
+  }, "Apply filters"))));
 }
 function SectionLabel({
   children
@@ -13350,7 +13574,7 @@ function EventDetail({
     title: ev.where,
     sub: ev.city
   }), /*#__PURE__*/React.createElement(DetailRow, {
-    icon: Icons.tag,
+    icon: Icons.ticket,
     title: ev.pricing && ev.pricing.type === 'paid' ? `${symOf(ev.pricing.currency)}${ev.pricing.amount.toLocaleString('en-IN')} entry` : 'Free entry',
     sub: "Entry"
   }), cats.length > 0 && /*#__PURE__*/React.createElement(DetailRow, {
@@ -13359,7 +13583,7 @@ function EventDetail({
     sub: cats.length > 1 ? 'Categories' : 'Category',
     last: !ev.ticketLink && !ev.contact
   }), ev.ticketLink && /*#__PURE__*/React.createElement(DetailRow, {
-    icon: Icons.tag,
+    icon: Icons.externalLink,
     title: /*#__PURE__*/React.createElement("a", {
       href: ev.ticketLink,
       target: "_blank",
@@ -14441,6 +14665,12 @@ function EventsView() {
     rsvp
   } = useAppState();
   const [tab, setTab] = React.useState('upcoming');
+  const [priceFilter, setPriceFilter] = React.useState('all'); // all | free | paid
+  const [sheetOpen, setSheetOpen] = React.useState(false);
+  const [draftEvCats, setDraftEvCats] = React.useState([]);
+  const [draftPriceFilter, setDraftPriceFilter] = React.useState('all');
+  const [rsvpFilter, setRsvpFilter] = React.useState('all'); // all | going | interested
+  const [draftRsvpFilter, setDraftRsvpFilter] = React.useState('all');
   const myCity = (ME.city || '').toLowerCase();
   const events = allEvents(userEvents);
   const isGoing = e => rsvp[e.id] === 'going' || rsvp[e.id] === 'interested' || (e.going || []).includes('you') || (e.interested || []).includes('you');
@@ -14459,7 +14689,28 @@ function EventsView() {
   const list = tab === 'upcoming' ? sortedUpcoming : tab === 'past' ? past : hosting;
   const [evCats, setEvCats] = React.useState([]);
   const toggleEvCat = id => setEvCats(cs => cs.includes(id) ? cs.filter(x => x !== id) : [...cs, id]);
+  const toggleDraftEvCat = id => setDraftEvCats(cs => cs.includes(id) ? cs.filter(x => x !== id) : [...cs, id]);
+  const priceMatch = ev => priceFilter === 'all' || (priceFilter === 'free' ? !ev.pricing || ev.pricing.type !== 'paid' : ev.pricing && ev.pricing.type === 'paid');
+  const rsvpMatch = ev => rsvpFilter === 'all' || (rsvpFilter === 'going' ? rsvp[ev.id] === 'going' : rsvp[ev.id] === 'interested');
   const catMatch = ev => evCats.length === 0 || ev.cats && ev.cats.some(c => evCats.includes(c));
+  const activeFilterCount = evCats.length + (priceFilter !== 'all' ? 1 : 0) + (rsvpFilter !== 'all' ? 1 : 0);
+  const openSheet = () => {
+    setDraftEvCats(evCats);
+    setDraftPriceFilter(priceFilter);
+    setDraftRsvpFilter(rsvpFilter);
+    setSheetOpen(true);
+  };
+  const applySheet = () => {
+    setEvCats(draftEvCats);
+    setPriceFilter(draftPriceFilter);
+    setRsvpFilter(draftRsvpFilter);
+    setSheetOpen(false);
+  };
+  const clearSheet = () => {
+    setDraftEvCats([]);
+    setDraftPriceFilter('all');
+    setDraftRsvpFilter('all');
+  };
   const [q, setQ] = React.useState('');
   const qMatch = ev => !q || ev.title.toLowerCase().includes(q.toLowerCase()) || ev.city.toLowerCase().includes(q.toLowerCase());
   return /*#__PURE__*/React.createElement(Screen, {
@@ -14531,7 +14782,31 @@ function EventsView() {
     d: Icons.close,
     size: 14,
     stroke: 2
-  }))), /*#__PURE__*/React.createElement("button", {
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: openSheet,
+    "aria-label": `Filters${activeFilterCount ? ` · ${activeFilterCount} active` : ''}`,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4,
+      flexShrink: 0,
+      padding: 0,
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      color: activeFilterCount ? 'var(--stamp-red)' : 'var(--slate-400)'
+    }
+  }, /*#__PURE__*/React.createElement(Ico, {
+    d: Icons.filter,
+    size: 17,
+    stroke: 2
+  }), activeFilterCount > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: 'var(--font-mono)',
+      fontSize: 12,
+      fontWeight: 700
+    }
+  }, activeFilterCount))), /*#__PURE__*/React.createElement("button", {
     onClick: () => push({
       name: 'create-event'
     }),
@@ -14574,8 +14849,9 @@ function EventsView() {
     onChange: v => {
       setTab(v);
       setEvCats([]);
+      setPriceFilter('all');
     }
-  }), (tab === 'upcoming' || tab === 'past') && /*#__PURE__*/React.createElement("div", {
+  }), (tab === 'upcoming' || tab === 'past') && evCats.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       flexWrap: 'wrap',
@@ -14584,11 +14860,11 @@ function EventsView() {
       marginTop: 10,
       paddingBottom: 2
     }
-  }, CATEGORIES.map(c => /*#__PURE__*/React.createElement(CategoryChip, {
-    key: c.id,
-    active: evCats.includes(c.id),
-    onClick: () => toggleEvCat(c.id)
-  }, c.chipLabel)), evCats.length > 0 && /*#__PURE__*/React.createElement("button", {
+  }, evCats.map(id => /*#__PURE__*/React.createElement(CategoryChip, {
+    key: id,
+    active: true,
+    onClick: () => toggleEvCat(id)
+  }, (CATEGORIES.find(c => c.id === id) || {}).chipLabel)), /*#__PURE__*/React.createElement("button", {
     onClick: () => setEvCats([]),
     style: {
       background: 'none',
@@ -14601,7 +14877,7 @@ function EventsView() {
       fontSize: 12.5
     }
   }, "Clear"))), tab === 'upcoming' && (() => {
-    const filteredUpcoming = sortedUpcoming.filter(e => qMatch(e) && catMatch(e));
+    const filteredUpcoming = sortedUpcoming.filter(e => qMatch(e) && catMatch(e) && priceMatch(e) && rsvpMatch(e));
     return /*#__PURE__*/React.createElement(React.Fragment, null, filteredUpcoming.length > 0 && /*#__PURE__*/React.createElement("div", {
       style: {
         padding: '14px 16px 0'
@@ -14711,14 +14987,14 @@ function EventsView() {
       flexDirection: 'column',
       gap: 11
     }
-  }, past.filter(e => qMatch(e) && catMatch(e)).map(ev => /*#__PURE__*/React.createElement(EventCard, {
+  }, past.filter(e => qMatch(e) && catMatch(e) && priceMatch(e) && rsvpMatch(e)).map(ev => /*#__PURE__*/React.createElement(EventCard, {
     key: ev.id,
     ev: ev,
     onOpen: () => push({
       name: 'event',
       id: ev.id
     })
-  })), past.filter(e => qMatch(e) && catMatch(e)).length === 0 && /*#__PURE__*/React.createElement(EmptyNote, null, q ? 'No events match your search.' : evCats.length ? 'No past events in this category.' : 'No past events yet.'))), tab === 'hosting' && /*#__PURE__*/React.createElement("div", {
+  })), past.filter(e => qMatch(e) && catMatch(e) && priceMatch(e) && rsvpMatch(e)).length === 0 && /*#__PURE__*/React.createElement(EmptyNote, null, q ? 'No events match your search.' : evCats.length ? 'No past events in this category.' : 'No past events yet.'))), tab === 'hosting' && /*#__PURE__*/React.createElement("div", {
     style: {
       padding: '16px'
     }
@@ -14752,83 +15028,150 @@ function EventsView() {
       flexDirection: 'column',
       gap: 11
     }
-  }, hosting.map(ev => /*#__PURE__*/React.createElement("button", {
+  }, hosting.map(ev => /*#__PURE__*/React.createElement("div", {
     key: ev.id,
-    onClick: () => push({
-      name: 'event-manage',
+    style: {
+      position: 'relative'
+    }
+  }, /*#__PURE__*/React.createElement(EventCard, {
+    ev: ev,
+    onOpen: () => push({
+      name: ev.status === 'pending' ? 'event-manage' : 'event',
       id: ev.id
-    }),
+    })
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
-      display: 'flex',
-      gap: 12,
-      width: '100%',
-      textAlign: 'left',
-      alignItems: 'center',
-      background: 'var(--card-surface)',
-      border: '1px solid var(--slate-200)',
-      borderRadius: 16,
-      padding: 14,
-      cursor: 'pointer',
-      boxShadow: 'var(--card-shadow)'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      width: 50,
-      height: 50,
-      borderRadius: 11,
-      flexShrink: 0,
-      background: ev.status === 'pending' ? 'var(--grail-gold-soft)' : 'var(--ink)',
-      color: ev.status === 'pending' ? 'var(--grail-gold-deep)' : 'var(--paper)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center'
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 9,
-      fontWeight: 700,
-      textTransform: 'uppercase',
-      letterSpacing: '0.06em'
-    }
-  }, ev.month), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontFamily: 'var(--font-display)',
-      fontWeight: 800,
-      fontSize: 20,
-      lineHeight: 1
-    }
-  }, ev.date)), /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1,
-      minWidth: 0
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 14.5,
-      fontWeight: 600,
-      lineHeight: 1.25
-    }
-  }, ev.title), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 5
+      position: 'absolute',
+      top: 10,
+      right: 10
     }
   }, ev.status === 'pending' ? /*#__PURE__*/React.createElement(Tag, {
     kind: "po"
-  }, "Pending approval") : /*#__PURE__*/React.createElement("span", {
+  }, "Pending approval") : /*#__PURE__*/React.createElement(Badge, {
+    variant: "secondary"
+  }, "Hosting")))), hosting.length === 0 && /*#__PURE__*/React.createElement(EmptyNote, null, "You\u2019re not hosting any events yet. Tap \u201CList an event\u201D."))), sheetOpen && /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 12,
-      color: 'var(--ink-faint)'
+      position: 'fixed',
+      inset: 0,
+      zIndex: 140,
+      display: 'flex',
+      alignItems: 'flex-end'
     }
-  }, (ev.going || []).length, " going \xB7 tap to manage"))), /*#__PURE__*/React.createElement(Ico, {
-    d: Icons.back,
-    size: 18,
-    stroke: 2,
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: () => setSheetOpen(false),
     style: {
-      transform: 'rotate(180deg)',
-      color: 'var(--ink-faint)'
+      position: 'absolute',
+      inset: 0,
+      background: 'rgba(0,0,0,0.4)'
     }
-  }))), hosting.length === 0 && /*#__PURE__*/React.createElement(EmptyNote, null, "You\u2019re not hosting any events yet. Tap \u201CList an event\u201D."))));
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'relative',
+      width: '100%',
+      maxHeight: '78%',
+      overflowY: 'auto',
+      background: 'var(--paper)',
+      borderRadius: '20px 20px 0 0',
+      padding: '10px 18px 20px',
+      boxShadow: 'var(--shadow-4)',
+      animation: 'fadeIn 140ms ease'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 36,
+      height: 4,
+      borderRadius: 999,
+      background: 'var(--border-strong)',
+      margin: '4px auto 14px'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: 'var(--font-display)',
+      fontWeight: 700,
+      fontSize: 17
+    }
+  }, "Filters"), /*#__PURE__*/React.createElement("button", {
+    onClick: clearSheet,
+    style: {
+      border: 'none',
+      background: 'none',
+      cursor: 'pointer',
+      color: 'var(--ink-faint)',
+      fontFamily: 'var(--font-body)',
+      fontWeight: 600,
+      fontSize: 13
+    }
+  }, "Clear")), /*#__PURE__*/React.createElement(SectionLabel, null, "RSVP"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      flexWrap: 'wrap',
+      marginTop: 9
+    }
+  }, /*#__PURE__*/React.createElement(FilterChip, {
+    active: draftRsvpFilter === 'all',
+    onClick: () => setDraftRsvpFilter('all')
+  }, "All"), /*#__PURE__*/React.createElement(FilterChip, {
+    active: draftRsvpFilter === 'going',
+    onClick: () => setDraftRsvpFilter('going')
+  }, "Going"), /*#__PURE__*/React.createElement(FilterChip, {
+    active: draftRsvpFilter === 'interested',
+    onClick: () => setDraftRsvpFilter('interested'),
+    icon: /*#__PURE__*/React.createElement(Ico, {
+      d: Icons.star,
+      size: 13,
+      fill: draftRsvpFilter === 'interested' ? 'currentColor' : 'none'
+    })
+  }, "Interested")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 20
+    }
+  }, /*#__PURE__*/React.createElement(SectionLabel, null, "Price")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      flexWrap: 'wrap',
+      marginTop: 9
+    }
+  }, /*#__PURE__*/React.createElement(FilterChip, {
+    active: draftPriceFilter === 'all',
+    onClick: () => setDraftPriceFilter('all')
+  }, "All"), /*#__PURE__*/React.createElement(FilterChip, {
+    active: draftPriceFilter === 'free',
+    onClick: () => setDraftPriceFilter('free')
+  }, "Free"), /*#__PURE__*/React.createElement(FilterChip, {
+    active: draftPriceFilter === 'paid',
+    onClick: () => setDraftPriceFilter('paid')
+  }, "Paid")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 20
+    }
+  }, /*#__PURE__*/React.createElement(SectionLabel, null, "Category")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      flexWrap: 'wrap',
+      marginTop: 9
+    }
+  }, CATEGORIES.map(c => /*#__PURE__*/React.createElement(FilterChip, {
+    key: c.id,
+    active: draftEvCats.includes(c.id),
+    onClick: () => toggleDraftEvCat(c.id)
+  }, c.chipLabel))), /*#__PURE__*/React.createElement(Button, {
+    variant: "dark",
+    size: "block",
+    style: {
+      marginTop: 22
+    },
+    onClick: applySheet
+  }, "Apply filters"))));
 }
 function FeaturedEvent({
   ev,
@@ -21170,7 +21513,6 @@ function WantedCard({
   const u = userOf(post.user);
   const c = post.refSku ? catOf(post.refSku) : null;
   const tone = c && c.tone || post.tone || 'ink';
-  const conds = (post.isoCond || 'any').split(',').filter(x => x && x !== 'any');
   return /*#__PURE__*/React.createElement("div", {
     style: {
       background: 'var(--card-surface)',
@@ -21249,60 +21591,39 @@ function WantedCard({
       fontSize: 14.5,
       color: '#9A6010'
     }
-  }, post.isoBudget ? `₹${Number(post.isoBudget).toLocaleString('en-IN')}` : 'Open')), (conds.length > 0 || post.isoCity) && /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      flexWrap: 'wrap',
-      gap: 4
-    }
-  }, conds.map(x => /*#__PURE__*/React.createElement("span", {
-    key: x,
-    style: {
-      padding: '2px 6px',
-      borderRadius: 5,
-      background: 'var(--bone)',
-      fontSize: 10.5,
-      fontWeight: 600,
-      color: 'var(--ink-mute)'
-    }
-  }, x)), post.isoCity && /*#__PURE__*/React.createElement("span", {
-    style: {
-      padding: '2px 6px',
-      borderRadius: 5,
-      background: 'var(--bone)',
-      fontSize: 10.5,
-      color: 'var(--ink-mute)'
-    }
-  }, post.isoCity)), /*#__PURE__*/React.createElement("button", {
-    onClick: () => push({
-      name: 'profile',
-      user: post.user
-    }),
+  }, post.isoBudget ? `₹${Number(post.isoBudget).toLocaleString('en-IN')}` : 'Open')), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
       gap: 6,
-      border: 'none',
-      background: 'none',
-      padding: 0,
-      cursor: 'pointer',
-      textAlign: 'left'
+      fontSize: 11,
+      color: 'var(--ink-faint)'
     }
   }, /*#__PURE__*/React.createElement(Avatar, {
     name: u.name,
     color: u.color,
-    size: 20,
-    frame: avatarFrame(u),
-    framePip: avatarFramePip(u)
+    size: 16
   }), /*#__PURE__*/React.createElement("span", {
     style: {
-      fontSize: 11.5,
-      color: 'var(--ink-faint)',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap'
     }
-  }, u.name.split(' ')[0], " \xB7 ", post.time)), /*#__PURE__*/React.createElement("div", {
+  }, "@", u.handle), post.user !== 'you' && /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 3,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement(Ico, {
+    d: Icons.shield,
+    size: 12,
+    stroke: 2,
+    style: {
+      color: 'var(--verified-teal)'
+    }
+  }), u.vouchesReceived)), /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1
     }
@@ -21332,7 +21653,7 @@ function WantedCard({
   }, /*#__PURE__*/React.createElement(Ico, {
     d: Icons.message,
     size: 14
-  }), "I have this")));
+  }), "Message")));
 }
 Object.assign(window, {
   MarketView,
@@ -21851,6 +22172,12 @@ function AppStateProvider({
     declineReason: reason || ''
   } : x));
   const dismissPendingPost = id => setPosts(p => p.filter(x => x.id !== id));
+  const updatePost = (id, patch) => setPosts(p => p.map(x => x.id === id ? {
+    ...x,
+    ...patch,
+    edited: true
+  } : x));
+  const deletePost = id => setPosts(p => p.filter(x => x.id !== id));
   const bindEventCommunity = id => setEventCommunityDraft(id);
   const clearEventCommunityDraft = () => setEventCommunityDraft(null);
   const toggleReminder = id => setReminders(r => ({
@@ -21936,6 +22263,8 @@ function AppStateProvider({
     updateListing,
     setItemSold,
     addPost,
+    updatePost,
+    deletePost,
     addListing,
     updateProfile,
     addVouch,
@@ -26124,12 +26453,12 @@ function CollectionTab({
     id: 'chart',
     icon: Icons.chart,
     label: 'Chart'
-  }, {
+  }, ...(isMe ? [{
     id: 'calendar',
     icon: Icons.calendar,
     label: 'PO Calendar',
     short: 'PO Cal.'
-  }];
+  }] : [])];
   const isPrivate = vis[view] === 'private';
   const hiddenFromViewer = !isMe && isPrivate;
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
@@ -26409,10 +26738,10 @@ function CollectionTab({
       id: 'owned',
       label: 'Owned',
       icon: Icons.sliders
-    }, {
+    }, ...(isMe ? [{
       id: 'wishlist',
       label: 'Wishlist'
-    }, {
+    }] : []), {
       id: 'intel',
       label: 'DB Contributions'
     }]
@@ -30793,6 +31122,60 @@ function RewardCard({
     need,
     idx
   } = rankProgress(u.xp);
+  if (!isMe) {
+    return /*#__PURE__*/React.createElement("button", {
+      onClick: () => push({
+        name: 'leaderboard'
+      }),
+      style: {
+        marginTop: 14,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 9,
+        width: '100%',
+        padding: '9px 12px',
+        borderRadius: 12,
+        border: `1px solid color-mix(in oklab, ${tier.c} 45%, var(--border))`,
+        background: `color-mix(in oklab, ${tier.c} 10%, var(--paper-soft))`,
+        cursor: 'pointer',
+        fontFamily: 'var(--font-body)'
+      }
+    }, /*#__PURE__*/React.createElement(TierBadge, {
+      tier: tier,
+      size: 26
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 700,
+        fontSize: 13,
+        color: 'var(--ink)',
+        flexShrink: 0
+      }
+    }, tier.name), /*#__PURE__*/React.createElement("span", {
+      style: {
+        flex: 1,
+        height: 5,
+        borderRadius: 999,
+        background: 'rgba(0,0,0,0.08)',
+        overflow: 'hidden'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        display: 'block',
+        height: '100%',
+        width: pct + '%',
+        background: tier.c,
+        borderRadius: 999
+      }
+    })), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: 'var(--font-mono)',
+        fontWeight: 700,
+        fontSize: 12.5,
+        color: 'var(--ink)',
+        flexShrink: 0
+      }
+    }, u.xp.toLocaleString('en-IN'), " XP"));
+  }
   return /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 14,
@@ -36441,6 +36824,13 @@ const Icons = {
   }), /*#__PURE__*/React.createElement("path", {
     d: "M13 6v12",
     strokeDasharray: "2 2"
+  })),
+  externalLink: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+    d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M15 3h6v6"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M10 14 21 3"
   })),
   info: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("circle", {
     cx: "12",
@@ -42905,6 +43295,28 @@ try { (() => {
       height: calc(var(--doc-fit-h) * var(--doc-fit-scale));
       margin: 0 auto;
       break-inside: avoid;
+    }
+    /* Monolithic at print: Blink slices a transform-scaled child at
+     * fragmentainer boundaries mapped in UNSCALED layout coordinates
+     * (transforms are paint-time), so the .fit box (authored size, e.g.
+     * 1400x990) gets cut at the page's free block space and spills onto
+     * a second sheet even though its SCALED footprint fits the page by
+     * construction. overflow:hidden makes .fit-box a scroll container —
+     * monolithic under fragmentation (css-break-3) — so the scaled
+     * content prints atomically on one sheet. No clipping for content
+     * within the authored box: .fit-box is calc-sized to exactly the
+     * scaled footprint. (Content that bleeds past content-width/height
+     * is clipped at the footprint — fit mode's contract; it previously
+     * painted beyond it at print.) Print-only, so the screen rendering
+     * keeps visible overflow for editor affordances.
+     * The export path injects the same rule into frozen copies
+     * (print-eval.ts om-print-fit-contain). The .fit-mode scope is
+     * load-bearing: .fit-box wraps slotted content in EVERY mode, and an
+     * unscoped overflow:hidden would make whole flowing documents
+     * monolithic (one truncated sheet). overflow:hidden, never clip —
+     * clip is not a scroll container, so not monolithic. */
+    @media print {
+      .fit-mode .fit-box { overflow: hidden; }
     }
     .fit-mode .fit {
       width: var(--doc-fit-w);

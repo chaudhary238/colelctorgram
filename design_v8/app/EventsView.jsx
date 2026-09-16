@@ -20,6 +20,12 @@ function EventsView() {
   const { push, flashToast } = useNav();
   const { userEvents, rsvp } = useAppState();
   const [tab, setTab] = React.useState('upcoming');
+  const [priceFilter, setPriceFilter] = React.useState('all'); // all | free | paid
+  const [sheetOpen, setSheetOpen] = React.useState(false);
+  const [draftEvCats, setDraftEvCats] = React.useState([]);
+  const [draftPriceFilter, setDraftPriceFilter] = React.useState('all');
+  const [rsvpFilter, setRsvpFilter] = React.useState('all'); // all | going | interested
+  const [draftRsvpFilter, setDraftRsvpFilter] = React.useState('all');
 
   const myCity = (ME.city || '').toLowerCase();
   const events = allEvents(userEvents);
@@ -41,7 +47,14 @@ function EventsView() {
 
   const [evCats, setEvCats] = React.useState([]);
   const toggleEvCat = id => setEvCats(cs => cs.includes(id) ? cs.filter(x => x !== id) : [...cs, id]);
+  const toggleDraftEvCat = id => setDraftEvCats(cs => cs.includes(id) ? cs.filter(x => x !== id) : [...cs, id]);
+  const priceMatch = (ev) => priceFilter === 'all' || (priceFilter === 'free' ? (!ev.pricing || ev.pricing.type !== 'paid') : (ev.pricing && ev.pricing.type === 'paid'));
+  const rsvpMatch = (ev) => rsvpFilter === 'all' || (rsvpFilter === 'going' ? rsvp[ev.id] === 'going' : rsvp[ev.id] === 'interested');
   const catMatch = (ev) => evCats.length === 0 || (ev.cats && ev.cats.some(c => evCats.includes(c)));
+  const activeFilterCount = evCats.length + (priceFilter !== 'all' ? 1 : 0) + (rsvpFilter !== 'all' ? 1 : 0);
+  const openSheet = () => { setDraftEvCats(evCats); setDraftPriceFilter(priceFilter); setDraftRsvpFilter(rsvpFilter); setSheetOpen(true); };
+  const applySheet = () => { setEvCats(draftEvCats); setPriceFilter(draftPriceFilter); setRsvpFilter(draftRsvpFilter); setSheetOpen(false); };
+  const clearSheet = () => { setDraftEvCats([]); setDraftPriceFilter('all'); setDraftRsvpFilter('all'); };
 
   const [q, setQ] = React.useState('');
   const qMatch = (ev) => !q || ev.title.toLowerCase().includes(q.toLowerCase()) || ev.city.toLowerCase().includes(q.toLowerCase());
@@ -60,6 +73,13 @@ function EventsView() {
             <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search events…"
               style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--ink)' }}/>
             {q && <button onClick={() => setQ('')} style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--slate-400)', display: 'flex', alignItems: 'center' }}><Ico d={Icons.close} size={14} stroke={2}/></button>}
+            <button onClick={openSheet} aria-label={`Filters${activeFilterCount ? ` · ${activeFilterCount} active` : ''}`} style={{
+              display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, padding: 0,
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: activeFilterCount ? 'var(--stamp-red)' : 'var(--slate-400)' }}>
+              <Ico d={Icons.filter} size={17} stroke={2}/>
+              {activeFilterCount > 0 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700 }}>{activeFilterCount}</span>}
+            </button>
           </div>
           <button onClick={() => push({ name: 'create-event' })} style={{
             display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: '0 13px',
@@ -73,17 +93,17 @@ function EventsView() {
         {/* row 2: tab segmented */}
         <Segmented
           options={[{ id: 'upcoming', label: 'Upcoming' }, { id: 'going', label: 'Going' }, { id: 'past', label: 'Past' }, { id: 'hosting', label: 'My Events' }]}
-          value={tab} onChange={v => { setTab(v); setEvCats([]); }}/>
-        {(tab === 'upcoming' || tab === 'past') && (
+          value={tab} onChange={v => { setTab(v); setEvCats([]); setPriceFilter('all'); }}/>
+        {(tab === 'upcoming' || tab === 'past') && evCats.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 7, marginTop: 10, paddingBottom: 2 }}>
-            {CATEGORIES.map(c => <CategoryChip key={c.id} active={evCats.includes(c.id)} onClick={() => toggleEvCat(c.id)}>{c.chipLabel}</CategoryChip>)}
-            {evCats.length > 0 && <button onClick={() => setEvCats([])} style={{ background: 'none', border: 'none', padding: '4px 2px', cursor: 'pointer', color: 'var(--stamp-red)', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 12.5 }}>Clear</button>}
+            {evCats.map(id => <CategoryChip key={id} active onClick={() => toggleEvCat(id)}>{(CATEGORIES.find(c => c.id === id) || {}).chipLabel}</CategoryChip>)}
+            <button onClick={() => setEvCats([])} style={{ background: 'none', border: 'none', padding: '4px 2px', cursor: 'pointer', color: 'var(--stamp-red)', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 12.5 }}>Clear</button>
           </div>
         )}
       </div>
 
       {tab === 'upcoming' && (() => {
-        const filteredUpcoming = sortedUpcoming.filter(e => qMatch(e) && catMatch(e));
+        const filteredUpcoming = sortedUpcoming.filter(e => qMatch(e) && catMatch(e) && priceMatch(e) && rsvpMatch(e));
         return (
           <>
             {filteredUpcoming.length > 0 && (
@@ -124,8 +144,8 @@ function EventsView() {
       {tab === 'past' && (
         <div style={{ padding: '16px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-            {past.filter(e => qMatch(e) && catMatch(e)).map(ev => <EventCard key={ev.id} ev={ev} onOpen={() => push({ name: 'event', id: ev.id })}/>)}
-            {past.filter(e => qMatch(e) && catMatch(e)).length === 0 && <EmptyNote>{q ? 'No events match your search.' : evCats.length ? 'No past events in this category.' : 'No past events yet.'}</EmptyNote>}
+            {past.filter(e => qMatch(e) && catMatch(e) && priceMatch(e) && rsvpMatch(e)).map(ev => <EventCard key={ev.id} ev={ev} onOpen={() => push({ name: 'event', id: ev.id })}/>)}
+            {past.filter(e => qMatch(e) && catMatch(e) && priceMatch(e) && rsvpMatch(e)).length === 0 && <EmptyNote>{q ? 'No events match your search.' : evCats.length ? 'No past events in this category.' : 'No past events yet.'}</EmptyNote>}
           </div>
         </div>
       )}
@@ -141,27 +161,47 @@ function EventsView() {
           </button>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
             {hosting.map(ev => (
-              <button key={ev.id} onClick={() => push({ name: 'event-manage', id: ev.id })} style={{
-                display: 'flex', gap: 12, width: '100%', textAlign: 'left', alignItems: 'center',
-                background: 'var(--card-surface)', border: '1px solid var(--slate-200)', borderRadius: 16, padding: 14, cursor: 'pointer',
-                boxShadow: 'var(--card-shadow)',
-              }}>
-                <div style={{ width: 50, height: 50, borderRadius: 11, flexShrink: 0, background: ev.status === 'pending' ? 'var(--grail-gold-soft)' : 'var(--ink)', color: ev.status === 'pending' ? 'var(--grail-gold-deep)' : 'var(--paper)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{ev.month}</span>
-                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, lineHeight: 1 }}>{ev.date}</span>
+              <div key={ev.id} style={{ position: 'relative' }}>
+                <EventCard ev={ev} onOpen={() => push({ name: ev.status === 'pending' ? 'event-manage' : 'event', id: ev.id })}/>
+                <div style={{ position: 'absolute', top: 10, right: 10 }}>
+                  {ev.status === 'pending' ? <Tag kind="po">Pending approval</Tag> : <Badge variant="secondary">Hosting</Badge>}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.25 }}>{ev.title}</div>
-                  <div style={{ marginTop: 5 }}>
-                    {ev.status === 'pending'
-                      ? <Tag kind="po">Pending approval</Tag>
-                      : <span style={{ fontSize: 12, color: 'var(--ink-faint)' }}>{(ev.going || []).length} going · tap to manage</span>}
-                  </div>
-                </div>
-                <Ico d={Icons.back} size={18} stroke={2} style={{ transform: 'rotate(180deg)', color: 'var(--ink-faint)' }}/>
-              </button>
+              </div>
             ))}
             {hosting.length === 0 && <EmptyNote>You’re not hosting any events yet. Tap “List an event”.</EmptyNote>}
+          </div>
+        </div>
+      )}
+
+      {sheetOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 140, display: 'flex', alignItems: 'flex-end' }}>
+          <div onClick={() => setSheetOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }}/>
+          <div style={{ position: 'relative', width: '100%', maxHeight: '78%', overflowY: 'auto', background: 'var(--paper)', borderRadius: '20px 20px 0 0', padding: '10px 18px 20px', boxShadow: 'var(--shadow-4)', animation: 'fadeIn 140ms ease' }}>
+            <div style={{ width: 36, height: 4, borderRadius: 999, background: 'var(--border-strong)', margin: '4px auto 14px' }}/>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17 }}>Filters</div>
+              <button onClick={clearSheet} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--ink-faint)', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13 }}>Clear</button>
+            </div>
+            <SectionLabel>RSVP</SectionLabel>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 9 }}>
+              <FilterChip active={draftRsvpFilter === 'all'} onClick={() => setDraftRsvpFilter('all')}>All</FilterChip>
+              <FilterChip active={draftRsvpFilter === 'going'} onClick={() => setDraftRsvpFilter('going')}>Going</FilterChip>
+              <FilterChip active={draftRsvpFilter === 'interested'} onClick={() => setDraftRsvpFilter('interested')} icon={<Ico d={Icons.star} size={13} fill={draftRsvpFilter === 'interested' ? 'currentColor' : 'none'}/>}>Interested</FilterChip>
+            </div>
+
+            <div style={{ marginTop: 20 }}><SectionLabel>Price</SectionLabel></div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 9 }}>
+              <FilterChip active={draftPriceFilter === 'all'} onClick={() => setDraftPriceFilter('all')}>All</FilterChip>
+              <FilterChip active={draftPriceFilter === 'free'} onClick={() => setDraftPriceFilter('free')}>Free</FilterChip>
+              <FilterChip active={draftPriceFilter === 'paid'} onClick={() => setDraftPriceFilter('paid')}>Paid</FilterChip>
+            </div>
+            <div style={{ marginTop: 20 }}><SectionLabel>Category</SectionLabel></div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 9 }}>
+              {CATEGORIES.map(c => (
+                <FilterChip key={c.id} active={draftEvCats.includes(c.id)} onClick={() => toggleDraftEvCat(c.id)}>{c.chipLabel}</FilterChip>
+              ))}
+            </div>
+            <Button variant="dark" size="block" style={{ marginTop: 22 }} onClick={applySheet}>Apply filters</Button>
           </div>
         </div>
       )}

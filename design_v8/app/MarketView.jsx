@@ -441,7 +441,6 @@ function WantedCard({ post }) {
   const u = userOf(post.user);
   const c = post.refSku ? catOf(post.refSku) : null;
   const tone = (c && c.tone) || post.tone || 'ink';
-  const conds = (post.isoCond || 'any').split(',').filter(x => x && x !== 'any');
 
   return (
     <div style={{ background: 'var(--card-surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -461,26 +460,23 @@ function WantedCard({ post }) {
           </span>
         </div>
 
-        {(conds.length > 0 || post.isoCity) && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-            {conds.map(x => (
-              <span key={x} style={{ padding: '2px 6px', borderRadius: 5, background: 'var(--bone)', fontSize: 10.5, fontWeight: 600, color: 'var(--ink-mute)' }}>{x}</span>
-            ))}
-            {post.isoCity && <span style={{ padding: '2px 6px', borderRadius: 5, background: 'var(--bone)', fontSize: 10.5, color: 'var(--ink-mute)' }}>{post.isoCity}</span>}
-          </div>
-        )}
-
-        <button onClick={() => push({ name: 'profile', user: post.user })} style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
-          <Avatar name={u.name} color={u.color} size={20} frame={avatarFrame(u)} framePip={avatarFramePip(u)}/>
-          <span style={{ fontSize: 11.5, color: 'var(--ink-faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name.split(' ')[0]} · {post.time}</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-faint)' }}>
+          <Avatar name={u.name} color={u.color} size={16}/>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{u.handle}</span>
+          {post.user !== 'you' && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+              <Ico d={Icons.shield} size={12} stroke={2} style={{ color: 'var(--verified-teal)' }}/>
+              {u.vouchesReceived}
+            </span>
+          )}
+        </div>
 
         <div style={{ flex: 1 }}/>
         <button onClick={() => push({ name: 'chat', user: post.user, iso: post.id })} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', height: 36, marginTop: 1,
           borderRadius: 10, border: '1px solid var(--verified-teal)', background: 'var(--verified-teal-soft)',
           color: 'var(--verified-teal)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 12.5 }}>
-          <Ico d={Icons.message} size={14}/>I have this
+          <Ico d={Icons.message} size={14}/>Message
         </button>
       </div>
     </div>

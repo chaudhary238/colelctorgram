@@ -52,7 +52,7 @@ function AuthorLine({ handle, time, community, onOpen, showFollow, reserveRight 
 function PostCard({ post, showFollow = false, canModerate = false, onRemove }) {
   if (post.type === 'iso') return <ISOCard post={post}/>;
   const { push } = useNav();
-  const { hearted, saved, toggleHeart, toggleSave, flashToast, setOverlay } = { ...useAppState(), ...useNav() };
+  const { hearted, saved, toggleHeart, toggleSave, flashToast, setOverlay, updatePost, deletePost } = { ...useAppState(), ...useNav() };
   const liked = hearted[post.id];
   const isSaved = saved[post.id];
   const item = post.refSku ? catOf(post.refSku) : null;
@@ -60,6 +60,11 @@ function PostCard({ post, showFollow = false, canModerate = false, onRemove }) {
   const openUser = () => push({ name: 'profile', user: post.user });
   const [confirmRemove, setConfirmRemove] = React.useState(false);
   const [removeReason, setRemoveReason] = React.useState('');
+  const isOwn = post.user === 'you';
+  const [postMenuOpen, setPostMenuOpen] = React.useState(false);
+  const [editingPost, setEditingPost] = React.useState(false);
+  const [editBody, setEditBody] = React.useState(post.body || '');
+  const [confirmDeletePost, setConfirmDeletePost] = React.useState(false);
 
   // inline comments — BRD v1.2 §9.3 (expand in feed, no page nav)
   const baseComments = COMMENTS[post.id] || [];
@@ -79,7 +84,19 @@ function PostCard({ post, showFollow = false, canModerate = false, onRemove }) {
       {isReview && <TypeRibbon label="REVIEW" fg="var(--grail-gold-deep)"/>}
       <div style={{ padding: '16px 18px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <AuthorLine handle={post.user} time={post.time} community={post.community} onOpen={openUser} showFollow={showFollow} reserveRight={isReview ? 52 : 0}/>
+          <AuthorLine handle={post.user} time={post.time} community={post.community} onOpen={openUser} showFollow={showFollow} reserveRight={isReview ? 52 : (isOwn ? 28 : 0)}/>
+          {isOwn && (
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <button onClick={() => setPostMenuOpen(o => !o)} style={{ background: 'none', border: 'none', padding: '2px 4px', cursor: 'pointer', color: 'var(--ink-faint)', fontSize: 17, lineHeight: 1, letterSpacing: '0.05em' }}>⋯</button>
+              {postMenuOpen && (
+                <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 30, background: 'var(--paper)', border: '1px solid var(--border-strong)', borderRadius: 11, boxShadow: '0 4px 18px rgba(0,0,0,0.13)', overflow: 'hidden', minWidth: 120 }}>
+                  <button onClick={() => { setConfirmDeletePost(true); setPostMenuOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 13.5, color: 'var(--stamp-red)', textAlign: 'left' }}>
+                    <Ico d={Icons.trash} size={14}/>Delete
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div onClick={open} style={{ cursor: 'pointer', marginTop: 11 }}>
           {post.type === 'review' && post.rating && (
@@ -89,7 +106,16 @@ function PostCard({ post, showFollow = false, canModerate = false, onRemove }) {
             </div>
           )}
           {post.title && <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 17, letterSpacing: '-0.025em', lineHeight: 1.22, marginBottom: 5 }}>{post.title}</div>}
-          {post.body && (
+          {editingPost ? (
+            <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <textarea value={editBody} onChange={e => setEditBody(e.target.value)} autoFocus rows={3}
+                style={{ width: '100%', boxSizing: 'border-box', padding: '9px 11px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--paper-soft)', fontFamily: 'var(--font-body)', fontSize: 14.5, color: 'var(--ink)', outline: 'none', resize: 'vertical' }}/>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button size="sm" variant="dark" onClick={() => { updatePost(post.id, { body: editBody }); setEditingPost(false); flashToast('Post updated'); }}>Save</Button>
+                <Button size="sm" variant="secondary" onClick={() => setEditingPost(false)}>Cancel</Button>
+              </div>
+            </div>
+          ) : post.body && (
             <div>
               <div style={{ fontSize: 15, lineHeight: 1.55, color: 'var(--ink-soft)',
                 display: expanded ? 'block' : '-webkit-box', WebkitLineClamp: expanded ? undefined : 3,
@@ -165,6 +191,15 @@ function PostCard({ post, showFollow = false, canModerate = false, onRemove }) {
           <div style={{ display: 'flex', gap: 8, marginTop: 9 }}>
             <button onClick={() => { setConfirmRemove(false); setRemoveReason(''); }} style={{ flex: 1, background: 'none', border: '1px solid var(--border-strong)', borderRadius: 9, padding: '8px 0', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 12.5, color: 'var(--ink-mute)' }}>Cancel</button>
             <button onClick={() => { onRemove && onRemove(removeReason.trim()); setConfirmRemove(false); }} style={{ flex: 1, background: 'var(--stamp-red)', border: 'none', borderRadius: 9, padding: '8px 0', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 12.5, color: '#fff' }}>Remove post</button>
+          </div>
+        </div>
+      )}
+      {confirmDeletePost && (
+        <div style={{ margin: '0 18px 14px', padding: 12, borderRadius: 12, background: 'var(--stamp-red-soft)', border: '1px solid var(--stamp-red)' }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--stamp-red-deep)', marginBottom: 9 }}>Delete this post? This can't be undone.</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setConfirmDeletePost(false)} style={{ flex: 1, background: 'none', border: '1px solid var(--border-strong)', borderRadius: 9, padding: '8px 0', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 12.5, color: 'var(--ink-mute)' }}>Cancel</button>
+            <button onClick={() => { deletePost(post.id); flashToast('Post deleted'); }} style={{ flex: 1, background: 'var(--stamp-red)', border: 'none', borderRadius: 9, padding: '8px 0', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 12.5, color: '#fff' }}>Delete</button>
           </div>
         </div>
       )}
@@ -574,10 +609,13 @@ function MarketCard({ id, listing }) {
           {l.mine ? (
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>You · just now</span>
           ) : (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              <Ico d={Icons.shield} size={12} stroke={2} style={{ color: 'var(--verified-teal)', flexShrink: 0 }}/>
-              Vouched by {seller.vouchesReceived}
-            </span>
+            <>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{seller.handle}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                <Ico d={Icons.shield} size={12} stroke={2} style={{ color: 'var(--verified-teal)' }}/>
+                {seller.vouchesReceived}
+              </span>
+            </>
           )}
         </div>
 
@@ -637,7 +675,7 @@ function EventCard({ ev, onOpen }) {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
             {status === 'going' && <Badge variant="success">Going</Badge>}
-            {status === 'interested' && <Badge variant="warning">Interested</Badge>}
+            {status === 'interested' && <Badge variant="warning"><Ico d={Icons.star} size={11} fill="currentColor" style={{ marginRight: 3, verticalAlign: -1 }}/>Interested</Badge>}
             <span style={{ fontSize: 12, color: 'var(--slate-400)', fontFamily: 'var(--font-mono)' }}>{count} going</span>
           </div>
         </div>
@@ -713,14 +751,19 @@ function CommunityCard({ com, onOpen }) {
     } else { toggleJoin(com.id); flashToast(`Joined ${com.name}`); }
   };
   const label = isJoined ? 'Open' : isPrivate ? (requested ? 'Requested' : 'Request') : 'Join';
+  const pendingCount = youAdmin ? (joinRequestsOf(com.id).length + pendingPostsOf(com.id).length) : 0;
   return (
     <div style={{ display: 'flex', gap: 14, alignItems: 'center', background: 'var(--card-surface)', border: '1px solid var(--slate-200)', borderRadius: 16, padding: 14, boxShadow: 'var(--card-shadow)' }}>
       <button onClick={onOpen} style={{
-        width: 50, height: 50, borderRadius: 12, flexShrink: 0, border: 'none', cursor: 'pointer',
+        width: 50, height: 50, borderRadius: 12, flexShrink: 0, border: 'none', cursor: 'pointer', position: 'relative',
         background: tones[com.tone] || 'var(--ink)', color: 'var(--paper)',
         fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 19, letterSpacing: '-0.02em',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>{com.tag}</button>
+      }}>{com.tag}
+        {pendingCount > 0 && (
+          <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 18, height: 18, borderRadius: 999, background: 'var(--stamp-red)', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: 10.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', boxShadow: '0 0 0 2px var(--paper)' }}>{pendingCount}</span>
+        )}
+      </button>
       <button onClick={onOpen} style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
         <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{com.name}</div>
         {(pending || isPrivate || youAdmin) && (
@@ -753,6 +796,7 @@ function ISOCard({ post }) {
   const isSaved = saved[post.id];
   const [showComments, setShowComments] = React.useState(false);
   const refItem = post.refSku ? catOf(post.refSku) : null;
+  const seller = userOf(post.user);
 
   return (
     <div
@@ -794,17 +838,17 @@ function ISOCard({ post }) {
                 <Ico d={Icons.tag} size={11}/>Up to ₹{Number(post.isoBudget).toLocaleString('en-IN')}
               </span>
             )}
-            {post.isoCond && post.isoCond !== 'Any' && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 9px', borderRadius: 6, background: 'var(--bone)', fontSize: 12, fontWeight: 600, color: 'var(--ink-mute)' }}>
-                {post.isoCond}
-              </span>
-            )}
-            {post.isoCity && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 6, background: 'var(--bone)', fontSize: 12, fontWeight: 500, color: 'var(--ink-mute)' }}>
-                <Ico d={Icons.pin} size={11}/>{post.isoCity}
-              </span>
-            )}
           </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-faint)', marginTop: 10 }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{seller.handle}</span>
+          {post.user !== 'you' && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+              <Ico d={Icons.shield} size={12} stroke={2} style={{ color: 'var(--verified-teal)' }}/>
+              {seller.vouchesReceived}
+            </span>
+          )}
         </div>
 
         {post.body && (
@@ -831,7 +875,7 @@ function ISOCard({ post }) {
         {post.user !== 'you' && (
           <Button size="sm" variant="teal" icon={<Ico d={Icons.message} size={15}/>}
             onClick={() => push({ name: 'chat', user: post.user, intent: 'iso', isoItem: post.isoItem })}>
-            I have this
+            Message
           </Button>
         )}
       </div>

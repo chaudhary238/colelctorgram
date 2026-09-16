@@ -1,0 +1,80 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>Scorred — Change Doc</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="colors_and_type.css">
+<style>doc-page:not(:defined){visibility:hidden}
+h2{font-family:var(--font-display);font-weight:800;font-size:20px;letter-spacing:-0.01em;margin:26px 0 4px;padding-top:14px;border-top:1px solid var(--border)}
+h2:first-of-type{border-top:none;padding-top:0;margin-top:0}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-faint);padding:6px 8px;border-bottom:1px solid var(--border-strong)}
+td{padding:8px 8px;border-bottom:1px solid var(--border);vertical-align:top;line-height:1.45}
+tr:last-child td{border-bottom:none}
+.tag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:0.04em;padding:2px 7px;border-radius:4px;white-space:nowrap}
+.t-flow{background:var(--verified-teal-soft);color:var(--verified-teal)}
+.t-bug{background:var(--stamp-red-soft);color:var(--stamp-red)}
+.t-vis{background:var(--grail-gold-soft);color:#9A6010}
+.meta{font-size:12.5px;color:var(--ink-mute);margin-top:2px}
+</style>
+<helmet><script src="./doc-page.js"></script></helmet>
+</head><body>
+<doc-page margin="0.7in">
+<div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px">
+  <div style="font-family:var(--font-display);font-weight:800;font-size:26px;letter-spacing:-0.02em">Scorred — Change Doc</div>
+  <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-faint)">Sep 13–14, 2026</div>
+</div>
+<div class="meta">Compares yesterday's build to today's — today's version is the final, approved state. Covers community moderation, events, feed/market cards, messaging, and profile.</div>
+
+<h2>Community</h2>
+<table><tr><th style="width:16%">Feature</th><th style="width:10%">Type</th><th>What changed</th></tr>
+<tr><td>Card badges</td><td><span class="tag t-bug">Bug</span></td><td>Removed reserved empty space for Private/Pending/Admin badges — public communities no longer show an awkward gap between name and member count.</td></tr>
+<tr><td>Directory</td><td><span class="tag t-flow">Flow</span></td><td>Your Communities / Discover split into a segmented tab control (joined count shown in the tab label) instead of stacked sections.</td></tr>
+<tr><td>Filters</td><td><span class="tag t-flow">Flow</span></td><td>Categories moved into a filter sheet (same pattern as Market); added a Sort by option — Most members, Newest, Name.</td></tr>
+<tr><td>Unread indicator</td><td><span class="tag t-flow">Flow</span></td><td>Communities you manage now show a red pending-count badge on the list (join requests + posts to review) without opening the community.</td></tr>
+<tr><td>Join / Request button</td><td><span class="tag t-bug">Bug</span></td><td>Fixed-width button so "Join" / "Request to join" / "Requested" no longer shift the row.</td></tr>
+<tr><td>Leave community</td><td><span class="tag t-flow">Flow</span></td><td>Added a real leave flow: plain members get a confirm dialog; a sole Admin/Mod is forced to promote a member to Admin before leaving; Admins/Mods reach Leave from Manage Community (Settings tab or Members tab), not the header.</td></tr>
+<tr><td>Header layout</td><td><span class="tag t-bug">Bug</span></td><td>Fixed overlapping/wrapped badge and meta text (Private, Posts reviewed, member/post counts) by allowing wrap instead of clipping mid-word.</td></tr>
+<tr><td>Manage → Members</td><td><span class="tag t-vis">Visual</span></td><td>Member rows compressed to a single-line block (matching Requests); role editor and Remove now expand only on tapping the edit icon.</td></tr>
+<tr><td>Manage → role changes</td><td><span class="tag t-flow">Flow</span></td><td>Changing a member's role (Member/Mod/Admin) now prompts a confirm dialog first, so a mis-tap can't change or remove someone's access.</td></tr>
+<tr><td>Manage stat tiles</td><td><span class="tag t-flow">Flow</span></td><td>Members / Requests / To review tiles are now clickable — jump straight to that tab.</td></tr>
+</table>
+
+<h2>Events</h2>
+<table><tr><th style="width:16%">Feature</th><th style="width:10%">Type</th><th>What changed</th></tr>
+<tr><td>Filters</td><td><span class="tag t-flow">Flow</span></td><td>Categories moved into a filter sheet; added Price (All/Free/Paid) and RSVP (All/Going/Interested) filters.</td></tr>
+<tr><td>Interested marker</td><td><span class="tag t-vis">Visual</span></td><td>"Interested" badge/filter now shows a star icon instead of plain text or a literal asterisk.</td></tr>
+<tr><td>My Events</td><td><span class="tag t-flow">Flow</span></td><td>Rebuilt to use the same EventCard as Upcoming/Going/Past, with live going-count and a "Hosting"/"Pending approval" tag — was a bespoke row before.</td></tr>
+<tr><td>Detail icons</td><td><span class="tag t-bug">Bug</span></td><td>Entry, Category and Ticket link rows had the same icon — now ticket / tag / external-link respectively.</td></tr>
+<tr><td>Filter sheet position</td><td><span class="tag t-bug">Bug</span></td><td>Fixed the Events (and Community) filter sheet rendering pushed down the page instead of overlaying — switched to fixed positioning.</td></tr>
+</table>
+
+<h2>Feed &amp; Market cards</h2>
+<table><tr><th style="width:16%">Feature</th><th style="width:10%">Type</th><th>What changed</th></tr>
+<tr><td>Post type ribbons</td><td><span class="tag t-vis">Visual</span></td><td>Replaced heavy colored card borders and solid pill ribbons with a small rotated outline stamp (Review / Wanted / For Sale / Release) — subtler, no card border needed.</td></tr>
+<tr><td>Badge palette</td><td><span class="tag t-bug">Bug</span></td><td>Unified the "rainbow badge" colors (author badges, status tags) into one limited semantic palette; brand red reserved for primary CTAs.</td></tr>
+<tr><td>Post overlap</td><td><span class="tag t-bug">Bug</span></td><td>Review ribbon reserves space so it never overlaps the ADMIN/role badge, Collector chip, or +Follow button; name row wraps instead of compressing.</td></tr>
+<tr><td>Post actions</td><td><span class="tag t-flow">Flow</span></td><td>Added a Delete option (kebab menu) for your own posts.</td></tr>
+<tr><td>Wanted / For Sale parity</td><td><span class="tag t-vis">Visual</span></td><td>Wanted cards (feed and Market grid) now match For Sale cards exactly: removed condition/city chip row, added handle + vouch icon+count, and renamed "I have this" to "Message".</td></tr>
+<tr><td>Market card</td><td><span class="tag t-vis">Visual</span></td><td>Added seller handle; replaced "Vouched by N" text with a plain vouch icon + count.</td></tr>
+<tr><td>Database "add" icon</td><td><span class="tag t-bug">Bug</span></td><td>The "in collection" checkmark used the brand seal icon on a matching green button, making it invisible — replaced with a plain white checkmark.</td></tr>
+</table>
+
+<h2>Messaging</h2>
+<table><tr><th style="width:16%">Feature</th><th style="width:10%">Type</th><th>What changed</th></tr>
+<tr><td>Emoji</td><td><span class="tag t-flow">Flow</span></td><td>Added an emoji picker (toggle next to the input) — was previously unavailable in chat.</td></tr>
+<tr><td>Attach menu</td><td><span class="tag t-flow">Flow</span></td><td>Removed "Share listing" and "Make offer" (deals/offers aren't tracked) — attach now only sends a photo.</td></tr>
+</table>
+
+<h2>Profile</h2>
+<table><tr><th style="width:16%">Feature</th><th style="width:10%">Type</th><th>What changed</th></tr>
+<tr><td>Other users' collection</td><td><span class="tag t-flow">Flow</span></td><td>Viewing someone else's profile now shows only Owned and DB Contributions — Wishlist and PO Calendar are owner-only.</td></tr>
+<tr><td>Rank card</td><td><span class="tag t-vis">Visual</span></td><td>On other users' profiles, the full rank card collapsed to a single-line pill (icon + tier + inline progress bar + XP) that opens the Leaderboard — your own profile keeps the full card with "Earn points".</td></tr>
+</table>
+
+<h2>Onboarding</h2>
+<table><tr><th style="width:16%">Feature</th><th style="width:10%">Type</th><th>What changed</th></tr>
+<tr><td>Splash tagline</td><td><span class="tag t-flow">Flow</span></td><td>Changed to a "For the collectors, by the collectors" eyebrow over "Track, trade &amp; network on the #1 collectibles platform" — removed the India-specific reference.</td></tr>
+</table>
+
+</doc-page>
+<template id="__bundler_thumbnail"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#FF2442"/><text x="50" y="58" font-size="30" text-anchor="middle" fill="#fff" font-family="sans-serif">Δ</text></svg></template>
+</body></html>

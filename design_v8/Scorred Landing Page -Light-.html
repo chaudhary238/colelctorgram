@@ -1,0 +1,336 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scorred — Launching Soon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F7F7F4;--bg2:#FFFFFF;--sunken:#EFEEE9;--line:rgba(20,17,15,.10);--line2:rgba(20,17,15,.18);
+--ink:#14110F;--ink2:#575450;--ink3:#8A8680;--red:#FF2442;--red-deep:#C41230;--gold:#E8A33D;--green:#0E9E70;
+--sans:"Geist",system-ui,sans-serif;--disp:"Montserrat",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,monospace;--maxw:1200px}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:var(--ink);text-decoration:none}a:hover{color:var(--red)}
+h1,h2,h3{margin:0;font-family:var(--disp);font-weight:900;letter-spacing:-.04em;line-height:.93;text-wrap:balance}
+p{margin:0;text-wrap:pretty}
+button,input,textarea,select{font:inherit;color:inherit}
+img{display:block}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;width:100%}
+.eyebrow{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3)}
+
+#bar{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(--red),var(--gold));width:0;z-index:50}
+nav{position:fixed;top:0;left:0;right:0;z-index:45;backdrop-filter:blur(20px);background:rgba(247,247,244,.7);border-bottom:1px solid transparent;transition:border-color .3s}
+nav.solid{border-color:var(--line)}
+.navin{max-width:var(--maxw);margin:0 auto;padding:13px 24px;display:flex;align-items:center;gap:22px}
+.mk{display:flex;align-items:center}
+.mk img{height:22px;width:auto}
+.ring{width:15px;height:15px;border-radius:50%;border:3px solid var(--red);border-top-color:transparent;transform:rotate(35deg);display:inline-block;margin:0 1.5px}
+.navlinks{display:flex;gap:2px;margin-left:auto;align-items:center}
+.navlinks a{font-size:12.5px;color:var(--ink3);padding:7px 11px;border-radius:999px;transition:.2s;white-space:nowrap}
+.navlinks a:hover,.navlinks a.on{color:var(--ink);background:rgba(20,17,15,.055)}
+.navcta{background:var(--red);color:#fff;font-size:12.5px;font-weight:600;padding:9px 17px;border-radius:999px;border:0;cursor:pointer;transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s}
+.navcta:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(255,36,66,.3);color:#fff}
+.dots{position:fixed;right:20px;top:50%;transform:translateY(-50%);z-index:45;display:flex;flex-direction:column;gap:13px}
+.dots a{width:7px;height:7px;border-radius:50%;background:rgba(20,17,15,.18);transition:.35s cubic-bezier(.22,1,.36,1)}
+.dots a.on{background:var(--red);transform:scale(1.6)}
+
+.rv{opacity:0;transform:translateY(30px) scale(.985);transition:opacity .9s cubic-bezier(.22,1,.36,1),transform .9s cubic-bezier(.22,1,.36,1)}
+.rv.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}.mq__t{animation:none!important}}
+
+/* ── hero ── */
+#hero{position:relative;min-height:100svh;display:flex;align-items:center;padding:120px 0 24px;overflow:hidden}
+.glow{position:absolute;border-radius:50%;filter:blur(120px);pointer-events:none}
+.g1{width:700px;height:700px;background:rgba(255,36,66,.14);top:-220px;left:-160px}
+.g2{width:560px;height:560px;background:rgba(232,163,61,.18);bottom:-200px;right:-120px}
+.herogrid{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;position:relative;z-index:2}
+.pill{display:inline-flex;align-items:center;gap:9px;padding:7px 15px 7px 9px;border-radius:999px;border:1px solid rgba(255,36,66,.26);background:rgba(255,36,66,.06);font-size:12px;font-weight:600;margin-bottom:26px}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 0 0 rgba(255,36,66,.55);animation:pulse 2.2s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 10px rgba(255,36,66,0)}100%{box-shadow:0 0 0 0 rgba(255,36,66,0)}}
+h1{font-size:clamp(48px,6.6vw,92px)}
+.line{display:block;overflow:hidden}
+.line i{display:block;font-style:normal;transform:translateY(105%);opacity:0;animation:rise 1.1s cubic-bezier(.22,1,.36,1) forwards}
+@keyframes rise{to{transform:none;opacity:1}}
+.foil{background:linear-gradient(100deg,var(--red) 6%,var(--gold) 36%,#7C1D2C 50%,var(--gold) 64%,var(--red) 94%);background-size:280% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shimmer 6s linear infinite}
+@keyframes shimmer{to{background-position:-280% 0}}
+.sub{font-size:18px;color:var(--ink2);max-width:400px;margin-top:22px}
+.ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:15px 26px;border-radius:999px;font-size:15px;font-weight:600;border:1px solid transparent;cursor:pointer;transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s,background .25s,border-color .25s}
+.btn-p{background:var(--red);color:#fff}
+.btn-p:hover{box-shadow:0 16px 40px rgba(255,36,66,.32);color:#fff}
+.btn-g{border-color:var(--line2);background:rgba(255,255,255,.6)}
+.btn-g:hover{border-color:var(--ink2);background:#fff;transform:translateY(-2px);color:var(--ink)}
+
+.cluster{position:relative;--H:min(78svh,700px);height:var(--H);perspective:1400px}
+.ph{position:absolute;left:50%;--x:0px;height:calc(var(--H) * var(--hs,1));aspect-ratio:402/874;width:auto;border-radius:30px;overflow:hidden;background:#111;border:6px solid #16130F;box-shadow:0 40px 90px rgba(20,17,15,.26);transform:translateX(calc(-50% + var(--x)));will-change:transform}
+.ph img{width:100%;height:100%;object-fit:cover;object-position:top center}
+.ph1{--hs:.84;--x:calc(var(--H) * -0.2);top:11%;z-index:1}
+.ph2{--hs:1;--x:0px;top:0;z-index:3}
+.ph3{--hs:.8;--x:calc(var(--H) * 0.2);top:19%;z-index:2}
+.ph::after{content:"";position:absolute;inset:0;background:linear-gradient(150deg,rgba(255,255,255,.22),transparent 46%)}
+.scrollcue{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3)}
+.scrollcue .ln{width:1px;height:34px;background:linear-gradient(var(--ink3),transparent);animation:drop 2s ease-in-out infinite}
+@keyframes drop{0%,100%{opacity:.3;transform:scaleY(.6);transform-origin:top}50%{opacity:1;transform:scaleY(1)}}
+
+/* ── marquee ── */
+.mq{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg2);overflow:hidden;padding:15px 0;position:relative;z-index:3}
+.mq__t{display:flex;gap:42px;width:max-content;animation:slide 34s linear infinite}
+.mq span{font-family:var(--disp);font-weight:900;font-size:19px;letter-spacing:-.02em;color:var(--ink);white-space:nowrap;display:flex;align-items:center;gap:42px}
+.mq span::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--red);flex-shrink:0}
+@keyframes slide{to{transform:translateX(-50%)}}
+
+section{position:relative}
+.sect{padding:130px 0}
+.shead{max-width:700px;margin-bottom:56px}
+.shead h2{font-size:clamp(36px,5.4vw,68px);margin:14px 0 0}
+.shead p{color:var(--ink2);font-size:17.5px;margin-top:18px;max-width:520px}
+
+/* ── problem ── */
+.tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.tile{aspect-ratio:9/17;border-radius:16px;overflow:hidden;background:var(--sunken);border:1px solid var(--line);box-shadow:0 14px 34px rgba(20,17,15,.07);transition:transform 1.2s cubic-bezier(.22,1,.36,1),opacity 1.2s;will-change:transform}
+.tile img{width:100%;height:100%;object-fit:cover;object-position:top center}
+.tiles:not(.in) .tile{opacity:.3}
+@media (min-width:860px){
+.tiles:not(.in) .tile:nth-child(1){transform:translate(-58px,72px) rotate(-15deg)}
+.tiles:not(.in) .tile:nth-child(2){transform:translate(-26px,-84px) rotate(11deg)}
+.tiles:not(.in) .tile:nth-child(3){transform:translate(18px,96px) rotate(-7deg)}
+.tiles:not(.in) .tile:nth-child(4){transform:translate(46px,-70px) rotate(13deg)}
+.tiles:not(.in) .tile:nth-child(5){transform:translate(-40px,88px) rotate(9deg)}
+.tiles:not(.in) .tile:nth-child(6){transform:translate(64px,52px) rotate(-13deg)}
+}
+.pquote{font-family:var(--disp);font-weight:900;font-size:clamp(26px,3.4vw,44px);letter-spacing:-.035em;line-height:1.12;max-width:840px;margin-top:64px}
+.pquote em{font-style:normal;color:var(--red)}
+
+/* ── features ── */
+#features{background:var(--bg2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.cats{display:flex;flex-wrap:wrap;gap:8px;margin:-26px 0 54px}
+.cats span{font-size:12.5px;font-family:var(--mono);padding:7px 14px;border-radius:999px;border:1px solid var(--line);color:var(--ink2);background:var(--bg)}
+.fgrid{display:grid;grid-template-columns:1fr 400px;gap:64px;align-items:start}
+.fstage{position:sticky;top:50svh;transform:translateY(-50%);height:680px;display:flex;align-items:center;justify-content:center}
+.flist{padding-bottom:22svh}
+.fitem{min-height:72svh;display:flex;flex-direction:column;justify-content:center;padding:36px 0;opacity:.28;transition:opacity .55s}
+.fitem.on{opacity:1}
+.fnum{font-family:var(--mono);font-size:11px;letter-spacing:.22em;color:var(--red);margin-bottom:16px}
+.ficon{width:46px;height:46px;border-radius:13px;border:1px solid var(--line);background:var(--bg);display:flex;align-items:center;justify-content:center;margin-bottom:20px}
+.fitem h3{font-size:clamp(32px,4vw,50px)}
+.fitem p{color:var(--ink2);font-size:17px;margin-top:14px;max-width:360px}
+.phone{width:330px;height:680px;border-radius:46px;background:#16130F;padding:8px;box-shadow:0 60px 110px rgba(20,17,15,.3),0 0 0 1px rgba(20,17,15,.1);position:relative;transition:transform .5s cubic-bezier(.22,1,.36,1);will-change:transform}
+.screen{width:100%;height:100%;border-radius:39px;overflow:hidden;background:#fff;position:relative}
+.scr{position:absolute;inset:0;opacity:0;transform:translateY(18px) scale(.97);transition:opacity .55s cubic-bezier(.22,1,.36,1),transform .55s cubic-bezier(.22,1,.36,1)}
+.scr.on{opacity:1;transform:none}
+.scr img{width:100%;height:100%;object-fit:cover;object-position:top center}
+.plight{position:absolute;inset:-60px;border-radius:60px;background:radial-gradient(circle at 50% 40%,rgba(255,36,66,.2),transparent 68%);filter:blur(36px);z-index:-1;pointer-events:none}
+
+/* ── access ── */
+#access{background:var(--bg2);border-top:1px solid var(--line)}
+.acards{display:grid;grid-template-columns:1.2fr 1fr;gap:20px;align-items:start}
+.card{border:1px solid var(--line);border-radius:22px;background:var(--bg);padding:32px;position:relative;overflow:hidden}
+.card.hl{border-color:rgba(255,36,66,.28);background:linear-gradient(168deg,rgba(255,36,66,.05),var(--bg) 58%)}
+.card h3{font-size:27px}
+.note{font-size:13.5px;color:var(--ink3);margin-top:12px}
+.field{display:flex;flex-direction:column;gap:7px;margin-top:16px}
+.field label{font-size:11px;font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+.field input,.field textarea,.field select{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14.5px;outline:none;transition:.2s;width:100%}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--red);box-shadow:0 0 0 4px rgba(255,36,66,.09)}
+.field textarea{resize:vertical;min-height:80px;font-family:inherit}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+form .btn{width:100%;justify-content:center;margin-top:20px}
+.inline{display:flex;gap:10px;margin-top:16px;position:relative}
+.inline input{flex:1;background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 14px;font-size:14.5px;outline:none}
+.inline input:focus{border-color:var(--red)}
+.inline .btn{margin-top:0;white-space:nowrap;padding:13px 22px}
+.done{position:absolute;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:30px;border-radius:22px;opacity:0;pointer-events:none;transform:translateY(16px);transition:opacity .45s,transform .55s cubic-bezier(.34,1.56,.64,1)}
+.done.on{opacity:1;pointer-events:auto;transform:none}
+.tick{width:54px;height:54px;border-radius:50%;background:rgba(14,158,112,.1);border:1px solid rgba(14,158,112,.34);display:flex;align-items:center;justify-content:center}
+.tick svg{stroke:var(--green);stroke-width:2.6;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:26;stroke-dashoffset:26;animation:draw .55s .1s cubic-bezier(.22,1,.36,1) forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.perks{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.perk{display:flex;gap:11px;align-items:flex-start;font-size:14.5px;color:var(--ink2)}
+.perk .bt{width:5px;height:5px;border-radius:50%;background:var(--gold);margin-top:8px;flex-shrink:0}
+
+footer{padding:56px 0 38px;background:var(--bg);border-top:1px solid var(--line)}
+.fin{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;justify-content:space-between}
+.flinks{display:flex;gap:22px;font-size:13.5px;color:var(--ink3);margin-top:18px}
+.flinks a{color:var(--ink3)}
+.fnote{width:100%;border-top:1px solid var(--line);margin-top:34px;padding-top:20px;font-size:12.5px;color:var(--ink3);display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between}
+
+@media (max-width:980px){
+.dots,.navlinks{display:none}
+.herogrid{grid-template-columns:1fr;gap:48px}
+.cluster{--H:clamp(300px, 58vw, 540px);height:calc(var(--H) + 40px);margin-bottom:8px}
+.fgrid{grid-template-columns:1fr;gap:0}
+.fstage{display:none}
+.fshot{width:100%;max-width:280px;margin-top:24px;border-radius:26px;overflow:hidden;border:5px solid #16130F;box-shadow:0 24px 54px rgba(20,17,15,.22)}
+.fshot img{width:100%}
+.fitem{min-height:auto;padding:32px 0;opacity:1;border-top:1px solid var(--line)}
+.flist{padding-bottom:0}
+.acards{grid-template-columns:1fr}
+.tiles{grid-template-columns:repeat(3,1fr)}
+.sect{padding:88px 0}
+}
+@media (max-width:560px){.two,.inline{grid-template-columns:1fr;flex-direction:column}.inline .btn{width:100%;justify-content:center}.tiles{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head><body>
+<div id="bar"></div>
+
+<nav id="nav"><div class="navin">
+<a href="#hero" class="mk"><img src="landing-assets/wordmark.png" alt="Scorred" height="22"></a>
+<div class="navlinks"><a href="#features">Inside</a><a href="#problem">Why</a><a href="#access">Early Access</a><a href="Scorred Landing Page.html" style="color:var(--ink3)">Dark ↗</a></div>
+<button class="navcta" onclick="document.getElementById('access').scrollIntoView()">Get early access</button>
+</div></nav>
+
+<div class="dots" id="dots"><a href="#hero"></a><a href="#features"></a><a href="#problem"></a><a href="#access"></a></div>
+
+<!-- HERO -->
+<section id="hero">
+<div class="glow g1"></div><div class="glow g2"></div>
+<div class="wrap"><div class="herogrid">
+<div>
+<div class="pill"><span class="pulse"></span>Launching soon</div>
+<h1><span class="line"><i style="animation-delay:.05s">Your shelf,</i></span><span class="line"><i class="foil" style="animation-delay:.16s">elevated.</i></span></h1>
+<p class="sub">Every collectible you own — catalogued, valued, traded. One app for the whole hobby.</p>
+<div class="ctas"><button class="btn btn-p mag" onclick="document.getElementById('access').scrollIntoView()">Claim your beta spot</button><a class="btn btn-g" href="#features">See it →</a></div>
+</div>
+<div class="cluster" id="cluster">
+<div class="ph ph1" data-d="0.5" style="--rx:6deg;--ry:9deg;--rz:-7deg"><img src="landing-assets/myspace.png" alt="Scorred — My Space"></div>
+<div class="ph ph2" data-d="1" style="--rx:3deg;--ry:-3deg;--rz:2deg"><img src="landing-assets/market.png" alt="Scorred — Market"></div>
+<div class="ph ph3" data-d="0.7" style="--rx:5deg;--ry:-11deg;--rz:8deg"><img src="landing-assets/community.png" alt="Scorred — Community"></div>
+</div>
+</div></div>
+<div class="scrollcue"><span>Scroll</span><span class="ln"></span></div>
+</section>
+
+<div class="mq"><div class="mq__t" id="mqt"></div></div>
+
+<!-- FEATURES -->
+<section id="features" class="sect"><div class="wrap">
+<div class="shead rv"><div class="eyebrow">01 — Inside</div><h2>Four tools.<br>One shelf.</h2></div>
+<div class="cats rv"><span>Action Figures</span><span>Diecast</span><span>Model Kits &amp; Lego</span><span>Designer Toys &amp; Blind Boxes</span><span>Trading Cards (TCG)</span></div>
+<div class="fgrid">
+<div class="flist" id="flist">
+<div class="fitem" data-i="0"><div class="fnum">01</div>
+<div class="ficon"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#FF2442" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18l-2 12H5L3 6Z"/><path d="M8 10V5a4 4 0 0 1 8 0v5"/></svg></div>
+<h3>Sale &amp; Trade</h3><p>Sell it, hunt it, trade it — with vouched collectors.</p></div>
+<div class="fitem" data-i="1"><div class="fnum">02</div>
+<div class="ficon"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#FF2442" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></div>
+<h3>Database</h3><p>A collector-built catalogue of every release and variant.</p></div>
+<div class="fitem" data-i="2"><div class="fnum">03</div>
+<div class="ficon"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#FF2442" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div>
+<h3>Events</h3><p>Conventions, meets and showdowns near you.</p></div>
+<div class="fitem" data-i="3"><div class="fnum">04</div>
+<div class="ficon"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#FF2442" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.3 2.9-5.5 6.5-5.5s6.5 2.2 6.5 5.5"/><path d="M17 5.2a3.2 3.2 0 0 1 0 6"/><path d="M18.5 14.8c2 .8 3.5 2.6 3.5 5.2"/></svg></div>
+<h3>Community</h3><p>Collector-run groups. Post hauls, build a reputation.</p></div>
+</div>
+<div class="fstage"><div class="phone" id="phone"><div class="plight"></div><div class="screen">
+<div class="scr on" data-s="0"><img src="landing-assets/market.png" alt="Scorred — Market"></div>
+<div class="scr" data-s="1"><img src="landing-assets/database.png" alt="Scorred — Database"></div>
+<div class="scr" data-s="2"><img src="landing-assets/events.png" alt="Scorred — Events"></div>
+<div class="scr" data-s="3"><img src="landing-assets/community.png" alt="Scorred — Community"></div>
+</div></div></div>
+</div>
+</div></section>
+
+<!-- PROBLEM -->
+<section id="problem" class="sect"><div class="wrap">
+<div class="shead rv"><div class="eyebrow">02 — Why</div><h2>The hobby outgrew<br>the spreadsheet.</h2></div>
+<div class="tiles rv" id="tiles"></div>
+<p class="pquote rv">Your shelf lives in four apps, three group chats and a spreadsheet you stopped updating. <em>Scorred puts it back together.</em></p>
+</div></section>
+
+
+
+
+
+<!-- ACCESS -->
+<section id="access" class="sect"><div class="wrap">
+<div class="shead rv"><div class="eyebrow">03 — The ask</div><h2>Be among the<br>first collectors.</h2>
+<p>A select group of collectors gets in early, breaks things, and shapes what this becomes.</p></div>
+<div class="acards">
+<div class="card hl rv">
+<h3>Claim your beta spot</h3><p class="note">~200 places. Founding testers keep a permanent badge.</p>
+<form onsubmit="sub(event,'betaDone')">
+<div class="two"><div class="field"><label for="bn">Name</label><input id="bn" required placeholder="Your name"></div><div class="field"><label for="be">Email</label><input id="be" type="email" required placeholder="you@email.com"></div></div>
+<div class="field"><label for="bf">Collection focus</label><select id="bf" required><option value="">Pick your lane</option><option>Action Figures</option><option>Diecast</option><option>Model Kits &amp; Lego</option><option>Designer Toys &amp; Blind Boxes</option><option>Trading Cards (TCG)</option><option>A bit of everything</option></select></div>
+<div class="field"><label for="bw">Why you want in</label><textarea id="bw" placeholder="What are you collecting, and what's broken about how you do it today?"></textarea></div>
+<button class="btn btn-p" type="submit">Apply for beta access</button></form>
+<div class="done" id="betaDone"><div class="tick"><svg width="26" height="26" viewBox="0 0 24 24"><path d="M4.5 12.5l5 5 10-11"/></svg></div><div style="font-family:var(--disp);font-weight:900;font-size:23px;letter-spacing:-.03em">You're on the list.</div><p style="color:var(--ink2);font-size:14.5px;max-width:290px">We review in batches. If you're in, your invite lands before launch day.</p></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px">
+<div class="card rv" id="notify" style="transition-delay:.08s"><h3 style="font-size:22px">Just tell me when it's live</h3><p class="note">One email. Launch day. That's it.</p>
+<form class="inline" onsubmit="sub(event,'notifyDone')"><input type="email" required placeholder="you@email.com" aria-label="Email"><button class="btn btn-p" type="submit">Notify me</button></form>
+<div class="done" id="notifyDone"><div class="tick"><svg width="26" height="26" viewBox="0 0 24 24"><path d="M4.5 12.5l5 5 10-11"/></svg></div><div style="font-family:var(--disp);font-weight:900;font-size:20px;letter-spacing:-.03em">Locked in.</div></div></div>
+<div class="card rv" style="transition-delay:.16s"><div class="eyebrow">What testers get</div>
+<div class="perks"><div class="perk"><span class="bt"></span><span>Founding Contributor badge, permanently on your profile</span></div><div class="perk"><span class="bt"></span><span>First pick of your handle before public launch</span></div><div class="perk"><span class="bt"></span><span>A direct line to the team — your feedback ships</span></div></div></div>
+</div>
+</div>
+</div></section>
+
+<footer><div class="wrap"><div class="fin">
+<div><img src="landing-assets/wordmark.png" alt="Scorred" height="28" style="margin-bottom:14px">
+<div class="pill" style="margin:0"><span class="pulse"></span>Launching soon</div>
+<p style="color:var(--ink3);font-size:13.5px;margin-top:14px;max-width:260px">For the collectors, by the collectors.</p></div>
+<div style="max-width:330px;width:100%"><div class="eyebrow">Join the collector waitlist</div>
+<form class="inline" onsubmit="sub(event,'footDone')"><input type="email" required placeholder="you@email.com" aria-label="Email"><button class="btn btn-p" type="submit">Join</button>
+<div class="done" id="footDone" style="border-radius:12px"><div style="font-family:var(--disp);font-weight:900;font-size:17px;letter-spacing:-.03em;color:var(--green)">✓ You're on the list</div></div></form>
+<div class="flinks"><a href="#">Instagram</a><a href="#">Reddit</a><a href="#">Discord</a><a href="#">Contact</a></div></div>
+</div><div class="fnote"><span>© 2026 Scorred</span><span>Made by collectors, in India.</span></div></div></footer>
+
+<script>
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches, MOB=matchMedia('(max-width:980px)').matches;
+const SHOTS=['market','database','myspace','events','community','home'];
+const FSHOTS=['market','database','events','community'];
+
+// marquee
+document.getElementById('mqt').innerHTML=Array(2).fill('<span>Action Figures</span><span>Diecast</span><span>Model Kits &amp; Lego</span><span>Designer Toys</span><span>Blind Boxes</span><span>Trading Cards</span><span>Gunpla</span><span>Scale Models</span>').join('');
+// tiles
+document.getElementById('tiles').innerHTML=SHOTS.map(s=>`<div class="tile" data-d="${(Math.random()*.5+.4).toFixed(2)}"><img src="landing-assets/${s}.png" alt="Scorred app screen"></div>`).join('');
+
+// reveals
+const io=new IntersectionObserver(e=>e.forEach(x=>{if(x.isIntersecting){x.target.classList.add('in');io.unobserve(x.target)}}),{threshold:.16,rootMargin:'0px 0px -8% 0px'});
+document.querySelectorAll('.rv').forEach(el=>io.observe(el));
+
+// hero cluster: mouse + scroll parallax, 3D tilt
+const phs=[...document.querySelectorAll('.ph')];
+if(!RM){
+  let mx=0,my=0,cx=0,cy=0,sy=0;
+  addEventListener('pointermove',e=>{mx=e.clientX/innerWidth-.5;my=e.clientY/innerHeight-.5},{passive:true});
+  addEventListener('scroll',()=>{sy=scrollY},{passive:true});
+  const tick=()=>{cx+=(mx-cx)*.07;cy+=(my-cy)*.07;
+    phs.forEach(p=>{const d=+p.dataset.d,s=p.style;
+      s.transform=`translate(calc(-50% + var(--x) + ${(cx*34*d).toFixed(1)}px), ${(cy*24*d - Math.min(sy,900)*.14*d).toFixed(1)}px) rotateX(calc(var(--rx) * ${(-cy*1.4).toFixed(2)})) rotateY(calc(var(--ry) * ${(cx*1.6).toFixed(2)})) rotate(var(--rz))`});
+    // tiles drift
+    tiles.forEach(t=>{const r=t.getBoundingClientRect();if(r.top<innerHeight&&r.bottom>0){const p=(r.top+r.height/2-innerHeight/2)/innerHeight;t.style.setProperty('--dy',(p*-26*+t.dataset.d).toFixed(1)+'px')}});
+    requestAnimationFrame(tick)};
+  requestAnimationFrame(tick);
+}
+const tiles=[...document.querySelectorAll('.tile')];
+const st=document.createElement('style');st.textContent='.tiles.in .tile{transform:translateY(var(--dy,0))}';document.head.appendChild(st);
+
+// magnetic primary CTA
+if(!RM&&!MOB)document.querySelectorAll('.mag').forEach(b=>{
+  b.addEventListener('pointermove',e=>{const r=b.getBoundingClientRect();b.style.transform=`translate(${(e.clientX-r.left-r.width/2)*.22}px,${(e.clientY-r.top-r.height/2)*.34}px)`});
+  b.addEventListener('pointerleave',()=>b.style.transform='');
+});
+
+// progress + dots
+const bar=document.getElementById('bar'),nav=document.getElementById('nav');
+const secs=[...document.querySelectorAll('#hero,#features,#problem,#access')],dots=[...document.querySelectorAll('#dots a')],nls=[...document.querySelectorAll('.navlinks a')];
+function onScroll(){const max=document.documentElement.scrollHeight-innerHeight;bar.style.width=(max>0?scrollY/max*100:0)+'%';nav.classList.toggle('solid',scrollY>40);
+  let a=0;secs.forEach((s,i)=>{if(s.getBoundingClientRect().top<=innerHeight*.42)a=i});
+  dots.forEach((d,i)=>d.classList.toggle('on',i===a));const id='#'+secs[a].id;nls.forEach(x=>x.classList.toggle('on',x.getAttribute('href')===id));}
+addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+// pinned features
+const items=[...document.querySelectorAll('.fitem')],scrs=[...document.querySelectorAll('.scr')],phone=document.getElementById('phone');
+const fio=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){const i=+e.target.dataset.i;
+  items.forEach(x=>x.classList.toggle('on',+x.dataset.i===i));
+  scrs.forEach(x=>x.classList.toggle('on',+x.dataset.s===i));
+  if(phone&&!RM)phone.style.transform=`perspective(1200px) rotateY(${(i-1.5)*2.8}deg) rotate(${(i-1.5)*-.8}deg) translateY(${(i-1.5)*-7}px)`;
+}}),{threshold:.5,rootMargin:'-25% 0px -25% 0px'});
+items.forEach(i=>fio.observe(i));items[0].classList.add('on');
+if(MOB)items.forEach((it,i)=>{const d=document.createElement('div');d.className='fshot';d.innerHTML=`<img src="landing-assets/${FSHOTS[i]}.png" alt="Scorred app screen">`;it.appendChild(d)});
+
+
+
+function sub(e,id){e.preventDefault();document.getElementById(id).classList.add('on')}
+</script>
+</body></html>
