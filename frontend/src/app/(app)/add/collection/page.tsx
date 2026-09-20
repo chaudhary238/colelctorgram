@@ -26,7 +26,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Info, X } from "lucide-react";
 import { api } from "@/lib/api";
-import { BackButton } from "@/components/BackButton";
+import { DetailHeader } from "@/components/DetailHeader";
 import { CategoryChip, ProductPhoto, SectionLabel, Segmented } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
 import { fireToast, fireXpToast } from "@/components/gamification";
@@ -162,13 +162,7 @@ function AddToCollectionInner() {
     <div className="w-full max-w-[680px] flex flex-col pb-24">
       {/* Header renders THROUGH the load — the entry arrives from a client fetch, and a
           bare skeleton with no title reads as a broken page for that beat. */}
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <BackButton fallback={sku ? `/db/${encodeURIComponent(sku)}` : "/db"} />
-          {/* v8 DetailHeader type (Chrome.jsx:83-110) — 19/700 display title. */}
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em" }}>Add to collection</span>
-        </div>
-      </div>
+      <DetailHeader fallback={sku ? `/db/${encodeURIComponent(sku)}` : "/db"} title="Add to collection" />
 
       {loading ? (
         <div style={{ padding: 20 }}>

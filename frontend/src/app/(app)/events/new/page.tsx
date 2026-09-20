@@ -6,7 +6,7 @@ import { Shield, Check, Info, Plus, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiCommunity, ApiEvent } from "@/components/cards";
 import { Segmented, SectionLabel } from "@/components/ui";
-import { BackButton } from "@/components/BackButton";
+import { DetailHeader } from "@/components/DetailHeader";
 import { ImageUploader } from "@/components/ImageUploader";
 import { CityField } from "@/components/CityField";
 import { MoneyField } from "@/components/forms";
@@ -242,15 +242,7 @@ export default function CreateEventPage() {
     <div className="w-full max-w-[680px] flex flex-col pb-32">
       {/* v8 — back-arrow pop (not X→/events) and NO header Submit pill: the single CTA
           lives in the sticky footer. */}
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <BackButton fallback="/events" />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>List an event</div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Reviewed before it goes live</div>
-          </div>
-        </div>
-      </div>
+      <DetailHeader fallback="/events" title="List an event" subtitle="Reviewed before it goes live" />
 
       <div style={{ padding: "4px 20px 16px" }}>
         {draftRestored && (

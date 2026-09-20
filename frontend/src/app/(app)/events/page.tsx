@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Calendar, Filter, Plus, MapPin, Search, Star, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiEvent, EventCard } from "@/components/cards";
-import { BackButton } from "@/components/BackButton";
+import { DetailHeader } from "@/components/DetailHeader";
 import { Segmented, SectionLabel, EmptyNote, Tag, ProductPhoto, CategoryChip, Badge, Button } from "@/components/ui";
 import { useUser } from "@/lib/auth-context";
 import { ADD_CATEGORIES } from "@/lib/catalog";
@@ -158,16 +158,11 @@ export default function EventsPage() {
       <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--slate-200)]" style={{ padding: "12px 16px 10px" }}>
         {/* row 0: back (mobile-only) + title. DV7-02 — Events lost its bottom-nav tab
             to Database, so on mobile it's a pushed screen off the AppBar calendar icon
-            and carries its own back affordance (R-06 pattern). v8 keeps the title
-            visible at EVERY width, so only the back arrow is width-gated.
-            v8 Sep-20 (Chrome.jsx DetailHeader centerTitle) — the title now matches the
-            tab roots' AppBar treatment: 24/800/-0.03em, centred between the back arrow
-            and an equal-width spacer. Desktop has no back arrow, so it stays left there
-            (pages are left-aligned, WEB_UI_GUIDELINES). */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <span className="lg:hidden" style={{ display: "flex", flexShrink: 0 }}><BackButton fallback="/feed" /></span>
-          <span className="flex-1 min-w-0 truncate text-center lg:text-left" style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>Events</span>
-          <span className="lg:hidden" aria-hidden style={{ width: 36, flexShrink: 0 }} />
+            and carries its own back affordance (R-06 pattern).
+            v8 Sep-20 — centerTitle: the title matches the tab roots' AppBar treatment.
+            sticky={false}: this block (title + search + tabs) is the sticky unit. */}
+        <div style={{ marginBottom: 10 }}>
+          <DetailHeader sticky={false} fallback="/feed" title="Events" centerTitle mobileOnlyBack />
         </div>
         {/* row 1: search + list button (v8 EventsView metrics) */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
@@ -285,9 +280,19 @@ export default function EventsPage() {
         </div>
       ) : (
         // My Events (hosting)
-        // QA follow-up 2026-09-13 — no in-tab "List an event" CTA: the header
-        // button is always visible right above it, so the duplicate read as noise.
         <div style={{ padding: "16px 20px 28px" }}>
+          {/* v8 EventsView:154-161 — full-width red "List an event" leads the tab.
+              (Founder 2026-09-20: v8 wins — reverses the QA 2026-09-13 removal.) */}
+          <Link
+            href="/events/new"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 46,
+              borderRadius: 14, background: "var(--stamp-red)", color: "#fff", border: "none", whiteSpace: "nowrap",
+              textDecoration: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 14.5, marginBottom: 16,
+            }}
+          >
+            <Plus size={18} />List an event
+          </Link>
           {mineLoading && mine === null ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
               {Array.from({ length: 2 }).map((_, i) => <div key={i} style={{ height: 96, borderRadius: 16, background: "var(--bone)" }} />)}

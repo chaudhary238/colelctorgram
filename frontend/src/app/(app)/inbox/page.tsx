@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { useRealtime } from "@/lib/realtime";
 import { timeAgo } from "@/lib/utils";
 import { Avatar } from "@/components/ui";
-import { BackButton } from "@/components/BackButton";
+import { DetailHeader } from "@/components/DetailHeader";
 
 interface ThreadUser {
   id: string;
@@ -59,10 +59,7 @@ export default function InboxPage() {
       {/* v8 InboxView is a PUSHED screen (Chat.jsx:9, DetailHeader "Messages") — the
           sticky header carries a back affordance (DV8 §10#1); no unread sub, no action.
           BottomNav stays visible on mobile (deliberate — /inbox keeps its tabs). */}
-      <div className="sticky top-0 z-10 flex items-center gap-2.5 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "12px 20px" }}>
-        <BackButton fallback="/feed" />
-        <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, letterSpacing: "-0.025em", margin: 0 }}>Messages</h1>
-      </div>
+      <DetailHeader fallback="/feed" title="Messages" style={{ padding: "12px 20px" }} />
 
       <div style={{ paddingBottom: 24 }}>
         {loading

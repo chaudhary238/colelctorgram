@@ -8,6 +8,7 @@ import { ApiCommunity } from "@/components/cards";
 import { EmptyNote, Button, Segmented, SectionLabel } from "@/components/ui";
 import { CommunityCard } from "@/components/cards";
 import { ADD_CATEGORIES } from "@/lib/catalog";
+import { fireToast } from "@/components/gamification";
 
 // v4 CommunityView filter maps the global CATEGORIES with chipLabel (incl. TCG).
 // ADD_CATEGORIES is that 5-category list in v4 order. Kept in lockstep.
@@ -89,12 +90,18 @@ function CommunityPageInner() {
   const clearSheet = () => { setDraftCats([]); setDraftSort("members"); };
   const activeFilterCount = cats.length + (sort !== "members" ? 1 : 0);
 
-  const togglePin = (id: string) =>
-    setPins((ps) => {
-      const next = ps.includes(id) ? ps.filter((x) => x !== id) : [id, ...ps];
-      try { localStorage.setItem(PIN_KEY, JSON.stringify(next)); } catch { /* ignore */ }
-      return next;
-    });
+  // v8 Sep-20 (Nav.jsx PIN_LIMIT) — at most 3 pins; a blocked 4th explains itself.
+  const PIN_LIMIT = 3;
+  const togglePin = (id: string) => {
+    const has = pins.includes(id);
+    if (!has && pins.length >= PIN_LIMIT) {
+      fireToast("You can pin up to 3 communities — unpin one first");
+      return;
+    }
+    const next = has ? pins.filter((x) => x !== id) : [id, ...pins];
+    try { localStorage.setItem(PIN_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+    setPins(next);
+  };
 
   useEffect(() => {
     const pinned = loadPins();
@@ -112,8 +119,9 @@ function CommunityPageInner() {
       (c) => (c.is_member || c.is_founder) && (cats.length === 0 || cats.includes(c.category)),
     );
     const isPinned = (c: ApiCommunity) => pins.includes(c.id);
-    // Kept divergence from v8: pins still float above everything; the sheet's sort
-    // orders within each band — pinned and unpinned alike.
+    // v8-canonical since Sep-20 (CommunityView pinFn — the prototype adopted our QA2
+    // pins): pinned float above everything; the sheet's sort orders within each
+    // band — pinned and unpinned alike.
     const pinnedCards = (pins.map((id) => ours.find((c) => c.id === id)).filter(Boolean) as ApiCommunity[])
       .sort(SORT_FNS[sort]);
     const rest = ours.filter((c) => !isPinned(c)).sort(SORT_FNS[sort]);
@@ -217,13 +225,15 @@ function CommunityPageInner() {
             {results.length} result{results.length !== 1 ? "s" : ""} for &ldquo;{q}&rdquo;
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {results.map((c) => <CommunityCard key={c.id} community={c} />)}
+            {/* Joined communities surfacing in search still carry their pin control
+                (the card only renders it for members). */}
+            {results.map((c) => <CommunityCard key={c.id} community={c} pinned={pins.includes(c.id)} onTogglePin={() => togglePin(c.id)} />)}
           </div>
           {results.length === 0 && <EmptyNote>No communities match &ldquo;{q}&rdquo;.</EmptyNote>}
         </div>
       ) : tab === "joined" ? (
         /* v8 :86-91 — a plain card list; no section headers, no helper prose.
-           Pin-first ordering (the kept divergence) is already baked into `mine`. */
+           Pin-first ordering (v8 pinFn) is already baked into `mine`. */
         <div style={{ padding: "18px 16px 32px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {mine.map((c) => (
@@ -242,7 +252,7 @@ function CommunityPageInner() {
       ) : (
         <div style={{ padding: "18px 16px 32px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {discover.map((c) => <CommunityCard key={c.id} community={c} />)}
+            {discover.map((c) => <CommunityCard key={c.id} community={c} pinned={pins.includes(c.id)} onTogglePin={() => togglePin(c.id)} />)}
             {/* v8 (CommunityView.jsx:97) exact copy for both Discover empties. */}
             {discover.length === 0 && (
               <EmptyNote>

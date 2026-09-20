@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { Heart, MessageCircle, Share2, Bookmark, Flag } from "lucide-react";
 import { api } from "@/lib/api";
 import { ApiPost, ActionBtn, AuthorLine, PollBlock, CommentThread, ISOCard, PostImages, refTone } from "@/components/cards";
-import { BackButton } from "@/components/BackButton";
+import { DetailHeader } from "@/components/DetailHeader";
 import { ReportSheet } from "@/components/ReportSheet";
 import { ShareSheet } from "@/components/ShareSheet";
 import { useUser } from "@/lib/auth-context";
@@ -114,24 +114,21 @@ export default function PostDetailPage() {
 
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-20">
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <BackButton fallback="/feed" />
-          {/* v8 PostDetail — ISO posts read "Wanted" in the header.
-              Title 19/700 display (v8 Chrome.jsx:83 DetailHeader); 20px gutters stay. */}
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em", lineHeight: 1.15, flex: 1 }}>{post.type === "iso" ? "Wanted" : "Post"}</span>
-          {user?.id !== post.user_id && (
-            /* W-48 — report entry point on post detail */
-            <button
-              onClick={() => setReporting(true)}
-              aria-label="Report post"
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)" }}
-            >
-              <Flag size={17} />
-            </button>
-          )}
-        </div>
-      </div>
+      {/* v8 PostDetail — ISO posts read "Wanted" in the header. */}
+      <DetailHeader
+        fallback="/feed"
+        title={post.type === "iso" ? "Wanted" : "Post"}
+        trailing={user?.id !== post.user_id && (
+          /* W-48 — report entry point on post detail */
+          <button
+            onClick={() => setReporting(true)}
+            aria-label="Report post"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)" }}
+          >
+            <Flag size={17} />
+          </button>
+        )}
+      />
       {reporting && (
         <ReportSheet targetType="post" targetId={post.id} title="Report post" onClose={() => setReporting(false)} />
       )}

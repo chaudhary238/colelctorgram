@@ -21,7 +21,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Check } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
-import { BackButton } from "@/components/BackButton";
+import { DetailHeader } from "@/components/DetailHeader";
 import { ProductPhoto, SectionLabel, Tag } from "@/components/ui";
 import { fireToast, fireXpToast } from "@/components/gamification";
 import { conditionsFor, conditionLabel, buildPoEta, MONTH_FULL, PO_MONTHS, PO_YEARS, type PoPrecision } from "@/lib/catalog";
@@ -193,15 +193,7 @@ function FinishItemsInner() {
     return (
       <div className="w-full flex flex-col pb-10">
         {/* v8 gives this state a DetailHeader too — "Nothing to finish". */}
-        <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <BackButton fallback="/profile" />
-            {/* v8 DetailHeader type — 19/700 display title. */}
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em" }}>
-              {done > 0 ? "Finish your items" : "Nothing to finish"}
-            </div>
-          </div>
-        </div>
+        <DetailHeader fallback="/profile" title={done > 0 ? "Finish your items" : "Nothing to finish"} />
         <div style={{ padding: "40px 24px", textAlign: "center" }}>
           <Check size={30} style={{ color: "var(--forest)", margin: "0 auto" }} />
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, marginTop: 12 }}>
@@ -273,21 +265,11 @@ function FinishItemsInner() {
 
   return (
     <div className="w-full flex flex-col">
-      {/* header */}
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <BackButton fallback="/profile" />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {/* v8 DetailHeader type (Chrome.jsx:83-110) — 19/700 title, 12 faint subtitle. */}
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em" }}>
-              {singleId ? "Item details" : "Finish your items"}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-              {singleId ? titleOf(item) : `${idx + 1} of ${queue.length} · +20 XP each`}
-            </div>
-          </div>
-        </div>
-      </div>
+      <DetailHeader
+        fallback="/profile"
+        title={singleId ? "Item details" : "Finish your items"}
+        subtitle={singleId ? titleOf(item) : `${idx + 1} of ${queue.length} · +20 XP each`}
+      />
 
       {/* progress — the unfinished bar is the pull */}
       {!singleId && (

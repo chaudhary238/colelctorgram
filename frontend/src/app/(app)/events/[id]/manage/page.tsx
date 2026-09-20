@@ -7,7 +7,7 @@ import { Clock, Calendar, MapPin, Globe, ChevronRight, X, Pencil, Share2, Messag
 import { api } from "@/lib/api";
 import { ApiEvent } from "@/components/cards";
 import { Avatar, ConfirmDialog, SectionLabel, EmptyNote, Segmented } from "@/components/ui";
-import { BackButton } from "@/components/BackButton";
+import { DetailHeader } from "@/components/DetailHeader";
 import { ImageUploader } from "@/components/ImageUploader";
 import { CityField } from "@/components/CityField";
 import { MoneyField } from "@/components/forms";
@@ -278,20 +278,16 @@ export default function EventManagePage() {
 
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-10">
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <BackButton fallback={`/events/${id}`} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>{pending ? "Pending approval" : "Manage event"}</div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{event.title}</div>
-          </div>
-          {!pending && (
-            <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: shared ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer", flexShrink: 0 }}>
-              <Share2 size={17} />
-            </button>
-          )}
-        </div>
-      </div>
+      <DetailHeader
+        fallback={`/events/${id}`}
+        title={pending ? "Pending approval" : "Manage event"}
+        subtitle={event.title}
+        trailing={!pending && (
+          <button onClick={share} title={shared ? "Link copied" : "Share"} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border)", color: shared ? "var(--stamp-red)" : "var(--ink)", background: "none", cursor: "pointer", flexShrink: 0 }}>
+            <Share2 size={17} />
+          </button>
+        )}
+      />
 
       <div style={{ padding: "16px 20px" }}>
         {pending && (

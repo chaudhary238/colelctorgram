@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { fireToast, fireXpToast } from "@/components/gamification";
 import { BackButton } from "@/components/BackButton";
+import { DetailHeader } from "@/components/DetailHeader";
 import { ReportCatalogueSheet } from "@/components/ReportCatalogueSheet";
 import { Tag } from "@/components/ui";
 import { ItemPageBody, type RatingAggregate } from "@/components/ItemPageBody";
@@ -128,12 +129,7 @@ export default function DbEntryPage() {
   if (notFound || !entry) {
     return (
       <div className="w-full max-w-[680px] flex flex-col">
-        <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <BackButton fallback="/db" />
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Scorred DB</span>
-          </div>
-        </div>
+        <DetailHeader fallback="/db" title="Scorred DB" />
         <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--ink-faint)", fontSize: 14 }}>
           This entry doesn&rsquo;t exist or was removed.
         </div>

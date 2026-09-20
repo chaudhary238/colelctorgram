@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Camera, Check, Clock, Image as ImageIcon, Pencil, X, Shield } from "lucide-react";
 import { api } from "@/lib/api";
-import { BackButton } from "@/components/BackButton";
+import { DetailHeader } from "@/components/DetailHeader";
 import { PostImages, type ApiCommunity } from "@/components/cards";
 import { Avatar, Button, Segmented, SectionLabel, EmptyNote, PostTypeTag } from "@/components/ui";
 import { fireToast } from "@/components/gamification";
@@ -529,17 +529,9 @@ export default function CommunityManagePage() {
           </div>
         </>
       )}
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* A history POP, not a push — the old Link href={detail} stacked a fresh
-              detail entry, so detail's own back then returned HERE (a loop). */}
-          <BackButton fallback={`/community/${id}`} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Manage community</div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{community.name}</div>
-          </div>
-        </div>
-      </div>
+      {/* Back is a history POP, not a push — the old Link href={detail} stacked a fresh
+          detail entry, so detail's own back then returned HERE (a loop). */}
+      <DetailHeader fallback={`/community/${id}`} title="Manage community" subtitle={community.name} />
 
       {/* #31 (v8 :113-120) — a pending community still lets its admin edit details,
           but nothing else moves until the platform approves it. */}

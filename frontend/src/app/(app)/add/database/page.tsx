@@ -29,7 +29,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, Info, PlusCircle, X } from "lucide-react";
 import { api } from "@/lib/api";
-import { BackButton } from "@/components/BackButton";
+import { DetailHeader } from "@/components/DetailHeader";
 import { ProductPhoto, SectionLabel } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
 import { SuggestInput } from "@/components/SuggestInput";
@@ -148,13 +148,7 @@ export default function AddToDatabasePage() {
     const dbHref = done.sku ? `/db/${encodeURIComponent(done.sku)}` : `/item/${done.itemId}`;
     return (
       <div className="w-full max-w-[680px] flex flex-col">
-        <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <BackButton fallback="/db" />
-            {/* v8 DetailHeader type (Chrome.jsx:83-110) — 19/700 display title. */}
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em" }}>Add to database</span>
-          </div>
-        </div>
+        <DetailHeader fallback="/db" title="Add to database" />
         <div style={{ padding: "32px 24px", textAlign: "center" }}>
           <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--bone)", border: "1px solid var(--border-strong)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
             <Clock size={26} style={{ color: "var(--ink-faint)" }} />
@@ -206,16 +200,7 @@ export default function AddToDatabasePage() {
   // ── Form ────────────────────────────────────────────────────────────────────
   return (
     <div className="w-full max-w-[680px] flex flex-col">
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <BackButton fallback="/db" />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {/* v8 DetailHeader type (Chrome.jsx:83-110) — 19/700 title, 12 faint subtitle. */}
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em" }}>Add to database</div>
-            <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>Shared catalogue entry</div>
-          </div>
-        </div>
-      </div>
+      <DetailHeader fallback="/db" title="Add to database" subtitle="Shared catalogue entry" />
 
       <div style={{ padding: 20 }}>
         <Req missing={missTitle} tried={tried}>Title</Req>

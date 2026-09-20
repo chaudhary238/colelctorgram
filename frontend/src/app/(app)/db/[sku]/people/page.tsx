@@ -17,7 +17,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { BackButton } from "@/components/BackButton";
+import { DetailHeader } from "@/components/DetailHeader";
 import { Avatar, EmptyNote } from "@/components/ui";
 import { fireToast } from "@/components/gamification";
 
@@ -77,19 +77,12 @@ function DbPeopleInner() {
 
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-8">
-      {/* v8 DetailHeader — title with a "{item} · {count}" subtitle under it */}
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <BackButton fallback={`/db/${encodeURIComponent(sku)}`} />
-          {/* DV8 §3#20 — v8 DetailHeader type: title 19/700, subtitle 12 (Chrome.jsx:83-110) */}
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em", lineHeight: 1.2 }}>{heading}</div>
-            <div style={{ fontSize: 12, color: "var(--ink-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {title || "…"}{people ? ` · ${people.length}` : ""}
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* v8 DetailHeader — title with a "{item} · {count}" subtitle under it (DV8 §3#20) */}
+      <DetailHeader
+        fallback={`/db/${encodeURIComponent(sku)}`}
+        title={heading}
+        subtitle={<>{title || "…"}{people ? ` · ${people.length}` : ""}</>}
+      />
 
       <div style={{ padding: "8px 0 24px" }}>
         {people === null ? (

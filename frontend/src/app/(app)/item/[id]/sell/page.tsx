@@ -36,7 +36,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Tag as TagIcon, Shield, X, PlusCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
-import { BackButton } from "@/components/BackButton";
+import { DetailHeader } from "@/components/DetailHeader";
 import { ConfirmDialog, ProductPhoto, SectionLabel, Tag, CategoryChip } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
 import { MoneyField } from "@/components/forms";
@@ -328,18 +328,9 @@ export default function EditItemPage() {
 
   return (
     <div className="w-full max-w-[680px] flex flex-col">
-      {/* v8 DetailHeader (Chrome.jsx:83-117) — 19/700 display title, 12 faint subtitle
-          showing the item's CATEGORY, not its title. */}
-      <div className="sticky top-0 z-10 bg-[var(--paper)] border-b border-[var(--border)]" style={{ padding: "10px 16px 14px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <BackButton fallback={`/item/${id}`} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, letterSpacing: "-0.02em", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Edit item</div>
-            <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 1 }}>{catLabel}</div>
-          </div>
-          {/* ONE CTA — the sticky footer below (DV8); the duplicate header Save is gone. */}
-        </div>
-      </div>
+      {/* Subtitle shows the item's CATEGORY, not its title. ONE CTA — the sticky
+          footer below (DV8); the duplicate header Save is gone. */}
+      <DetailHeader fallback={`/item/${id}`} title="Edit item" subtitle={catLabel} style={{ padding: "10px 16px 14px" }} />
 
       {blocked ? (
         <div style={{ padding: "32px 20px", textAlign: "center" }}>

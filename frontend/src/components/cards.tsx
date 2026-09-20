@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Heart, MessageCircle, Share2, Bookmark, Star, Send, Calendar, MapPin, Clock,
-  MessageSquare, Shield, Tag as TagIcon, Pencil, Trash2, Pin,
-  ChevronRight, X,
+  MessageSquare, Shield, Tag as TagIcon, Pencil, Trash2, Pin, Plus, UserPlus,
+  Settings2, ChevronRight, X,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
@@ -1876,22 +1876,27 @@ export function CommunityCard({ community, pinned, onTogglePin }: {
   }
 
   const toneBg = toneVar(community.tone || "plum");
-  const fresh = community.recent_post_count ?? 0;
   const joinLabel = isRequested ? "Requested" : community.is_invite_only ? "Request" : "Join";
-  // v8 Cards.jsx:705-706 — role keys off member_role: ANY manage role (founder /
-  // granted admin / mod) gets the badge, not just the founder. is_founder is the
-  // safety net for rows whose membership record predates the role column or
-  // drifted (a founder must NEVER lose the Manage door over data drift).
+  // role keys off member_role: ANY manage role (founder / granted admin / mod)
+  // manages, not just the founder. is_founder is the safety net for rows whose
+  // membership record predates the role column or drifted (a founder must NEVER
+  // lose the Manage door over data drift).
   const role = community.member_role;
   const manages = community.is_founder || role === "founder" || role === "admin" || role === "mod";
-  // v8 25-Aug polish — the badge row renders ONLY when a badge exists (no reserved gap).
-  const hasBadges = manages || fresh > 0 || community.is_invite_only
-    || community.status === "pending" || community.status === "closed" || isRequested;
-  // Fixed minimum width keeps Join / Request / Requested / Open aligned (v8 :735 — 84).
-  const ctaStyle: React.CSSProperties = { minWidth: 84, justifyContent: "center" };
+  // v8 Sep-20 card rebuild — the text-badge row is GONE (role/new/Private/Pending/
+  // Closed/Requested). Privacy moved into the meta row; the rest compresses into
+  // tiny 18px status pins (max 3) so the name column stays wide enough to read.
+  // v8 models only pending→clock; ⚖ closed keeps a neutral pin (members still see
+  // closed communities here, and an unmarked card would hide that).
+  const statusPins = [
+    community.status === "pending" && { Icon: Clock, color: "var(--grail-gold-deep)", bg: "var(--grail-gold-soft)" },
+    community.status === "closed" && { Icon: X, color: "var(--ink-mute)", bg: "var(--bone)" },
+  ].filter(Boolean).slice(0, 3) as { Icon: typeof Clock; color: string; bg: string }[];
 
   return (
-    <div style={{ display: "flex", gap: 14, alignItems: "center", background: "var(--card-surface)", border: `1px solid ${pinned ? "var(--stamp-red)" : "var(--slate-200)"}`, borderRadius: 16, padding: 14, boxShadow: "var(--card-shadow)" }}>
+    /* v8 Sep-20 — the card border stays slate at all times now; "pinned" reads off
+       the red pin button, not a red card outline. */
+    <div style={{ display: "flex", gap: 14, alignItems: "center", background: "var(--card-surface)", border: "1px solid var(--slate-200)", borderRadius: 16, padding: 14, boxShadow: "var(--card-shadow)" }}>
       <Link href={`/community/${community.id}`} className="shrink-0">
         {/* QA #30 — the creator's photo IS the icon when set (same pattern as the
             community detail header); the tone square + initials stay the fallback. */}
@@ -1913,55 +1918,65 @@ export function CommunityCard({ community, pinned, onTogglePin }: {
           )}
         </div>
       </Link>
-      <Link href={`/community/${community.id}`} style={{ flex: 1, minWidth: 0, textDecoration: "none" }}>
-        <div style={{ fontWeight: 700, fontSize: 14.5, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{community.name}</div>
-        {/* v8 25-Aug polish — badges on their own conditional row: no reserved empty
-            space under the name when a public community carries no badge at all. */}
-        {hasBadges && (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
-            {/* v8 Cards.jsx:730 — teal role badge for every manage role; "Founder"
-                displays as "Admin" (DV8-15), mods read "Mod". */}
-            {manages && <Badge variant="teal">{role === "mod" ? "Mod" : "Admin"}</Badge>}
-            {fresh > 0 && <Badge variant="default">{fresh} new</Badge>}
-            {community.is_invite_only && <Badge variant="secondary">Private</Badge>}
-            {/* v8 Cards.jsx:728 — secondary "Pending review", not a warning tone. */}
-            {community.status === "pending" && <Badge variant="secondary">Pending review</Badge>}
-            {/* DV8 close — members still see closed communities in "Your communities". */}
-            {community.status === "closed" && <Badge variant="secondary">Closed</Badge>}
-            {isRequested && <Badge variant="secondary">Requested</Badge>}
+      {/* v8 Sep-20 — 2-line clamped name over a members + Public/Private meta row;
+          status pins trail the name column. The body Link is the ONLY open target
+          now (the wide Open CTA is gone). */}
+      <Link href={`/community/${community.id}`} style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 14.5, color: "var(--ink)", lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{community.name}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+            <span style={{ fontSize: 11.5, color: "var(--slate-400)", fontFamily: "var(--font-mono)" }}>{community.member_count.toLocaleString("en-IN")} members</span>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.02em", padding: "1.5px 6px", borderRadius: 5, textTransform: "uppercase", color: community.is_invite_only ? "var(--ink-faint)" : "var(--forest)", background: community.is_invite_only ? "var(--bone)" : "var(--forest-soft)" }}>
+              {community.is_invite_only ? "Private" : "Public"}
+            </span>
+          </div>
+        </div>
+        {statusPins.length > 0 && (
+          <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+            {statusPins.map((p, i) => (
+              <span key={i} style={{ width: 18, height: 18, borderRadius: 999, background: p.bg, color: p.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <p.Icon size={10} strokeWidth={2.4} />
+              </span>
+            ))}
           </div>
         )}
-        {/* QA #11 full v8 revert (founder 2026-09-13) — the card body is name →
-            badges → ONE members line (Cards.jsx:733); the description line and
-            icon stat row are gone, so the card is back to v8's 3-line height. */}
-        <div style={{ fontSize: 11.5, color: "var(--slate-400)", fontFamily: "var(--font-mono)", marginTop: 4 }}>
-          {community.member_count.toLocaleString("en-IN")} members
-        </div>
       </Link>
-      {/* QA2 — pin to keep a community at the top of "Joined" (client-only, localStorage — no DB cost) */}
-      {onTogglePin && (
+      {/* v8 Sep-20 — trailing controls are 30px round icon buttons: manage cog for
+          admins/mods, pin for members, a join glyph for everyone else. (Retires the
+          2026-09-10 "CTA is always Open" ruling — v8 wins; opening IS the card body.) */}
+      {manages && (
+        <Link
+          href={`/community/${community.id}/manage`}
+          title="Manage community"
+          aria-label="Manage community"
+          style={{ width: 30, height: 30, borderRadius: 999, flexShrink: 0, border: "1px solid var(--slate-200)", background: "var(--bone)", color: "var(--ink-mute)", display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <Settings2 size={14} strokeWidth={2.2} />
+        </Link>
+      )}
+      {/* Pin floats a community to the top of "Your communities" (max 3 — the page
+          enforces the limit + toast). Client-only localStorage, v8-canonical since
+          Sep-20 (the prototype adopted our QA2 pins). */}
+      {isMember && onTogglePin && (
         <button
           onClick={onTogglePin}
-          title={pinned ? "Unpin" : "Pin to top"}
+          title={pinned ? "Unpin" : "Pin to top (max 3)"}
           aria-label={pinned ? "Unpin community" : "Pin community to top"}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 10, flexShrink: 0, cursor: "pointer", border: `1px solid ${pinned ? "var(--stamp-red)" : "var(--slate-200)"}`, background: pinned ? "var(--stamp-red-soft)" : "transparent", color: pinned ? "var(--stamp-red)" : "var(--slate-400)" }}
+          style={{ width: 30, height: 30, borderRadius: 999, flexShrink: 0, cursor: "pointer", border: `1px solid ${pinned ? "var(--stamp-red)" : "var(--slate-200)"}`, background: pinned ? "var(--stamp-red-soft)" : "var(--bone)", color: pinned ? "var(--stamp-red)" : "var(--ink-faint)", display: "flex", alignItems: "center", justifyContent: "center" }}
         >
-          <Pin size={15} fill={pinned ? "currentColor" : "none"} />
+          <Pin size={13} strokeWidth={2.4} fill={pinned ? "currentColor" : "none"} />
         </button>
       )}
-      {/* v8 Cards.jsx:734-736 — EVERY member's CTA is a plain "Open", manage roles
-          included (founder call 2026-09-10, reverting our earlier Manage-CTA
-          divergence): the teal role badge says what you are, and managing lives
-          INSIDE the community (Open → "Manage community" in the detail header).
-          The CTA is a Link into the community, NOT a leave toggle. */}
-      {isMember ? (
-        <Link href={`/community/${community.id}`} style={{ textDecoration: "none", flexShrink: 0 }}>
-          <Button size="sm" variant="secondary" style={ctaStyle}>Open</Button>
-        </Link>
-      ) : (
-        <Button size="sm" variant={isRequested ? "secondary" : "dark"} onClick={toggleJoin} disabled={busy} style={ctaStyle}>
-          {joinLabel}
-        </Button>
+      {!isMember && (
+        <button
+          onClick={toggleJoin}
+          disabled={busy}
+          title={joinLabel}
+          aria-label={joinLabel}
+          style={{ width: 30, height: 30, borderRadius: 999, flexShrink: 0, cursor: "pointer", border: `1px solid ${isRequested ? "var(--slate-200)" : "var(--ink)"}`, background: isRequested ? "var(--bone)" : "var(--ink)", color: isRequested ? "var(--ink-faint)" : "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", opacity: busy ? 0.5 : 1 }}
+        >
+          {isRequested ? <Clock size={14} strokeWidth={2.4} /> : community.is_invite_only ? <UserPlus size={14} strokeWidth={2.4} /> : <Plus size={14} strokeWidth={2.4} />}
+        </button>
       )}
     </div>
   );
