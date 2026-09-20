@@ -159,14 +159,22 @@ export default function EventsPage() {
         {/* row 0: back (mobile-only) + title. DV7-02 — Events lost its bottom-nav tab
             to Database, so on mobile it's a pushed screen off the AppBar calendar icon
             and carries its own back affordance (R-06 pattern). v8 keeps the title
-            visible at EVERY width, so only the back arrow is width-gated. */}
+            visible at EVERY width, so only the back arrow is width-gated.
+            v8 Sep-20 (Chrome.jsx DetailHeader centerTitle) — the title now matches the
+            tab roots' AppBar treatment: 24/800/-0.03em, centred between the back arrow
+            and an equal-width spacer. Desktop has no back arrow, so it stays left there
+            (pages are left-aligned, WEB_UI_GUIDELINES). */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <span className="lg:hidden" style={{ display: "flex" }}><BackButton fallback="/feed" /></span>
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, letterSpacing: "-0.02em" }}>Events</span>
+          <span className="lg:hidden" style={{ display: "flex", flexShrink: 0 }}><BackButton fallback="/feed" /></span>
+          <span className="flex-1 min-w-0 truncate text-center lg:text-left" style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em" }}>Events</span>
+          <span className="lg:hidden" aria-hidden style={{ width: 36, flexShrink: 0 }} />
         </div>
         {/* row 1: search + list button (v8 EventsView metrics) */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, height: 40, padding: "0 12px", borderRadius: 12, border: "1px solid var(--slate-200)", background: "var(--card-surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          {/* v8 Sep-20 — minWidth 0 on the CONTAINER too: a flex child's min-width
+              defaults to its content, so the field couldn't shrink and the row
+              overflowed at narrow widths. */}
+          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8, height: 40, padding: "0 12px", borderRadius: 12, border: "1px solid var(--slate-200)", background: "var(--card-surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
             <Search size={16} style={{ color: "var(--slate-400)", flexShrink: 0 }} />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search events…" style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)" }} />
             {q && <button onClick={() => setQ("")} style={{ background: "none", border: "none", padding: 2, cursor: "pointer", color: "var(--slate-400)", display: "flex" }}><X size={14} strokeWidth={2} /></button>}
@@ -180,7 +188,8 @@ export default function EventsPage() {
               {activeFilterCount > 0 && <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700 }}>{activeFilterCount}</span>}
             </button>
           </div>
-          <Link href="/events/new" style={{ display: "flex", alignItems: "center", gap: 6, height: 40, padding: "0 13px", borderRadius: 12, border: "none", background: "var(--slate-900)", color: "var(--paper)", textDecoration: "none", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, flexShrink: 0, whiteSpace: "nowrap" }}>
+          {/* v8 Sep-20 — stamp-red now (was slate-900): create verbs are red app-wide. */}
+          <Link href="/events/new" style={{ display: "flex", alignItems: "center", gap: 6, height: 40, padding: "0 13px", borderRadius: 12, border: "none", background: "var(--stamp-red)", color: "#fff", textDecoration: "none", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13, flexShrink: 0, whiteSpace: "nowrap" }}>
             <Plus size={15} strokeWidth={2.2} />List an event
           </Link>
         </div>

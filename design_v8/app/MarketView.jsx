@@ -65,7 +65,7 @@ function MarketSearchRow({ q, onQ, placeholder, activeCount, onFilter, actionLab
 }
 
 function MarketView() {
-  const { push, setOverlay } = useNav();
+  const { push, setOverlay, goToMySpace } = useNav();
   const { userListings, saved, posts, listingStatus, unlisted } = useAppState();
   const [board, setBoard] = React.useState('sale'); // sale | wanted
 
@@ -188,7 +188,13 @@ function MarketView() {
   ];
 
   return (
-    <Screen header={<AppBar title="Market"/>}>
+    <Screen header={<AppBar title="Market" leading={
+      <button onClick={() => push({ name: 'add-listing' })} aria-label="Create listing" style={{
+        width: 40, height: 40, borderRadius: 12, border: 'none', background: 'var(--stamp-red)', color: '#fff',
+        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(199,42,42,0.28)' }}>
+        <Ico d={Icons.plus} size={20} stroke={2.4}/>
+      </button>
+    }/>}>
 
       {/* ── Sticky header ── */}
       <div style={{ position: 'sticky', top: 0, zIndex: 4, background: 'var(--paper)', borderBottom: '1px solid var(--slate-200)' }}>
@@ -217,7 +223,7 @@ function MarketView() {
           <MarketSearchRow q={query} onQ={setQuery} placeholder="Search listings, brands, sellers…"
             activeCount={activeCount} onFilter={() => setShowFilter(v => !v)}
             actionLabel="Sell item" actionIcon={Icons.tag}
-            onAction={() => push({ name: 'profile', user: 'you', isMe: true, sell: true })}/>
+            onAction={() => goToMySpace({ sell: true })}/>
         ) : (
           <MarketSearchRow q={isoQuery} onQ={setIsoQuery} placeholder="Search what collectors want…"
             activeCount={isoActiveCount} onFilter={() => setIsoFilterOpen(v => !v)}
@@ -401,7 +407,7 @@ function MarketView() {
             Pick something from your collection and flip <b style={{ color: 'var(--ink-soft)' }}>List for sale</b> — it shows up here instantly.
           </div>
           <div style={{ marginTop: 20 }}>
-            <Button variant="primary" icon={<Ico d={Icons.tag} size={17}/>} onClick={() => push({ name: 'profile', user: 'you', isMe: true, sell: true })}>Sell an item</Button>
+            <Button variant="primary" icon={<Ico d={Icons.tag} size={17}/>} onClick={() => goToMySpace({ sell: true })}>Sell an item</Button>
           </div>
         </div>
       ) : (

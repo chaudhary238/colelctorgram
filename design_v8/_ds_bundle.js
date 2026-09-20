@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"CollectorHubDesignSystemRC_293274","components":[{"name":"Button","sourcePath":"components/actions/Button.jsx"},{"name":"IconButton","sourcePath":"components/actions/IconButton.jsx"},{"name":"CategoryChip","sourcePath":"components/forms/CategoryChip.jsx"},{"name":"Input","sourcePath":"components/forms/Input.jsx"},{"name":"Segmented","sourcePath":"components/forms/Segmented.jsx"},{"name":"Avatar","sourcePath":"components/identity/Avatar.jsx"},{"name":"TierChip","sourcePath":"components/identity/TierChip.jsx"},{"name":"Badge","sourcePath":"components/labels/Badge.jsx"},{"name":"PostTypeTag","sourcePath":"components/labels/PostTypeTag.jsx"},{"name":"Stamp","sourcePath":"components/labels/Stamp.jsx"},{"name":"Tag","sourcePath":"components/labels/Tag.jsx"}],"sourceHashes":{"Scorred BRD (Aug 2026)/doc-page.js":"371bab66f42d","app/AddListing.jsx":"18601df2b8d4","app/AddToCollection.jsx":"bc0ad5cfd543","app/App.jsx":"dfb33535dbbe","app/Cards.jsx":"ea530aa03940","app/Chat.jsx":"ff7f3d8ce6b7","app/Chrome.jsx":"de6fb2884d8c","app/CommunityDetail.jsx":"819e70f4d121","app/CommunityManage.jsx":"6e7654151cf7","app/CommunityView.jsx":"ffefee774efd","app/CompleteItems.jsx":"9f6966fa00cf","app/CreateCommunity.jsx":"f2d71a560675","app/EventCreate.jsx":"607a8538ff0a","app/EventDetail.jsx":"5172de735b4c","app/EventManage.jsx":"45a23a6ca644","app/EventsView.jsx":"02ee18d30300","app/ExploreView.jsx":"e46f4ca18519","app/FeedView.jsx":"e1e8b5e9f88f","app/IOSFrame.jsx":"d67eb3ffe562","app/ItemDetail.jsx":"fbc00699a664","app/ListingView.jsx":"77ce380e06e9","app/MarketView.jsx":"8962e738b0be","app/Nav.jsx":"2152265acc35","app/Onboarding.jsx":"216043129196","app/Overlays.jsx":"ca9bb5f73535","app/PostDetail.jsx":"9966baa230ca","app/ProfileCollection.jsx":"22cb12946da5","app/ProfileEdit.jsx":"45c6eed190aa","app/ProfileSettings.jsx":"605b71559495","app/ProfileView.jsx":"64885f7bb48a","app/ReferView.jsx":"92da3a5d0078","app/Rewards.jsx":"dacf442284b3","app/data.jsx":"9e52e3ee3001","app/shared.jsx":"33720aa07989","app/tweaks-panel.jsx":"6591467622ed","components/actions/Button.jsx":"4e96ef0448a9","components/actions/IconButton.jsx":"a29b67a27746","components/forms/CategoryChip.jsx":"ca8690329cc5","components/forms/Input.jsx":"36f89ce86824","components/forms/Segmented.jsx":"e39016cc53e8","components/identity/Avatar.jsx":"8db614a890e9","components/identity/TierChip.jsx":"402864cb8957","components/labels/Badge.jsx":"6ea6fd872bde","components/labels/PostTypeTag.jsx":"e94e19dcb8bb","components/labels/Stamp.jsx":"94834e3a18ad","components/labels/Tag.jsx":"c93b07f3360d","deck-stage.js":"94b80df773e6","doc-page.js":"f52ae9c02fca","web/Web.jsx":"fe702f8240ef"},"inlinedExternals":[],"unexposedExports":[]} */
+/* @ds-bundle: {"format":4,"namespace":"CollectorHubDesignSystemRC_293274","components":[{"name":"Button","sourcePath":"components/actions/Button.jsx"},{"name":"IconButton","sourcePath":"components/actions/IconButton.jsx"},{"name":"CategoryChip","sourcePath":"components/forms/CategoryChip.jsx"},{"name":"Input","sourcePath":"components/forms/Input.jsx"},{"name":"Segmented","sourcePath":"components/forms/Segmented.jsx"},{"name":"Avatar","sourcePath":"components/identity/Avatar.jsx"},{"name":"TierChip","sourcePath":"components/identity/TierChip.jsx"},{"name":"Badge","sourcePath":"components/labels/Badge.jsx"},{"name":"PostTypeTag","sourcePath":"components/labels/PostTypeTag.jsx"},{"name":"Stamp","sourcePath":"components/labels/Stamp.jsx"},{"name":"Tag","sourcePath":"components/labels/Tag.jsx"}],"sourceHashes":{"Scorred BRD (Aug 2026)/doc-page.js":"371bab66f42d","app/AddListing.jsx":"18601df2b8d4","app/AddToCollection.jsx":"bc0ad5cfd543","app/App.jsx":"dfb33535dbbe","app/Cards.jsx":"ea530aa03940","app/Chat.jsx":"ff7f3d8ce6b7","app/Chrome.jsx":"776fe4b30aff","app/CommunityDetail.jsx":"84b9a8833fb0","app/CommunityManage.jsx":"6e7654151cf7","app/CommunityView.jsx":"c9ce83fa88b9","app/CompleteItems.jsx":"9f6966fa00cf","app/CreateCommunity.jsx":"f2d71a560675","app/EventCreate.jsx":"607a8538ff0a","app/EventDetail.jsx":"5172de735b4c","app/EventManage.jsx":"45a23a6ca644","app/EventsView.jsx":"1e43948dd87b","app/ExploreView.jsx":"f3a2447f4e1a","app/FeedView.jsx":"e1e8b5e9f88f","app/IOSFrame.jsx":"d67eb3ffe562","app/ItemDetail.jsx":"fbc00699a664","app/ListingView.jsx":"77ce380e06e9","app/MarketView.jsx":"104fc5a07594","app/Nav.jsx":"5cafb052da46","app/Onboarding.jsx":"216043129196","app/Overlays.jsx":"ca9bb5f73535","app/PostDetail.jsx":"9966baa230ca","app/ProfileCollection.jsx":"22cb12946da5","app/ProfileEdit.jsx":"45c6eed190aa","app/ProfileSettings.jsx":"605b71559495","app/ProfileView.jsx":"9b17807e5b80","app/ReferView.jsx":"92da3a5d0078","app/Rewards.jsx":"dacf442284b3","app/data.jsx":"9e52e3ee3001","app/shared.jsx":"33720aa07989","app/tweaks-panel.jsx":"6591467622ed","components/actions/Button.jsx":"4e96ef0448a9","components/actions/IconButton.jsx":"a29b67a27746","components/forms/CategoryChip.jsx":"ca8690329cc5","components/forms/Input.jsx":"36f89ce86824","components/forms/Segmented.jsx":"e39016cc53e8","components/identity/Avatar.jsx":"8db614a890e9","components/identity/TierChip.jsx":"402864cb8957","components/labels/Badge.jsx":"6ea6fd872bde","components/labels/PostTypeTag.jsx":"e94e19dcb8bb","components/labels/Stamp.jsx":"94834e3a18ad","components/labels/Tag.jsx":"c93b07f3360d","deck-stage.js":"94b80df773e6","doc-page.js":"f52ae9c02fca","web/Web.jsx":"fe702f8240ef"},"inlinedExternals":[],"unexposedExports":[]} */
 
 (() => {
 
@@ -8010,7 +8010,8 @@ function DetailHeader({
   subtitle,
   trailing,
   onBack,
-  transparent = false
+  transparent = false,
+  centerTitle = false
 }) {
   const {
     pop
@@ -8056,14 +8057,15 @@ function DetailHeader({
   })), title != null && /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
-      minWidth: 0
+      minWidth: 0,
+      textAlign: centerTitle ? 'center' : 'left'
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: 'var(--font-display)',
-      fontWeight: 700,
-      fontSize: 19,
-      letterSpacing: '-0.02em',
+      fontWeight: centerTitle ? 800 : 700,
+      fontSize: centerTitle ? 24 : 19,
+      letterSpacing: '-0.03em',
       color: 'var(--ink)',
       lineHeight: 1.15,
       overflow: 'hidden',
@@ -8076,7 +8078,12 @@ function DetailHeader({
       color: 'var(--ink-faint)',
       marginTop: 1
     }
-  }, subtitle)), trailing && /*#__PURE__*/React.createElement("div", {
+  }, subtitle)), centerTitle && /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 40,
+      flexShrink: 0
+    }
+  }), trailing && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 8,
@@ -8406,50 +8413,7 @@ function CommunityDetail({
     background: tones[com.tone] || 'var(--plum)'
   };
   return /*#__PURE__*/React.createElement(Screen, {
-    header: null,
-    footer: !locked && !pendingReview && activeTab === 'posts' && isMember && accepted ? /*#__PURE__*/React.createElement("div", {
-      style: {
-        background: 'var(--paper)',
-        borderTop: '1px solid var(--slate-200)',
-        padding: '10px 16px calc(10px + env(safe-area-inset-bottom))'
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: startCompose,
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        width: '100%',
-        height: 48,
-        padding: '0 8px 0 16px',
-        borderRadius: 14,
-        border: '1.5px solid var(--ink)',
-        background: 'var(--paper)',
-        cursor: 'pointer',
-        fontFamily: 'var(--font-body)',
-        fontSize: 14,
-        fontWeight: 600,
-        color: 'var(--ink)',
-        textAlign: 'left'
-      }
-    }, "Write something or create a post\u2026", /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginLeft: 'auto',
-        width: 34,
-        height: 34,
-        borderRadius: 10,
-        background: 'var(--ink)',
-        color: 'var(--paper)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0
-      }
-    }, /*#__PURE__*/React.createElement(Ico, {
-      d: Icons.plus,
-      size: 18,
-      stroke: 2.2
-    })))) : null
+    header: null
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'relative'
@@ -8533,7 +8497,31 @@ function CommunityDetail({
       justifyContent: 'flex-end',
       gap: 8
     }
-  }, isAdmin && /*#__PURE__*/React.createElement(Button, {
+  }, !locked && !pendingReview && isMember && accepted && /*#__PURE__*/React.createElement("button", {
+    onClick: startCompose,
+    "aria-label": "Create post",
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      height: 34,
+      padding: '0 12px 0 10px',
+      borderRadius: 10,
+      border: 'none',
+      background: 'var(--stamp-red)',
+      color: '#fff',
+      cursor: 'pointer',
+      flexShrink: 0,
+      boxShadow: '0 2px 8px rgba(199,42,42,0.28)',
+      fontFamily: 'var(--font-body)',
+      fontWeight: 700,
+      fontSize: 13
+    }
+  }, /*#__PURE__*/React.createElement(Ico, {
+    d: Icons.plus,
+    size: 16,
+    stroke: 2.4
+  }), "Post"), isAdmin && /*#__PURE__*/React.createElement(Button, {
     size: "sm",
     variant: "secondary",
     icon: /*#__PURE__*/React.createElement(Ico, {
@@ -8544,7 +8532,7 @@ function CommunityDetail({
       name: 'community-manage',
       id: com.id
     })
-  }, "Manage community", reqCount + pendCount > 0 ? ` · ${reqCount + pendCount}` : ''), !isAdmin && !pendingReview && !isMember && /*#__PURE__*/React.createElement(Button, {
+  }, "Manage", reqCount + pendCount > 0 ? ` · ${reqCount + pendCount}` : ''), !isAdmin && !pendingReview && !isMember && /*#__PURE__*/React.createElement(Button, {
     size: "sm",
     variant: requested ? 'secondary' : 'dark',
     onClick: onJoinClick
@@ -11107,7 +11095,30 @@ function CommunityView() {
   const sortedDiscover = [...filteredDiscover].sort(sortFn);
   return /*#__PURE__*/React.createElement(Screen, {
     header: /*#__PURE__*/React.createElement(AppBar, {
-      title: "Community"
+      title: "Community",
+      leading: /*#__PURE__*/React.createElement("button", {
+        onClick: () => push({
+          name: 'create-community'
+        }),
+        "aria-label": "Create community",
+        style: {
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          border: 'none',
+          background: 'var(--stamp-red)',
+          color: '#fff',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 2px 8px rgba(199,42,42,0.28)'
+        }
+      }, /*#__PURE__*/React.createElement(Ico, {
+        d: Icons.plus,
+        size: 20,
+        stroke: 2.4
+      }))
     })
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -14716,7 +14727,8 @@ function EventsView() {
   return /*#__PURE__*/React.createElement(Screen, {
     nav: false,
     header: /*#__PURE__*/React.createElement(DetailHeader, {
-      title: "Events"
+      title: "Events",
+      centerTitle: true
     })
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -14737,6 +14749,7 @@ function EventsView() {
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
+      minWidth: 0,
       display: 'flex',
       alignItems: 'center',
       gap: 8,
@@ -14818,11 +14831,11 @@ function EventsView() {
       padding: '0 13px',
       borderRadius: 12,
       border: 'none',
-      background: 'var(--slate-900)',
-      color: 'var(--paper)',
+      background: 'var(--stamp-red)',
+      color: '#fff',
       cursor: 'pointer',
       fontFamily: 'var(--font-body)',
-      fontWeight: 600,
+      fontWeight: 700,
       fontSize: 13,
       flexShrink: 0,
       whiteSpace: 'nowrap'
@@ -15010,12 +15023,13 @@ function EventsView() {
       width: '100%',
       height: 46,
       borderRadius: 14,
-      background: 'var(--slate-900)',
-      color: 'var(--paper)',
+      background: 'var(--stamp-red)',
+      color: '#fff',
       border: 'none',
+      whiteSpace: 'nowrap',
       cursor: 'pointer',
       fontFamily: 'var(--font-body)',
-      fontWeight: 600,
+      fontWeight: 700,
       fontSize: 14.5,
       marginBottom: 16
     }
@@ -15342,7 +15356,30 @@ function ExploreView() {
   return /*#__PURE__*/React.createElement(Screen, {
     nav: isRoot,
     header: isRoot ? /*#__PURE__*/React.createElement(AppBar, {
-      title: "Database"
+      title: "Database",
+      leading: /*#__PURE__*/React.createElement("button", {
+        onClick: () => push({
+          name: 'add-to-db'
+        }),
+        "aria-label": "Add item",
+        style: {
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          border: 'none',
+          background: 'var(--stamp-red)',
+          color: '#fff',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 2px 8px rgba(199,42,42,0.28)'
+        }
+      }, /*#__PURE__*/React.createElement(Ico, {
+        d: Icons.plus,
+        size: 20,
+        stroke: 2.4
+      }))
     }) : /*#__PURE__*/React.createElement(DetailHeader, {
       title: "Database"
     })
@@ -15414,33 +15451,7 @@ function ExploreView() {
       fontSize: 12,
       fontWeight: 700
     }
-  }, activeFilterCount))), /*#__PURE__*/React.createElement("button", {
-    onClick: () => push({
-      name: 'add-to-db'
-    }),
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 5,
-      height: 44,
-      padding: '0 13px',
-      flexShrink: 0,
-      borderRadius: 12,
-      border: 'none',
-      background: 'var(--stamp-red)',
-      cursor: 'pointer',
-      fontFamily: 'var(--font-body)',
-      fontSize: 13,
-      fontWeight: 700,
-      color: '#fff',
-      letterSpacing: '-0.01em',
-      whiteSpace: 'nowrap'
-    }
-  }, /*#__PURE__*/React.createElement(Ico, {
-    d: Icons.plus,
-    size: 15,
-    stroke: 2.4
-  }), "Add item")), /*#__PURE__*/React.createElement("div", {
+  }, activeFilterCount)))), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 12,
       color: 'var(--ink-faint)',
@@ -20758,7 +20769,8 @@ function MarketSearchRow({
 function MarketView() {
   const {
     push,
-    setOverlay
+    setOverlay,
+    goToMySpace
   } = useNav();
   const {
     userListings,
@@ -20884,7 +20896,30 @@ function MarketView() {
   }];
   return /*#__PURE__*/React.createElement(Screen, {
     header: /*#__PURE__*/React.createElement(AppBar, {
-      title: "Market"
+      title: "Market",
+      leading: /*#__PURE__*/React.createElement("button", {
+        onClick: () => push({
+          name: 'add-listing'
+        }),
+        "aria-label": "Create listing",
+        style: {
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          border: 'none',
+          background: 'var(--stamp-red)',
+          color: '#fff',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 2px 8px rgba(199,42,42,0.28)'
+        }
+      }, /*#__PURE__*/React.createElement(Ico, {
+        d: Icons.plus,
+        size: 20,
+        stroke: 2.4
+      }))
     })
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -20946,10 +20981,7 @@ function MarketView() {
     onFilter: () => setShowFilter(v => !v),
     actionLabel: "Sell item",
     actionIcon: Icons.tag,
-    onAction: () => push({
-      name: 'profile',
-      user: 'you',
-      isMe: true,
+    onAction: () => goToMySpace({
       sell: true
     })
   }) : /*#__PURE__*/React.createElement(MarketSearchRow, {
@@ -21424,10 +21456,7 @@ function MarketView() {
       d: Icons.tag,
       size: 17
     }),
-    onClick: () => push({
-      name: 'profile',
-      user: 'you',
-      isMe: true,
+    onClick: () => goToMySpace({
       sell: true
     })
   }, "Sell an item"))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
@@ -21731,6 +21760,21 @@ function NavProvider({
     }));else setTab(t);
   }, [tab]);
 
+  // Jump to My Space's root with an extra flag (e.g. sell:true) without leaving a stray
+  // push on whichever tab the user triggered it from — that push would otherwise resurface
+  // any time they tab back into it.
+  const goToMySpace = React.useCallback(patch => {
+    setOverlay(null);
+    setTab('me');
+    setStacks(s => ({
+      ...s,
+      me: [{
+        ...TAB_ROOTS.me,
+        ...patch
+      }]
+    }));
+  }, []);
+
   // Toast takes an optional second line — used to teach the XP rule at the moment it's earned.
   const flashToast = React.useCallback((text, sub) => {
     const id = Date.now();
@@ -21747,6 +21791,7 @@ function NavProvider({
     push,
     pop,
     switchTab,
+    goToMySpace,
     overlay,
     setOverlay,
     toast,
@@ -28708,6 +28753,23 @@ function ProfileView({
   } : userOf(handle);
   const isVouched = !!vouched[handle];
   const [tab, setTab] = React.useState('collection');
+  const [sellHintHidden, setSellHintHidden] = React.useState(() => {
+    try {
+      return localStorage.getItem('ch_hide_sell_hint') === '1';
+    } catch (e) {
+      return false;
+    }
+  });
+  const [sellHintDontShow, setSellHintDontShow] = React.useState(false);
+  const [sellModalOpen, setSellModalOpen] = React.useState(isMe && !!route.sell && !sellHintHidden);
+  const dismissSellHint = () => {
+    if (sellHintDontShow) {
+      try {
+        localStorage.setItem('ch_hide_sell_hint', '1');
+      } catch (e) {}
+    }
+    setSellModalOpen(false);
+  };
   const isFollowing = followed[handle];
 
   // ── More menu state ──
@@ -28756,7 +28818,30 @@ function ProfileView({
     });
   }, [handle, isMe, livePosts]);
   const header = isMe ? /*#__PURE__*/React.createElement(AppBar, {
-    title: "My Space"
+    title: "My Space",
+    leading: /*#__PURE__*/React.createElement("button", {
+      onClick: () => push({
+        name: 'add-item'
+      }),
+      "aria-label": "Add item",
+      style: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        border: 'none',
+        background: 'var(--stamp-red)',
+        color: '#fff',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: '0 2px 8px rgba(199,42,42,0.28)'
+      }
+    }, /*#__PURE__*/React.createElement(Ico, {
+      d: Icons.plus,
+      size: 20,
+      stroke: 2.4
+    }))
   }) : /*#__PURE__*/React.createElement(DetailHeader, {
     title: u.name,
     subtitle: '@' + u.handle,
@@ -28771,7 +28856,90 @@ function ProfileView({
   return /*#__PURE__*/React.createElement(Screen, {
     header: header,
     nav: isMe
-  }, (moreOpen || reportOpen || blockOpen) && /*#__PURE__*/React.createElement("div", {
+  }, sellModalOpen && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      inset: 0,
+      zIndex: 60,
+      background: 'rgba(0,0,0,0.4)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 20
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: '100%',
+      maxHeight: '86%',
+      overflowY: 'auto',
+      background: 'var(--paper)',
+      borderRadius: 18,
+      padding: '22px 22px 20px',
+      boxShadow: 'var(--shadow-3)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: 'var(--font-display)',
+      fontWeight: 800,
+      fontSize: 19,
+      textAlign: 'center',
+      marginBottom: 6
+    }
+  }, "Sell an item"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: 'var(--ink-faint)',
+      textAlign: 'center',
+      marginBottom: 16,
+      lineHeight: 1.5
+    }
+  }, "You can only sell items already in your collection. Pick one below and choose \"List for sale\" on its page \u2014 or add it to your collection first, then list it."), /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 7,
+      justifyContent: 'center',
+      marginBottom: 18,
+      cursor: 'pointer'
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: sellHintDontShow,
+    onChange: e => setSellHintDontShow(e.target.checked),
+    style: {
+      width: 14,
+      height: 14,
+      accentColor: 'var(--stamp-red)'
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12.5,
+      color: 'var(--ink-faint)'
+    }
+  }, "Don't show this message again")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement(Button, {
+    variant: "secondary",
+    style: {
+      flex: 1,
+      justifyContent: 'center'
+    },
+    onClick: () => {
+      setSellHintDontShow(false);
+      setSellModalOpen(false);
+      pop();
+    }
+  }, "Cancel"), /*#__PURE__*/React.createElement(Button, {
+    variant: "dark",
+    style: {
+      flex: 1,
+      justifyContent: 'center'
+    },
+    onClick: dismissSellHint
+  }, "Accept")))), (moreOpen || reportOpen || blockOpen) && /*#__PURE__*/React.createElement("div", {
     onClick: () => {
       setMoreOpen(false);
       setReportOpen(false);

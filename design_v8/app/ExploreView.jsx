@@ -68,7 +68,13 @@ function ExploreView() {
   const clearSheet = () => { setDraftCats([]); setDraftScale('all'); setDraftSort('owned'); };
 
   return (
-    <Screen nav={isRoot} header={isRoot ? <AppBar title="Database"/> : <DetailHeader title="Database"/>}>
+    <Screen nav={isRoot} header={isRoot ? <AppBar title="Database" leading={
+      <button onClick={() => push({ name: 'add-to-db' })} aria-label="Add item" style={{
+        width: 40, height: 40, borderRadius: 12, border: 'none', background: 'var(--stamp-red)', color: '#fff',
+        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(199,42,42,0.28)' }}>
+        <Ico d={Icons.plus} size={20} stroke={2.4}/>
+      </button>
+    }/> : <DetailHeader title="Database"/>}>
       <div style={{ padding: '12px 16px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 9, height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--paper-soft)' }}>
@@ -83,13 +89,6 @@ function ExploreView() {
               {activeFilterCount > 0 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700 }}>{activeFilterCount}</span>}
             </button>
           </div>
-          <button onClick={() => push({ name: 'add-to-db' })} style={{
-            display: 'flex', alignItems: 'center', gap: 5, height: 44, padding: '0 13px', flexShrink: 0,
-            borderRadius: 12, border: 'none', background: 'var(--stamp-red)', cursor: 'pointer',
-            fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
-            <Ico d={Icons.plus} size={15} stroke={2.4}/>
-            Add item
-          </button>
         </div>
 
         <div style={{ fontSize: 12, color: 'var(--ink-faint)', margin: '12px 2px 8px' }}>{items.length} items</div>

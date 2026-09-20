@@ -436,11 +436,13 @@ export default function MarketPage() {
 
         {/* One search row per board: funnel INSIDE the field + red primary action.
             "Sell item" → your own profile (opens on the Collection tab — our sell
-            flow starts from an item's List-for-sale toggle, not a standalone form). */}
+            flow starts from an item's List-for-sale toggle, not a standalone form).
+            v8 Sep-20 (MarketView goToMySpace({sell:true})) — the ?sell=1 flag makes
+            My Space open its sell-intro modal ("you can only sell owned items"). */}
         {board === "sale" ? (
           <MarketSearchRow q={query} onQ={setQuery} placeholder="Search listings, brands, sellers…"
             activeCount={activeCount} onFilter={() => setShowFilter((v) => !v)}
-            actionLabel="Sell item" actionIcon={Tag} actionHref="/profile" />
+            actionLabel="Sell item" actionIcon={Tag} actionHref="/profile?sell=1" />
         ) : (
           <MarketSearchRow q={isoQuery} onQ={setIsoQuery} placeholder="Search what collectors want…"
             activeCount={isoActiveCount} onFilter={() => setIsoFilterOpen((v) => !v)}
@@ -594,7 +596,8 @@ export default function MarketPage() {
           <div style={{ fontSize: 13.5, color: "var(--ink-faint)", marginTop: 7, maxWidth: 270, lineHeight: 1.55 }}>
             Pick something from your collection and flip <b style={{ color: "var(--ink-soft)" }}>List for sale</b> — it shows up here instantly.
           </div>
-          <Link href="/profile" style={{ textDecoration: "none", marginTop: 20 }}>
+          {/* v8 Sep-20 — same goToMySpace({sell:true}) hop as the search row's Sell item. */}
+          <Link href="/profile?sell=1" style={{ textDecoration: "none", marginTop: 20 }}>
             <Button variant="primary" icon={<Tag size={17} />}>Sell an item</Button>
           </Link>
         </div>

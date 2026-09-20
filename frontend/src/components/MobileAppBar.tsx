@@ -15,11 +15,20 @@ import { hideAppBar } from "@/lib/mobileChrome";
  *  - **Create is the only coloured control** — a filled stamp-red square, not a grey icon.
  *    Its glyph is a PLUS, not a pencil: everything else that creates something in this app
  *    (Add item, Add choice, Add a copy) is a plus, and Create is the same "add" verb.
- *    It renders on HOME ONLY: v7 passes it through `leading`, and `FeedView.jsx` is the
- *    single caller (`grep '<AppBar' design_v7/app` — Market/Community/Database/Profile all
- *    call `<AppBar title="…"/>` with no leading). Every other tab's left cluster is just
- *    Search. `leading` is a prop in the prototype because its AppBar is per-screen; this
- *    one is global chrome, so the same rule is expressed as a route check.
+ *    EVERY tab root gets one now, each with its own target (v8 Sep-20 drop — reverses
+ *    v7's Home-only rule: Market/Community/Database/ProfileView all pass an identical
+ *    40×40 radius-12 red plus through `leading`). `leading` is a prop in the prototype
+ *    because its AppBar is per-screen; this one is global chrome, so the per-tab target
+ *    lives in CREATE_ACTIONS keyed by route:
+ *      /feed      → compose a post
+ *      /market    → /add/catalogue        (v8 'add-listing' — the add/list-for-sale form)
+ *      /db        → /db?add=1             (v8 'add-to-db'; the db page opens its
+ *                                          ContributeGuidelines gate on the flag — the
+ *                                          rules must land before the contribute form)
+ *      /community → /community/new        (v8 'create-community')
+ *      /profile   → /db                   (v8 'add-item' = AddToCollection's search-the-
+ *                                          catalogue-first screen; DV7-01 mapped that
+ *                                          entry to the Database tab)
  *  - **Centre is wordmark OR title** — the wordmark is Home's identity; the other four tab
  *    roots name themselves. (v7 said "Screen title → Explore"; the founder reverted both the
  *    tab name AND its global search on 2026-08-01. Search across posts/people/communities/
@@ -42,6 +51,16 @@ const TAB_TITLES: Record<string, string> = {
   "/db": "Database",
   "/community": "Community",
   "/profile": "My Space",
+};
+
+// v8 Sep-20 — the leading red plus is per-tab now, not Home-only. Same button,
+// different verb per surface (see the header comment for the v8 route mapping).
+const CREATE_ACTIONS: Record<string, { href: string; label: string }> = {
+  "/feed": { href: "/compose?type=post", label: "Create post" },
+  "/market": { href: "/add/catalogue", label: "Create listing" },
+  "/db": { href: "/db?add=1", label: "Add item" },
+  "/community": { href: "/community/new", label: "Create community" },
+  "/profile": { href: "/db", label: "Add item" },
 };
 
 function IconBtn({
@@ -83,6 +102,7 @@ export function MobileAppBar() {
   if (hideAppBar(pathname)) return null;
   const title = TAB_TITLES[pathname];
   const isHome = !title;
+  const create = CREATE_ACTIONS[pathname];
   // Notifications only — DMs are badged on My Space (v7, 2026-08-09). Hidden at zero.
   const activityBadge = unread.notifs;
 
@@ -92,13 +112,13 @@ export function MobileAppBar() {
       style={{ paddingTop: "env(safe-area-inset-top)", boxShadow: "var(--shadow-sm)" }}
     >
       <div className="flex items-center gap-1.5 px-3" style={{ minHeight: 52 }}>
-        {/* Create + Search — top left. Create is Home-only (v7 `leading`). */}
-        {isHome && (
+        {/* Create + Search — top left. Every tab root carries its own create verb (v8 Sep-20). */}
+        {create && (
           <Link
-            href="/compose?type=post"
-            aria-label="Create post"
+            href={create.href}
+            aria-label={create.label}
             className="flex items-center justify-center shrink-0 text-white outline-none shadow-[0_2px_8px_rgba(199,42,42,0.28)] focus-visible:shadow-[0_0_0_3px_rgba(255,36,66,0.30)]"
-            style={{ width: 40, height: 40, borderRadius: 13, border: "none", background: "var(--stamp-red)" }}
+            style={{ width: 40, height: 40, borderRadius: 12, border: "none", background: "var(--stamp-red)" }}
           >
             <Plus size={20} strokeWidth={2.4} />
           </Link>

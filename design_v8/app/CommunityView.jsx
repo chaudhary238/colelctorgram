@@ -38,7 +38,13 @@ function CommunityView() {
   const sortedDiscover = [...filteredDiscover].sort(sortFn);
 
   return (
-    <Screen header={<AppBar title="Community"/>}>
+    <Screen header={<AppBar title="Community" leading={
+      <button onClick={() => push({ name: 'create-community' })} aria-label="Create community" style={{
+        width: 40, height: 40, borderRadius: 12, border: 'none', background: 'var(--stamp-red)', color: '#fff',
+        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(199,42,42,0.28)' }}>
+        <Ico d={Icons.plus} size={20} stroke={2.4}/>
+      </button>
+    }/>}>
       {/* sticky search + category filter */}
       <div style={{ position: 'sticky', top: 0, zIndex: 4, background: 'var(--paper)', borderBottom: '1px solid var(--slate-200)', padding: '12px 16px 10px' }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>

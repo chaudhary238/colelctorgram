@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Filter, X, Plus, PlusCircle, Star, Check, Clock } from "lucide-react";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
@@ -148,8 +148,18 @@ function TickChip({ active, onClick, children }: { active: boolean; onClick: () 
   );
 }
 
+// useSearchParams needs a Suspense boundary for prerender (same wrapper as /add/catalogue).
 export default function DatabasePage() {
+  return (
+    <Suspense fallback={null}>
+      <DatabasePageInner />
+    </Suspense>
+  );
+}
+
+function DatabasePageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading: userLoading } = useUser();
 
   // applied filters. `cats` is a LIST — category is multi-select (DV7-08).
@@ -182,6 +192,22 @@ export default function DatabasePage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [guidelines, setGuidelines] = useState(false);
   const deb = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // v8 Sep-20 — the mobile AppBar's red "+" lands here as /db?add=1 (the AppBar is
+  // global chrome, so it can't open this page's modal directly). Open the SAME
+  // guidelines gate the in-page button uses. Seeded during render on the flag's
+  // false→true edge (the "adjusting state when a prop changes" pattern, like the
+  // interest seeding below) — edge-triggered so a second "+" tap after Cancel
+  // re-opens it; the effect below then strips the query so refresh doesn't.
+  const addFlag = searchParams.get("add") === "1";
+  const [prevAddFlag, setPrevAddFlag] = useState(false);
+  if (addFlag !== prevAddFlag) {
+    setPrevAddFlag(addFlag);
+    if (addFlag) setGuidelines(true);
+  }
+  useEffect(() => {
+    if (addFlag) router.replace("/db", { scroll: false });
+  }, [addFlag, router]);
 
   // Change Spec §4.3 — the sheet opens with the categories you picked at sign-up already
   // ticked, live AND drafted. A collector who signed up for Diecast shouldn't have to
@@ -457,15 +483,18 @@ export default function DatabasePage() {
             </button>
           </div>
 
-          {/* Add item — LABELLED (§3.1). The old icon-only plus wasn't understandable as
-              "contribute to the shared catalogue". Never shrinks, never wraps.
-              SOLID stamp-red per v7 (ExploreView.jsx:77) — the soft outline version read
-              as a secondary control next to the search field. */}
+          {/* Add item — DESKTOP ONLY now (v8 Sep-20 removed it from the search row:
+              on mobile the AppBar's red "+" is the add entry, and two adds in one
+              viewport double-prompted). WEB ADAPTATION: the AppBar is lg:hidden, so
+              on desktop this stays or /db has no contribute affordance at all.
+              LABELLED (§3.1) — the old icon-only plus wasn't understandable as
+              "contribute to the shared catalogue". Never shrinks, never wraps. */}
           <button
             type="button"
             onClick={() => setGuidelines(true)}
+            className="hidden lg:flex"
             style={{
-              display: "flex", alignItems: "center", gap: 5, flexShrink: 0, whiteSpace: "nowrap",
+              alignItems: "center", gap: 5, flexShrink: 0, whiteSpace: "nowrap",
               height: 44, padding: "0 13px", borderRadius: 12, cursor: "pointer",
               border: "none", background: "var(--stamp-red)", color: "#fff",
               fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13, letterSpacing: "-0.01em",

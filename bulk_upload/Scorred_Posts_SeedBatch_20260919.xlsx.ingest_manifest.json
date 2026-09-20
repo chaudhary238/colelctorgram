@@ -1,0 +1,262 @@
+{
+  "file": "../bulk_upload/Scorred_Posts_SeedBatch_20260919.xlsx",
+  "ingested_at": "2026-09-19T08:16:59.383868+00:00",
+  "rehosted": false,
+  "images": [
+    {
+      "source": "https://live.staticflickr.com/7007/6768751059_23345cbc8b_b.jpg",
+      "hosted": "https://live.staticflickr.com/7007/6768751059_23345cbc8b_b.jpg"
+    },
+    {
+      "source": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/ExpoBatman20220917_ohs33.jpg/1280px-ExpoBatman20220917_ohs33.jpg",
+      "hosted": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/ExpoBatman20220917_ohs33.jpg/1280px-ExpoBatman20220917_ohs33.jpg"
+    },
+    {
+      "source": "https://upload.wikimedia.org/wikipedia/commons/b/b6/Action_Figure_Portgas_D._Ace.jpg",
+      "hosted": "https://upload.wikimedia.org/wikipedia/commons/b/b6/Action_Figure_Portgas_D._Ace.jpg"
+    },
+    {
+      "source": "https://upload.wikimedia.org/wikipedia/commons/f/f8/Nendoroid_Collection.jpg",
+      "hosted": "https://upload.wikimedia.org/wikipedia/commons/f/f8/Nendoroid_Collection.jpg"
+    },
+    {
+      "source": "https://live.staticflickr.com/2860/11942872576_5dbb6bfc49_b.jpg",
+      "hosted": "https://live.staticflickr.com/2860/11942872576_5dbb6bfc49_b.jpg"
+    },
+    {
+      "source": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Gunpla_model_sprues.jpg/1280px-Gunpla_model_sprues.jpg",
+      "hosted": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Gunpla_model_sprues.jpg/1280px-Gunpla_model_sprues.jpg"
+    },
+    {
+      "source": "https://live.staticflickr.com/7109/8154319922_f906183f04_b.jpg",
+      "hosted": "https://live.staticflickr.com/7109/8154319922_f906183f04_b.jpg"
+    },
+    {
+      "source": "https://upload.wikimedia.org/wikipedia/commons/4/49/Collection_of_Smiskis.png",
+      "hosted": "https://upload.wikimedia.org/wikipedia/commons/4/49/Collection_of_Smiskis.png"
+    },
+    {
+      "source": "https://live.staticflickr.com/8529/8559848899_a1010e32b1_b.jpg",
+      "hosted": "https://live.staticflickr.com/8529/8559848899_a1010e32b1_b.jpg"
+    },
+    {
+      "source": "https://live.staticflickr.com/8020/7254949880_dbce343c16_b.jpg",
+      "hosted": "https://live.staticflickr.com/8020/7254949880_dbce343c16_b.jpg"
+    },
+    {
+      "source": "https://live.staticflickr.com/5101/5559936751_f8753fa655_b.jpg",
+      "hosted": "https://live.staticflickr.com/5101/5559936751_f8753fa655_b.jpg"
+    },
+    {
+      "source": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Volkswagen_T1_Camper_Van_%281962%29_%289645253506%29.jpg/1280px-Volkswagen_T1_Camper_Van_%281962%29_%289645253506%29.jpg",
+      "hosted": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Volkswagen_T1_Camper_Van_%281962%29_%289645253506%29.jpg/1280px-Volkswagen_T1_Camper_Van_%281962%29_%289645253506%29.jpg"
+    },
+    {
+      "source": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Labubu_Pop_Mart_store_in_New_York_City.jpg/1280px-Labubu_Pop_Mart_store_in_New_York_City.jpg",
+      "hosted": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Labubu_Pop_Mart_store_in_New_York_City.jpg/1280px-Labubu_Pop_Mart_store_in_New_York_City.jpg"
+    },
+    {
+      "source": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Funko_pops_in_a_Jerusalem_toy_shop.jpg/1280px-Funko_pops_in_a_Jerusalem_toy_shop.jpg",
+      "hosted": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Funko_pops_in_a_Jerusalem_toy_shop.jpg/1280px-Funko_pops_in_a_Jerusalem_toy_shop.jpg"
+    },
+    {
+      "source": "https://upload.wikimedia.org/wikipedia/commons/8/89/Hot_Wheels_collection.jpg",
+      "hosted": "https://upload.wikimedia.org/wikipedia/commons/8/89/Hot_Wheels_collection.jpg"
+    },
+    {
+      "source": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Ferrari_250_GTO%2C_CMC-Model_1-18_%28vorn_links_2017-03-23%29.JPG/1280px-Ferrari_250_GTO%2C_CMC-Model_1-18_%28vorn_links_2017-03-23%29.JPG",
+      "hosted": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Ferrari_250_GTO%2C_CMC-Model_1-18_%28vorn_links_2017-03-23%29.JPG/1280px-Ferrari_250_GTO%2C_CMC-Model_1-18_%28vorn_links_2017-03-23%29.JPG"
+    },
+    {
+      "source": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Some_Yu-Gi-Oh%21_cards.jpg/1280px-Some_Yu-Gi-Oh%21_cards.jpg",
+      "hosted": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Some_Yu-Gi-Oh%21_cards.jpg/1280px-Some_Yu-Gi-Oh%21_cards.jpg"
+    },
+    {
+      "source": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/Magic_the_Gathering_-_Trade.jpg/1280px-Magic_the_Gathering_-_Trade.jpg",
+      "hosted": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/Magic_the_Gathering_-_Trade.jpg/1280px-Magic_the_Gathering_-_Trade.jpg"
+    }
+  ],
+  "posts": [
+    {
+      "row": 3,
+      "post_id": "6a0447e5-ce8b-4dcb-96f0-971baca5c00f",
+      "author": "collectorhub",
+      "type": "discussion"
+    },
+    {
+      "row": 4,
+      "post_id": "addbaf4c-fecd-40b0-bb23-b836c2267ebd",
+      "author": "nerd_collector87",
+      "type": "showcase"
+    },
+    {
+      "row": 5,
+      "post_id": "4757f329-d09f-4898-8349-da4d8b141ce8",
+      "author": "batmanforever01",
+      "type": "showcase"
+    },
+    {
+      "row": 6,
+      "post_id": "8620a8fc-3afe-4c5e-8cf2-024eaadc1b37",
+      "author": "batman_4ver",
+      "type": "showcase"
+    },
+    {
+      "row": 7,
+      "post_id": "7e18ae13-2cde-43e4-8250-9579faec1b03",
+      "author": "nerd_collector87",
+      "type": "showcase"
+    },
+    {
+      "row": 8,
+      "post_id": "ab6e6fc7-ab9e-47a1-a685-0f01fc8f2d7c",
+      "author": "commandersupreme001",
+      "type": "showcase"
+    },
+    {
+      "row": 9,
+      "post_id": "0b2e1157-9796-4a73-a7a9-87b4ff9188a7",
+      "author": "akhil007",
+      "type": "showcase"
+    },
+    {
+      "row": 13,
+      "post_id": "17fa7559-74f4-47c4-b625-d88a73d42d70",
+      "author": "avivlogs",
+      "type": "showcase"
+    },
+    {
+      "row": 14,
+      "post_id": "695f7bd7-9f5e-4748-8ddd-24a9bda622b5",
+      "author": "sneha_bb",
+      "type": "showcase"
+    },
+    {
+      "row": 16,
+      "post_id": "2f874281-6486-4df9-873a-51002c010a00",
+      "author": "diecast_chaser",
+      "type": "showcase"
+    },
+    {
+      "row": 18,
+      "post_id": "ff63e8e5-1453-4557-82e3-5a1b3b308b22",
+      "author": "sneha_bb",
+      "type": "showcase"
+    },
+    {
+      "row": 20,
+      "post_id": "aaeaa954-d8d8-4684-a87c-8c2c5124e849",
+      "author": "nerd_collector87",
+      "type": "review"
+    },
+    {
+      "row": 22,
+      "post_id": "c860dde4-bd95-4045-bc01-801bd8c073fb",
+      "author": "commandersupreme001",
+      "type": "review"
+    },
+    {
+      "row": 23,
+      "post_id": "201dd4a8-5d33-46ba-a424-79238d928ee0",
+      "author": "blindbox_lover",
+      "type": "review"
+    },
+    {
+      "row": 24,
+      "post_id": "9dea0c56-6d5b-4fb5-b1eb-1d0860b19554",
+      "author": "avivlogs",
+      "type": "poll"
+    },
+    {
+      "row": 25,
+      "post_id": "14c5c809-9c63-4619-9649-8c6fc7dc83c0",
+      "author": "nerd_collector87",
+      "type": "poll"
+    },
+    {
+      "row": 26,
+      "post_id": "387c6bf9-7333-4bf9-ba96-f8e87db1474d",
+      "author": "sneha_bb",
+      "type": "poll"
+    },
+    {
+      "row": 27,
+      "post_id": "b0d182b1-6203-43e1-936e-904e1b864c2a",
+      "author": "diecast_chaser",
+      "type": "iso"
+    },
+    {
+      "row": 28,
+      "post_id": "ec376657-149f-4890-b239-1fdb2ae057e4",
+      "author": "batmanforever01",
+      "type": "iso"
+    },
+    {
+      "row": 29,
+      "post_id": "a10aae9b-eff2-4f3a-864e-42f9eda1bc80",
+      "author": "md_rahim",
+      "type": "iso"
+    },
+    {
+      "row": 30,
+      "post_id": "4d3561bc-3b76-42f0-961a-974883678e35",
+      "author": "akhil007",
+      "type": "discussion"
+    },
+    {
+      "row": 31,
+      "post_id": "93d90b4d-0198-4e64-9cca-24c971964317",
+      "author": "avivlogs",
+      "type": "discussion"
+    },
+    {
+      "row": 32,
+      "post_id": "6b30006a-2737-4388-bed4-3b685827b323",
+      "author": "sneha_bb",
+      "type": "discussion"
+    },
+    {
+      "row": 3,
+      "post_id": "67db1b14-c04e-4183-8168-f9d592aa1561",
+      "author": "md_rahim",
+      "type": "showcase"
+    },
+    {
+      "row": 4,
+      "post_id": "e2291a89-ed21-4bab-b58a-66d894aa76fe",
+      "author": "blindbox_lover",
+      "type": "showcase"
+    },
+    {
+      "row": 5,
+      "post_id": "fba4f7d3-3e4f-4b46-b8b2-415097b982b7",
+      "author": "blindbox_lover",
+      "type": "showcase"
+    },
+    {
+      "row": 6,
+      "post_id": "2a0b8046-3a2d-465f-a0c3-d0db79c5afbb",
+      "author": "md_rahim",
+      "type": "showcase"
+    },
+    {
+      "row": 7,
+      "post_id": "444312df-7c5f-453a-9702-9f2b3ea79d8d",
+      "author": "diecast_chaser",
+      "type": "showcase"
+    },
+    {
+      "row": 8,
+      "post_id": "7e3c0b8b-68eb-4c93-8f28-3ea91ac182af",
+      "author": "batmanforever01",
+      "type": "showcase"
+    },
+    {
+      "row": 9,
+      "post_id": "8e63eb30-a0a2-40d5-bbac-9855ca221a07",
+      "author": "akhil007",
+      "type": "review"
+    }
+  ],
+  "note": "includes the 7 rate-limit-retried rows from retry7.xlsx"
+}

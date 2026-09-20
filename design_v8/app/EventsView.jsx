@@ -60,12 +60,12 @@ function EventsView() {
   const qMatch = (ev) => !q || ev.title.toLowerCase().includes(q.toLowerCase()) || ev.city.toLowerCase().includes(q.toLowerCase());
 
   return (
-    <Screen nav={false} header={<DetailHeader title="Events"/>}>
+    <Screen nav={false} header={<DetailHeader title="Events" centerTitle/>}>
       <div style={{ position: 'sticky', top: 0, zIndex: 4, background: 'var(--paper)', borderBottom: '1px solid var(--slate-200)', padding: '12px 16px 10px' }}>
         {/* row 1: search + list button */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
           <div style={{
-            flex: 1, display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 12px',
+            flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 12px',
             borderRadius: 12, border: '1px solid var(--slate-200)', background: 'var(--card-surface)',
             boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
           }}>
@@ -83,8 +83,8 @@ function EventsView() {
           </div>
           <button onClick={() => push({ name: 'create-event' })} style={{
             display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: '0 13px',
-            borderRadius: 12, border: 'none', background: 'var(--slate-900)', color: 'var(--paper)',
-            cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13,
+            borderRadius: 12, border: 'none', background: 'var(--stamp-red)', color: '#fff',
+            cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 13,
             flexShrink: 0, whiteSpace: 'nowrap',
           }}>
             <Ico d={Icons.plus} size={15} stroke={2.2}/>List an event
@@ -154,8 +154,8 @@ function EventsView() {
         <div style={{ padding: '16px' }}>
           <button onClick={() => push({ name: 'create-event' })} style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', height: 46,
-            borderRadius: 14, background: 'var(--slate-900)', color: 'var(--paper)', border: 'none',
-            cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14.5, marginBottom: 16,
+            borderRadius: 14, background: 'var(--stamp-red)', color: '#fff', border: 'none', whiteSpace: 'nowrap',
+            cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 14.5, marginBottom: 16,
           }}>
             <Ico d={Icons.plus} size={18}/>List an event
           </button>

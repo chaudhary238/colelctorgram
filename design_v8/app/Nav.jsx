@@ -49,6 +49,15 @@ function NavProvider({ children }) {
     else setTab(t);
   }, [tab]);
 
+  // Jump to My Space's root with an extra flag (e.g. sell:true) without leaving a stray
+  // push on whichever tab the user triggered it from — that push would otherwise resurface
+  // any time they tab back into it.
+  const goToMySpace = React.useCallback((patch) => {
+    setOverlay(null);
+    setTab('me');
+    setStacks(s => ({ ...s, me: [{ ...TAB_ROOTS.me, ...patch }] }));
+  }, []);
+
   // Toast takes an optional second line — used to teach the XP rule at the moment it's earned.
   const flashToast = React.useCallback((text, sub) => {
     const id = Date.now();
@@ -56,7 +65,7 @@ function NavProvider({ children }) {
     setTimeout(() => setToast(t => (t && t.id === id ? null : t)), sub ? 3200 : 2400);
   }, []);
 
-  const value = { tab, stacks, push, pop, switchTab, overlay, setOverlay, toast, flashToast };
+  const value = { tab, stacks, push, pop, switchTab, goToMySpace, overlay, setOverlay, toast, flashToast };
   return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
 }
 

@@ -14,6 +14,13 @@ function ProfileView({ route }) {
   const u = isMe ? { ...ME, ...profile } : userOf(handle);
   const isVouched = !!vouched[handle];
   const [tab, setTab] = React.useState('collection');
+  const [sellHintHidden, setSellHintHidden] = React.useState(() => { try { return localStorage.getItem('ch_hide_sell_hint') === '1'; } catch (e) { return false; } });
+  const [sellHintDontShow, setSellHintDontShow] = React.useState(false);
+  const [sellModalOpen, setSellModalOpen] = React.useState(isMe && !!route.sell && !sellHintHidden);
+  const dismissSellHint = () => {
+    if (sellHintDontShow) { try { localStorage.setItem('ch_hide_sell_hint', '1'); } catch (e) {} }
+    setSellModalOpen(false);
+  };
   const isFollowing = followed[handle];
 
   // ── More menu state ──
@@ -69,12 +76,35 @@ function ProfileView({ route }) {
   }, [handle, isMe, livePosts]);
 
   const header = isMe
-    ? <AppBar title="My Space"/>
+    ? <AppBar title="My Space" leading={
+        <button onClick={() => push({ name: 'add-item' })} aria-label="Add item" style={{
+          width: 40, height: 40, borderRadius: 12, border: 'none', background: 'var(--stamp-red)', color: '#fff',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(199,42,42,0.28)' }}>
+          <Ico d={Icons.plus} size={20} stroke={2.4}/>
+        </button>
+      }/>
     : <DetailHeader title={u.name} subtitle={'@' + u.handle}
         trailing={<IconButton icon={<Ico d={Icons.more} size={18}/>} onClick={() => setMoreOpen(true)}/>}/>;
 
   return (
     <Screen header={header} nav={isMe}>
+      {/* ── Sell-item intro (arrived via Market "Sell item" CTA) ── */}
+      {sellModalOpen && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ width: '100%', maxHeight: '86%', overflowY: 'auto', background: 'var(--paper)', borderRadius: 18, padding: '22px 22px 20px', boxShadow: 'var(--shadow-3)' }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 19, textAlign: 'center', marginBottom: 6 }}>Sell an item</div>
+            <div style={{ fontSize: 13, color: 'var(--ink-faint)', textAlign: 'center', marginBottom: 16, lineHeight: 1.5 }}>You can only sell items already in your collection. Pick one below and choose "List for sale" on its page — or add it to your collection first, then list it.</div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, justifyContent: 'center', marginBottom: 18, cursor: 'pointer' }}>
+              <input type="checkbox" checked={sellHintDontShow} onChange={e => setSellHintDontShow(e.target.checked)} style={{ width: 14, height: 14, accentColor: 'var(--stamp-red)' }}/>
+              <span style={{ fontSize: 12.5, color: 'var(--ink-faint)' }}>Don't show this message again</span>
+            </label>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <Button variant="secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { setSellHintDontShow(false); setSellModalOpen(false); pop(); }}>Cancel</Button>
+              <Button variant="dark" style={{ flex: 1, justifyContent: 'center' }} onClick={dismissSellHint}>Accept</Button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* ── More / Report / Block sheets ── */}
       {(moreOpen || reportOpen || blockOpen) && (
         <div onClick={() => { setMoreOpen(false); setReportOpen(false); setBlockOpen(false); setReportReason(null); }}

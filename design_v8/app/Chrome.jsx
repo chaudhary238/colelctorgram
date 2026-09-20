@@ -80,7 +80,7 @@ function AppBar({ title, wordmark = false, trailing, leading }) {
 }
 
 // Header for pushed detail screens
-function DetailHeader({ title, subtitle, trailing, onBack, transparent = false }) {
+function DetailHeader({ title, subtitle, trailing, onBack, transparent = false, centerTitle = false }) {
   const { pop } = useNav();
   return (
     <div style={{
@@ -101,15 +101,16 @@ function DetailHeader({ title, subtitle, trailing, onBack, transparent = false }
           <Ico d={Icons.back} size={20}/>
         </button>
         {title != null && (
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ flex: 1, minWidth: 0, textAlign: centerTitle ? 'center' : 'left' }}>
             <div style={{
-              fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 19,
-              letterSpacing: '-0.02em', color: 'var(--ink)', lineHeight: 1.15,
+              fontFamily: 'var(--font-display)', fontWeight: centerTitle ? 800 : 700, fontSize: centerTitle ? 24 : 19,
+              letterSpacing: '-0.03em', color: 'var(--ink)', lineHeight: 1.15,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>{title}</div>
             {subtitle && <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 1 }}>{subtitle}</div>}
           </div>
         )}
+        {centerTitle && <div style={{ width: 40, flexShrink: 0 }}/>}
         {trailing && <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>{trailing}</div>}
       </div>
     </div>

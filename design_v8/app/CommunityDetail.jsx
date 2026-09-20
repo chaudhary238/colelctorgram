@@ -94,19 +94,7 @@ function CommunityDetail({ route }) {
     : { background: tones[com.tone] || 'var(--plum)' };
 
   return (
-    <Screen header={null} footer={!locked && !pendingReview && activeTab === 'posts' && isMember && accepted ? (
-      <div style={{ background: 'var(--paper)', borderTop: '1px solid var(--slate-200)', padding: '10px 16px calc(10px + env(safe-area-inset-bottom))' }}>
-        <button onClick={startCompose} style={{
-          display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 48, padding: '0 8px 0 16px',
-          borderRadius: 14, border: '1.5px solid var(--ink)', background: 'var(--paper)', cursor: 'pointer',
-          fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--ink)', textAlign: 'left' }}>
-          Write something or create a post…
-          <div style={{ marginLeft: 'auto', width: 34, height: 34, borderRadius: 10, background: 'var(--ink)', color: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Ico d={Icons.plus} size={18} stroke={2.2}/>
-          </div>
-        </button>
-      </div>
-    ) : null}>
+    <Screen header={null}>
       {/* banner */}
       <div style={{ position: 'relative' }}>
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 3 }}>
@@ -122,9 +110,17 @@ function CommunityDetail({ route }) {
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginTop: -34 }}>
           <div style={{ width: 76, height: 76, borderRadius: 18, background: com.photoUrl ? `center/cover url(${com.photoUrl})` : (tones[com.tone] || 'var(--plum)'), color: 'var(--paper)', border: '3px solid var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28, flexShrink: 0 }}>{!com.photoUrl && com.tag}</div>
           <div style={{ flex: 1, paddingBottom: 4, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            {!locked && !pendingReview && isMember && accepted && (
+              <button onClick={startCompose} aria-label="Create post" style={{
+                display: 'flex', alignItems: 'center', gap: 6, height: 34, padding: '0 12px 0 10px', borderRadius: 10, border: 'none',
+                background: 'var(--stamp-red)', color: '#fff', cursor: 'pointer', flexShrink: 0, boxShadow: '0 2px 8px rgba(199,42,42,0.28)',
+                fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 13 }}>
+                <Ico d={Icons.plus} size={16} stroke={2.4}/>Post
+              </button>
+            )}
             {isAdmin && (
               <Button size="sm" variant="secondary" icon={<Ico d={Icons.settings} size={15}/>} onClick={() => push({ name: 'community-manage', id: com.id })}>
-                Manage community{(reqCount + pendCount) > 0 ? ` · ${reqCount + pendCount}` : ''}
+                Manage{(reqCount + pendCount) > 0 ? ` · ${reqCount + pendCount}` : ''}
               </Button>
             )}
             {!isAdmin && !pendingReview && !isMember && (

@@ -414,9 +414,10 @@ export default function CommunityDetailPage() {
   if (isMod) {
     headerCta = (
       <Link href={`/community/${id}/manage`} style={{ textDecoration: "none" }}>
-        {/* v8 (CommunityDetail.jsx:110) — the CTA reads "Manage community · N". */}
+        {/* v8 (CommunityDetail.jsx:121, Sep-20) — shortened to "Manage · N": the row
+            now also carries the red Post button, and the long label crowded it. */}
         <Button size="sm" variant="secondary" icon={<Settings2 size={15} />}>
-          Manage community{pendingCount > 0 ? ` · ${pendingCount}` : ""}
+          Manage{pendingCount > 0 ? ` · ${pendingCount}` : ""}
         </Button>
       </Link>
     );
@@ -491,7 +492,27 @@ export default function CommunityDetailPage() {
           <div style={{ width: 76, height: 76, borderRadius: 18, background: hasPhoto ? `center/cover url(${community.avatar_url})` : tone, color: "var(--paper)", border: "3px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, flexShrink: 0 }}>
             {!hasPhoto && (community.tag ?? "🏷")}
           </div>
-          <div style={{ flex: 1, paddingBottom: 4, display: "flex", justifyContent: "flex-end", gap: 8 }}>{headerCta}</div>
+          <div style={{ flex: 1, paddingBottom: 4, display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            {/* v8 (CommunityDetail.jsx:113-120, Sep-20) — composing moved UP here as a red
+                "+ Post" pill; the sticky footer composer bar is gone. Any accepted member
+                sees it on every tab (v8 dropped the posts-tab gate); `!closed` is ours —
+                posting is frozen in a closed community. */}
+            {!locked && !pendingReview && !closed && joined && accepted && (
+              <Link
+                href={`/compose?community=${community.id}`}
+                aria-label="Create post"
+                style={{
+                  display: "flex", alignItems: "center", gap: 6, height: 34, padding: "0 12px 0 10px",
+                  borderRadius: 10, border: "none", background: "var(--stamp-red)", color: "#fff",
+                  flexShrink: 0, boxShadow: "0 2px 8px rgba(199,42,42,0.28)", textDecoration: "none",
+                  fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13,
+                }}
+              >
+                <Plus size={16} strokeWidth={2.4} />Post
+              </Link>
+            )}
+            {headerCta}
+          </div>
         </div>
 
         {/* v8 :141-143 — your role badge sits beside the name (admin red / mod bone;
@@ -762,32 +783,8 @@ export default function CommunityDetailPage() {
             </div>
           )}
 
-          {/* v8 (CommunityDetail.jsx:80-92) — STICKY FOOTER composer trigger on the
-              Posts tab once you're a member who accepted the guidelines: 48px bar with
-              a 1.5px ink border on paper, bold ink text, 34px dark rounded + square.
-              The bottom offset clears the fixed BottomNav below lg. */}
-          {activeTab === "posts" && joined && accepted && !closed && (
-            <div
-              className="sticky z-20 bottom-[calc(64px+env(safe-area-inset-bottom))] lg:bottom-0"
-              style={{ background: "var(--paper)", borderTop: "1px solid var(--slate-200)", padding: "10px 20px", marginTop: 8 }}
-            >
-              <Link
-                href={`/compose?community=${community.id}`}
-                style={{
-                  display: "flex", alignItems: "center", gap: 10, width: "100%", height: 48,
-                  boxSizing: "border-box", padding: "0 8px 0 16px", borderRadius: 14,
-                  border: "1.5px solid var(--ink)", background: "var(--paper)",
-                  fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, color: "var(--ink)",
-                  textAlign: "left", textDecoration: "none",
-                }}
-              >
-                Write something or create a post…
-                <span style={{ marginLeft: "auto", width: 34, height: 34, borderRadius: 10, background: "var(--ink)", color: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <Plus size={18} strokeWidth={2.2} />
-                </span>
-              </Link>
-            </div>
-          )}
+          {/* v8 Sep-20 — the sticky footer "Write something or create a post…" bar is
+              GONE; composing lives in the banner row's red "+ Post" pill now. */}
         </>
       )}
 
