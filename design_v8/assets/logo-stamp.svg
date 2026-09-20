@@ -1,8 +1,0 @@
-<svg viewBox="0 0 144 144" xmlns="http://www.w3.org/2000/svg">
-  
-  <g transform="translate(72 72) rotate(-4)">
-    <rect x="-72" y="-72" width="144" height="144" rx="14" fill="#D93324"></rect>
-    <rect x="-58" y="-58" width="116" height="116" rx="8" fill="none" stroke="rgba(244,239,230,0.35)" stroke-width="2" stroke-dasharray="5 5"></rect>
-    <text x="0" y="22" text-anchor="middle" font-family="Bricolage Grotesque, Geist, sans-serif" font-weight="800" font-size="96" fill="#F4EFE6" letter-spacing="-4">C</text>
-  </g>
-</svg>

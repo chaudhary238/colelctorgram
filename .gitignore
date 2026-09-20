@@ -16,3 +16,20 @@ backend/seed_social_graph.py
 
 # Standalone data ingestion pipelines — local tooling, not part of the deploy image.
 /ingestion/
+
+# macOS
+.DS_Store
+
+# Design source of truth — mockups, BRDs, logo explorations, screenshots (~22M).
+# Reference material for building the UI, not shipped by Vercel or the API image.
+/design_v8/
+/design_v*/
+
+# Bulk post seeding — spreadsheets, image-source manifests and the ingest
+# tooling that reads them. Run locally against the API; not in the deploy image
+# (backend/Dockerfile copies only app/ + alembic/).
+/bulk_upload/
+backend/scripts/
+
+# Seed / one-off data scripts — carry demo data + run with env-provided creds.
+backend/seed_dv8_scenarios.py
