@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import UUID, Boolean, DateTime, ForeignKey, Integer, String, Text, Index
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -29,6 +30,10 @@ class Catalogue(Base):
     tone: Mapped[str] = mapped_column(String(16), default="ink")
     est_retail_price: Mapped[int] = mapped_column(Integer, default=0)  # paise
     thumbnail_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Ingest-only metadata from ingestion/catalogue/ (barcode, release date, grade,
+    # TCG language/set, manufacturer, source link + price, extra photo URLs).
+    # Founder 2026-09-27: stored, NEVER shown — keep it out of every API serializer.
+    attributes: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     submitted_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     # DV6-13 — trust-by-default moderation: community entries are live immediately and
