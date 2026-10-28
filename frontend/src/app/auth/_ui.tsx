@@ -33,14 +33,15 @@ export const authInputStyle: React.CSSProperties = {
 
 /* Full-page paper shell with the v8 back button (38px, r11, --slate-200
    border) routing to the previous screen. `padBottom` — v8 gives login/signup a
-   24px pane bottom (Onboarding.jsx:123) while forgot/reset keep 32. */
-export function AuthShell({ back, padBottom = 32, children }: { back: string; padBottom?: number; children: React.ReactNode }) {
+   24px pane bottom (Onboarding.jsx:123) while forgot/reset keep 32. No `back`
+   = no button (beta set-password: the only way out is finishing or logging out). */
+export function AuthShell({ back, padBottom = 32, children }: { back?: string; padBottom?: number; children: React.ReactNode }) {
   const router = useRouter();
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--paper)" }}>
       <div className="w-full max-w-[420px] mx-auto flex-1 flex flex-col" style={{ paddingTop: 20 }}>
-        <div style={{ padding: "8px 14px" }}>
-          <button
+        <div style={{ padding: "8px 14px", minHeight: 54 }}>
+          {back && <button
             type="button"
             aria-label="Back"
             onClick={() => router.push(back)}
@@ -51,7 +52,7 @@ export function AuthShell({ back, padBottom = 32, children }: { back: string; pa
             }}
           >
             <ArrowLeft size={20} />
-          </button>
+          </button>}
         </div>
         <div className="flex-1" style={{ padding: `12px 24px ${padBottom}px` }}>{children}</div>
       </div>

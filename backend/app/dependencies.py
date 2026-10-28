@@ -20,8 +20,8 @@ async def get_current_user_unverified(
     db: AsyncSession = Depends(get_db),
 ):
     """Authenticated user, email verification NOT required. Only for endpoints an
-    unverified account must reach: verify-email, resend-otp, change-password, and
-    GET /users/me (the verify page's session fetch)."""
+    unverified account must reach: verify-email, resend-otp, change-password,
+    set-password, and GET /users/me (the verify page's session fetch)."""
     from app.models.user import User
 
     token = credentials.credentials
@@ -53,6 +53,12 @@ async def get_current_user(current_user=Depends(get_current_user_unverified)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Email verification required",
+        )
+    if current_user.must_reset_password:
+        # Closed beta — a provisioned account still on its team-issued password.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password reset required",
         )
     return current_user
 

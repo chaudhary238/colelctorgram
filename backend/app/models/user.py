@@ -92,6 +92,10 @@ class User(Base):
     # Email OTP confirmation (DF-06 / B-72) — sha256 of the 6-digit code
     email_otp_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     email_otp_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Closed beta: provisioned accounts start with a team-issued password and must
+    # choose their own on first login (POST /auth/set-password). Until then
+    # get_current_user 403s, so only the reset + /users/me are reachable.
+    must_reset_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     last_active_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

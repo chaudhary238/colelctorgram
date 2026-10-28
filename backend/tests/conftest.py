@@ -21,6 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 os.environ.setdefault("APP_ENV", "development")
+# Beta branch defaults to invite-only; the suite still drives open signup.
+os.environ.setdefault("INVITE_ONLY", "false")
 
 import app.models  # noqa: E402,F401 — populate Base.metadata with every model
 from app.database import Base, get_db  # noqa: E402

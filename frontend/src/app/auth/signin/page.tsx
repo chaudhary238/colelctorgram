@@ -2,12 +2,13 @@
 
 // Login (design_v8/app/Onboarding.jsx Auth mode="login"). Kept beyond v8:
 // username login (QA 2026-07-18), password eye toggle, error + busy states.
+// Closed beta: no social sign-in and no sign-up — accounts are provisioned, and
+// a first login on the team-issued password goes to /auth/set-password.
 
 import { useState } from "react";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { api, storeTokens } from "@/lib/api";
-import { SocialButtons } from "@/components/SocialButtons";
 import { AuthShell, AuthTitle, AuthField, BlockButton } from "../_ui";
 
 export default function SignInPage() {
@@ -22,14 +23,19 @@ export default function SignInPage() {
     setError("");
     setLoading(true);
     try {
-      const { access_token, refresh_token } = await api.post<{
+      const { access_token, refresh_token, must_reset_password } = await api.post<{
         access_token: string;
         refresh_token: string;
+        must_reset_password?: boolean;
       }>("/auth/login", { identifier, password });
       storeTokens(access_token, refresh_token);
+      if (must_reset_password) {
+        window.location.assign("/auth/set-password");
+        return;
+      }
       // DV8 §11#15 — email/password login must not bypass the wizard either: an
       // account without the onboarded_at stamp resumes onboarding (mirrors
-      // SocialButtons.finish). Full page load so AuthProvider refetches the user
+      // the beta set-password page). Full page load so AuthProvider refetches the user
       // for the new session.
       let dest = "/feed";
       try {
@@ -97,13 +103,8 @@ export default function SignInPage() {
         </div>
       </form>
 
-      <SocialButtons onError={setError} />
-
-      <div style={{ textAlign: "center", marginTop: 26, fontSize: 13.5, color: "var(--ink-mute)" }}>
-        New to Scorred?{" "}
-        <Link href="/auth/signup" style={{ color: "var(--stamp-red)", fontWeight: 600, fontSize: 13.5 }}>
-          Sign up
-        </Link>
+      <div style={{ textAlign: "center", marginTop: 26, fontSize: 13.5, color: "var(--ink-mute)", lineHeight: 1.5 }}>
+        Scorred is in closed beta. Use the email and password the team sent you.
       </div>
     </AuthShell>
   );

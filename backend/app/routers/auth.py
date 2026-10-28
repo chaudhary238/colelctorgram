@@ -29,6 +29,15 @@ logger = logging.getLogger("collectorhub.auth")
 
 OTP_TTL_MINUTES = 10
 
+INVITE_ONLY_DETAIL = "Scorred is in closed beta — sign in with the account the team sent you"
+
+
+def _reject_if_invite_only() -> None:
+    """Closed beta: only provisioned accounts exist, so anything that would create
+    one (signup, social find-or-create) is refused."""
+    if settings.invite_only:
+        raise HTTPException(status_code=403, detail=INVITE_ONLY_DETAIL)
+
 
 def _issue_otp(user: User) -> str:
     """Generate a 6-digit email-confirmation code (DF-06 / B-72).
@@ -83,11 +92,15 @@ class TokenResponse(BaseModel):
     # dev-only (signup): OTP echoed back so the UI can show it while no email
     # domain is wired (Resend needs a verified domain → blocked on name decision)
     debug_otp: str | None = None
+    # login only: provisioned beta account still on its team-issued password —
+    # the client routes straight to /auth/set-password.
+    must_reset_password: bool = False
 
 
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED,
              dependencies=[Depends(rate_limit_ip("auth"))])  # B-68
 async def signup(body: SignUpBody, db: AsyncSession = Depends(get_db)):
+    _reject_if_invite_only()
     # Normalise BEFORE the duplicate check — checking the raw input while storing
     # lowercased let "Test@X.com" slip past the check and 500 on the unique index.
     email = body.email.lower().strip()
@@ -208,7 +221,32 @@ async def login(body: LoginBody, db: AsyncSession = Depends(get_db)):
     return TokenResponse(
         access_token=create_access_token(str(user.id)),
         refresh_token=create_refresh_token(str(user.id)),
+        must_reset_password=user.must_reset_password,
     )
+
+
+class SetPasswordBody(BaseModel):
+    new_password: str
+
+
+@router.post("/set-password", status_code=204)
+async def set_password(
+    body: SetPasswordBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_unverified),
+):
+    """Closed beta first login: swap the team-issued password for the user's own.
+    No current password asked — the session itself came from logging in with it
+    moments ago, and the endpoint only works while the reset flag is set."""
+    if not current_user.must_reset_password:
+        raise HTTPException(status_code=400, detail="Password is already set — use change password")
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
+    if current_user.password_hash and verify_password(body.new_password, current_user.password_hash):
+        raise HTTPException(status_code=422, detail="Choose a new password, not the one you were sent")
+    current_user.password_hash = hash_password(body.new_password)
+    current_user.must_reset_password = False
+    db.add(current_user)
 
 
 class ChangePasswordBody(BaseModel):
@@ -227,6 +265,7 @@ async def change_password(
     if len(body.new_password) < 8:
         raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
     current_user.password_hash = hash_password(body.new_password)
+    current_user.must_reset_password = False
     db.add(current_user)
 
 
@@ -272,6 +311,7 @@ async def reset_password(body: ResetPasswordBody, db: AsyncSession = Depends(get
     if payload.get("fp") != password_fingerprint(user.password_hash):
         raise HTTPException(status_code=400, detail="This reset link has already been used")
     user.password_hash = hash_password(body.new_password)
+    user.must_reset_password = False  # they chose this one themselves
     db.add(user)
 
 
@@ -286,8 +326,8 @@ class OAuthProvidersOut(BaseModel):
 @router.get("/providers", response_model=OAuthProvidersOut)
 async def oauth_providers():
     return OAuthProvidersOut(
-        google=bool(settings.google_client_id),
-        apple=bool(settings.apple_client_id),
+        google=bool(settings.google_client_id) and not settings.invite_only,
+        apple=bool(settings.apple_client_id) and not settings.invite_only,
     )
 
 
@@ -326,6 +366,7 @@ async def _handle_oauth_user(db: AsyncSession, *, email: str, name: str | None) 
 
 @router.post("/oauth/google", response_model=TokenResponse)
 async def oauth_google(body: OAuthBody, db: AsyncSession = Depends(get_db)):
+    _reject_if_invite_only()
     if not settings.google_client_id:
         raise HTTPException(status_code=503, detail="Google sign-in is not configured")
     # Verify the ID token with Google's tokeninfo endpoint (no extra dependency).
@@ -346,6 +387,7 @@ async def oauth_google(body: OAuthBody, db: AsyncSession = Depends(get_db)):
 
 @router.post("/oauth/apple", response_model=TokenResponse)
 async def oauth_apple(body: OAuthBody, db: AsyncSession = Depends(get_db)):
+    _reject_if_invite_only()
     if not settings.apple_client_id:
         raise HTTPException(status_code=503, detail="Apple sign-in is not configured")
     from jose import jwt as jose_jwt

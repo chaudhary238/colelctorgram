@@ -30,6 +30,11 @@ backend/seed_social_graph.py
 # (backend/Dockerfile copies only app/ + alembic/).
 /bulk_upload/
 backend/scripts/
+# Closed-beta issued credentials (scripts/provision_beta_users.py output).
+backend/beta_credentials*.csv
+# Closed-beta invitee list (real people's emails) — lives outside the repo; never commit a copy.
+betauser*
+beta_users*
 
 # Seed / one-off data scripts — carry demo data + run with env-provided creds.
 backend/seed_dv8_scenarios.py

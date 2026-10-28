@@ -53,10 +53,11 @@ export default function SplashPage() {
       {/* v8 Button size "block" (shared.jsx:554-585) — BlockButton carries the paper
           text token, press scale, focus ring and 120ms transitions (DV8 §11#3+#4). */}
       <div className="scr-fu-3 relative flex flex-col" style={{ gap: 10, padding: "0 24px 44px", maxWidth: 420, width: "100%", marginLeft: "auto", marginRight: "auto" }}>
-        <BlockButton onClick={() => router.push("/auth/signup")}>Create account</BlockButton>
-        <BlockButton variant="secondary" onClick={() => router.push("/auth/signin")}>
-          I already have an account
-        </BlockButton>
+        {/* Closed beta — no self sign-up; accounts are issued by the team. */}
+        <BlockButton onClick={() => router.push("/auth/signin")}>Log in</BlockButton>
+        <p style={{ fontSize: 12.5, color: "var(--ink-faint)", margin: "4px 0 0", textAlign: "center" }}>
+          Closed beta · invite only
+        </p>
       </div>
     </div>
   );

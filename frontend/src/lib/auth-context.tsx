@@ -29,6 +29,7 @@ export interface AuthUser {
   notif_prefs?: NotifPrefs | null;
   privacy_prefs?: PrivacyPrefs | null;
   email_verified?: boolean | null;
+  must_reset_password?: boolean | null; // closed beta — still on the team-issued password
   is_admin?: boolean | null; // me-only field; gates the /admin console UI
 }
 
@@ -72,7 +73,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     api
       .get<AuthUser>("/users/me")
-      .then(setUser)
+      .then((u) => {
+        // Closed beta: every other endpoint 403s until the team-issued password
+        // is replaced, so send the user to do that rather than show a dead app.
+        if (u.must_reset_password && !window.location.pathname.startsWith("/auth")) {
+          window.location.replace("/auth/set-password");
+          return;
+        }
+        setUser(u);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

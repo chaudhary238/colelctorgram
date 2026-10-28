@@ -72,6 +72,9 @@ class ProfileOut(BaseModel):
     # DV8 — onboarding-wizard completion stamp; social sign-in routes to the
     # wizard when this is null (see frontend SocialButtons).
     onboarded_at: Optional[datetime] = None
+    # closed beta — still on the team-issued password (frontend routes to
+    # /auth/set-password while true)
+    must_reset_password: Optional[bool] = None
     # admin flag — the frontend /admin gate keys off this (data access is still
     # enforced server-side via get_current_admin)
     is_admin: Optional[bool] = None
@@ -455,6 +458,7 @@ async def get_profile(
         out.privacy_prefs = None
         out.email_verified = None
         out.onboarded_at = None
+        out.must_reset_password = None
         out.is_admin = None
         # Presence is opt-out via privacy_prefs.show_online (default on).
         show_online = (user.privacy_prefs or {}).get("show_online", DEFAULT_PRIVACY_PREFS["show_online"])

@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_debug: bool = True
     frontend_url: str = "http://localhost:3000"
+    # Closed beta (beta branch → beta.scorred.com): no self-signup and no social
+    # sign-in — only the accounts provisioned by scripts/provision_beta_users.py
+    # can log in. Tests flip it off (conftest) to keep exercising signup.
+    invite_only: bool = True
 
     # Database
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/collectohub"
