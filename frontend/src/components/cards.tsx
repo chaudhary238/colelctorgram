@@ -685,6 +685,39 @@ export function MentionInput({
 }
 
 /* ── Rich comment thread — likes, replies, @mentions, edit/delete ── */
+/* ── Comment emoji picker ────────────────────────────────────────────
+   Phones have an emoji keyboard; desktop doesn't, so the comment composers get
+   the same picker + set as Chat/Compose (v8 Chat.jsx:49). onMouseDown
+   preventDefault keeps focus in the input so typing carries on after a pick. */
+const COMMENT_EMOJIS = ["😍", "🔥", "🤩", "😎", "🥹", "👀", "🙌", "👏", "💎", "🏆", "📦", "🚀", "✨", "❤️", "🤝", "💰", "🫡", "🧩", "🎯", "😱"];
+
+function EmojiToggle({ active, onClick }: { active: boolean; onClick: () => void }) {
+  return (
+    <span aria-label="Add emoji" onMouseDown={(e) => e.preventDefault()} style={{ display: "contents" }}>
+      <IconButton icon={<span style={{ fontSize: 18, lineHeight: 1 }}>😊</span>} active={active} onClick={onClick} />
+    </span>
+  );
+}
+
+function EmojiPanel({ onPick }: { onPick: (e: string) => void }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8, padding: 10, background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 12, maxHeight: 140, overflowY: "auto" }}>
+      {COMMENT_EMOJIS.map((e) => (
+        <button
+          key={e}
+          type="button"
+          aria-label={`Insert ${e}`}
+          onMouseDown={(ev) => ev.preventDefault()}
+          onClick={() => onPick(e)}
+          style={{ width: 36, height: 36, borderRadius: 9, border: "none", background: "transparent", cursor: "pointer", fontSize: 20, lineHeight: 1 }}
+        >
+          {e}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function CommentThread({ postId, onCountChange }: { postId: string; onCountChange?: (n: number) => void }) {
   const [comments, setComments] = useState<ApiComment[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -695,6 +728,8 @@ export function CommentThread({ postId, onCountChange }: { postId: string; onCou
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null); // QA #27
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
+  // Which composer has its emoji panel open: "main", a parent comment id (reply), or none.
+  const [emojiFor, setEmojiFor] = useState<string | null>(null);
 
   // Report the count to the parent AFTER commit — never inside a setState updater.
   // Calling onCountChange (a parent setState) from within an updater runs during
@@ -723,6 +758,7 @@ export function CommentThread({ postId, onCountChange }: { postId: string; onCou
       const created = await api.post<ApiComment>(`/posts/${postId}/comments`, { body: text, parent_id: parentId });
       setComments((cs) => [...cs, created]);
       if (isReply) { setReplyDraft(""); setReplyTo(null); } else setDraft("");
+      setEmojiFor(null);
     } catch { /* leave draft for retry */ }
   }
 
@@ -847,8 +883,12 @@ export function CommentThread({ postId, onCountChange }: { postId: string; onCou
               <div style={{ display: "flex", gap: 8, alignItems: "center", paddingLeft: 30 }}>
                 <Avatar name="You" color="var(--ink)" size={26} />
                 <MentionInput size="sm" autoFocus value={replyDraft} onChange={setReplyDraft} onSubmit={() => add(c.id)} placeholder={`Reply to @${c.handle ?? c.name ?? "user"}…`} />
+                <EmojiToggle active={emojiFor === c.id} onClick={() => setEmojiFor(emojiFor === c.id ? null : c.id)} />
                 <IconButton icon={<Send size={15} />} active={!!replyDraft.trim()} onClick={() => add(c.id)} />
               </div>
+            )}
+            {replyTo === c.id && emojiFor === c.id && (
+              <div style={{ paddingLeft: 64 }}><EmojiPanel onPick={(e) => setReplyDraft((d) => d + e)} /></div>
             )}
           </div>
         ))}
@@ -857,8 +897,10 @@ export function CommentThread({ postId, onCountChange }: { postId: string; onCou
       <div style={{ display: "flex", gap: 9, alignItems: "center", marginTop: 14 }}>
         <Avatar name="You" color="var(--ink)" size={30} />
         <MentionInput value={draft} onChange={setDraft} onSubmit={() => add()} placeholder="Add a comment… type @ to tag" />
+        <EmojiToggle active={emojiFor === "main"} onClick={() => setEmojiFor(emojiFor === "main" ? null : "main")} />
         <IconButton icon={<Send size={17} />} active={!!draft.trim()} onClick={() => add()} />
       </div>
+      {emojiFor === "main" && <div style={{ paddingLeft: 39 }}><EmojiPanel onPick={(e) => setDraft((d) => d + e)} /></div>}
     </div>
   );
 }
