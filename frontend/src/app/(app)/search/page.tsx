@@ -123,6 +123,10 @@ function SearchPageInner() {
   const [searching, setSearching] = useState(false);
 
   // Mirror q/scope into the URL with replace (no history spam while typing).
+  // Native replaceState, NOT router.replace: router.replace is a full soft
+  // navigation per keystroke, and on a real network a late one re-renders the
+  // page with a stale ?q= — typed letters vanished on beta ("smoketest…" →
+  // "smokt…"). replaceState stays in sync with useSearchParams without navigating.
   const urlSyncReady = useRef(false);
   useEffect(() => {
     if (!urlSyncReady.current) { urlSyncReady.current = true; return; }
@@ -130,8 +134,8 @@ function SearchPageInner() {
     if (q.trim()) params.set("q", q.trim());
     if (scope !== "all") params.set("scope", scope);
     const qs = params.toString();
-    router.replace(qs ? `/search?${qs}` : "/search", { scroll: false });
-  }, [q, scope, router]);
+    window.history.replaceState(null, "", qs ? `/search?${qs}` : "/search");
+  }, [q, scope]);
 
   // Trending now (empty-query state) — real, derived from recent post hashtags.
   useEffect(() => {
