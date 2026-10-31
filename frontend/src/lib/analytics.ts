@@ -1,6 +1,7 @@
 // Beta feature analytics (GA4). Off unless NEXT_PUBLIC_GA_ID is set AND the
-// signed-in account is a beta tester (/users/me `analytics`, decided server-side
-// so staff, seed personas and the accounts copied from QA never send data).
+// signed-in account is tracked (/users/me `analytics`, decided server-side; seed
+// personas never are). Every user carries an `account_type` user property —
+// "tester" (the beta cohort) or "team" (founders/QA) — so reports filter to testers.
 // Feature-only: page views carry a readable screen name + bottom-nav tab, plus a
 // handful of feature events. Identity is our internal user id — never the email.
 
@@ -19,7 +20,7 @@ let enabled = false;
 
 /** Queue-based gtag bootstrap (what Google's snippet does inline): calls made
  *  before gtag.js finishes loading sit in dataLayer and replay once it's up. */
-export function initAnalytics(userId: string) {
+export function initAnalytics(userId: string, accountType: string) {
   if (enabled || !GA_ID) return;
   window.dataLayer = window.dataLayer || [];
   window.gtag = function gtag() {
@@ -28,6 +29,7 @@ export function initAnalytics(userId: string) {
     window.dataLayer!.push(arguments);
   };
   window.gtag("js", new Date());
+  window.gtag("set", "user_properties", { account_type: accountType });
   // Page views are sent manually (trackPageView) so each carries a screen name.
   window.gtag("config", GA_ID, { send_page_view: false, user_id: userId });
   enabled = true;

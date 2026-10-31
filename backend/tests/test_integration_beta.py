@@ -83,7 +83,7 @@ async def test_change_password_also_clears_reset_flag(client, db, invite_only):
     assert (await client.get("/v1/feed", headers=headers)).status_code == 200
 
 
-async def test_analytics_flag_only_for_beta_cohort(client, db):
+async def test_analytics_groups_tester_team_and_seed(client, db):
     from datetime import datetime, timezone
 
     await _provision(db, email="tester@test.scorred")
@@ -92,13 +92,17 @@ async def test_analytics_flag_only_for_beta_cohort(client, db):
                 created_at=datetime(2026, 9, 1, tzinfo=timezone.utc)))  # copied from QA
     db.add(User(id=uuid.uuid4(), handle="seedy", name="S", email="seedy@test.scorred",
                 password_hash=hash_password("TeamIssued1"), email_verified=True, is_seed_account=True))
+    db.add(User(id=uuid.uuid4(), handle="official", name="O", email="official@test.scorred",
+                password_hash=hash_password("TeamIssued1"), email_verified=True,
+                is_admin=True, is_seed_account=True))  # staff account
     await db.commit()
 
-    async def flag(ident):
+    async def flags(ident):
         login = await client.post("/v1/auth/login", json={"identifier": ident, "password": "TeamIssued1"})
-        me = await client.get("/v1/users/me", headers={"Authorization": f"Bearer {login.json()['access_token']}"})
-        return me.json()["analytics"]
+        me = (await client.get("/v1/users/me", headers={"Authorization": f"Bearer {login.json()['access_token']}"})).json()
+        return me["analytics"], me["analytics_group"]
 
-    assert await flag("tester") is True
-    assert await flag("founder") is False
-    assert await flag("seedy") is False
+    assert await flags("tester") == (True, "tester")
+    assert await flags("founder") == (True, "team")
+    assert await flags("official") == (True, "team")
+    assert await flags("seedy") == (False, None)

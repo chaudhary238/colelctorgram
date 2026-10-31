@@ -6,8 +6,9 @@ import Script from "next/script";
 import { useUser } from "@/lib/auth-context";
 import { GA_ID, initAnalytics, trackPageView } from "@/lib/analytics";
 
-// Loads GA4 only for beta testers (see lib/analytics.ts). Everyone else — signed
-// out, staff, seed and QA-copied accounts — never downloads gtag.js at all.
+// Loads GA4 for tracked accounts only (see lib/analytics.ts) — testers and team,
+// each tagged with account_type. Signed-out visitors and seed personas never
+// download gtag.js at all.
 export function Analytics() {
   const { user } = useUser();
   const pathname = usePathname();
@@ -16,7 +17,7 @@ export function Analytics() {
 
   useEffect(() => {
     if (!active || !user) return;
-    initAnalytics(user.id);
+    initAnalytics(user.id, user.analytics_group ?? "tester");
     setReady(true); // eslint-disable-line react-hooks/set-state-in-effect -- one-shot flip after the external gtag bootstrap
   }, [active, user]);
 

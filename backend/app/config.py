@@ -15,9 +15,9 @@ class Settings(BaseSettings):
     # sign-in — only the accounts provisioned by scripts/provision_beta_users.py
     # can log in. Tests flip it off (conftest) to keep exercising signup.
     invite_only: bool = True
-    # Beta analytics cohort: only accounts created on/after this date (the
-    # provisioned testers) and not staff/seed get GA4 feature tracking. Older rows
-    # in the beta DB were copied from QA (founders, seed personas) and would skew it.
+    # Beta analytics cohort: accounts created on/after this date are the provisioned
+    # testers (GA4 account_type=tester). Older rows were copied from QA — founders and
+    # QA accounts are tracked as account_type=team so reports can filter them out.
     analytics_cohort_start: date = date(2026, 10, 28)
 
     # Database
