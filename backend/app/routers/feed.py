@@ -1,6 +1,6 @@
 import math
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -93,12 +93,12 @@ async def get_feed(
     cache_key = (category, type, tag)
     posts = feed_cache.get(cache_key)
     if posts is None:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+        # No age cutoff: candidates are simply the newest 500 posts. A fixed 30-day
+        # window emptied the feed on a small network (closed beta: seeded posts aged
+        # out, Home showed 3 of 28); _score's recency decay still ranks fresh first.
         # DF-27 — pending (awaiting-mod-review) community posts never appear in the feed.
         # DF-30h — to_feed gates posts the author chose to keep community-only.
-        stmt = select(Post).where(
-            Post.created_at >= cutoff, Post.status == "published", Post.to_feed.is_(True)
-        )
+        stmt = select(Post).where(Post.status == "published", Post.to_feed.is_(True))
         if category:
             stmt = stmt.where(Post.category == category)
         if type:
