@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,6 +15,10 @@ class Settings(BaseSettings):
     # sign-in — only the accounts provisioned by scripts/provision_beta_users.py
     # can log in. Tests flip it off (conftest) to keep exercising signup.
     invite_only: bool = True
+    # Beta analytics cohort: only accounts created on/after this date (the
+    # provisioned testers) and not staff/seed get GA4 feature tracking. Older rows
+    # in the beta DB were copied from QA (founders, seed personas) and would skew it.
+    analytics_cohort_start: date = date(2026, 10, 28)
 
     # Database
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/collectohub"

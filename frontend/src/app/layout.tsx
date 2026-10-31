@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
+import { Analytics } from "@/components/Analytics";
 import { PHProvider } from "@/components/PHProvider";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import "./globals.css";
@@ -42,7 +43,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <ServiceWorker />
         <PHProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <Analytics />
+            {children}
+          </AuthProvider>
         </PHProvider>
       </body>
     </html>

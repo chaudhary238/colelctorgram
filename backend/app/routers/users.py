@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from typing import Optional
 
 from app.database import get_db
+from app.config import settings
 from app.dependencies import get_current_user, get_current_user_unverified
 from app.models.user import User, Follow
 from app.models.item import Item, ItemPhoto, item_is_complete
@@ -75,6 +76,8 @@ class ProfileOut(BaseModel):
     # closed beta — still on the team-issued password (frontend routes to
     # /auth/set-password while true)
     must_reset_password: Optional[bool] = None
+    # me-only: beta tester → frontend loads GA4 feature tracking (lib/analytics.ts)
+    analytics: Optional[bool] = None
     # admin flag — the frontend /admin gate keys off this (data access is still
     # enforced server-side via get_current_admin)
     is_admin: Optional[bool] = None
@@ -194,10 +197,19 @@ async def _follow_rows(db: AsyncSession, users: list[User], viewer: User) -> lis
     return rows
 
 
+def _analytics_enabled(user: User) -> bool:
+    """Beta testers only — never staff, seed personas, or the pre-cohort accounts
+    copied from QA (settings.analytics_cohort_start)."""
+    if user.is_admin or user.is_seed_account or user.created_at is None:
+        return False
+    return user.created_at.date() >= settings.analytics_cohort_start
+
+
 @router.get("/me", response_model=ProfileOut)
 async def get_me(current_user: User = Depends(get_current_user_unverified)):
     out = _fill_pref_defaults(ProfileOut.model_validate(current_user))
     out.collection_view_privacy = _collection_views(current_user)
+    out.analytics = _analytics_enabled(current_user)
     return out
 
 
@@ -386,6 +398,7 @@ async def edit_me(
     await maybe_award_profile_complete(db, current_user)
     out = _fill_pref_defaults(ProfileOut.model_validate(current_user))
     out.collection_view_privacy = _collection_views(current_user)
+    out.analytics = _analytics_enabled(current_user)
     return out
 
 
@@ -415,6 +428,7 @@ async def set_collection_view_privacy(
     await db.flush()
     out = _fill_pref_defaults(ProfileOut.model_validate(current_user))
     out.collection_view_privacy = _collection_views(current_user)
+    out.analytics = _analytics_enabled(current_user)
     return out
 
 

@@ -9,6 +9,7 @@ import {
 import { BackButton } from "@/components/BackButton";
 import { ReportCatalogueSheet } from "@/components/ReportCatalogueSheet";
 import { api } from "@/lib/api";
+import { track } from "@/lib/analytics";
 import { useUser } from "@/lib/auth-context";
 import { ConfirmDialog, SectionLabel, Tag } from "@/components/ui";
 import { ReleaseWindowPicker } from "@/components/forms";
@@ -483,6 +484,7 @@ export default function ItemDetailPage() {
       const res = await api.post<{ id: string; add_xp?: number }>("/items", {
         sku: item.sku, status: item.status === "preorder" ? "preorder" : "owned",
       });
+      track("item_added", { method: "second_copy", status: item.status === "preorder" ? "preorder" : "owned" });
       if (res.add_xp && res.add_xp > 0) {
         fireXpToast(res.add_xp, "Added a second copy");
         setTimeout(() => fireToast("Give it its own condition & price"), 2400);

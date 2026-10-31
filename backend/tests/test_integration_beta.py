@@ -81,3 +81,24 @@ async def test_change_password_also_clears_reset_flag(client, db, invite_only):
                           json={"current_password": "TeamIssued1", "new_password": "MyOwnPass9"})
     assert r.status_code == 204
     assert (await client.get("/v1/feed", headers=headers)).status_code == 200
+
+
+async def test_analytics_flag_only_for_beta_cohort(client, db):
+    from datetime import datetime, timezone
+
+    await _provision(db, email="tester@test.scorred")
+    db.add(User(id=uuid.uuid4(), handle="founder", name="F", email="founder@test.scorred",
+                password_hash=hash_password("TeamIssued1"), email_verified=True,
+                created_at=datetime(2026, 9, 1, tzinfo=timezone.utc)))  # copied from QA
+    db.add(User(id=uuid.uuid4(), handle="seedy", name="S", email="seedy@test.scorred",
+                password_hash=hash_password("TeamIssued1"), email_verified=True, is_seed_account=True))
+    await db.commit()
+
+    async def flag(ident):
+        login = await client.post("/v1/auth/login", json={"identifier": ident, "password": "TeamIssued1"})
+        me = await client.get("/v1/users/me", headers={"Authorization": f"Bearer {login.json()['access_token']}"})
+        return me.json()["analytics"]
+
+    assert await flag("tester") is True
+    assert await flag("founder") is False
+    assert await flag("seedy") is False

@@ -29,6 +29,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, Info, PlusCircle, X } from "lucide-react";
 import { api } from "@/lib/api";
+import { track } from "@/lib/analytics";
 import { DetailHeader } from "@/components/DetailHeader";
 import { ProductPhoto, SectionLabel } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
@@ -131,6 +132,7 @@ export default function AddToDatabasePage() {
         cover_url: photos[0],
         status: "intel",
       });
+      track("item_added", { method: "database_entry", status: "intel" });
       for (const url of photos) {
         await api.post(`/items/${item.id}/photos?url=${encodeURIComponent(url)}&is_public=true`);
       }

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import { useRouter, useSearchParams } from "next/navigation";
 import { X, Tag, PlusCircle, Shield, Clock, Check, Eye, ChevronRight, Search, Sparkles, Info, Plus } from "lucide-react";
 import { api } from "@/lib/api";
+import { track } from "@/lib/analytics";
 import { useUser } from "@/lib/auth-context";
 import { fireXpToast, fireToast } from "@/components/gamification";
 import { SectionLabel, ProductPhoto, CategoryChip } from "@/components/ui";
@@ -390,6 +391,7 @@ function AddListingPageInner() {
         preorder_total: isPreorder && poTotal ? Number(poTotal) * 100 : null,
         preorder_deposit: isPreorder && poDeposit ? Number(poDeposit) * 100 : null,
       });
+      track("item_added", { method: "add_item", status: isPreorder ? "preorder" : "owned" });
       // Attach uploaded photos (oldest-first = cover order). Personal photos are private by
       // default (DV6-13); the first photo of a NEW catalogue entry is the shared public reference.
       for (let idx = 0; idx < photos.length; idx++) {
@@ -426,6 +428,7 @@ function AddListingPageInner() {
           ships_nationwide: true,
           terms: [shipIncl ? "Shipping included" : null, returns ? "Returns accepted" : null].filter(Boolean) as string[],
         });
+        track("listing_created", { method: "with_new_item" });
         router.push(`/listing/${listing.id}`);
         return;
       }

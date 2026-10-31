@@ -26,6 +26,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Info, X } from "lucide-react";
 import { api } from "@/lib/api";
+import { track } from "@/lib/analytics";
 import { DetailHeader } from "@/components/DetailHeader";
 import { CategoryChip, ProductPhoto, SectionLabel, Segmented } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
@@ -136,6 +137,7 @@ function AddToCollectionInner() {
           preorder_deposit: poDeposit ? Number(poDeposit) * 100 : null,
         } : {}),
       });
+      track("item_added", { method: "from_database", status });
       for (const url of photos) {
         await api.post(`/items/${item.id}/photos?url=${encodeURIComponent(url)}`);
       }

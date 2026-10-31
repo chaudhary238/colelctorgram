@@ -8,6 +8,10 @@ engine = create_async_engine(
     echo=settings.app_debug,
     pool_size=10,
     max_overflow=20,
+    # Neon's free compute suspends after ~5 idle minutes and drops pooled
+    # connections; ping on checkout so the first request after a wake reconnects
+    # instead of failing (seen live: /health → db down once after idle).
+    pool_pre_ping=True,
 )
 
 AsyncSessionLocal = async_sessionmaker(

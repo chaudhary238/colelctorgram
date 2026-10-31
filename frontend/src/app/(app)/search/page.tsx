@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { api } from "@/lib/api";
+import { track } from "@/lib/analytics";
 import { useUser } from "@/lib/auth-context";
 import { CategoryChip, ProductPhoto, Avatar, SectionLabel, compactNum } from "@/components/ui";
 
@@ -187,6 +188,24 @@ function SearchPageInner() {
     }, 350);
     return () => clearTimeout(timer);
   }, [q]);
+
+  // Analytics: the fetch above fires on every typing pause, so "pok" → "poke" →
+  // "pokemon" would log three searches (and inflate no-result counts with
+  // partials). Log once the query has settled for 1.5s, and never the same term twice in a row.
+  const lastTracked = useRef("");
+  useEffect(() => {
+    const term = q.trim().toLowerCase();
+    if (!results || searching || term.length < 2 || term === lastTracked.current) return;
+    const t = setTimeout(() => {
+      const c = results.counts;
+      const total = c
+        ? c.users + c.posts + c.catalogue + c.communities + c.events
+        : results.users.length + results.posts.length + results.catalogue.length + results.communities.length + results.events.length;
+      track("search", { search_term: term, result_count: total });
+      lastTracked.current = term;
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [results, searching, q]);
 
   // v8 Overlays.jsx:442 — Cancel dismisses the overlay; here that's "leave
   // /search the way you came in" (history back, /feed when opened cold).

@@ -19,6 +19,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { X, ArrowLeft, Check, Camera, PlusCircle, Star, ChevronDown, ChevronRight, Tag, Search, Pencil } from "lucide-react";
 import { api } from "@/lib/api";
+import { track } from "@/lib/analytics";
 import { ApiCommunity, refTone } from "@/components/cards";
 import { useUser } from "@/lib/auth-context";
 import { Avatar, Button, CategoryChip, ProductPhoto, Segmented, SectionLabel } from "@/components/ui";
@@ -420,6 +421,7 @@ function ComposePage() {
         community_id: targetCommunities[0] ?? null,
         to_feed: postTo.includes("feed"),
       });
+      track("post_created", { post_type: type === "post" ? "showcase" : type, method: "compose" });
       // The feed's restore snapshot predates this post, so leaving it in place would
       // send the author back to a list their own post isn't in until the 5-min TTL
       // lapsed (founder QA 2026-08-05). Drop it so /feed fetches fresh.

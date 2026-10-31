@@ -35,6 +35,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Tag as TagIcon, Shield, X, PlusCircle } from "lucide-react";
 import { api } from "@/lib/api";
+import { track } from "@/lib/analytics";
 import { useUser } from "@/lib/auth-context";
 import { DetailHeader } from "@/components/DetailHeader";
 import { ConfirmDialog, ProductPhoto, SectionLabel, Tag, CategoryChip } from "@/components/ui";
@@ -301,6 +302,7 @@ export default function EditItemPage() {
             returns ? "Returns accepted" : null,
           ].filter(Boolean) as string[],
         });
+        track("listing_created", { method: "existing_item" });
       }
       // v8 toast copy incl. the two-line subs (:426-429) — then back to the item page.
       if (sell && alreadyListed) fireToast("Listing updated", "Buyers see the new terms right away");

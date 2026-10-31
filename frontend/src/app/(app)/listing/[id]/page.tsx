@@ -8,6 +8,7 @@ import { BackButton } from "@/components/BackButton";
 import { ReportSheet } from "@/components/ReportSheet";
 import { ShareSheet } from "@/components/ShareSheet";
 import { api } from "@/lib/api";
+import { track } from "@/lib/analytics";
 import { timeAgo } from "@/lib/utils";
 import { symOf, conditionLabel } from "@/lib/catalog";
 import { ApiCommunity, ApiListing, ApiListingQuestion } from "@/components/cards";
@@ -759,6 +760,7 @@ function ShareToFeedSheet({ listing, onClose }: { listing: ApiListing; onClose: 
         community_id: target[0] ?? null,
         to_feed: postTo.includes("feed"),
       });
+      track("post_created", { post_type: "showcase", method: "share_listing" });
       // The feed snapshot predates this post — drop it so /feed refetches fresh.
       invalidateFeedSnapshot();
       fireToast("Shared to your feed");

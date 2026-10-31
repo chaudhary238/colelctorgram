@@ -30,6 +30,7 @@ export interface AuthUser {
   privacy_prefs?: PrivacyPrefs | null;
   email_verified?: boolean | null;
   must_reset_password?: boolean | null; // closed beta — still on the team-issued password
+  analytics?: boolean | null; // me-only: beta tester → GA4 feature tracking on (lib/analytics.ts)
   is_admin?: boolean | null; // me-only field; gates the /admin console UI
 }
 
