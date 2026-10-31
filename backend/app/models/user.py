@@ -86,6 +86,20 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     is_seed_account: Mapped[bool] = mapped_column(Boolean, default=False)
     is_suspended: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Admin console moderation state. A suspension with `suspended_until` lifts
+    # itself once that time passes (services/moderation.lift_expired_suspension);
+    # `banned_at` = permanent (is_suspended stays true, no expiry). A ban needs a
+    # second admin: the first records ban_requested_by, a different admin confirms.
+    strikes: Mapped[int] = mapped_column(Integer, default=0, nullable=False, server_default="0")
+    warned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    suspended_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    suspension_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    banned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ban_requested_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    ban_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Console role for staff (is_admin): owner | moderator | catalog | support.
+    # NULL on an admin = owner (accounts that pre-date roles).
+    admin_role: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     # Auth
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)

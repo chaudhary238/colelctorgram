@@ -12,6 +12,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.listing import Listing, ListingSave, ListingLike, ListingQuestion, ListingPriceVote
+from app.services.moderation import maybe_flag_price_anomaly
 from app.services.notifications import notify
 from app.models.item import Item, ItemPhoto
 from app.models.catalogue import Catalogue, CatalogueRating
@@ -99,6 +100,9 @@ async def create_listing(
         .values(active_listings_count=User.active_listings_count + 1)
     )
     await db.flush()
+    # Admin console auto-flag: priced far below the database estimate.
+    if listing.currency == "INR":
+        await maybe_flag_price_anomaly(db, listing_id=listing.id, sku=listing.sku, price=listing.price)
     task = asyncio.create_task(dispatch_wishlist_notifications(str(listing.id)))
     _bg_tasks.add(task)
     task.add_done_callback(_bg_tasks.discard)
@@ -255,6 +259,8 @@ async def update_listing(
     # QA 2026-08-04 §6 — the audience is now LIKERS: listing "save" was retired from
     # the UI, so ListingSave has no way to grow and would notify nobody.
     price_dropped = body.price is not None and listing.price < old_price
+    if price_dropped and listing.currency == "INR":
+        await maybe_flag_price_anomaly(db, listing_id=listing.id, sku=listing.sku, price=listing.price)
     just_sold = old_status != "sold" and listing.status == "sold"
     if price_dropped or just_sold:
         label = listing.sku or "A listing you liked"

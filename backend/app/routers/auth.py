@@ -21,6 +21,7 @@ from app.services.auth import (
     password_fingerprint,
 )
 from app.services.email import send_otp_email, send_password_reset_email
+from app.services.moderation import lift_expired_suspension, suspension_message
 from app.services.ratelimit import rate_limit_ip, rate_limit_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -216,7 +217,9 @@ async def login(body: LoginBody, db: AsyncSession = Depends(get_db)):
     if not user or not user.password_hash or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if user.is_suspended:
-        raise HTTPException(status_code=403, detail="Account suspended")
+        lift_expired_suspension(user)
+    if user.is_suspended:
+        raise HTTPException(status_code=403, detail=suspension_message(user))
 
     return TokenResponse(
         access_token=create_access_token(str(user.id)),
@@ -321,6 +324,9 @@ async def reset_password(body: ResetPasswordBody, db: AsyncSession = Depends(get
 class OAuthProvidersOut(BaseModel):
     google: bool
     apple: bool
+    # Beta: communities/events go live without waiting for review — the create
+    # forms say so instead of "submit for approval".
+    beta_auto_approve: bool = False
 
 
 @router.get("/providers", response_model=OAuthProvidersOut)
@@ -328,6 +334,7 @@ async def oauth_providers():
     return OAuthProvidersOut(
         google=bool(settings.google_client_id) and not settings.invite_only,
         apple=bool(settings.apple_client_id) and not settings.invite_only,
+        beta_auto_approve=settings.beta_auto_approve,
     )
 
 
@@ -419,6 +426,8 @@ async def refresh(body: RefreshBody, db: AsyncSession = Depends(get_db)):
     user_id = payload.get("sub")
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
+    if user and user.is_suspended:
+        lift_expired_suspension(user)
     if not user or user.is_suspended:
         raise HTTPException(status_code=401, detail="User not found")
 

@@ -1,110 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
-import { ConfirmDialog } from "@/components/ui";
+import { Flags, KV, Queue, UserLink, age, useConsole, type QItem } from "../_console";
 
-interface PendingCommunity {
-  id: string;
-  name: string;
-  category: string;
-  short_desc: string | null;
-  description: string | null;
-  rules: string[];
-  post_mode: string;
-  is_invite_only: boolean;
-  founder_handle: string;
-  founder_name: string;
-  created_at: string;
-}
-
-export default function CommunitiesAdminPage() {
-  const [pending, setPending] = useState<PendingCommunity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [actioned, setActioned] = useState<{ name: string; action: "approved" | "rejected" }[]>([]);
-  const [confirmReject, setConfirmReject] = useState<PendingCommunity | null>(null); // QA #27
-
-  useEffect(() => {
-    api.get<PendingCommunity[]>("/admin/communities/pending")
-      .then((data) => setPending(data ?? []))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  const act = async (c: PendingCommunity, action: "approved" | "rejected") => {
-    if (busy) return;
-    setBusy(c.id);
-    try {
-      await api.patch(`/admin/communities/${c.id}/${action === "approved" ? "approve" : "reject"}`);
-      setPending((p) => p.filter((x) => x.id !== c.id));
-      setActioned((a) => [...a, { name: c.name, action }]);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setBusy(null);
-    }
-  };
-
+export default function CommunitiesQueue() {
+  const { me } = useConsole();
   return (
-    <div style={{ maxWidth: 860 }}>
-      <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em", margin: "0 0 6px" }}>Community management</h1>
-      <p style={{ color: "var(--ink-faint)", fontSize: 14, margin: "0 0 24px" }}>Review and approve community creation requests.</p>
-
-      <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, margin: "0 0 12px" }}>Pending approval ({pending.length})</h2>
-      {loading && <div style={{ fontSize: 14, color: "var(--ink-faint)", padding: "20px 0" }}>Loading…</div>}
-      {!loading && pending.length === 0 && <div style={{ fontSize: 14, color: "var(--ink-faint)", padding: "20px 0" }}>All caught up — no pending requests.</div>}
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
-        {pending.map((c) => (
-          <div key={c.id} style={{ border: "1px solid var(--border)", borderRadius: 14, padding: 16, background: "var(--paper-soft)" }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 2 }}>{c.name}</div>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", marginBottom: 8 }}>
-                  @{c.founder_handle} · {c.category} · {c.is_invite_only ? "invite-only" : "public"} · posts: {c.post_mode}
-                </div>
-                <div style={{ fontSize: 14, color: "var(--ink-mute)", lineHeight: 1.5 }}>{c.short_desc ?? c.description}</div>
-                {c.rules.length > 0 && (
-                  <ul style={{ margin: "10px 0 0", padding: "0 0 0 18px", fontSize: 12.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
-                    {c.rules.map((r, i) => <li key={i}>{r}</li>)}
-                  </ul>
-                )}
-              </div>
-              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                {/* QA #27 — reject confirms first. */}
-                <button onClick={() => setConfirmReject(c)} disabled={busy === c.id} style={{ height: 36, padding: "0 14px", borderRadius: 9, border: "1px solid var(--border-strong)", background: "transparent", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer", color: "var(--ink)" }}>Reject</button>
-                <button onClick={() => act(c, "approved")} disabled={busy === c.id} style={{ height: 36, padding: "0 14px", borderRadius: 9, border: "none", background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Approve</button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {actioned.length > 0 && (
-        <>
-          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, margin: "0 0 12px" }}>Actioned this session</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {actioned.map(({ name, action }, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 11, background: action === "approved" ? "var(--forest-soft)" : "var(--bone)", border: `1px solid ${action === "approved" ? "var(--forest)" : "var(--border)"}` }}>
-                <span style={{ fontSize: 14, fontWeight: 500, flex: 1 }}>{name}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: action === "approved" ? "var(--forest)" : "var(--ink-mute)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{action}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {confirmReject && (
-        <ConfirmDialog
-          title={`Reject "${confirmReject.name}"?`}
-          body="The creator is notified and the community never opens."
-          confirmLabel="Reject"
-          busy={busy === confirmReject.id}
-          onConfirm={() => { const c = confirmReject; setConfirmReject(null); act(c, "rejected"); }}
-          onCancel={() => setConfirmReject(null)}
-        />
-      )}
-    </div>
+    <Queue
+      kind="communities"
+      title="Community requests"
+      sub={me?.beta_auto_approve
+        ? "Beta: auto-approval is on — new communities go live at once and wait here for a review. Reject takes one down."
+        : "New communities wait here until approved. Target: decide within 48 h."}
+      row={(c) => <><b>{String(c.name)}{c.auto_approved ? <span className="tag auto">Auto-approved</span> : null}</b><span>{String(c.privacy)} · by @{String(c.handle)}</span></>}
+      sla={(c) => (c.auto_approved ? null : 48)}
+      nameOf={(c) => String(c.name)}
+      targetOf={(c) => String(c.handle)}
+      detail={(c: QItem) => <>
+        <h2>{String(c.name)}</h2>
+        {Boolean(c.auto_approved) && <div className="flag info">Live now (beta auto-approval). Approve to mark it reviewed; reject to take it down.</div>}
+        <Flags flags={c.flags as string[]} />
+        <KV rows={[["Creator", <><UserLink handle={String(c.handle)} /> · {String(c.by)}</>], ["Category", String(c.category ?? "—")],
+          ["Who can join", String(c.privacy)], ["Who can post", String(c.posting)], ["Submitted", age(c.age_h)]]} />
+        <div className="blk"><div className="mono">Description</div><p>{String(c.desc || "—")}</p></div>
+        {(c.rules as string[])?.length > 0 && <div className="blk"><div className="mono">Rules</div>{(c.rules as string[]).map((r) => <p key={r}>• {r}</p>)}</div>}
+      </>}
+      actions={(c) => [
+        { key: "approve", label: c.auto_approved ? "Mark reviewed" : "Approve", variant: "p" },
+        { key: "changes", label: "Request changes" },
+        { key: "reject", label: c.auto_approved ? "Take down" : "Reject", variant: "d" },
+      ]}
+    />
   );
 }

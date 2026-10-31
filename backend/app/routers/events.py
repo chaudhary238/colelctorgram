@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.event import Event, EventInterest, EventReminder
@@ -210,7 +211,9 @@ async def create_event(
         ticket_url=body.ticket_url,
         contact=body.contact,
         is_admin_created=current_user.is_admin,
-        status="active" if current_user.is_admin else "pending_approval",
+        # Beta auto-approval: live at once, reviewed afterwards in the admin console.
+        status="active" if current_user.is_admin or settings.beta_auto_approve else "pending_approval",
+        auto_approved=settings.beta_auto_approve and not current_user.is_admin,
     )
     db.add(event)
     await db.flush()
@@ -225,8 +228,14 @@ async def update_event(
     current_user: User = Depends(get_current_user),
 ):
     event = await _require_host(db, event_id, current_user)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    changes = body.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(event, field, value)
+    if event.status == "changes_requested" and changes:
+        # Admin console "request changes" → the host's edit resubmits it.
+        event.status = "active" if settings.beta_auto_approve else "pending_approval"
+        event.auto_approved = settings.beta_auto_approve
+        event.reviewed_at = None
     # DV8 — a free event carries no price; flipping the toggle clears the stale one.
     if event.is_free:
         event.price = 0

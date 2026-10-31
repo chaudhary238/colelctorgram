@@ -272,6 +272,7 @@ function ChatThread() {
       {moreOpen && other && (
         <ChatMoreMenu
           targetId={other.id}
+          lastMessageId={[...localMessages].reverse().find((m) => m.sender_id === other.id)?.id ?? null}
           targetHandle={other.handle ?? ""}
           targetName={other.name ?? "this user"}
           avatarUrl={other.avatar_url}
@@ -485,9 +486,9 @@ const attachIcon: React.CSSProperties = {
    fold this back into it. */
 
 const REPORT_REASONS: { label: string; reason: string }[] = [
-  { label: "Fake / impersonation", reason: "other" },
+  { label: "Fake / impersonation", reason: "impersonation" },
   { label: "Counterfeit / replica listings", reason: "counterfeit" },
-  { label: "Scam or fraud attempt", reason: "other" },
+  { label: "Scam or fraud attempt", reason: "scam" },
   { label: "Harassment or abuse", reason: "harassment" },
   { label: "Spam", reason: "spam" },
   { label: "Other", reason: "other" },
@@ -496,9 +497,11 @@ const REPORT_REASONS: { label: string; reason: string }[] = [
 type MoreStage = "menu" | "report" | "block";
 
 function ChatMoreMenu({
-  targetId, targetHandle, targetName, avatarUrl, onClose, onBlocked,
+  targetId, lastMessageId, targetHandle, targetName, avatarUrl, onClose, onBlocked,
 }: {
   targetId: string;
+  /** Their latest message — reported instead of the bare account so moderators see what was said. */
+  lastMessageId: string | null;
   targetHandle: string;
   targetName: string;
   avatarUrl: string | null;
@@ -537,8 +540,8 @@ function ChatMoreMenu({
     const picked = REPORT_REASONS.find((r) => r.label === reason)!;
     try {
       await api.post(`/reports`, {
-        target_type: "user",
-        target_id: targetId,
+        target_type: lastMessageId ? "message" : "user",
+        target_id: lastMessageId ?? targetId,
         reason: picked.reason,
         detail: `${picked.label} — ${note.trim()}`,
       });

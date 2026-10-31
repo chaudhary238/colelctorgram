@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, case, update, delete
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.community import Community, CommunityMember, CommunityJoinRequest, CommunityMemberRemoval
@@ -180,7 +181,7 @@ async def list_communities(
     if current_user:
         visibility = (
             (Community.status == "approved")
-            | ((Community.founder_id == current_user.id) & (Community.status == "pending"))
+            | ((Community.founder_id == current_user.id) & (Community.status.in_(("pending", "changes_requested"))))
         )
         if member_ids:
             visibility = visibility | (
@@ -421,8 +422,10 @@ async def create_community(
         rules=_validate_rules(body.rules),
         is_invite_only=body.is_invite_only,
         is_admin_created=current_user.is_admin,
-        # Admin-created communities go live immediately; user-created ones await review.
-        status="approved" if current_user.is_admin else "pending",
+        # Admin-created communities go live immediately; user-created ones await
+        # review — unless beta auto-approval is on (then live, reviewed afterwards).
+        status="approved" if current_user.is_admin or settings.beta_auto_approve else "pending",
+        auto_approved=settings.beta_auto_approve and not current_user.is_admin,
     )
     db.add(community)
     db.add(CommunityMember(community_id=body.id, user_id=current_user.id, role="founder"))
@@ -638,6 +641,11 @@ async def update_community(
             raise HTTPException(status_code=409, detail=f'A community named "{new_name.strip()}" already exists')
     for field, value in patch.items():
         setattr(community, field, value)
+    if community.status == "changes_requested" and patch:
+        # Admin console "request changes" → the founder's edit resubmits it.
+        community.status = "approved" if settings.beta_auto_approve else "pending"
+        community.auto_approved = settings.beta_auto_approve
+        community.reviewed_at = None
     await db.flush()
     return _community_dict(community, True)
 

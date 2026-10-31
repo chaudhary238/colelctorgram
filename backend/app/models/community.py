@@ -33,6 +33,12 @@ class Community(Base):
     post_mode: Mapped[str] = mapped_column(String(16), default="open")  # open | approval
     rules: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     is_invite_only: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Admin console — the reason given on "request changes" / reject, shown to the creator.
+    review_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Beta auto-approval (settings.beta_auto_approve): live without a Scorred review,
+    # so it stays in the admin queue until an admin looks (reviewed_at).
+    auto_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_admin_created: Mapped[bool] = mapped_column(Boolean, default=True)
     status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | approved | rejected
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

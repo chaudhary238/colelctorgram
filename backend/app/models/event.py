@@ -44,6 +44,12 @@ class Event(Base):
     going_count: Mapped[int] = mapped_column(Integer, default=0)
     interested_count: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(24), default="active")  # pending_approval | active | rejected | cancelled | past
+    # Admin console — the reason given on "request changes" / reject, shown to the creator.
+    review_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Beta auto-approval (settings.beta_auto_approve): live without a Scorred review,
+    # so it stays in the admin queue until an admin looks (reviewed_at).
+    auto_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_admin_created: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)

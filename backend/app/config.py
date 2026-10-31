@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     # sign-in — only the accounts provisioned by scripts/provision_beta_users.py
     # can log in. Tests flip it off (conftest) to keep exercising signup.
     invite_only: bool = True
+    # Closed beta: user-created communities and events go live at once instead of
+    # waiting for a Scorred admin; they're marked auto_approved and still sit in
+    # the admin console queue for after-the-fact review. Off = normal pre-approval.
+    beta_auto_approve: bool = True
     # Beta analytics cohort: accounts created on/after this date are the provisioned
     # testers (GA4 account_type=tester). Older rows were copied from QA — founders and
     # QA accounts are tracked as account_type=team so reports can filter them out.

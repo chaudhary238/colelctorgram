@@ -1,82 +1,53 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { AuditTable, PageHead, useConsole, type AuditRow, type Counts } from "./_console";
 
-interface AdminStats {
-  total_users: number;
-  new_users_week: number;
-  posts_today: number;
-  active_listings: number;
-  pending_reports: number;
-  pending_communities: number;
-  pending_events: number;
-}
+interface Overview { counts: Counts; overdue: number; database_dupes: number; week: [string, string][]; recent: AuditRow[] }
 
-const QUICK_LINKS = [
-  { href: "/admin/communities", label: "Review community requests" },
-  { href: "/admin/events",      label: "Approve pending events" },
-  { href: "/admin/moderation",  label: "Open moderation queue" },
-  { href: "/admin/catalogue",   label: "Review catalogue submissions" },
-  { href: "/admin/posts/new",   label: "Create seed post" },
-];
+export default function AdminOverview() {
+  const router = useRouter();
+  const { me } = useConsole();
+  const [o, setO] = useState<Overview | null>(null);
+  useEffect(() => { api.get<Overview>("/admin/console/overview").then(setO).catch(() => {}); }, []);
 
-export default function AdminDashboard() {
-  const [stats, setStats] = useState<AdminStats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    api.get<AdminStats>("/admin/stats")
-      .then(setStats)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  const kpis = stats
-    ? [
-        { label: "Registered users", value: stats.total_users, delta: `+${stats.new_users_week} this week` },
-        { label: "Posts today", value: stats.posts_today, delta: "last 24h" },
-        { label: "Active listings", value: stats.active_listings, delta: "status: available" },
-        { label: "Pending reports", value: stats.pending_reports, delta: "moderation queue" },
-        { label: "Pending communities", value: stats.pending_communities, delta: "awaiting review" },
-        { label: "Pending events", value: stats.pending_events, delta: "awaiting review" },
-      ]
-    : [];
-
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const c = o?.counts;
+  const cards: [string, string, number | undefined, string][] = [
+    ["/admin/reports", "Open reports", c?.reports, `${c?.reports_high ?? 0} high priority`],
+    ["/admin/communities", "Community requests", c?.communities, me?.beta_auto_approve ? "auto-approved · review" : "target 48 h"],
+    ["/admin/events", "Event approvals", c?.events, me?.beta_auto_approve ? "auto-approved · review" : "target 48 h"],
+    ["/admin/database", "Database entries", c?.database, `${o?.database_dupes ?? 0} possible duplicate${o?.database_dupes === 1 ? "" : "s"}`],
+    ["/admin/appeals", "Appeals & grievances", c?.appeals, "ack within 24 h"],
+    ["/admin/data", "Data requests", c?.data, "complete within 30 days"],
+  ];
   return (
-    <div style={{ maxWidth: 900 }}>
-      <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, letterSpacing: "-0.03em", margin: "0 0 6px" }}>Scorred Admin</h1>
-      <p style={{ color: "var(--ink-faint)", fontSize: 14, margin: "0 0 28px" }}>Overview · {new Date().toLocaleDateString("en-IN", { dateStyle: "long" })}</p>
-
-      {/* KPI grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
-        {loading
-          ? Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 14, padding: "18px 20px", height: 96 }}>
-                <div style={{ width: "60%", height: 11, borderRadius: 6, background: "var(--bone)", marginBottom: 12 }} />
-                <div style={{ width: "40%", height: 26, borderRadius: 6, background: "var(--bone)" }} />
-              </div>
-            ))
-          : kpis.map((s) => (
-              <div key={s.label} style={{ background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 14, padding: "18px 20px" }}>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{s.label}</div>
-                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 32, letterSpacing: "-0.03em", color: "var(--ink)", lineHeight: 1 }}>{s.value}</div>
-                <div style={{ fontSize: 12, color: "var(--ink-mute)", marginTop: 6 }}>{s.delta}</div>
-              </div>
-            ))}
-      </div>
-
-      {/* Quick actions */}
-      <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, letterSpacing: "-0.02em", margin: "0 0 12px" }}>Quick actions</h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {QUICK_LINKS.map(({ href, label }) => (
-          <Link key={href} href={href} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--paper)", textDecoration: "none", color: "var(--ink)", fontSize: 14, fontWeight: 500 }}>
-            {label}
-            <span style={{ color: "var(--ink-faint)" }}>→</span>
-          </Link>
+    <>
+      <PageHead title={`${greet}, ${me?.name.split(" ")[0] ?? ""}`}
+        sub={<>{o && o.overdue > 0 && <b className="warnt">{o.overdue} item{o.overdue > 1 ? "s are" : " is"} overdue. </b>}Here&rsquo;s what needs a decision.</>} />
+      <div className="ocards">
+        {cards.map(([href, label, n, sub]) => (
+          <button key={href} className="oc" onClick={() => router.push(href)}>
+            <span className="mono">{label}</span><b>{n ?? "–"}</b><span className="sub">{sub}</span>
+          </button>
         ))}
       </div>
-    </div>
+      <button className="oc" onClick={() => router.push("/admin/analytics")} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span className="mono">Analytics</span>
+          <span style={{ fontSize: 14 }}>Growth, signups and content — feature use lives in GA4 and the weekly DB report</span>
+        </div>
+        <span className="btn p">Open dashboard →</span>
+      </button>
+      <div className="g2">
+        <div className="card"><h3>Recent actions</h3>{o ? <AuditTable rows={o.recent} /> : <div className="empty">Loading…</div>}</div>
+        <div className="card"><h3>Moderation this week</h3>
+          <div className="mini">{(o?.week ?? []).map(([k, v]) => <div key={k}><b>{v}</b><span>{k}</span></div>)}</div>
+        </div>
+      </div>
+    </>
   );
 }

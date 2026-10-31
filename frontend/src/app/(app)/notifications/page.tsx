@@ -84,6 +84,7 @@ function refHref(refType: string | null, refId: string | null): string {
     case "post":      return `/post/${refId}`;
     case "community": return `/community/${refId}`;
     case "event":     return `/events/${refId}`;
+    case "catalogue": return `/db/${encodeURIComponent(refId)}`;
     default:          return "#";
   }
 }

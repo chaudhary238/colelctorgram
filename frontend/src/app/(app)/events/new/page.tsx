@@ -11,6 +11,7 @@ import { ImageUploader } from "@/components/ImageUploader";
 import { CityField } from "@/components/CityField";
 import { MoneyField } from "@/components/forms";
 import { fireToast } from "@/components/gamification";
+import { BetaApprovalNote, useBetaAutoApprove } from "@/lib/beta";
 import { ADD_CATEGORIES } from "@/lib/catalog";
 
 // v8 EventCreate maps the global 5-category CATEGORIES (incl. TCG) as plain chipLabel
@@ -99,6 +100,7 @@ export default function CreateEventPage() {
   const [existing, setExisting] = useState<ApiEvent[]>([]);
   const [tried, setTried] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const autoApprove = useBetaAutoApprove();
   const [error, setError] = useState<string | null>(null);
   // Stranded-draft banner: only when the restore did NOT come from the expected
   // community round-trip (that flow restores silently, as before).
@@ -202,7 +204,7 @@ export default function CreateEventPage() {
       comMode === "existing" ? existingCom : comMode === "create" && createdCom ? createdCom.id : null;
 
     try {
-      await api.post<ApiEvent>("/events", {
+      const created = await api.post<ApiEvent & { status?: string }>("/events", {
         title: title.trim(),
         description: about.trim(),
         categories: cats,
@@ -231,7 +233,11 @@ export default function CreateEventPage() {
       // v7 returns to the list and points the host at "My Events"; replace (not push)
       // keeps the submitted composer out of the back stack.
       router.replace("/events");
-      fireToast("Submitted for approval — find it under “My Events”");
+      if (created?.status === "active") {
+        fireToast("Your event is live 🎉", "Beta: auto-approval is on. In the live app, Scorred reviews events first.");
+      } else {
+        fireToast("Submitted for approval — find it under “My Events”");
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not submit event");
       setSubmitting(false);
@@ -242,9 +248,10 @@ export default function CreateEventPage() {
     <div className="w-full max-w-[680px] flex flex-col pb-32">
       {/* v8 — back-arrow pop (not X→/events) and NO header Submit pill: the single CTA
           lives in the sticky footer. */}
-      <DetailHeader fallback="/events" title="List an event" subtitle="Reviewed before it goes live" />
+      <DetailHeader fallback="/events" title="List an event" subtitle={autoApprove ? "Goes live right away (beta)" : "Reviewed before it goes live"} />
 
       <div style={{ padding: "4px 20px 16px" }}>
+        {autoApprove && <div style={{ marginTop: 10 }}><BetaApprovalNote what="event" /></div>}
         {draftRestored && (
           <div style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 12, padding: "10px 13px", background: "var(--bone)", border: "1px solid var(--border)", borderRadius: 12 }}>
             <Info size={15} style={{ flexShrink: 0, color: "var(--ink-faint)" }} />
@@ -422,10 +429,12 @@ export default function CreateEventPage() {
           fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15,
           cursor: submitting ? "wait" : "pointer", opacity: invalid ? 0.5 : 1,
         }}>
-          <Shield size={18} />{submitting ? "Submitting…" : "Submit for approval"}
+          <Shield size={18} />{submitting ? "Submitting…" : autoApprove ? "Publish event" : "Submit for approval"}
         </button>
         <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8 }}>
-          Scorred reviews every event before it&rsquo;s public.
+          {autoApprove
+            ? <>Beta: auto-approval is on — your event goes live right away.</>
+            : <>Scorred reviews every event before it&rsquo;s public.</>}
         </div>
       </div>
     </div>

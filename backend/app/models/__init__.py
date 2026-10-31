@@ -12,6 +12,7 @@ from app.models.trust import UserBlock, Report
 from app.models.search import SavedSearch
 from app.models.place import City
 from app.models.gamification import XpEvent, SeasonBadge
+from app.models.admin import AdminAction, Appeal, DataRequest, Announcement
 
 __all__ = [
     "User", "Follow",
@@ -28,4 +29,5 @@ __all__ = [
     "SavedSearch",
     "City",
     "XpEvent", "SeasonBadge",
+    "AdminAction", "Appeal", "DataRequest", "Announcement",
 ]

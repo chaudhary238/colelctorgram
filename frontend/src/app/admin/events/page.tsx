@@ -1,119 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
-import { ConfirmDialog } from "@/components/ui";
-import { shortDate } from "@/lib/utils";
+import { Flags, KV, Queue, UserLink, age, useConsole, type QItem } from "../_console";
 
-interface PendingEvent {
-  id: string;
-  title: string;
-  description: string | null;
-  categories: string[];
-  mode: string;
-  city: string | null;
-  venue: string | null;
-  cover_image_url: string | null;
-  starts_at: string;
-  host_handle: string;
-  host_name: string;
-  interested_count: number;
-  created_at: string;
-}
+const fmtWhen = (s: unknown, e: unknown) => {
+  if (!s) return "—";
+  const d = new Date(String(s));
+  const day = d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  const t = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+  const end = e ? new Date(String(e)).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }) : null;
+  return `${day} · ${t}${end ? `–${end}` : ""}`;
+};
 
-export default function EventsAdminPage() {
-  const [pending, setPending] = useState<PendingEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [confirmReject, setConfirmReject] = useState<PendingEvent | null>(null); // QA #27
-  const [loadError, setLoadError] = useState(false);
-  const [actioned, setActioned] = useState<{ title: string; action: "approved" | "rejected" }[]>([]);
-
-  useEffect(() => {
-    api.get<PendingEvent[]>("/admin/events/pending")
-      .then((data) => setPending(data ?? []))
-      .catch((err) => { console.error(err); setLoadError(true); })
-      .finally(() => setLoading(false));
-  }, []);
-
-  const act = async (e: PendingEvent, action: "approved" | "rejected") => {
-    if (busy) return;
-    setBusy(e.id);
-    try {
-      await api.patch(`/admin/events/${e.id}/${action === "approved" ? "approve" : "reject"}`);
-      setPending((p) => p.filter((x) => x.id !== e.id));
-      setActioned((a) => [...a, { title: e.title, action }]);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setBusy(null);
-    }
-  };
-
+export default function EventsQueue() {
+  const { me } = useConsole();
   return (
-    <div style={{ maxWidth: 860 }}>
-      <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24, letterSpacing: "-0.03em", margin: "0 0 6px" }}>Events management</h1>
-      <p style={{ color: "var(--ink-faint)", fontSize: 14, margin: "0 0 24px" }}>Review and approve user-submitted events before they go live.</p>
-
-      <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, margin: "0 0 12px" }}>Pending approval ({pending.length})</h2>
-      {loading && <div style={{ fontSize: 14, color: "var(--ink-faint)", padding: "20px 0" }}>Loading…</div>}
-      {!loading && loadError && <div style={{ fontSize: 14, color: "var(--stamp-red)", padding: "20px 0" }}>Couldn&rsquo;t load the review queue. Retry in a moment.</div>}
-      {!loading && !loadError && pending.length === 0 && <div style={{ fontSize: 14, color: "var(--ink-faint)", padding: "20px 0" }}>All caught up — no events waiting for review.</div>}
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
-        {pending.map((e) => {
-          const { day, month } = shortDate(e.starts_at);
-          return (
-            <div key={e.id} style={{ border: "1px solid var(--border)", borderRadius: 14, padding: 16, background: "var(--paper-soft)" }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-                <div style={{ width: 52, borderRadius: 10, background: "var(--paper)", border: "1px solid var(--border)", textAlign: "center", padding: "6px 0", flexShrink: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--stamp-red)" }}>{month}</div>
-                  <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, lineHeight: 1 }}>{day}</div>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{e.title}</div>
-                  <div style={{ fontSize: 12, color: "var(--ink-faint)", fontFamily: "var(--font-mono)", marginBottom: 6 }}>
-                    {e.mode === "online" ? "Online" : `${e.city ?? "TBA"} · In person`} · @{e.host_handle}{e.categories.length ? ` · ${e.categories.join(" · ")}` : ""}
-                  </div>
-                  <div style={{ fontSize: 13.5, color: "var(--ink-mute)", lineHeight: 1.4 }}>
-                    {e.description ? e.description.slice(0, 160) + (e.description.length > 160 ? "…" : "") : "No description."}
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                  {/* QA #27 — reject confirms first. */}
-                  <button onClick={() => setConfirmReject(e)} disabled={busy === e.id} style={{ height: 36, padding: "0 14px", borderRadius: 9, border: "1px solid var(--border-strong)", background: "transparent", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer", color: "var(--ink)" }}>Reject</button>
-                  <button onClick={() => act(e, "approved")} disabled={busy === e.id} style={{ height: 36, padding: "0 14px", borderRadius: 9, border: "none", background: "var(--stamp-red)", color: "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Approve</button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {actioned.length > 0 && (
-        <>
-          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, margin: "0 0 12px" }}>Actioned this session</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {actioned.map(({ title, action }, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 11, background: action === "approved" ? "var(--forest-soft)" : "var(--bone)", border: `1px solid ${action === "approved" ? "var(--forest)" : "var(--border)"}` }}>
-                <span style={{ fontSize: 14, fontWeight: 500, flex: 1 }}>{title}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: action === "approved" ? "var(--forest)" : "var(--ink-mute)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{action}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {confirmReject && (
-        <ConfirmDialog
-          title={`Reject "${confirmReject.title}"?`}
-          body="The host is notified and the event never goes live."
-          confirmLabel="Reject"
-          busy={busy === confirmReject.id}
-          onConfirm={() => { const e = confirmReject; setConfirmReject(null); act(e, "rejected"); }}
-          onCancel={() => setConfirmReject(null)}
-        />
-      )}
-    </div>
+    <Queue
+      kind="events"
+      title="Event approvals"
+      sub={me?.beta_auto_approve
+        ? "Beta: auto-approval is on — events go live at once and wait here for a review. Check venue, date and any payment link."
+        : "Events go live after approval. Check venue, date and any payment link."}
+      row={(e) => <><b>{String(e.title)}{e.auto_approved ? <span className="tag auto">Auto-approved</span> : null}</b>
+        <span>{e.starts_at ? new Date(String(e.starts_at)).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"} · {String(e.city ?? (e.mode === "online" ? "Online" : "—"))}</span></>}
+      sla={(e) => (e.auto_approved ? null : 48)}
+      nameOf={(e) => String(e.title)}
+      targetOf={(e) => String(e.handle)}
+      detail={(e: QItem) => <>
+        <h2>{String(e.title)}</h2>
+        {Boolean(e.auto_approved) && <div className="flag info">Live now (beta auto-approval). Approve to mark it reviewed; reject to take it down.</div>}
+        <Flags flags={e.flags as string[]} />
+        <KV rows={[["Host", <><UserLink handle={String(e.handle)} /> · {String(e.host)}</>], ["When", fmtWhen(e.starts_at, e.ends_at)],
+          ["Venue", [e.venue, e.city].filter(Boolean).join(", ") || "—"], ["Entry", String(e.pricing)],
+          ["Ticket link", e.ticket ? <span className="warnt">{String(e.ticket)}</span> : ""], ["Contact", String(e.contact ?? "")],
+          ["Community", String(e.community ?? "—")], ["Submitted", age(e.age_h)]]} />
+        <div className="blk"><div className="mono">Description</div><p>{String(e.desc || "—")}</p></div>
+      </>}
+      actions={(e) => [
+        { key: "approve", label: e.auto_approved ? "Mark reviewed" : "Approve", variant: "p" },
+        { key: "changes", label: "Request changes" },
+        { key: "reject", label: e.auto_approved ? "Take down" : "Reject", variant: "d" },
+      ]}
+    />
   );
 }

@@ -23,8 +23,10 @@ class Report(Base):
     __tablename__ = "reports"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    reporter_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    target_type: Mapped[str] = mapped_column(String(16), nullable=False)  # user | post | listing | comment | catalogue
+    # NULL for system auto-flags (source="system", e.g. a price anomaly).
+    reporter_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    source: Mapped[str] = mapped_column(String(16), default="user", nullable=False, server_default="user")  # user | system
+    target_type: Mapped[str] = mapped_column(String(16), nullable=False)  # user | post | listing | comment | catalogue | message
     target_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     # DV6-13 — string-keyed targets (e.g. a catalogue SKU) use target_ref instead of target_id.
     target_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -32,6 +34,8 @@ class Report(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | reviewed | actioned | dismissed
     reviewed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolution: Mapped[str | None] = mapped_column(String(24), nullable=True)  # dismiss | remove | warn | suspend | ban
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     __table_args__ = (

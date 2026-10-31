@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from app.services.moderation import REPORT_REASONS
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
@@ -86,9 +87,9 @@ async def unblock_user(
 
 # ── Report endpoint (B-64) ────────────────────────────────────────
 class CreateReportBody(BaseModel):
-    target_type: str  # user | post | listing | comment
+    target_type: str  # user | post | listing | comment | message
     target_id: uuid.UUID
-    reason: str  # spam | harassment | counterfeit | other
+    reason: str  # spam | harassment | counterfeit | scam | impersonation | other
     detail: Optional[str] = None
 
 
@@ -102,10 +103,12 @@ async def submit_report(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Validate reason
-    VALID_REASONS = {"spam", "harassment", "counterfeit", "other"}
-    if body.reason not in VALID_REASONS:
-        raise HTTPException(status_code=422, detail=f"reason must be one of {VALID_REASONS}")
+    # Validate reason — scam/impersonation are their own reasons now (the admin
+    # console derives priority from them: counterfeit/scam are High).
+    if body.reason not in REPORT_REASONS:
+        raise HTTPException(status_code=422, detail=f"reason must be one of {sorted(REPORT_REASONS)}")
+    if body.target_type not in {"user", "post", "listing", "comment", "message"}:
+        raise HTTPException(status_code=422, detail="Unknown report target")
     # Persist to the reports table so the admin moderation queue (GET /admin/reports) sees it.
     db.add(Report(
         reporter_id=current_user.id,

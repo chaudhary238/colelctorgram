@@ -7,14 +7,15 @@ import { Button } from "@/components/ui";
 
 /* W-48 — generic report sheet for posts / listings / comments (profiles use
    ProfileMoreMenu's report stage; catalogue entries use ReportCatalogueSheet).
-   v3's display reasons mapped onto the backend's 4 (spam|harassment|counterfeit|other);
-   the label rides along as `detail` so moderators keep the nuance. */
+   v3's display reasons map onto the backend's reasons (spam|harassment|counterfeit|
+   scam|impersonation|other — the admin console derives priority from them); the
+   label rides along as `detail` so moderators keep the nuance. */
 const REPORT_REASONS: { label: string; reason: string }[] = [
   /* v8 parity with ProfileMoreMenu — "Fake / impersonation" leads the list;
      DV8 §2#23 — the full v8 string keeps "listings" (ProfileView.jsx:31). */
-  { label: "Fake / impersonation", reason: "other" },
+  { label: "Fake / impersonation", reason: "impersonation" },
   { label: "Counterfeit / replica listings", reason: "counterfeit" },
-  { label: "Scam or fraud attempt", reason: "other" },
+  { label: "Scam or fraud attempt", reason: "scam" },
   { label: "Harassment or abuse", reason: "harassment" },
   { label: "Spam", reason: "spam" },
   { label: "Other", reason: "other" },

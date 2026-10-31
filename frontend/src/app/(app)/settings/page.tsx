@@ -6,9 +6,10 @@ import {
   ChevronLeft, ChevronRight, Eye, EyeOff, UserCog, Image as ImageIcon,
   ShieldCheck, UserPlus, MessageCircle, Heart, ArrowLeftRight, CalendarClock,
   Users, Tag as TagIcon, ShoppingBag, Ban, Info, Flag, FileText, ShieldQuestion,
-  Star, LogOut, Trash2, KeyRound,
+  Star, LogOut, Trash2, KeyRound, Download, Scale,
 } from "lucide-react";
 import { api, clearTokens } from "@/lib/api";
+import { ConfirmDialog } from "@/components/ui";
 import { useUser, NotifPrefs, PrivacyPrefs } from "@/lib/auth-context";
 
 /* ── Defaults (mirror backend DEFAULT_*_PREFS) ──────────────────── */
@@ -125,6 +126,10 @@ export default function SettingsPage() {
   const [pwError, setPwError] = useState("");
 
   const [toast, setToast] = useState("");
+  // Compliance (admin console "Data requests" + "Appeals & grievances")
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const [appealOpen, setAppealOpen] = useState(false);
   // v8 — the vouch row's "{n} vouches" sub. The profile payload carries the count;
   // fetched once (the settings screen doesn't otherwise load the profile).
   const [vouchCount, setVouchCount] = useState<number | null>(null);
@@ -144,6 +149,20 @@ export default function SettingsPage() {
     const pp = user.privacy_portfolio;
     setCollectionVis(pp === "private" || pp === "followers" ? pp : "public");
   }, [user]);
+
+  async function requestData(kind: "delete" | "export") {
+    if (requesting) return;
+    setRequesting(true);
+    try {
+      const r = await api.post<{ already_open?: boolean }>("/account/data-requests", { kind });
+      flash(r?.already_open ? "You already have this request open — we're on it"
+        : kind === "delete" ? "Deletion requested — we'll confirm by email" : "Requested — we'll email your data within 30 days");
+    } catch {
+      flash("Couldn't send the request — try again");
+    } finally {
+      setRequesting(false);
+    }
+  }
 
   function flash(msg: string) {
     setToast(msg);
@@ -291,6 +310,7 @@ export default function SettingsPage() {
       <Row icon={<FileText size={17} />} label="Terms of service" onClick={() => flash("Terms of service — coming soon")} />
       <Row icon={<ShieldQuestion size={17} />} label="Privacy policy" onClick={() => flash("Privacy policy — coming soon")} />
       <Row icon={<Star size={17} />} label="Rate the app" onClick={() => flash("Thanks for the love! ⭐")} />
+      <Row icon={<Scale size={17} />} label="Appeal a decision or raise a grievance" sub="We reply within 7 days (grievances: 15)" onClick={() => setAppealOpen(true)} />
 
       {/* ── Account actions ───────────────────────────────── */}
       <SectionHeader>Account</SectionHeader>
@@ -299,9 +319,24 @@ export default function SettingsPage() {
         onClick={() => { clearTokens(); window.location.assign("/auth/signin"); }}
       />
       <Row
-        icon={<Trash2 size={17} />} label="Delete account" sub="This cannot be undone" danger
-        onClick={() => flash("Please contact support to delete your account.")}
+        icon={<Download size={17} />} label="Download my data" sub="We'll email your data within 30 days"
+        onClick={() => requestData("export")}
       />
+      <Row
+        icon={<Trash2 size={17} />} label="Delete account" sub="This cannot be undone" danger
+        onClick={() => setConfirmDelete(true)}
+      />
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete your account?"
+          body="We'll verify the request came from you and delete your account and personal data within 30 days. Your posts and listings come down; this can't be undone."
+          confirmLabel="Request deletion"
+          busy={requesting}
+          onConfirm={async () => { await requestData("delete"); setConfirmDelete(false); }}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+      {appealOpen && <AppealSheet onClose={() => setAppealOpen(false)} onSent={() => { setAppealOpen(false); flash("Received — we'll reply in your notifications"); }} />}
 
       {/* v8 footer (ProfileSettings.jsx:141-143) — centred version line replaces the email row. */}
       <div style={{ textAlign: "center", padding: "22px 20px 4px", fontSize: 11.5, color: "var(--ink-ghost)" }}>
@@ -313,6 +348,52 @@ export default function SettingsPage() {
           {toast}
         </div>
       )}
+    </div>
+  );
+}
+
+/* Admin console "Appeals & grievances" — user side. India IT Rules 2021: the
+   grievance is acknowledged at once (a notification) and resolved within 15 days. */
+function AppealSheet({ onClose, onSent }: { onClose: () => void; onSent: () => void }) {
+  const [kind, setKind] = useState<"appeal" | "grievance">("appeal");
+  const [about, setAbout] = useState("");
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const field: React.CSSProperties = { width: "100%", boxSizing: "border-box", border: "1px solid var(--border-strong)", borderRadius: 10, padding: "10px 12px", fontFamily: "var(--font-body)", fontSize: 14, background: "var(--paper)", color: "var(--ink)" };
+  async function send() {
+    if (text.trim().length < 10 || busy) { setError("Tell us a bit more (at least 10 characters)"); return; }
+    setBusy(true);
+    try {
+      await api.post("/account/appeals", { kind, about: about.trim(), text: text.trim() });
+      onSent();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't send — try again");
+      setBusy(false);
+    }
+  }
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(20,17,15,0.4)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, background: "var(--paper)", borderRadius: "18px 18px 0 0", padding: "20px 20px calc(20px + env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18 }}>Appeal or grievance</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {(["appeal", "grievance"] as const).map((k) => (
+            <button key={k} type="button" onClick={() => setKind(k)} style={{ flex: 1, height: 38, borderRadius: 10, border: "1px solid var(--border-strong)", background: kind === k ? "var(--ink)" : "var(--paper)", color: kind === k ? "var(--paper)" : "var(--ink)", fontWeight: 600, fontSize: 13.5, cursor: "pointer" }}>
+              {k === "appeal" ? "Appeal a decision" : "Raise a grievance"}
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--ink-faint)", lineHeight: 1.5 }}>
+          {kind === "appeal" ? "Disagree with a warning, removal or rejection? Tell us which one and why." : "A complaint about content, another user or how we handled something. We acknowledge it now and resolve it within 15 days."}
+        </div>
+        <input value={about} onChange={(e) => setAbout(e.target.value)} placeholder={kind === "appeal" ? "What decision? e.g. My event was rejected" : "What is it about?"} style={field} maxLength={200} />
+        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5} placeholder="Tell us what happened" style={{ ...field, resize: "vertical" }} maxLength={3000} />
+        {error && <div style={{ fontSize: 13, color: "var(--stamp-red)" }}>{error}</div>}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="button" onClick={onClose} style={{ flex: 1, height: 44, borderRadius: 12, border: "1px solid var(--border-strong)", background: "var(--paper)", fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+          <button type="button" onClick={send} disabled={busy} style={{ flex: 2, height: 44, borderRadius: 12, border: "none", background: "var(--ink)", color: "var(--paper)", fontWeight: 700, cursor: busy ? "wait" : "pointer" }}>{busy ? "Sending…" : "Send"}</button>
+        </div>
+      </div>
     </div>
   );
 }

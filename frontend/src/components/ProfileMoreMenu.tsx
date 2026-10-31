@@ -9,9 +9,9 @@ import { fireToast } from "@/components/gamification";
 /* v3's 6 display reasons mapped onto the backend's 4 (spam|harassment|counterfeit|other);
    the full label rides along as `detail` so moderators keep the nuance. */
 const REPORT_REASONS: { label: string; reason: string }[] = [
-  { label: "Fake / impersonation", reason: "other" },
+  { label: "Fake / impersonation", reason: "impersonation" },
   { label: "Counterfeit / replica listings", reason: "counterfeit" },
-  { label: "Scam or fraud attempt", reason: "other" },
+  { label: "Scam or fraud attempt", reason: "scam" },
   { label: "Harassment or abuse", reason: "harassment" },
   { label: "Spam", reason: "spam" },
   { label: "Other", reason: "other" },

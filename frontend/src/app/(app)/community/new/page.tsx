@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { SectionLabel } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
 import { fireToast } from "@/components/gamification";
+import { BetaApprovalNote, useBetaAutoApprove } from "@/lib/beta";
 import { ADD_CATEGORIES } from "@/lib/catalog";
 
 // v8 (CreateCommunity.jsx) — rules carry ONE budget: 900 characters TOTAL, hard-
@@ -102,6 +103,7 @@ export default function CreateCommunityPage() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const autoApprove = useBetaAutoApprove();
   const [error, setError] = useState<string | null>(null);
   // v8 — submit confirmation toast, shown briefly before returning to the directory.
   const [toast, setToast] = useState("");
@@ -149,7 +151,7 @@ export default function CreateCommunityPage() {
     const ruleList = ruleLinesOf(rules);
     const id = slugify(name);
     try {
-      await api.post("/communities", {
+      const created = await api.post<{ status?: string }>("/communities", {
         id,
         name: name.trim(),
         // The model stores a single category; first pick is primary (multi-select is UI sugar).
@@ -169,9 +171,15 @@ export default function CreateCommunityPage() {
         fireToast("Community created — bound to your event");
         router.push(`/events/new?newCommunity=${id}`);
       } else {
-        // v8 (CreateCommunity.jsx:94) — exact toast copy, then back to the directory.
-        setToast("Community submitted — pending review before it's live");
-        setTimeout(() => router.push("/community"), 1400);
+        // Beta auto-approval: live at once (still reviewed afterwards by the team).
+        // Otherwise v8 (CreateCommunity.jsx:94) — exact toast copy.
+        if (created?.status === "approved") {
+          fireToast("Your community is live 🎉", "Beta: auto-approval is on. In the live app, Scorred reviews communities first.");
+          router.push(`/community/${id}`);
+        } else {
+          setToast("Community submitted — pending review before it's live");
+          setTimeout(() => router.push("/community"), 1400);
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not submit community");
@@ -192,16 +200,17 @@ export default function CreateCommunityPage() {
               {forEvent ? "Community for your event" : "Create a community"}
             </div>
             <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>
-              {forEvent ? "Attendees can talk, network & post" : "Reviewed before it goes public · members are approved"}
+              {forEvent ? "Attendees can talk, network & post" : autoApprove ? "Goes live right away (beta) · members are approved" : "Reviewed before it goes public · members are approved"}
             </div>
           </div>
           <button onClick={submit} disabled={submitting} style={{ height: 36, padding: "0 16px", borderRadius: 9, border: "none", background: invalid ? "var(--bone)" : "var(--stamp-red)", color: invalid ? "var(--ink-ghost)" : "var(--paper)", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 13.5, cursor: submitting ? "wait" : "pointer" }}>
-            {submitting ? "Submitting…" : "Submit"}
+            {submitting ? "Submitting…" : autoApprove ? "Create" : "Submit"}
           </button>
         </div>
       </div>
 
       <div style={{ padding: "4px 20px 16px" }}>
+        {autoApprove && !forEvent && <div style={{ marginTop: 10 }}><BetaApprovalNote what="community" /></div>}
         {/* DV8-14 — banner + square photo (both optional), same R2 upload path as events. */}
         <Label hint="optional">Community photos</Label>
         <ImageUploader onUpload={(url) => setBanner(url)} previewUrl={banner ?? undefined} label="Add a banner image" />
@@ -289,11 +298,13 @@ export default function CreateCommunityPage() {
           cursor: submitting ? "wait" : "pointer", opacity: invalid ? 0.5 : 1,
         }}>
           {forEvent ? <Check size={18} /> : <Shield size={18} />}
-          {submitting ? "Submitting…" : forEvent ? "Create & bind to event" : "Submit for review"}
+          {submitting ? "Submitting…" : forEvent ? "Create & bind to event" : autoApprove ? "Create community" : "Submit for review"}
         </button>
         {!forEvent && (
           <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.5 }}>
-            Scorred reviews new communities before they&rsquo;re public — and every member who joins is approved by you.
+            {autoApprove
+              ? <>Beta: it goes live right away — every member who joins is approved by you.</>
+              : <>Scorred reviews new communities before they&rsquo;re public — and every member who joins is approved by you.</>}
           </div>
         )}
       </div>

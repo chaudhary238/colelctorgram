@@ -32,6 +32,11 @@ async def get_current_user_unverified(
     user_id = payload.get("sub")
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
+    if user and user.is_suspended:
+        # A timed suspension ends on its own (admin console); lazy import — the
+        # moderation service imports this module.
+        from app.services.moderation import lift_expired_suspension
+        lift_expired_suspension(user)
     if not user or user.is_suspended:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 

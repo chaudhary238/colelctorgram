@@ -34,7 +34,7 @@ async def test_invite_only_blocks_signup_and_social(client, invite_only):
     assert (await client.post("/v1/auth/oauth/google", json={"credential": "x"})).status_code == 403
     assert (await client.post("/v1/auth/oauth/apple", json={"credential": "x"})).status_code == 403
     providers = (await client.get("/v1/auth/providers")).json()
-    assert providers == {"google": False, "apple": False}
+    assert providers["google"] is False and providers["apple"] is False
 
 
 async def test_first_login_forces_password_reset(client, db, invite_only):

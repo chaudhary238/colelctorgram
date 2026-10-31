@@ -27,7 +27,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, Info, PlusCircle, X } from "lucide-react";
+import { Check, Info, PlusCircle, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { track } from "@/lib/analytics";
 import { DetailHeader } from "@/components/DetailHeader";
@@ -153,16 +153,16 @@ export default function AddToDatabasePage() {
         <DetailHeader fallback="/db" title="Add to database" />
         <div style={{ padding: "32px 24px", textAlign: "center" }}>
           <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--bone)", border: "1px solid var(--border-strong)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-            <Clock size={26} style={{ color: "var(--ink-faint)" }} />
+            <Check size={26} style={{ color: "var(--ink-faint)" }} />
           </div>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 19, marginBottom: 6 }}>
-            {done.matched ? "Already in the database" : "Under review"}
+            {done.matched ? "Already in the database" : "Added — it's live"}
           </div>
           <div style={{ fontSize: 13.5, color: "var(--ink-faint)", lineHeight: 1.55 }}>
             {done.matched ? (
               <>&ldquo;{title}&rdquo; matched an existing entry, so we linked to it instead of creating a duplicate.</>
             ) : (
-              <>&ldquo;{title}&rdquo; was added to the Scorred database and is pending review. You earned{" "}
+              <>&ldquo;{title}&rdquo; is live in the Scorred database — collectors can find it now. The team marks it Scorred Reviewed after a quick check. You earned{" "}
                 <strong style={{ color: "var(--ink)" }}>+{DB_NEW_XP} XP</strong>.</>
             )}
           </div>
