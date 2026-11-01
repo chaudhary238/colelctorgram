@@ -13,6 +13,7 @@ const NAV: [string, NavItem[]][] = [
     { href: "/admin/communities", label: "Communities", perm: "approve", count: "communities" },
     { href: "/admin/events", label: "Events", perm: "approve", count: "events" },
     { href: "/admin/database", label: "Database entries", perm: "catalogue", count: "database" },
+    { href: "/admin/official-posts", label: "Official posts", perm: "approve", count: "posts" },
   ]],
   ["Trust & safety", [
     { href: "/admin/reports", label: "Reports", perm: "reports", count: "reports" },

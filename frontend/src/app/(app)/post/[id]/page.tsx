@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Heart, MessageCircle, Share2, Bookmark, Flag } from "lucide-react";
 import { api } from "@/lib/api";
-import { ApiPost, ActionBtn, AuthorLine, PollBlock, CommentThread, ISOCard, PostImages, refTone } from "@/components/cards";
+import { ApiPost, ActionBtn, AuthorLine, OfficialLinkButton, PollBlock, CommentThread, ISOCard, PostImages, refTone } from "@/components/cards";
+import { splitOfficialLink } from "@/lib/utils";
 import { DetailHeader } from "@/components/DetailHeader";
 import { ReportSheet } from "@/components/ReportSheet";
 import { ShareSheet } from "@/components/ShareSheet";
@@ -112,6 +113,8 @@ export default function PostDetailPage() {
     );
   }
 
+  const officialLink = post.is_official ? splitOfficialLink(post.body) : null;
+
   return (
     <div className="w-full max-w-[680px] flex flex-col pb-20">
       {/* v8 PostDetail — ISO posts read "Wanted" in the header. */}
@@ -170,7 +173,8 @@ export default function PostDetailPage() {
             )}
 
             {/* v8 PostDetail.jsx:34 — body margin '12px 0' */}
-            <div style={{ fontSize: 16, lineHeight: 1.6, color: "var(--ink-soft)", margin: "12px 0", whiteSpace: "pre-wrap" }}>{post.body}</div>
+            <div style={{ fontSize: 16, lineHeight: 1.6, color: "var(--ink-soft)", margin: "12px 0", whiteSpace: "pre-wrap" }}>{officialLink?.text ?? post.body}</div>
+            {officialLink?.url && <div style={{ marginBottom: 14 }}><OfficialLinkButton url={officialLink.url} host={officialLink.host} /></div>}
 
             {/* QA 5.1 — same swipeable carousel as the feed for multi-photo posts. */}
             {post.images.length > 0 && (

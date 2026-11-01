@@ -139,6 +139,9 @@ async def test_roles_limit_access(client, db):
     await make_admin(db, "catalogfolk", role="catalog")
     assert (await client.get(f"{C}/queue/reports", headers=cat["headers"])).status_code == 403
     assert (await client.get(f"{C}/queue/database", headers=cat["headers"])).status_code == 200
+    support = await signup_verified(client, "supportfolk")
+    await make_admin(db, "supportfolk", role="support")
+    assert (await client.get(f"{C}/queue/database/ANY", headers=support["headers"])).status_code == 403
     assert (await client.post(f"{C}/team", headers=cat["headers"], json={"handle": "catalogfolk", "role": "owner"})).status_code == 403
 
 
@@ -309,8 +312,69 @@ async def test_entry_gallery_shows_shared_photos_only(client, db):
     assert entry["photos"] == ["https://img.test/cover.png", "https://img.test/shared.png"]
 
     queue = (await client.get(f"{C}/queue/database", headers=boss["headers"])).json()
-    row = next(q for q in queue if q["id"] == sku)
+    tile = next(q for q in queue if q["id"] == sku)
+    assert tile["title"] == "Zorblax Prime Deluxe Action Figure"
+    assert "dupes" not in tile and "photos" not in tile  # the slow part loads on open
+
+    row = (await client.get(f"{C}/queue/database/{sku}", headers=boss["headers"])).json()
     assert row["photos"] == entry["photos"]
-    other = next(q for q in queue if q["id"] == second.json()["sku"])
+    other = (await client.get(f"{C}/queue/database/{second.json()['sku']}", headers=boss["headers"])).json()
     dupe = next(d for d in other["dupes"] if d["sku"] == sku)
     assert dupe["photos"] == entry["photos"]  # both sides comparable inline
+    assert (await client.get(f"{C}/queue/database/NOPE", headers=boss["headers"])).status_code == 404
+
+
+async def _official_draft(client, db, handle):
+    author = await db.scalar(select(User).where(User.handle == handle))
+    post = Post(user_id=author.id, type="discussion", title="Set out 6 Nov", body="Details\nhttps://example.com/set",
+                to_feed=True, status="pending", created_at=datetime.now(timezone.utc) - timedelta(days=3))
+    db.add(post)
+    await db.commit()
+    return str(post.id)
+
+
+async def test_official_draft_stays_hidden_until_approved(client, db):
+    owner = await signup_verified(client, "ownerdraft1")
+    await make_admin(db, "ownerdraft1")
+    viewer = await signup_verified(client, "viewerdraft1")
+    pid = await _official_draft(client, db, "ownerdraft1")
+
+    feed = await client.get("/v1/feed", headers=viewer["headers"])
+    assert pid not in [p["id"] for p in feed.json()["items"]]
+    profile = await client.get("/v1/users/ownerdraft1/posts", headers=viewer["headers"])
+    assert pid not in [p["id"] for p in profile.json()["items"]]
+    queue = await client.get(f"{C}/queue/posts", headers=owner["headers"])
+    assert [p["id"] for p in queue.json()] == [pid]
+    assert (await client.get(f"{C}/counts", headers=owner["headers"])).json()["posts"] == 1
+
+    r = await client.post(f"{C}/decide", headers=owner["headers"], json={
+        "queue": "posts", "id": pid, "action": "edit", "title": "Set out 7 Nov",
+        "body": "Details\nhttps://example.com/set", "reason": "Accurate"})
+    assert r.status_code == 200
+
+    feed = (await client.get("/v1/feed?sort=latest", headers=viewer["headers"])).json()["items"]
+    assert feed[0]["id"] == pid and feed[0]["title"] == "Set out 7 Nov" and feed[0]["is_official"] is True
+    assert (await client.get(f"{C}/queue/posts", headers=owner["headers"])).json() == []
+    audit = await db.scalar(select(AdminAction).where(AdminAction.action == "post.edit"))
+    assert audit is not None
+    again = await client.post(f"{C}/decide", headers=owner["headers"], json={"queue": "posts", "id": pid, "action": "approve"})
+    assert again.status_code == 404
+
+
+async def test_official_draft_reject_and_permissions(client, db):
+    owner = await signup_verified(client, "ownerdraft2")
+    await make_admin(db, "ownerdraft2")
+    drafter = await signup_verified(client, "drafter2")
+    await make_admin(db, "drafter2", "catalog")
+    pid = await _official_draft(client, db, "drafter2")
+
+    # The posting account can't approve its own drafts.
+    assert (await client.get(f"{C}/queue/posts", headers=drafter["headers"])).status_code == 403
+    denied = await client.post(f"{C}/decide", headers=drafter["headers"], json={"queue": "posts", "id": pid, "action": "approve"})
+    assert denied.status_code == 403
+
+    r = await client.post(f"{C}/decide", headers=owner["headers"], json={"queue": "posts", "id": pid, "action": "reject", "reason": "Date unconfirmed"})
+    assert r.status_code == 200
+    db.expire_all()
+    post = await db.get(Post, uuid.UUID(pid))
+    assert post.status == "removed" and post.removed_reason == "Date unconfirmed"

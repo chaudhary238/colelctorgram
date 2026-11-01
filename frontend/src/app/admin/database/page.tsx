@@ -1,8 +1,11 @@
 "use client";
 
+import { api } from "@/lib/api";
 import { Flags, KV, Queue, UserLink, age, type QItem } from "../_console";
 
 type Dupe = { sku: string; title: string; match: number; photos: string[] };
+
+const loadEntry = (id: string) => api.get<QItem>(`/admin/console/queue/database/${encodeURIComponent(id)}`);
 
 function Photos({ urls, small }: { urls: string[]; small?: boolean }) {
   return <div className="photos">{urls.length
@@ -21,7 +24,8 @@ export default function DatabaseQueue() {
       kind="database"
       title="Database entries"
       sub="Tester-submitted entries are live straight away as “Pending Review”. Approving marks one Scorred Reviewed; remove takes it down."
-      row={(d) => <><b>{String(d.title)}</b><span>{String(d.brand ?? "—")} · {String(d.category)}{(d.dupes as Dupe[]).length ? <> · <em className="dup">possible duplicate</em></> : null}</span></>}
+      row={(d) => <><b>{String(d.title)}</b><span>{String(d.brand ?? "—")} · {String(d.category)} · @{String(d.handle)}</span></>}
+      loadDetail={loadEntry}
       sla={() => 72}
       nameOf={(d) => String(d.title)}
       targetOf={(d) => (d.handle && d.handle !== "?" ? String(d.handle) : null)}
@@ -46,7 +50,7 @@ export default function DatabaseQueue() {
       actions={(d) => [
         { key: "approve", label: "Approve", variant: "p" },
         { key: "edit", label: "Edit & approve" },
-        ...((d.dupes as Dupe[]).length ? [{ key: "merge", label: "Merge into existing" }] : [{ key: "merge", label: "Merge…" }]),
+        { key: "merge", label: (d.dupes as Dupe[] | undefined)?.length ? "Merge into existing" : "Merge…" },
         { key: "reject", label: "Remove", variant: "d" as const },
       ]}
     />

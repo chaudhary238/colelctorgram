@@ -11,7 +11,7 @@ import {
 import { announceFollow, onFollowChange } from "@/lib/followSync";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
-import { timeAgo, shortDate } from "@/lib/utils";
+import { timeAgo, shortDate, splitOfficialLink } from "@/lib/utils";
 import { symOf, conditionLabel } from "@/lib/catalog";
 import {
   Avatar, Stars, Money, ProductPhoto, SealMark,
@@ -557,6 +557,22 @@ export function AuthorLine({ post, showFollow, authorRole, reserveRight = 0 }: {
 }
 
 /* ── @mention rendering — highlight + link tappable @handles ─────── */
+/** The source link on an official post. Sits outside the card's post-detail Link. */
+export function OfficialLinkButton({ url, host }: { url: string; host: string }) {
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 10, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--paper-soft)", color: "var(--ink)", fontSize: 13.5, fontWeight: 600, textDecoration: "none" }}
+    >
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>View details · {host}</span>
+      <span aria-hidden="true">↗</span>
+    </a>
+  );
+}
+
 export function renderCommentBody(text: string) {
   return text.split(/(@\w+)/g).map((p, i) =>
     p.startsWith("@") ? (
@@ -1074,6 +1090,8 @@ export function PostCard({ post, showFollow = false, authorRole = null, canModer
   const [commentCount, setCommentCount] = useState(post.comments_count);
   const [shared, setShared] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const officialLink = post.is_official ? splitOfficialLink(post.body) : null;
+  const bodyText = officialLink?.text ?? post.body;
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removeReason, setRemoveReason] = useState("");
 
@@ -1231,9 +1249,9 @@ export function PostCard({ post, showFollow = false, authorRole = null, canModer
                 WebkitLineClamp: expanded ? undefined : 3, WebkitBoxOrient: "vertical",
                 overflow: expanded ? "visible" : "hidden",
               }}>
-                {post.body}
+                {bodyText}
               </div>
-              {!expanded && post.body.length > 130 && (
+              {!expanded && bodyText.length > 130 && (
                 <button
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(true); }}
                   style={{ background: "none", border: "none", padding: "3px 0 0", cursor: "pointer", fontSize: 13.5, fontWeight: 600, color: "var(--ink-faint)", fontFamily: "var(--font-body)" }}
@@ -1244,6 +1262,7 @@ export function PostCard({ post, showFollow = false, authorRole = null, canModer
             </div>
           )}
         </Link>
+        {officialLink?.url && <OfficialLinkButton url={officialLink.url} host={officialLink.host} />}
         {/* Hashtags — outside the post-detail Link so each tag can navigate to a
             filtered search of its own (QA 10.1). */}
         {post.tags && post.tags.length > 0 && (

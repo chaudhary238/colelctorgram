@@ -42,7 +42,6 @@
 .adm .qi .pr,.adm .qi .tag{overflow:visible}.adm .qi .pr-High{color:var(--redt)}.adm .qi .pr-Medium{color:var(--goldt)}.adm .qi .pr-Low{color:var(--ink2)}
 .adm .qi .tag{color:var(--ink2);font-size:11.5px}.adm .qi .tag.auto{color:#1D4E9E}
 .adm .sla-ok{color:var(--ink3)}.adm .sla-warn{color:var(--goldt)}.adm .sla-bad{color:var(--redt)}
-.adm .dup{font-style:normal;color:var(--goldt);font-weight:600}
 .adm .qdet{background:var(--card);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-width:0}
 .adm .dbody{padding:20px 22px;flex:1;display:flex;flex-direction:column;gap:14px;overflow:auto}
 .adm .dbody h2{font-size:21px;line-height:1.2}

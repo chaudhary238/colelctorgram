@@ -6,12 +6,12 @@
 // drawer and small render helpers. Data comes from /admin/console/* (backend
 // routers/admin_console.py) — no sample data.
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 export interface Me { id: string; name: string; handle: string; role: string; perms: string[]; beta_auto_approve: boolean }
-export interface Counts { communities: number; events: number; database: number; reports: number; reports_high: number; appeals: number; data: number }
+export interface Counts { communities: number; events: number; database: number; posts: number; reports: number; reports_high: number; appeals: number; data: number }
 export interface AuditRow { id: string; t: string | null; who: string; action: string; target_type: string; obj: string; why: string; note: string | null; meta: Record<string, unknown> | null }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -35,6 +35,7 @@ const ACTION_LABEL: Record<string, string> = {
   "community.approve": "Approved community", "community.changes": "Requested changes · community", "community.reject": "Rejected community",
   "event.approve": "Approved event", "event.changes": "Requested changes · event", "event.reject": "Rejected event",
   "catalogue.approve": "Approved DB entry", "catalogue.edit": "Edited & approved DB entry", "catalogue.merge": "Merged DB entry", "catalogue.reject": "Removed DB entry",
+  "post.approve": "Published official post", "post.edit": "Edited & published official post", "post.reject": "Rejected official post",
   "report.dismiss": "Dismissed report", "report.remove": "Removed content", "report.warn": "Warned user", "report.suspend": "Suspended user",
   "user.ban_request": "Ban requested · awaiting 2nd admin", "user.ban_confirm": "Banned user", "user.warn": "Warned user",
   "user.suspend": "Suspended user", "user.unsuspend": "Lifted suspension", "user.badge": "Gave badge", "user.unbadge": "Removed badge",
@@ -144,7 +145,7 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
 }
 
 // ── Queue framework ──────────────────────────────────────────────────────────
-export type QueueKind = "communities" | "events" | "database" | "reports" | "appeals";
+export type QueueKind = "communities" | "events" | "database" | "posts" | "reports" | "appeals";
 export interface QItem { id: string; age_h: number; [k: string]: unknown }
 export interface QAction { key: string; label: string; variant?: "p" | "d" | "" }
 
@@ -152,6 +153,7 @@ export const REASONS: Record<QueueKind, string[]> = {
   communities: ["Meets guidelines", "Duplicate of an existing community", "Promotes counterfeits / replicas", "Unclear purpose — needs a better description", "Inappropriate name or cover"],
   events: ["Meets guidelines", "Missing venue or date details", "Unverified payment / ticket link", "Misuses the Scorred name", "Not a collector event"],
   database: ["Accurate and complete", "Duplicate — merged into existing entry", "Not enough detail or photos", "Counterfeit / bootleg product", "Wrong category or brand"],
+  posts: ["Accurate and worth sharing", "Date not confirmed", "Link is wrong or dead", "Not relevant to collectors", "Too many posts this week"],
   reports: ["No violation found", "Counterfeit / replica", "Scam or fraud", "Harassment or abuse", "Spam", "Impersonation", "Other policy violation"],
   appeals: ["Decision upheld", "Decision reversed", "Partially reversed"],
 };
@@ -200,6 +202,7 @@ export function DecisionModal({ kind, item, action, name, target, onClose, onDon
   const [reason, setReason] = useState(defaultReason(kind, action, item));
   const [days, setDays] = useState(7);
   const [title, setTitle] = useState(String(item.title ?? ""));
+  const [text, setText] = useState(String(item.body ?? ""));
   const dupes = (item.dupes as { sku: string; title: string; match: number }[] | undefined) ?? [];
   const [mergeInto, setMergeInto] = useState(dupes[0]?.sku ?? "");
   const [message, setMessage] = useState(msgFor(action, name, defaultReason(kind, action, item), 7));
@@ -218,7 +221,7 @@ export function DecisionModal({ kind, item, action, name, target, onClose, onDon
       const res = await api.post<{ result: string; xp_reversed?: number }>("/admin/console/decide", {
         queue: kind, id: item.id, action, reason, message: showsUserMessage ? message : "", notify: notify && showsUserMessage,
         notify_reporters: notifyReporters, strike, duration_days: days, note: note || null,
-        title: action === "edit" ? title : null, merge_into: action === "merge" ? mergeInto : null,
+        title: action === "edit" ? title : null, body: kind === "posts" && action === "edit" ? text : null, merge_into: action === "merge" ? mergeInto : null,
       });
       // XP chargeback (design v8) — say so in the confirmation toast.
       const reversed = res?.xp_reversed ? `${res.xp_reversed} XP reversed` : "";
@@ -245,6 +248,7 @@ export function DecisionModal({ kind, item, action, name, target, onClose, onDon
         </label>
       )}
       {action === "edit" && <label className="fl">Title<input value={title} onChange={(e) => setTitle(e.target.value)} /></label>}
+      {action === "edit" && kind === "posts" && <label className="fl">Post text (keep the link on its own line)<textarea rows={6} value={text} onChange={(e) => setText(e.target.value)} /></label>}
       {action === "merge" && (
         <label className="fl">Merge into (SKU of the existing entry)
           <input value={mergeInto} onChange={(e) => setMergeInto(e.target.value)} placeholder="e.g. HT-MMS624D" list="adm-dupes" />
@@ -270,9 +274,11 @@ export function DecisionModal({ kind, item, action, name, target, onClose, onDon
   );
 }
 
-export function Queue({ kind, title, sub, row, detail, actions, filters, filterFn, sla, nameOf, targetOf, extraTop }: {
+export function Queue({ kind, title, sub, row, detail, loadDetail, actions, filters, filterFn, sla, nameOf, targetOf, extraTop }: {
   kind: QueueKind; title: string; sub: React.ReactNode;
   row: (x: QItem) => React.ReactNode; detail: (x: QItem) => React.ReactNode;
+  /** The list holds light tiles; the full record is fetched when one is opened. Must be a stable function. */
+  loadDetail?: (id: string) => Promise<QItem>;
   actions: (x: QItem) => QAction[];
   filters?: string[]; filterFn?: (x: QItem, f: string) => boolean;
   sla: (x: QItem) => number | null;
@@ -286,15 +292,32 @@ export function Queue({ kind, title, sub, row, detail, actions, filters, filterF
   const [sel, setSel] = useState<string | null>(null);
   const [filter, setFilter] = useState("All");
   const [deciding, setDeciding] = useState<string | null>(null);
+  const [details, setDetails] = useState<Record<string, QItem>>({});
+  const [failedId, setFailedId] = useState<string | null>(null);
+  const [retries, setRetries] = useState(0);
 
+  // Only the newest load may apply: an older response can predate the last decision and
+  // would put the row just removed back in the list.
+  const loadSeq = useRef(0);
   const load = useCallback(() => {
-    api.get<QItem[]>(path).then((d) => { setItems(d ?? []); setError(""); })
-      .catch((e) => setError(e instanceof Error ? e.message : "Couldn't load"));
+    const seq = ++loadSeq.current;
+    api.get<QItem[]>(path).then((d) => { if (seq === loadSeq.current) { setItems(d ?? []); setError(""); } })
+      .catch((e) => { if (seq === loadSeq.current) setError(e instanceof Error ? e.message : "Couldn't load"); });
   }, [path]);
   useEffect(() => { load(); }, [load]);
 
   const shown = useMemo(() => (items ?? []).filter((x) => !filterFn || filter === "All" || filterFn(x, filter)), [items, filter, filterFn]);
   const cur = shown.find((x) => x.id === sel) ?? shown[0];
+  const curId = cur?.id;
+  const opened = cur && (loadDetail ? details[cur.id] : cur);
+  const full = cur && { ...cur, ...opened };
+
+  useEffect(() => {
+    if (!loadDetail || !curId || details[curId]) return;
+    loadDetail(curId)
+      .then((d) => setDetails((m) => ({ ...m, [curId]: d })))
+      .catch(() => setFailedId(curId));
+  }, [loadDetail, curId, details, retries]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -304,7 +327,7 @@ export function Queue({ kind, title, sub, row, detail, actions, filters, filterF
         const n = shown[Math.max(0, Math.min(shown.length - 1, i + (e.key === "j" ? 1 : -1)))];
         if (n) setSel(n.id);
       }
-      if (e.key === "a" || e.key === "r") {
+      if ((e.key === "a" || e.key === "r") && opened) {
         const keys = actions(cur).map((a) => a.key);
         const pick = e.key === "a" ? ["approve", "dismiss", "reverse"].find((k) => keys.includes(k))
           : ["reject", "remove", "uphold"].find((k) => keys.includes(k));
@@ -313,7 +336,7 @@ export function Queue({ kind, title, sub, row, detail, actions, filters, filterF
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cur, shown, deciding, actions]);
+  }, [cur, opened, shown, deciding, actions]);
 
   return (
     <>
@@ -336,18 +359,30 @@ export function Queue({ kind, title, sub, row, detail, actions, filters, filterF
             }) : <div className="empty">All clear. Nothing waiting. 🎉</div>}
           </div>
           <div className="qdet">
-            {cur ? <>
-              <div className="dbody">{detail(cur)}</div>
-              <div className="dact">{actions(cur).map((a) => <button key={a.key} className={`btn ${a.variant ?? ""}`} onClick={() => setDeciding(a.key)}>{a.label}</button>)}</div>
+            {cur && full ? <>
+              <div className="dbody">
+                {opened ? detail(full) : <>
+                  <h2>{nameOf(cur)}</h2>
+                  {failedId === cur.id
+                    ? <div className="empty">Couldn&rsquo;t load this entry. <button className="btn" onClick={() => { setFailedId(null); setRetries((n) => n + 1); }}>Retry</button></div>
+                    : <div className="empty">Loading details…</div>}
+                </>}
+              </div>
+              <div className="dact">{actions(full).map((a) => <button key={a.key} className={`btn ${a.variant ?? ""}`} disabled={!opened} onClick={() => setDeciding(a.key)}>{a.label}</button>)}</div>
             </> : <div className="empty">Select an item.</div>}
           </div>
         </div>
       )}
-      {deciding && cur && (
-        <DecisionModal kind={kind} item={cur} action={deciding} name={nameOf(cur)} target={targetOf(cur)}
+      {deciding && cur && full && (
+        <DecisionModal kind={kind} item={full} action={deciding} name={nameOf(cur)} target={targetOf(cur)}
           onClose={() => setDeciding(null)}
           onDone={(result) => {
-            setDeciding(null); setSel(null);
+            setDeciding(null);
+            // Drop the row now and open the next one; the reload below only reconciles,
+            // and restores it if the decision left it pending (a first ban request).
+            const i = shown.indexOf(cur);
+            setSel((shown[i + 1] ?? shown[i - 1])?.id ?? null);
+            setItems((xs) => xs?.filter((x) => x.id !== cur.id) ?? null);
             toast(`${ACT_TITLE[deciding] ?? deciding} ✓${result && result !== "done" ? ` · ${result}` : ""}`);
             load(); refreshCounts();
           }} />

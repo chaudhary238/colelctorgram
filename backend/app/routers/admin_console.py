@@ -40,6 +40,7 @@ from app.models.search import SavedSearch
 from app.models.thread import Message
 from app.models.trust import Report, UserBlock
 from app.models.user import Follow, User
+from app.services import feed_cache
 from app.services.auth import create_reset_token, hash_password
 from app.services.catalogue import norm_title, shared_photos
 from app.services.email import send_email, send_password_reset_email
@@ -129,6 +130,11 @@ def _queue_filter(model, pending_status: str, live_status: str):
                (model.auto_approved.is_(True)) & (model.reviewed_at.is_(None)) & (model.status == live_status))
 
 
+# An official draft: pending, with no community. Community posts only ever go pending
+# with a target community (mod review), so this never catches those.
+_OFFICIAL_DRAFT = (Post.status == "pending", Post.community_id.is_(None))
+
+
 async def _report_groups(db: AsyncSession) -> list[dict]:
     rows = (await db.execute(select(Report).where(Report.status == "pending")
                              .order_by(Report.created_at))).scalars().all()
@@ -154,10 +160,11 @@ async def _counts(db: AsyncSession) -> dict:
     e = await db.scalar(select(func.count()).select_from(Event).where(_queue_filter(Event, "pending_approval", "active")))
     d = await db.scalar(select(func.count()).select_from(Catalogue).where(
         Catalogue.is_verified.is_(False), Catalogue.status == "live", Catalogue.submitted_by.is_not(None)))
+    p = await db.scalar(select(func.count()).select_from(Post).where(*_OFFICIAL_DRAFT))
     a = await db.scalar(select(func.count()).select_from(Appeal).where(Appeal.status == "open"))
     q = await db.scalar(select(func.count()).select_from(DataRequest).where(DataRequest.status == "open"))
     groups = await _report_groups(db)
-    return {"communities": c or 0, "events": e or 0, "database": d or 0, "reports": len(groups),
+    return {"communities": c or 0, "events": e or 0, "database": d or 0, "posts": p or 0, "reports": len(groups),
             "reports_high": sum(1 for g in groups if g["priority"] == "High"),
             "appeals": a or 0, "data": q or 0, "_groups": groups}
 
@@ -200,7 +207,7 @@ async def console_overview(db: AsyncSession = Depends(get_db), _=Depends(get_cur
     week_stats = [
         ["Reports resolved", str(len(rep))],
         ["Median time to resolve", f"{med:.0f} h" if med is not None else "—"],
-        ["Approvals decided", str(sum(1 for k in kinds if k.split(".")[0] in ("community", "event", "catalogue")))],
+        ["Approvals decided", str(sum(1 for k in kinds if k.split(".")[0] in ("community", "event", "catalogue", "post")))],
         ["Reports dismissed", f"{round(100 * rep.count('report.dismiss') / len(rep))}%" if rep else "—"],
         ["Users suspended", str(sum(1 for k in kinds if k in ("report.suspend", "user.suspend")))],
         ["Appeals reversed", f"{sum(1 for k in appeals_done if k != 'appeal.uphold')} of {len(appeals_done)}" if appeals_done else "—"],
@@ -259,30 +266,50 @@ async def queue_events(db: AsyncSession = Depends(get_db), _=Depends(require_per
     return out
 
 
+@router.get("/queue/posts")
+async def queue_posts(db: AsyncSession = Depends(get_db), _=Depends(require_perm("approve"))):
+    """Official drafts. Nobody else sees one until an admin approves it here."""
+    rows = (await db.execute(select(Post).where(*_OFFICIAL_DRAFT).order_by(Post.created_at))).scalars().all()
+    authors = await _users_by_id(db, [p.user_id for p in rows])
+    return [{
+        "id": str(p.id), "title": p.title or "", "body": p.body, "tags": p.tags or [], "category": p.category,
+        "handle": authors[p.user_id].handle if p.user_id in authors else "?", "age_h": _age_h(p.created_at),
+    } for p in rows]
+
+
 @router.get("/queue/database")
 async def queue_database(db: AsyncSession = Depends(get_db), _=Depends(require_perm("catalogue"))):
+    """Tiles only. The duplicate check scans the whole catalogue per entry (~200ms), so it
+    runs when an entry is opened (below), never across the queue."""
     rows = (await db.execute(select(Catalogue).where(
         Catalogue.is_verified.is_(False), Catalogue.status == "live", Catalogue.submitted_by.is_not(None))
         .order_by(Catalogue.created_at))).scalars().all()
     subs = await _users_by_id(db, [c.submitted_by for c in rows])
-    dupes = {c.sku: await catalogue_dupes(db, c) for c in rows}
-    # One query for every entry and candidate, so a reviewer sees both sides of a
+    return [{
+        "id": c.sku, "title": c.title, "brand": c.brand, "category": c.category,
+        "handle": subs[c.submitted_by].handle if c.submitted_by in subs else "?",
+        "age_h": _age_h(c.created_at),
+    } for c in rows]
+
+
+@router.get("/queue/database/{sku}")
+async def queue_database_entry(sku: str, db: AsyncSession = Depends(get_db), _=Depends(require_perm("catalogue"))):
+    c = await db.scalar(select(Catalogue).where(Catalogue.sku == sku))
+    if not c:
+        raise HTTPException(status_code=404, detail="Not found")
+    subs = await _users_by_id(db, [c.submitted_by])
+    s = subs.get(c.submitted_by)
+    dupes = await catalogue_dupes(db, c)
+    # One query for the entry and its candidates, so a reviewer sees both sides of a
     # possible duplicate without opening a tab for each.
-    photos = await shared_photos(db, {
-        **{d["sku"]: d["thumbnail_url"] for ds in dupes.values() for d in ds},
-        **{c.sku: c.thumbnail_url for c in rows},
-    })
-    out = []
-    for c in rows:
-        s = subs.get(c.submitted_by)
-        out.append({
-            "id": c.sku, "title": c.title, "brand": c.brand, "category": c.category, "scale": c.scale,
-            "year": c.year, "value": _inr(c.est_retail_price), "desc": c.description or "",
-            "handle": s.handle if s else "?", "by": s.name if s else "?", "photos": photos[c.sku],
-            "age_h": _age_h(c.created_at), "dupes": [{**d, "photos": photos[d["sku"]]} for d in dupes[c.sku]],
-            "flags": catalogue_flags(c, len(photos[c.sku])),
-        })
-    return out
+    photos = await shared_photos(db, {**{d["sku"]: d["thumbnail_url"] for d in dupes}, c.sku: c.thumbnail_url})
+    return {
+        "id": c.sku, "title": c.title, "brand": c.brand, "category": c.category, "scale": c.scale,
+        "year": c.year, "value": _inr(c.est_retail_price), "desc": c.description or "",
+        "handle": s.handle if s else "?", "by": s.name if s else "?", "photos": photos[c.sku],
+        "age_h": _age_h(c.created_at), "dupes": [{**d, "photos": photos[d["sku"]]} for d in dupes],
+        "flags": catalogue_flags(c, len(photos[c.sku])),
+    }
 
 
 async def _resolve_group(db: AsyncSession, g: dict) -> dict:
@@ -391,7 +418,7 @@ async def create_appeal_manual(body: ManualAppealBody, db: AsyncSession = Depend
 
 # ── Decisions ────────────────────────────────────────────────────────────────
 class DecideBody(BaseModel):
-    queue: str = Field(pattern="^(communities|events|database|reports|appeals)$")
+    queue: str = Field(pattern="^(communities|events|database|posts|reports|appeals)$")
     id: str
     action: str
     reason: str = ""
@@ -401,7 +428,8 @@ class DecideBody(BaseModel):
     strike: bool = True
     duration_days: int = Field(7, ge=1, le=365)
     note: str | None = None
-    title: str | None = None        # database "edit & approve"
+    title: str | None = None        # database and posts "edit & approve"
+    body: str | None = None         # posts "edit & approve"
     merge_into: str | None = None   # database "merge into existing" (target SKU)
 
 
@@ -456,7 +484,7 @@ async def _merge_catalogue(db: AsyncSession, src: Catalogue, target_sku: str) ->
 
 @router.post("/decide")
 async def decide(body: DecideBody, db: AsyncSession = Depends(get_db), admin: User = Depends(get_current_admin)):
-    perm = {"communities": "approve", "events": "approve", "database": "catalogue",
+    perm = {"communities": "approve", "events": "approve", "database": "catalogue", "posts": "approve",
             "reports": "reports", "appeals": "appeals"}[body.queue]
     if perm not in ROLE_PERMS[role_of(admin)]:
         raise HTTPException(status_code=403, detail=f"Your role ({role_of(admin)}) can't do this")
@@ -513,6 +541,24 @@ async def decide(body: DecideBody, db: AsyncSession = Depends(get_db), admin: Us
             title = {"approve": "Your database entry is Scorred Reviewed", "edit": "Your database entry is Scorred Reviewed",
                      "merge": "Your database entry was merged", "reject": "Your database entry was removed"}[a]
             await _moderation_notice(db, entry.submitted_by, title, msg, "catalogue", ref)
+
+    elif body.queue == "posts":
+        post = await db.scalar(select(Post).where(Post.id == uuid.UUID(body.id), *_OFFICIAL_DRAFT))
+        if not post:
+            raise HTTPException(status_code=404, detail="Draft already handled")
+        if a == "edit":
+            if not (body.body or "").strip():
+                raise HTTPException(status_code=422, detail="Post text required")
+            post.title, post.body = (body.title or "").strip() or None, body.body.strip()
+        if a in ("approve", "edit"):
+            # Published now, so it ranks as new however long it sat in the queue.
+            post.status, post.created_at = "published", _now()
+        elif a == "reject":
+            post.status, post.removed_reason = "removed", reason
+        else:
+            raise HTTPException(status_code=400, detail="Unknown action")
+        log_action(db, admin, f"post.{a}", "post", body.id, post.title or post.body[:80], reason=reason, note=body.note)
+        feed_cache.invalidate()
 
     elif body.queue == "reports":
         group = next((g for g in await _report_groups(db) if g["id"] == body.id), None)
@@ -583,6 +629,9 @@ async def decide(body: DecideBody, db: AsyncSession = Depends(get_db), admin: Us
                    reason=reason, note=body.note, subject_user_id=ap.user_id)
         if u:
             await _moderation_notice(db, u.id, f"Update on your {ap.kind}", msg)
+    # get_db commits after the response is sent, and the console reloads the queue the
+    # moment it gets this reply: without this the decided row comes straight back.
+    await db.commit()
     return {"ok": True, "result": result, "xp_reversed": xp_reversed}
 
 
@@ -750,6 +799,7 @@ async def console_user_action(user_id: uuid.UUID, body: UserActionBody, db: Asyn
                                             "unsuspend": "Your account is active again", "badge": "You earned a badge",
                                             "xp": "Bonus XP from the Scorred team",
                                             "ban": "Your account has been banned"}[a], body.message.strip())
+    await db.commit()  # same reason as decide(): the drawer reloads on this reply
     return {"ok": True, "result": result}
 
 

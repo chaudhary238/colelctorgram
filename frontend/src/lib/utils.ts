@@ -33,3 +33,14 @@ export function timeAgo(iso: string): string {
   if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
   return `${Math.floor(diff / 86400)}d`;
 }
+
+/** An official post keeps its source link in the body; cards show it as a button. */
+export function splitOfficialLink(body: string): { text: string; url: string | null; host: string } {
+  const url = body.match(/https?:\/\/\S+/)?.[0];
+  if (!url) return { text: body, url: null, host: "" };
+  try {
+    return { text: body.replace(url, "").trim(), url, host: new URL(url).hostname.replace(/^www\./, "") };
+  } catch {
+    return { text: body, url: null, host: "" };
+  }
+}
