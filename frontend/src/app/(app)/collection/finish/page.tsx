@@ -161,7 +161,7 @@ function FinishItemsInner() {
   useEffect(() => {
     if (userLoading || !user) return;
     let alive = true;
-    api.get<{ items: CollectionItem[] }>(`/users/${user.handle}/collection`)
+    api.getAll<{ items: CollectionItem[] }>(`/users/${user.handle}/collection`, 60)
       .then((d) => {
         if (!alive) return;
         const mine = d.items.filter((i) => i.status === "owned" || i.status === "preorder");

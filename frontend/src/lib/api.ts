@@ -75,4 +75,20 @@ export const api = {
   patch: <T>(path: string, body?: unknown) =>
     apiFetch<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => apiFetch<T>(path, { method: "DELETE" }),
+  /** Walks a `?page=&limit=` endpoint until a short page, returning page 1's
+   *  extra fields (e.g. portfolio) with every page's `items` concatenated.
+   *  Profile tabs filter client-side, so they need the whole set — a single
+   *  page silently capped collections at the server's default (24). */
+  getAll: async <T extends { items: unknown[] }>(path: string, limit: number, maxPages = 40): Promise<T> => {
+    const sep = path.includes("?") ? "&" : "?";
+    let first: T | null = null;
+    const items: unknown[] = [];
+    for (let page = 1; page <= maxPages; page++) {
+      const data = await apiFetch<T>(`${path}${sep}page=${page}&limit=${limit}`);
+      first ??= data;
+      items.push(...data.items);
+      if (data.items.length < limit) break;
+    }
+    return { ...(first as T), items } as T;
+  },
 };

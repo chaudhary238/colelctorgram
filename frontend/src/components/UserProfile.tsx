@@ -286,10 +286,10 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
 
   const loadTab = useCallback(async (t: Tab) => {
     if (t === "posts" && posts === null) {
-      const data = await api.get<{ items: RawPost[] }>(`/users/${handle}/posts`).catch(() => ({ items: [] }));
+      const data = await api.getAll<{ items: RawPost[] }>(`/users/${handle}/posts`, 50).catch(() => ({ items: [] }));
       setPosts(data.items);
     } else if (t === "collection" && collection === null) {
-      const data = await api.get<{ items: CollectionItem[]; portfolio?: Portfolio }>(`/users/${handle}/collection`)
+      const data = await api.getAll<{ items: CollectionItem[]; portfolio?: Portfolio }>(`/users/${handle}/collection`, 60)
         .catch(() => ({ items: [] as CollectionItem[], portfolio: undefined }));
       setCollection(data.items);
       setPortfolio(data.portfolio ?? null);
@@ -1024,7 +1024,7 @@ function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
         {item.image_url ? (
           <div style={{ aspectRatio: "1/1", overflow: "hidden" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={item.image_url} alt={titleForItem(item)} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            <img src={item.image_url} alt={titleForItem(item)} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </div>
         ) : (
           /* v8 :450 — bare placeholder, no brand caption on collection tiles. */

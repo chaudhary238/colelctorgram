@@ -986,7 +986,7 @@ export function PollBlock({
 function PostImg({ src, style }: { src: string; style?: React.CSSProperties }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt="" style={{ display: "block", width: "100%", height: "auto", maxHeight: 560, objectFit: "contain", background: "var(--bone)", ...style }} />
+    <img src={src} alt="" loading="lazy" decoding="async" style={{ display: "block", width: "100%", height: "auto", maxHeight: 560, objectFit: "contain", background: "var(--bone)", ...style }} />
   );
 }
 export function PostImages({ images }: { images: string[] }) {

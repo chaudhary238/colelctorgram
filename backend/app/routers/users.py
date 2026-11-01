@@ -964,35 +964,39 @@ async def get_collection(
         for iid, lstatus in lrows.all():
             listing_by_item.setdefault(iid, lstatus)
 
-    # DV8 §2 — server-owned portfolio summary. The value is PRIVATE until every
-    # owned/pre-order item is complete ("we genuinely can't compute it" — v8);
-    # the owner always sees it, with the incomplete count driving the finish card.
-    # (The old client-side sum read per-item `value`, which is now owner-only.)
-    all_rows = (await db.execute(
-        select(
-            Item.status, Item.condition, Item.value, Item.sold_at,
-            Item.preorder_eta, Item.preorder_window_precision, Item.preorder_total,
-        ).where(Item.user_id == target_user.id, Item.status.in_(["owned", "preorder"]))
-    )).all()
-    # DV8 sold state — sold copies are history: out of the value, out of the
-    # completeness denominator (item_is_complete also short-circuits on sold_at).
-    port_rows = [r for r in all_rows if r.sold_at is None]
-    incomplete_count = sum(1 for r in port_rows if not item_is_complete(r))
-    # QA #16 — pre-orders count at their committed total (their money lives in
-    # preorder_total, never in value, which the add forms zero for POs).
-    owned_value = sum((r.value or 0) for r in port_rows if r.status == "owned") \
-        + sum((r.preorder_total or 0) for r in port_rows if r.status == "preorder")
-    value_shared = len(port_rows) > 0 and incomplete_count == 0
-    portfolio = {
-        "item_count": len(port_rows),
-        # v8 ProfileCollection.jsx:66 — the Items pill counts the whole shelf,
-        # sold history included (audit §9#22).
-        "shelf_count": len(all_rows),
-        "complete_count": len(port_rows) - incomplete_count,
-        "incomplete_count": incomplete_count,
-        "value": owned_value if (is_owner_view or value_shared) else None,
-        "value_shared": value_shared,
-    }
+    # Whole-shelf scan — page 1 only. Clients walk every page (api.getAll) and
+    # keep page 1's summary, so recomputing it per page was pure waste.
+    portfolio = None
+    if page == 1:
+        # DV8 §2 — server-owned portfolio summary. The value is PRIVATE until every
+        # owned/pre-order item is complete ("we genuinely can't compute it" — v8);
+        # the owner always sees it, with the incomplete count driving the finish card.
+        # (The old client-side sum read per-item `value`, which is now owner-only.)
+        all_rows = (await db.execute(
+            select(
+                Item.status, Item.condition, Item.value, Item.sold_at,
+                Item.preorder_eta, Item.preorder_window_precision, Item.preorder_total,
+            ).where(Item.user_id == target_user.id, Item.status.in_(["owned", "preorder"]))
+        )).all()
+        # DV8 sold state — sold copies are history: out of the value, out of the
+        # completeness denominator (item_is_complete also short-circuits on sold_at).
+        port_rows = [r for r in all_rows if r.sold_at is None]
+        incomplete_count = sum(1 for r in port_rows if not item_is_complete(r))
+        # QA #16 — pre-orders count at their committed total (their money lives in
+        # preorder_total, never in value, which the add forms zero for POs).
+        owned_value = sum((r.value or 0) for r in port_rows if r.status == "owned") \
+            + sum((r.preorder_total or 0) for r in port_rows if r.status == "preorder")
+        value_shared = len(port_rows) > 0 and incomplete_count == 0
+        portfolio = {
+            "item_count": len(port_rows),
+            # v8 ProfileCollection.jsx:66 — the Items pill counts the whole shelf,
+            # sold history included (audit §9#22).
+            "shelf_count": len(all_rows),
+            "complete_count": len(port_rows) - incomplete_count,
+            "incomplete_count": incomplete_count,
+            "value": owned_value if (is_owner_view or value_shared) else None,
+            "value_shared": value_shared,
+        }
 
     return {
         "page": page,
