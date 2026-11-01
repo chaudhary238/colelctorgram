@@ -77,7 +77,7 @@ function Frame({ children }: { children: React.ReactNode }) {
 export function AdminShell({ fontClass, children }: { fontClass: string; children: React.ReactNode }) {
   return (
     <AdminGuard>
-      <div className={`adm ${fontClass}`}>
+      <div className={fontClass ? `adm ${fontClass}` : "adm"}>
         <ConsoleProvider><Frame>{children}</Frame></ConsoleProvider>
       </div>
     </AdminGuard>
