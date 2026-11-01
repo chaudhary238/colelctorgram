@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { X } from "lucide-react";
 import { api } from "@/lib/api";
+import { announceFollow } from "@/lib/followSync";
 import Link from "next/link";
 import { useUser } from "@/lib/auth-context";
 import { Avatar, Button } from "@/components/ui";
@@ -72,6 +73,7 @@ export function FollowRowButton({
         await api.delete(`/users/${handle}/follow`);
         fireToast(`Unfollowed @${handle}`);
       }
+      announceFollow(handle, next);
     } catch {
       setFollowMap((m) => ({ ...(m ?? {}), [handle]: !next })); // revert
     } finally {

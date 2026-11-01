@@ -8,6 +8,7 @@ import {
   MessageSquare, Shield, Tag as TagIcon, Pencil, Trash2, Pin, Plus, UserPlus,
   Settings2, ChevronRight, X,
 } from "lucide-react";
+import { announceFollow, onFollowChange } from "@/lib/followSync";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/auth-context";
 import { timeAgo, shortDate } from "@/lib/utils";
@@ -463,6 +464,10 @@ export function AuthorLine({ post, showFollow, authorRole, reserveRight = 0 }: {
   const { user } = useUser();
   const [following, setFollowing] = useState(post.is_following ?? false);
   const [busy, setBusy] = useState(false);
+  // Same author can appear on several cards, and follows happen off-card too.
+  useEffect(() => onFollowChange((c) => {
+    if (c.handle === post.handle) setFollowing(c.following);
+  }), [post.handle]);
   // Never offer a Follow button on your own post — you can't follow yourself.
   const isOwn = !!user && user.id === post.user_id;
 
@@ -486,6 +491,7 @@ export function AuthorLine({ post, showFollow, authorRole, reserveRight = 0 }: {
         await api.delete(`/users/${post.handle}/follow`);
         fireToast(`Unfollowed @${post.handle}`);
       }
+      announceFollow(post.handle, next);
     } catch {
       setFollowing(!next);       // revert on error
     } finally {

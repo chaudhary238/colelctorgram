@@ -22,6 +22,7 @@ import { ADD_CATEGORIES } from "@/lib/catalog";
 import {
   MAX_SNAPSHOT_POSTS, clearJustPosted, readFeedSnapshot, readJustPosted, writeFeedSnapshot,
 } from "@/lib/feedSnapshot";
+import { onFollowChange } from "@/lib/followSync";
 
 type StreamItem =
   | { t: "post"; key: string; data: ApiPost }
@@ -229,6 +230,12 @@ export default function FeedPage() {
   const stateRef = useRef({ tab, posts, page, hasMore });
   useEffect(() => { stateRef.current = { tab, posts, page, hasMore }; });
   const scrollTopRef = useRef(0);
+
+  // Follows made from a card or the rail must reach `posts`, or leaving the feed writes
+  // the old follow state back into the snapshot.
+  useEffect(() => onFollowChange(({ handle, following }) => {
+    setPosts((prev) => prev.map((p) => (p.handle === handle ? { ...p, is_following: following } : p)));
+  }), []);
 
   // Apply the restore snapshot, once, before the browser paints. Everything this sets
   // is guarded on there actually BEING a snapshot; with none, the feed just carries on

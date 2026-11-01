@@ -99,6 +99,17 @@ export function clearJustPosted(): void {
 }
 
 /**
+ * Set the follow state on every stored post by one author, so returning to the feed
+ * can't restore "+ Follow" for someone you've just followed.
+ */
+export function patchFeedSnapshotAuthor(handle: string, isFollowing: boolean): void {
+  const s = readFeedSnapshot<Record<string, unknown>>();
+  if (!s) return;
+  s.posts = s.posts.map((p) => (p?.handle === handle ? { ...p, is_following: isFollowing } : p));
+  writeFeedSnapshot(s);
+}
+
+/**
  * Update ONE post inside the stored snapshot, in place.
  *
  * QA 2026-08-05 §3 — the snapshot freezes engagement counts at the moment you left the

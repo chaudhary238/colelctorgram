@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { announceFollow, onFollowChange } from "@/lib/followSync";
 import { useUser } from "@/lib/auth-context";
 import { Avatar, Money, ProductPhoto, toneVar } from "@/components/ui";
 import { ApiCommunity, ApiEvent, ApiListing } from "@/components/cards";
@@ -288,6 +289,9 @@ interface SuggestedUser {
 function SuggestedRow({ u, divider }: { u: SuggestedUser; divider?: boolean }) {
   const [following, setFollowing] = useState(false);
   const [busy, setBusy] = useState(false);
+  useEffect(() => onFollowChange((c) => {
+    if (c.handle === u.handle) setFollowing(c.following);
+  }), [u.handle]);
 
   async function toggleFollow() {
     if (busy) return;
@@ -297,6 +301,7 @@ function SuggestedRow({ u, divider }: { u: SuggestedUser; divider?: boolean }) {
     try {
       if (next) await api.post(`/users/${u.handle}/follow`);
       else await api.delete(`/users/${u.handle}/follow`);
+      announceFollow(u.handle, next);
     } catch {
       setFollowing(!next); // revert
     } finally {

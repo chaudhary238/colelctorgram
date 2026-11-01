@@ -17,6 +17,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
+import { announceFollow } from "@/lib/followSync";
 import { DetailHeader } from "@/components/DetailHeader";
 import { Avatar, EmptyNote } from "@/components/ui";
 import { fireToast } from "@/components/gamification";
@@ -66,6 +67,7 @@ function DbPeopleInner() {
         const res = await api.post<{ xp_granted?: boolean }>(`/users/${p.handle}/follow`);
         fireToast(`Following @${p.handle}${res.xp_granted ? " · +2 XP" : ""}`);
       }
+      announceFollow(p.handle, !p.is_following);
     } catch {
       setPeople((ps) => ps?.map((x) => (x.handle === p.handle ? { ...x, is_following: p.is_following } : x)) ?? null);
     } finally {

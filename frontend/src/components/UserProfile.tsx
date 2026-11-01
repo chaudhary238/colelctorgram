@@ -9,6 +9,7 @@ import {
   MoreHorizontal, Check, ChevronRight, Menu, SlidersHorizontal,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { announceFollow } from "@/lib/followSync";
 import { placeLabel } from "@/lib/utils";
 import { AuthUser, useUser } from "@/lib/auth-context";
 import {
@@ -310,6 +311,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
         setIsFollowing(false);
         setProfile((p) => (p ? { ...p, followers_count: Math.max(0, p.followers_count - 1) } : p));
         fireToast(`Unfollowed @${profile.handle}`); // v8 ProfileView:353
+        announceFollow(profile.handle, false);
       } else {
         // v8 :353 toast with SERVER-truth XP — "· +2 XP" only when the response
         // says the grant landed (re-follows the ledger counted stay plain).
@@ -317,6 +319,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
         setIsFollowing(true);
         setProfile((p) => (p ? { ...p, followers_count: p.followers_count + 1 } : p));
         fireToast(res?.xp_granted ? `Following @${profile.handle} · +2 XP` : `Following @${profile.handle}`);
+        announceFollow(profile.handle, true);
       }
     } catch {
       /* ignore */
