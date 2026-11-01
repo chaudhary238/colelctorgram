@@ -11,6 +11,8 @@ Also here: the user-facing side of compliance — /account/appeals and
 /account/data-requests — since the console is their only consumer.
 """
 import json
+import re
+import secrets
 import statistics
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -38,10 +40,10 @@ from app.models.search import SavedSearch
 from app.models.thread import Message
 from app.models.trust import Report, UserBlock
 from app.models.user import Follow, User
-from app.services.auth import create_reset_token
+from app.services.auth import create_reset_token, hash_password
 from app.services.catalogue import norm_title
 from app.services.email import send_email, send_password_reset_email
-from app.services.gamification import FIRST_START, _emit_rank_up, tier_index_of
+from app.services.gamification import FIRST_START, _emit_rank_up, reverse_xp, tier_index_of
 from app.services.moderation import (
     PRIORITY_ORDER, REASON_LABEL, ROLE_PERMS, ROLES, SLA_HOURS, account_status, catalogue_dupes,
     catalogue_flags, community_flags, event_flags, log_action, priority_of, require_perm, role_of,
@@ -457,6 +459,7 @@ async def decide(body: DecideBody, db: AsyncSession = Depends(get_db), admin: Us
     reason, a = body.reason.strip(), body.action
     msg = body.message.strip() if body.notify else ""
     result = "done"
+    xp_reversed = 0
 
     if body.queue in ("communities", "events"):
         is_c = body.queue == "communities"
@@ -494,9 +497,14 @@ async def decide(body: DecideBody, db: AsyncSession = Depends(get_db), admin: Us
             entry.status = "removed"
         else:
             raise HTTPException(status_code=400, detail="Unknown action")
+        # XP chargeback (design v8): a duplicate (merge) or rejected entry loses its +50.
+        if a in ("merge", "reject"):
+            xp_reversed = await reverse_xp(db, entry.submitted_by, "db_new", entry.sku)
+            if xp_reversed and msg:
+                msg = f"{msg}\n\nThe +{xp_reversed} XP for this entry has been reversed."
         log_action(db, admin, f"catalogue.{a}", "catalogue", entry.sku, entry.title, reason=reason,
                    note=body.note, subject_user_id=entry.submitted_by,
-                   meta={"merged_into": ref} if a == "merge" else None)
+                   meta={**({"merged_into": ref} if a == "merge" else {}), **({"xp_reversed": xp_reversed} if xp_reversed else {})} or None)
         if entry.submitted_by:
             title = {"approve": "Your database entry is Scorred Reviewed", "edit": "Your database entry is Scorred Reviewed",
                      "merge": "Your database entry was merged", "reject": "Your database entry was removed"}[a]
@@ -524,6 +532,8 @@ async def decide(body: DecideBody, db: AsyncSession = Depends(get_db), admin: Us
                 await admin_remove_comment(comment_id=uuid.UUID(tid), reason=why, db=db, _=admin)
             elif group["target_type"] == "catalogue":
                 await db.execute(update(Catalogue).where(Catalogue.sku == group["target_ref"]).values(status="removed"))
+                submitter = await db.scalar(select(Catalogue.submitted_by).where(Catalogue.sku == group["target_ref"]))
+                xp_reversed = await reverse_xp(db, submitter, "db_new", group["target_ref"])
         elif a == "warn":
             user.warned_at = _now()
         elif a == "suspend":
@@ -569,7 +579,7 @@ async def decide(body: DecideBody, db: AsyncSession = Depends(get_db), admin: Us
                    reason=reason, note=body.note, subject_user_id=ap.user_id)
         if u:
             await _moderation_notice(db, u.id, f"Update on your {ap.kind}", msg)
-    return {"ok": True, "result": result}
+    return {"ok": True, "result": result, "xp_reversed": xp_reversed}
 
 
 # ── Users ────────────────────────────────────────────────────────────────────
@@ -592,6 +602,54 @@ async def console_users(q: str | None = None, limit: int = Query(100, le=300),
     rows = (await db.execute(stmt.order_by(User.created_at.desc()).limit(limit))).all()
     reports = await _reports_against(db, [u.id for u, _ in rows])
     return [_user_row(u, v, reports.get(u.id, 0)) for u, v in rows]
+
+
+# ── Add beta testers (replaces running scripts/provision_beta_users.py by hand) ──
+# Same account shape as the script: verified email, provisional @handle from the
+# email, a shared starter password the admin types (never stored in code), and
+# must_reset_password so the first login forces their own password.
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class AddTestersBody(BaseModel):
+    emails: list[str] = Field(min_length=1, max_length=50)
+    password: str = Field(min_length=8, max_length=128)
+
+
+async def _unique_handle(db: AsyncSession, email: str, taken: set[str]) -> str:
+    base = "".join(c for c in email.split("@")[0].lower() if c.isalnum()) or "collector"
+    handle = base
+    while handle in taken or await db.scalar(select(User.id).where(User.handle == handle)):
+        handle = f"{base}{secrets.randbelow(10000)}"
+    taken.add(handle)
+    return handle
+
+
+@router.post("/testers")
+async def add_testers(body: AddTestersBody, db: AsyncSession = Depends(get_db),
+                      admin: User = Depends(require_perm("users"))):
+    pw_hash = hash_password(body.password)
+    out, seen, taken = [], set(), set()
+    for raw in body.emails:
+        email = raw.strip().lower()
+        if not email or email in seen:
+            continue
+        seen.add(email)
+        if not EMAIL_RE.match(email):
+            out.append({"email": email, "handle": None, "status": "invalid"})
+            continue
+        existing = await db.scalar(select(User).where(User.email == email))
+        if existing:
+            out.append({"email": email, "handle": existing.handle, "status": "exists"})
+            continue
+        handle = await _unique_handle(db, email, taken)
+        user = User(id=uuid.uuid4(), handle=handle, name=handle, email=email, password_hash=pw_hash,
+                    email_verified=True, must_reset_password=True)
+        db.add(user)
+        await db.flush()  # the audit row's subject_user_id FK needs the user row first
+        log_action(db, admin, "user.add_tester", "user", str(user.id), f"@{handle}", subject_user_id=user.id)
+        out.append({"email": email, "handle": handle, "status": "created"})
+    return {"results": out, "created": sum(r["status"] == "created" for r in out)}
 
 
 @router.get("/users/{handle}")

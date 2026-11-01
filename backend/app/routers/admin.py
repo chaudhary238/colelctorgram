@@ -19,7 +19,7 @@ from app.models.community import Community
 from app.models.item import Item
 from app.models.deal import Vouch
 from app.services.catalogue import norm_title, norm_scale
-from app.services.gamification import FIRST_START
+from app.services.gamification import FIRST_START, restore_reversed_xp, reverse_xp
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -509,6 +509,7 @@ async def restore_catalogue(
     item = (await db.execute(select(Catalogue).where(Catalogue.sku == sku))).scalar_one_or_none()
     if item:
         item.status = "live"
+        await restore_reversed_xp(db, item.submitted_by, "db_new", sku)  # undo the chargeback
 
 
 @router.patch("/catalogue/{sku}/remove", status_code=204)
@@ -522,6 +523,7 @@ async def remove_catalogue(
     item = (await db.execute(select(Catalogue).where(Catalogue.sku == sku))).scalar_one_or_none()
     if item:
         item.status = "removed"
+        await reverse_xp(db, item.submitted_by, "db_new", sku)  # XP chargeback (design v8)
 
 
 @router.patch("/catalogue/{sku}/verify", status_code=204)

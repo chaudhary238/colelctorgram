@@ -38,7 +38,7 @@ const ACTION_LABEL: Record<string, string> = {
   "report.dismiss": "Dismissed report", "report.remove": "Removed content", "report.warn": "Warned user", "report.suspend": "Suspended user",
   "user.ban_request": "Ban requested · awaiting 2nd admin", "user.ban_confirm": "Banned user", "user.warn": "Warned user",
   "user.suspend": "Suspended user", "user.unsuspend": "Lifted suspension", "user.badge": "Gave badge", "user.unbadge": "Removed badge",
-  "user.reset": "Sent password reset", "user.xp": "Added XP", "user.cancel_ban": "Cancelled ban request",
+  "user.reset": "Sent password reset", "user.xp": "Added XP", "user.add_tester": "Added beta tester", "user.cancel_ban": "Cancelled ban request",
   "appeal.uphold": "Upheld decision", "appeal.reverse": "Reversed decision", "appeal.partial": "Partially reversed", "appeal.logged": "Logged appeal from email",
   "data.export": "Sent data export", "data.delete": "Deleted account", "data.reject": "Rejected data request", "data.logged": "Logged data request from email",
   "announce.send": "Sent announcement", "team.role": "Changed role", "team.remove": "Removed from team",
@@ -215,12 +215,15 @@ export function DecisionModal({ kind, item, action, name, target, onClose, onDon
   async function submit() {
     setBusy(true);
     try {
-      const res = await api.post<{ result: string }>("/admin/console/decide", {
+      const res = await api.post<{ result: string; xp_reversed?: number }>("/admin/console/decide", {
         queue: kind, id: item.id, action, reason, message: showsUserMessage ? message : "", notify: notify && showsUserMessage,
         notify_reporters: notifyReporters, strike, duration_days: days, note: note || null,
         title: action === "edit" ? title : null, merge_into: action === "merge" ? mergeInto : null,
       });
-      onDone(res?.result ?? "done");
+      // XP chargeback (design v8) — say so in the confirmation toast.
+      const reversed = res?.xp_reversed ? `${res.xp_reversed} XP reversed` : "";
+      const result = res?.result && res.result !== "done" ? res.result : "";
+      onDone([result, reversed].filter(Boolean).join(" · ") || "done");
     } catch (e) {
       toast(e instanceof Error ? e.message : "Something went wrong", true);
       setBusy(false);
@@ -256,6 +259,7 @@ export function DecisionModal({ kind, item, action, name, target, onClose, onDon
         {kind === "reports" && <label><input type="checkbox" checked={notifyReporters} onChange={(e) => setNotifyReporters(e.target.checked)} /> Tell reporters the outcome</label>}
         {["remove", "warn", "suspend", "ban"].includes(action) && <label><input type="checkbox" checked={strike} onChange={(e) => setStrike(e.target.checked)} /> Add a strike</label>}
       </div>
+      {kind === "database" && (action === "reject" || action === "merge") && <div className="flag">The submitter&rsquo;s +50 XP for this entry will be reversed.</div>}
       {action === "ban" && <div className="flag">Bans need a second admin. The first ban records a request; a different admin confirms it.</div>}
       <label className="fl">Internal note (team only)<input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" /></label>
       <div className="mf">

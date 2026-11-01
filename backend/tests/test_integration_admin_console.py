@@ -207,3 +207,85 @@ async def test_announcement_reaches_audience(client, db):
     n = (await db.execute(select(Notification).where(Notification.kind == "announcement"))).scalars().all()
     assert n and all(x.title == "New: reminders" for x in n)
     assert (await db.execute(select(AdminAction).where(AdminAction.action == "announce.send"))).scalar_one()
+
+
+async def _new_db_entry(client, user, title):
+    r = await client.post("/v1/items", headers=user["headers"], json={
+        "custom_title": title, "category": "figures", "status": "owned",
+        "cover_url": "https://img.test/cover.png"})
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+async def test_db_entry_xp_uncapped_and_charged_back_on_reject(client, db):
+    """Design v8: "XP earned from a duplicate is reversed". Founder 2026-11-01: no
+    guessed daily caps — every new entry earns +50; reject/merge takes it back."""
+    maker = await signup_verified(client, "maker1")
+    boss = await signup_verified(client, "boss3")
+    await make_admin(db, "boss3")
+
+    titles = ["Hot Toys Mandalorian Beskar", "Revoltech Spider Gwen", "Mafex Batman Hush",
+              "Figma Link Breath Wild", "Nendoroid Hatsune Miku Snow", "NECA Predator Jungle Hunter",
+              "Bandai Gundam RX78 Perfect Grade"]
+    made = [await _new_db_entry(client, maker, t) for t in titles]
+    assert all(m["db_new_xp"] == 50 for m in made)  # 7 in a day — the old 5/day cap is gone
+    u = (await db.execute(select(User).where(User.handle == "maker1"))).scalar_one()
+    await db.refresh(u)
+    xp_before = u.xp
+
+    sku = made[0]["sku"]
+    d = await client.post(f"{C}/decide", headers=boss["headers"], json={
+        "queue": "database", "id": sku, "action": "reject", "reason": "Bootleg / KO", "message": "Removed."})
+    assert d.status_code == 200, d.text
+    assert d.json()["xp_reversed"] == 50
+    await db.refresh(u)
+    assert u.xp == xp_before - 50
+    note = (await db.execute(select(Notification).where(Notification.kind == "moderation"))).scalars().all()
+    assert any("+50 XP for this entry has been reversed" in (n.body or "") for n in note)
+
+    # Once only — deciding again can't reverse twice.
+    again = await client.post(f"{C}/decide", headers=boss["headers"], json={
+        "queue": "database", "id": sku, "action": "reject", "reason": "Bootleg / KO", "message": ""})
+    assert again.json()["xp_reversed"] == 0
+    await db.refresh(u)
+    assert u.xp == xp_before - 50
+
+    # Restoring the entry gives the XP back.
+    r = await client.patch(f"/v1/admin/catalogue/{sku}/restore", headers=boss["headers"])
+    assert r.status_code == 204, r.text
+    await db.refresh(u)
+    assert u.xp == xp_before
+
+    # Merge (duplicate) reverses too.
+    m = await client.post(f"{C}/decide", headers=boss["headers"], json={
+        "queue": "database", "id": made[1]["sku"], "action": "merge", "reason": "Duplicate",
+        "message": "", "merge_into": made[2]["sku"]})
+    assert m.status_code == 200, m.text
+    assert m.json()["xp_reversed"] == 50
+
+
+async def test_add_testers_creates_reset_required_accounts(client, db):
+    boss = await signup_verified(client, "boss4")
+    await make_admin(db, "boss4")
+    await signup_verified(client, "already")
+    taken = (await db.execute(select(User).where(User.handle == "already"))).scalar_one()
+
+    r = await client.post(f"{C}/testers", headers=boss["headers"], json={
+        "emails": ["New.Tester@Gmail.com", "new.tester@gmail.com", taken.email, "not-an-email"],
+        "password": "Starter@2026"})
+    assert r.status_code == 200, r.text
+    res = {x["email"]: x for x in r.json()["results"]}
+    assert r.json()["created"] == 1 and len(res) == 3  # case-insensitive dedupe
+    assert res["new.tester@gmail.com"]["status"] == "created" and res["new.tester@gmail.com"]["handle"] == "newtester"
+    assert res[taken.email]["status"] == "exists" and res["not-an-email"]["status"] == "invalid"
+
+    login = await client.post("/v1/auth/login", json={"identifier": "newtester", "password": "Starter@2026"})
+    assert login.status_code == 200 and login.json()["must_reset_password"] is True
+    audit = (await client.get(f"{C}/audit", headers=boss["headers"])).json()
+    assert audit[0]["action"] == "user.add_tester"
+
+    # Catalog-only staff can't add accounts.
+    cat = await signup_verified(client, "cat2")
+    await make_admin(db, "cat2", role="catalog")
+    assert (await client.post(f"{C}/testers", headers=cat["headers"], json={
+        "emails": ["x@y.com"], "password": "Starter@2026"})).status_code == 403

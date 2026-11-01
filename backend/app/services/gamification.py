@@ -87,15 +87,17 @@ EARN_RULES = {
     "profile":  {"points": 100, "freq": "once",   "cap": None, "label": "Complete your profile", "icon": "user"},
     "refer":    {"points": 150, "freq": "repeat", "cap": None, "label": "Refer a friend",        "icon": "gift"},
     # v6 (DV6-02) — first collector to add a new item to the shared catalogue DB.
-    # Deduped per item via ref_id; the /day cap stops bulk-add farming.
-    "db_new":   {"points": 50,  "freq": "repeat", "cap": 5,    "label": "Add new item to Scorred DB", "icon": "database",
+    # Deduped per item via ref_id. UNCAPPED (founder 2026-11-01): the old 5/day cap
+    # was an implementation guess — neither v6/v8 design nor the Rewards spec set one.
+    "db_new":   {"points": 50,  "freq": "repeat", "cap": None, "label": "Add new item to Scorred DB", "icon": "database",
                  # v8 data.jsx:1215 — the row's sub-line explains the first-contributor rule.
                  "note": "First to add earns +50 XP"},
     # DV8 quick-add split — adding is rewarded, finishing is rewarded more, so
     # quick-add never feels like a trap that generates homework (change review §2).
-    # Both dedup per item via ref_id; caps stop bulk-add farming.
-    "add_item":      {"points": 5,  "freq": "repeat", "cap": 20, "label": "Add to your collection",       "icon": "plus"},
-    "complete_item": {"points": 20, "freq": "repeat", "cap": 20, "label": "Add condition & price",        "icon": "check"},
+    # Both dedup per item via ref_id. UNCAPPED (founder 2026-11-01): the old 20/day
+    # caps were implementation guesses — no design or founder doc set them.
+    "add_item":      {"points": 5,  "freq": "repeat", "cap": None, "label": "Add to your collection",     "icon": "plus"},
+    "complete_item": {"points": 20, "freq": "repeat", "cap": None, "label": "Add condition & price",      "icon": "check"},
     "showcase": {"points": 25,  "freq": "repeat", "cap": 5,    "label": "Post a showcase",       "icon": "camera"},
     "review":   {"points": 15,  "freq": "repeat", "cap": 3,    "label": "Write a review",        "icon": "star"},
     "vouch":    {"points": 15,  "freq": "repeat", "cap": 3,    "label": "Vouch for a collector", "icon": "shield"},
@@ -105,7 +107,8 @@ EARN_RULES = {
     "like":     {"points": 1,   "freq": "repeat", "cap": 50,   "label": "Like a post",           "icon": "heart"},
     # v6 (DV6-04) — small +2 micro-reward on following a collector. Deduped per
     # target (one grant per person ever); NOT shown on the "ways to earn" list.
-    "follow":   {"points": 2,   "freq": "repeat", "cap": 20,   "label": "Follow a collector",    "icon": "user"},
+    # UNCAPPED (founder 2026-11-01): the old 20/day cap was an implementation guess.
+    "follow":   {"points": 2,   "freq": "repeat", "cap": None, "label": "Follow a collector",    "icon": "user"},
 }
 # Earn actions rendered separately (not in the "ways to earn" list): the daily
 # check-in has its own card, and follow is an invisible micro-reward (v6 §DV6-04).
@@ -272,6 +275,55 @@ async def award_xp(
     user.xp = old_xp + rule["points"]
     await _emit_rank_up(db, user, old_xp, user.xp)
     return True
+
+
+# ── XP chargeback (design v8 Contribute guidelines: "XP earned from a duplicate is
+# reversed") ─────────────────────────────────────────────────────────────────
+# A reversal is its own NEGATIVE ledger row (action "chargeback", ref_id
+# "<action>:<ref_id>") rather than a deleted grant: the ledger stays append-only,
+# weekly/lifetime sums net it out, and the dedup index makes it once-only.
+CHARGEBACK = "chargeback"
+
+
+async def reverse_xp(db: AsyncSession, user_id: uuid.UUID | None, action: str, ref_id: str) -> int:
+    """Take back the `action` grant earned on `ref_id`. Returns the points reversed
+    (0 when it was never granted — staff, matched entries — or already reversed)."""
+    if not user_id:
+        return 0
+    grant = await db.scalar(select(XpEvent).where(
+        XpEvent.user_id == user_id, XpEvent.action == action, XpEvent.ref_id == ref_id))
+    if grant is None or grant.points <= 0:
+        return 0
+    res = await db.execute(
+        pg_insert(XpEvent)
+        .values(id=uuid.uuid4(), user_id=user_id, action=CHARGEBACK, points=-grant.points,
+                ref_type=grant.ref_type, ref_id=f"{action}:{ref_id}"[:64], created_at=_now())
+        .on_conflict_do_nothing(index_elements=["user_id", "action", "ref_id"],
+                                index_where=text("ref_id IS NOT NULL"))
+        .returning(XpEvent.id)
+    )
+    if res.first() is None:
+        return 0  # already reversed
+    user = await db.get(User, user_id)
+    if user is not None:
+        user.xp = max(0, (user.xp or 0) - grant.points)
+    return grant.points
+
+
+async def restore_reversed_xp(db: AsyncSession, user_id: uuid.UUID | None, action: str, ref_id: str) -> int:
+    """Undo a chargeback (the entry was restored). Returns the points given back."""
+    if not user_id:
+        return 0
+    cb = await db.scalar(select(XpEvent).where(
+        XpEvent.user_id == user_id, XpEvent.action == CHARGEBACK, XpEvent.ref_id == f"{action}:{ref_id}"[:64]))
+    if cb is None:
+        return 0
+    points = -cb.points
+    await db.delete(cb)
+    user = await db.get(User, user_id)
+    if user is not None:
+        user.xp = (user.xp or 0) + points
+    return points
 
 
 async def _emit_rank_up(db: AsyncSession, user: User, old_xp: int, new_xp: int) -> None:
