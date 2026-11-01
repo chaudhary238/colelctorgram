@@ -362,8 +362,8 @@ export default function EventDetailPage() {
           </>
         )}
 
-        {/* Hosted by */}
-        <SectionLabel>Hosted by</SectionLabel>
+        {/* Hosted by — staff only list events run by others */}
+        <SectionLabel>{event.listed_by_staff ? "Listed by" : "Hosted by"}</SectionLabel>
         <Link href={`/profile/${event.host_handle}`} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", marginTop: 10, padding: 12, textDecoration: "none", background: "var(--paper-soft)", border: "1px solid var(--border)", borderRadius: 13 }}>
           {/* v8 — host avatar carries the verified tick when the payload flags a tier. */}
           <Avatar name={event.host_name ?? "?"} photo={event.host_avatar_url ?? undefined} size={40} verified={!!event.host_tier} />

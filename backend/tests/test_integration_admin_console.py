@@ -10,7 +10,8 @@ from app.config import settings
 from app.models.admin import AdminAction
 from app.models.catalogue import Catalogue
 from app.models.community import Community
-from app.models.item import Item
+from app.models.event import Event
+from app.models.item import Item, ItemPhoto
 from app.models.notification import Notification
 from app.models.post import Post
 from app.models.trust import Report
@@ -348,9 +349,13 @@ async def test_official_draft_stays_hidden_until_approved(client, db):
     assert (await client.get(f"{C}/counts", headers=owner["headers"])).json()["posts"] == 1
 
     r = await client.post(f"{C}/decide", headers=owner["headers"], json={
-        "queue": "posts", "id": pid, "action": "edit", "title": "Set out 7 Nov",
-        "body": "Details\nhttps://example.com/set", "reason": "Accurate"})
+        "queue": "posts", "id": pid, "action": "edit", "reason": "Accurate", "post": {
+            "title": "Set out 7 Nov", "body": "Details\nhttps://example.com/set",
+            "tags": ["NewDrops", "#TCG", " "], "category": "tcg", "images": ["https://example.com/a.jpg"]}})
     assert r.status_code == 200
+    db.expire_all()
+    post = await db.get(Post, uuid.UUID(pid))
+    assert post.tags == ["#NewDrops", "#TCG"] and post.category == "tcg" and post.images == ["https://example.com/a.jpg"]
 
     feed = (await client.get("/v1/feed?sort=latest", headers=viewer["headers"])).json()["items"]
     assert feed[0]["id"] == pid and feed[0]["title"] == "Set out 7 Nov" and feed[0]["is_official"] is True
@@ -378,3 +383,68 @@ async def test_official_draft_reject_and_permissions(client, db):
     db.expire_all()
     post = await db.get(Post, uuid.UUID(pid))
     assert post.status == "removed" and post.removed_reason == "Date unconfirmed"
+
+
+async def test_staff_events_read_listed_by_not_hosted_by(client, db):
+    staff = await signup_verified(client, "listerstaff")
+    await make_admin(db, "listerstaff")
+    member = await signup_verified(client, "listermember")
+    starts = datetime.now(timezone.utc) + timedelta(days=10)
+
+    async def host_event(user, title):
+        db.add(Event(title=title, host_id=uuid.UUID(user["id"]), status="active", mode="in_person", city="Chennai",
+                     is_admin_created=False, starts_at=starts))
+        await db.commit()
+        event = await db.scalar(select(Event).where(Event.title == title))
+        return (await client.get(f"/v1/events/{event.id}", headers=member["headers"])).json()
+
+    assert (await host_event(staff, "Staff listing"))["listed_by_staff"] is True
+    assert (await host_event(member, "Member meetup"))["listed_by_staff"] is False
+
+
+async def test_edit_entry_updates_fields_item_copies_and_photos(client, db):
+    boss = await signup_verified(client, "bossedit")
+    await make_admin(db, "bossedit")
+    owner = await signup_verified(client, "owneredit")
+    other = await signup_verified(client, "otheredit")
+    sku = "EDIT-1"
+    db.add(Catalogue(sku=sku, title="Old Name", norm_title="old name", brand="Old Brand", category="figures",
+                     thumbnail_url="https://x/1.jpg", submitted_by=uuid.UUID(owner["id"]), status="live"))
+    copy = Item(user_id=uuid.UUID(owner["id"]), sku=sku, custom_title="Old Name", brand="Old Brand", category="figures")
+    mine = Item(user_id=uuid.UUID(other["id"]), sku=sku, custom_title="My nickname", brand="My brand", category="figures")
+    db.add_all([copy, mine])
+    await db.flush()
+    db.add_all([ItemPhoto(item_id=copy.id, url="https://x/1.jpg", is_public=True),
+                ItemPhoto(item_id=mine.id, url="https://x/2.jpg", is_public=True),
+                ItemPhoto(item_id=mine.id, url="https://x/3.jpg", is_public=False)])
+    await db.commit()
+
+    detail = (await client.get(f"{C}/queue/database/{sku}", headers=boss["headers"])).json()
+    assert detail["photos"] == ["https://x/1.jpg", "https://x/2.jpg"]  # a private photo never shows
+
+    r = await client.post(f"{C}/decide", headers=boss["headers"], json={
+        "queue": "database", "id": sku, "action": "edit", "reason": "Accurate", "remove_photos": ["https://x/1.jpg"],
+        "entry": {"title": "New Name", "brand": "New Brand", "category": "diecast", "scale": "1:64", "year": "2026",
+                  "description": "Fixed", "est_retail_price": 150000}})
+    assert r.status_code == 200, r.text
+
+    db.expire_all()
+    entry = await db.get(Catalogue, sku)
+    assert (entry.title, entry.norm_title, entry.brand, entry.category, entry.scale, entry.year, entry.description,
+            entry.est_retail_price, entry.is_verified) == (
+        "New Name", "new name", "New Brand", "diecast", "1/64", "2026", "Fixed", 150000, True)
+    assert entry.thumbnail_url == "https://x/2.jpg"  # next shared photo takes over the cover
+
+    rows = {i.id: i for i in (await db.execute(select(Item).where(Item.sku == sku))).scalars()}
+    assert (rows[copy.id].custom_title, rows[copy.id].brand, rows[copy.id].category) == ("New Name", "New Brand", "diecast")
+    assert (rows[mine.id].custom_title, rows[mine.id].brand) == ("My nickname", "My brand")  # a collector's own wording stays
+
+    photos = {p.url: p.is_public for p in (await db.execute(select(ItemPhoto).where(ItemPhoto.item_id == copy.id))).scalars()}
+    assert photos == {"https://x/1.jpg": False}  # still on their item, just not on the entry
+
+    audit = await db.scalar(select(AdminAction).where(AdminAction.action == "catalogue.edit"))
+    assert audit.meta["photos_removed"] == 1 and {"title", "brand", "cover"} <= set(audit.meta["changed"])
+
+    bad = await client.post(f"{C}/decide", headers=boss["headers"], json={
+        "queue": "database", "id": sku, "action": "edit", "entry": {"title": "X", "category": "cars"}})
+    assert bad.status_code == 422

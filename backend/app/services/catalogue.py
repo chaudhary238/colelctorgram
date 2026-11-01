@@ -62,6 +62,9 @@ def norm_title(s: Optional[str]) -> str:
     return s.strip()
 
 
+CATALOGUE_CATEGORIES = {"figures", "diecast", "kits", "designer", "tcg"}
+
+
 async def shared_photos(
     db: AsyncSession, thumbnails: dict[str, Optional[str]], limit: int = 6
 ) -> dict[str, list[str]]:
@@ -80,6 +83,25 @@ async def shared_photos(
         if url not in out[sku] and len(out[sku]) < limit:
             out[sku].append(url)
     return out
+
+
+async def hide_shared_photos(db: AsyncSession, entry: Catalogue, urls: list[str]) -> int:
+    """Take photos off a Database entry's gallery. The collector keeps theirs, private on
+    their own item. A removed cover falls back to the next shared photo, else none."""
+    if not urls:
+        return 0
+    photos = (await db.execute(
+        select(ItemPhoto).join(Item, Item.id == ItemPhoto.item_id)
+        .where(Item.sku == entry.sku, ItemPhoto.url.in_(urls), ItemPhoto.is_public.is_(True))
+    )).scalars().all()
+    for p in photos:
+        p.is_public = False
+    await db.flush()
+    removed = {p.url for p in photos}
+    if entry.thumbnail_url in urls:
+        removed.add(entry.thumbnail_url)
+        entry.thumbnail_url = next(iter((await shared_photos(db, {entry.sku: None}, limit=1))[entry.sku]), None)
+    return len(removed)
 
 
 async def best_match(

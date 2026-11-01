@@ -8,6 +8,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { EntryFields, PostFields, entryDraft, entryPayload, postDraft, postPayload, type EntryDraft, type PostDraft } from "./EditFields";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 export interface Me { id: string; name: string; handle: string; role: string; perms: string[]; beta_auto_approve: boolean }
@@ -202,7 +203,8 @@ export function DecisionModal({ kind, item, action, name, target, onClose, onDon
   const [reason, setReason] = useState(defaultReason(kind, action, item));
   const [days, setDays] = useState(7);
   const [title, setTitle] = useState(String(item.title ?? ""));
-  const [text, setText] = useState(String(item.body ?? ""));
+  const [post, setPost] = useState<PostDraft>(() => postDraft(item));
+  const [entry, setEntry] = useState<EntryDraft>(() => entryDraft(item));
   const dupes = (item.dupes as { sku: string; title: string; match: number }[] | undefined) ?? [];
   const [mergeInto, setMergeInto] = useState(dupes[0]?.sku ?? "");
   const [message, setMessage] = useState(msgFor(action, name, defaultReason(kind, action, item), 7));
@@ -213,6 +215,7 @@ export function DecisionModal({ kind, item, action, name, target, onClose, onDon
   const [busy, setBusy] = useState(false);
   const danger = ["reject", "suspend", "ban", "remove"].includes(action);
   const showsUserMessage = action !== "dismiss";
+  const editing = action === "edit";
 
   const refresh = (r: string, d: number) => setMessage(msgFor(action, name, r, d));
   async function submit() {
@@ -221,7 +224,9 @@ export function DecisionModal({ kind, item, action, name, target, onClose, onDon
       const res = await api.post<{ result: string; xp_reversed?: number }>("/admin/console/decide", {
         queue: kind, id: item.id, action, reason, message: showsUserMessage ? message : "", notify: notify && showsUserMessage,
         notify_reporters: notifyReporters, strike, duration_days: days, note: note || null,
-        title: action === "edit" ? title : null, body: kind === "posts" && action === "edit" ? text : null, merge_into: action === "merge" ? mergeInto : null,
+        merge_into: action === "merge" ? mergeInto : null,
+        ...(editing && kind === "posts" ? { post: postPayload(title, post) } : {}),
+        ...(editing && kind === "database" ? entryPayload(title, entry, item) : {}),
       });
       // XP chargeback (design v8) — say so in the confirmation toast.
       const reversed = res?.xp_reversed ? `${res.xp_reversed} XP reversed` : "";
@@ -234,7 +239,7 @@ export function DecisionModal({ kind, item, action, name, target, onClose, onDon
   }
 
   return (
-    <Modal title={ACT_TITLE[action] ?? action} onClose={onClose}>
+    <Modal title={ACT_TITLE[action] ?? action} wide={editing} onClose={onClose}>
       <label className="fl">Reason (shown in the audit log{showsUserMessage ? " and to the user" : ""})
         <select value={reason} onChange={(e) => { setReason(e.target.value); refresh(e.target.value, days); }}>
           {reasons.map((r) => <option key={r}>{r}</option>)}
@@ -248,7 +253,8 @@ export function DecisionModal({ kind, item, action, name, target, onClose, onDon
         </label>
       )}
       {action === "edit" && <label className="fl">Title<input value={title} onChange={(e) => setTitle(e.target.value)} /></label>}
-      {action === "edit" && kind === "posts" && <label className="fl">Post text (keep the link on its own line)<textarea rows={6} value={text} onChange={(e) => setText(e.target.value)} /></label>}
+      {editing && kind === "posts" && <PostFields value={post} onChange={setPost} />}
+      {editing && kind === "database" && <EntryFields value={entry} onChange={setEntry} />}
       {action === "merge" && (
         <label className="fl">Merge into (SKU of the existing entry)
           <input value={mergeInto} onChange={(e) => setMergeInto(e.target.value)} placeholder="e.g. HT-MMS624D" list="adm-dupes" />

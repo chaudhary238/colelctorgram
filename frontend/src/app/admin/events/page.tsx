@@ -29,7 +29,7 @@ export default function EventsQueue() {
         <h2>{String(e.title)}</h2>
         {Boolean(e.auto_approved) && <div className="flag info">Live now (beta auto-approval). Approve to mark it reviewed; reject to take it down.</div>}
         <Flags flags={e.flags as string[]} />
-        <KV rows={[["Host", <><UserLink handle={String(e.handle)} /> · {String(e.host)}</>], ["When", fmtWhen(e.starts_at, e.ends_at)],
+        <KV rows={[[e.listed_by_staff ? "Listed by" : "Host", <><UserLink handle={String(e.handle)} /> · {String(e.host)}</>], ["When", fmtWhen(e.starts_at, e.ends_at)],
           ["Venue", [e.venue, e.city].filter(Boolean).join(", ") || "—"], ["Entry", String(e.pricing)],
           ["Ticket link", e.ticket ? <span className="warnt">{String(e.ticket)}</span> : ""], ["Contact", String(e.contact ?? "")],
           ["Community", String(e.community ?? "—")], ["Submitted", age(e.age_h)]]} />

@@ -215,6 +215,7 @@ export interface ApiEvent {
   host_avatar_url: string | null;
   host_tier?: string | null;
   host_city?: string | null;
+  listed_by_staff?: boolean;
   community_id: string | null;
   community?: { id: string; name: string; tag: string | null; tone: string; member_count: number } | null;
   categories: string[];

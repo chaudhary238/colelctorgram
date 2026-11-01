@@ -18,7 +18,7 @@ from app.models.event import Event
 from app.models.community import Community
 from app.models.item import Item
 from app.models.deal import Vouch
-from app.services.catalogue import norm_title, norm_scale
+from app.services.catalogue import CATALOGUE_CATEGORIES, norm_title, norm_scale
 from app.services.gamification import FIRST_START, restore_reversed_xp, reverse_xp
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -471,6 +471,7 @@ async def edit_catalogue(
     item = (await db.execute(select(Catalogue).where(Catalogue.sku == sku))).scalar_one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="Entry not found")
+    before = (item.title, item.brand, item.scale, item.category)
     data = body.model_dump(exclude_unset=True)
     if "title" in data:
         title = (data["title"] or "").strip()
@@ -484,6 +485,8 @@ async def edit_catalogue(
             raise HTTPException(status_code=422, detail="Brand cannot be empty")
         item.brand = brand
     if "category" in data and data["category"]:
+        if data["category"] not in CATALOGUE_CATEGORIES:
+            raise HTTPException(status_code=422, detail="Unknown category")
         item.category = data["category"]
     if "scale" in data:
         # Slash form only — a hand-typed "1:300" would not group with its "1/300"
@@ -497,6 +500,14 @@ async def edit_catalogue(
         item.est_retail_price = max(0, int(data["est_retail_price"]))
     if "thumbnail_url" in data:
         item.thumbnail_url = (data["thumbnail_url"] or "").strip() or None
+
+    # Collectors' items keep copies of these and show them first. Update the copies that
+    # still match the old value; anything a collector changed themselves stays theirs.
+    copies = zip((Item.custom_title, Item.brand, Item.scale, Item.category), before,
+                 (item.title, item.brand, item.scale, item.category))
+    for column, old, new in copies:
+        if old is not None and new != old:
+            await db.execute(update(Item).where(Item.sku == sku, column == old).values({column: new}))
 
 
 @router.patch("/catalogue/{sku}/restore", status_code=204)

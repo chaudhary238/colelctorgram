@@ -40,9 +40,10 @@ from app.models.search import SavedSearch
 from app.models.thread import Message
 from app.models.trust import Report, UserBlock
 from app.models.user import Follow, User
+from app.routers.admin import EditCatalogueBody, edit_catalogue
 from app.services import feed_cache
 from app.services.auth import create_reset_token, hash_password
-from app.services.catalogue import norm_title, shared_photos
+from app.services.catalogue import CATALOGUE_CATEGORIES, hide_shared_photos, shared_photos
 from app.services.email import send_email, send_password_reset_email
 from app.services.gamification import FIRST_START, _emit_rank_up, reverse_xp, tier_index_of
 from app.services.moderation import (
@@ -255,6 +256,7 @@ async def queue_events(db: AsyncSession = Depends(get_db), _=Depends(require_per
         h = hosts.get(e.host_id)
         out.append({
             "id": str(e.id), "title": e.title, "handle": h.handle if h else "?", "host": h.name if h else "?",
+            "listed_by_staff": bool(h and h.is_admin),
             "starts_at": e.starts_at.isoformat() if e.starts_at else None,
             "ends_at": e.ends_at.isoformat() if e.ends_at else None,
             "mode": e.mode, "venue": e.venue or e.address or (e.online_url if e.mode == "online" else None),
@@ -273,6 +275,7 @@ async def queue_posts(db: AsyncSession = Depends(get_db), _=Depends(require_perm
     authors = await _users_by_id(db, [p.user_id for p in rows])
     return [{
         "id": str(p.id), "title": p.title or "", "body": p.body, "tags": p.tags or [], "category": p.category,
+        "images": p.images or [],
         "handle": authors[p.user_id].handle if p.user_id in authors else "?", "age_h": _age_h(p.created_at),
     } for p in rows]
 
@@ -302,10 +305,11 @@ async def queue_database_entry(sku: str, db: AsyncSession = Depends(get_db), _=D
     dupes = await catalogue_dupes(db, c)
     # One query for the entry and its candidates, so a reviewer sees both sides of a
     # possible duplicate without opening a tab for each.
-    photos = await shared_photos(db, {**{d["sku"]: d["thumbnail_url"] for d in dupes}, c.sku: c.thumbnail_url})
+    photos = await shared_photos(db, {**{d["sku"]: d["thumbnail_url"] for d in dupes}, c.sku: c.thumbnail_url}, limit=30)
     return {
         "id": c.sku, "title": c.title, "brand": c.brand, "category": c.category, "scale": c.scale,
-        "year": c.year, "value": _inr(c.est_retail_price), "desc": c.description or "",
+        "year": c.year, "value": _inr(c.est_retail_price), "est_retail_price": c.est_retail_price,
+        "thumbnail_url": c.thumbnail_url, "desc": c.description or "",
         "handle": s.handle if s else "?", "by": s.name if s else "?", "photos": photos[c.sku],
         "age_h": _age_h(c.created_at), "dupes": [{**d, "photos": photos[d["sku"]]} for d in dupes],
         "flags": catalogue_flags(c, len(photos[c.sku])),
@@ -417,6 +421,14 @@ async def create_appeal_manual(body: ManualAppealBody, db: AsyncSession = Depend
 
 
 # ── Decisions ────────────────────────────────────────────────────────────────
+class PostEdits(BaseModel):
+    title: str | None = None
+    body: str = Field(min_length=1)
+    tags: list[str] = []
+    category: str | None = None
+    images: list[str] = []
+
+
 class DecideBody(BaseModel):
     queue: str = Field(pattern="^(communities|events|database|posts|reports|appeals)$")
     id: str
@@ -428,8 +440,9 @@ class DecideBody(BaseModel):
     strike: bool = True
     duration_days: int = Field(7, ge=1, le=365)
     note: str | None = None
-    title: str | None = None        # database and posts "edit & approve"
-    body: str | None = None         # posts "edit & approve"
+    entry: EditCatalogueBody | None = None  # database "edit & approve"
+    remove_photos: list[str] = []
+    post: PostEdits | None = None           # posts "edit & approve"
     merge_into: str | None = None   # database "merge into existing" (target SKU)
 
 
@@ -492,6 +505,7 @@ async def decide(body: DecideBody, db: AsyncSession = Depends(get_db), admin: Us
     msg = body.message.strip() if body.notify else ""
     result = "done"
     xp_reversed = 0
+    edited: dict | None = None
 
     if body.queue in ("communities", "events"):
         is_c = body.queue == "communities"
@@ -520,9 +534,17 @@ async def decide(body: DecideBody, db: AsyncSession = Depends(get_db), admin: Us
         if a == "approve":
             entry.is_verified = True
         elif a == "edit":
-            if not (body.title or "").strip():
-                raise HTTPException(status_code=422, detail="Title required")
-            entry.title, entry.norm_title, entry.is_verified = body.title.strip(), norm_title(body.title), True
+            if not body.entry:
+                raise HTTPException(status_code=422, detail="Nothing to save")
+            was = (entry.title, entry.brand, entry.category, entry.scale, entry.year, entry.description,
+                   entry.est_retail_price, entry.thumbnail_url)
+            await edit_catalogue(sku=entry.sku, body=body.entry, db=db, _=admin)
+            removed = await hide_shared_photos(db, entry, body.remove_photos)
+            now = (entry.title, entry.brand, entry.category, entry.scale, entry.year, entry.description,
+                   entry.est_retail_price, entry.thumbnail_url)
+            names = ("title", "brand", "category", "scale", "year", "description", "value", "cover")
+            edited = {"changed": [n for n, x, y in zip(names, was, now) if x != y], "photos_removed": removed}
+            entry.is_verified = True
         elif a == "merge":
             ref = (await _merge_catalogue(db, entry, (body.merge_into or "").strip())).sku
         elif a == "reject":
@@ -536,7 +558,8 @@ async def decide(body: DecideBody, db: AsyncSession = Depends(get_db), admin: Us
                 msg = f"{msg}\n\nThe +{xp_reversed} XP for this entry has been reversed."
         log_action(db, admin, f"catalogue.{a}", "catalogue", entry.sku, entry.title, reason=reason,
                    note=body.note, subject_user_id=entry.submitted_by,
-                   meta={**({"merged_into": ref} if a == "merge" else {}), **({"xp_reversed": xp_reversed} if xp_reversed else {})} or None)
+                   meta={**({"merged_into": ref} if a == "merge" else {}), **({"xp_reversed": xp_reversed} if xp_reversed else {}),
+                         **(edited or {})} or None)
         if entry.submitted_by:
             title = {"approve": "Your database entry is Scorred Reviewed", "edit": "Your database entry is Scorred Reviewed",
                      "merge": "Your database entry was merged", "reject": "Your database entry was removed"}[a]
@@ -547,9 +570,15 @@ async def decide(body: DecideBody, db: AsyncSession = Depends(get_db), admin: Us
         if not post:
             raise HTTPException(status_code=404, detail="Draft already handled")
         if a == "edit":
-            if not (body.body or "").strip():
+            e = body.post
+            if not e or not e.body.strip():
                 raise HTTPException(status_code=422, detail="Post text required")
-            post.title, post.body = (body.title or "").strip() or None, body.body.strip()
+            if e.category and e.category not in CATALOGUE_CATEGORIES:
+                raise HTTPException(status_code=422, detail="Unknown category")
+            tags = [t.strip() for t in e.tags if t.strip().lstrip("#")]
+            post.title, post.body, post.category = (e.title or "").strip() or None, e.body.strip(), e.category or None
+            post.tags = [t if t.startswith("#") else f"#{t}" for t in tags]
+            post.images = e.images
         if a in ("approve", "edit"):
             # Published now, so it ranks as new however long it sat in the queue.
             post.status, post.created_at = "published", _now()

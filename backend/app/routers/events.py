@@ -440,6 +440,8 @@ def _event_dict(
         "host_name": host.name if host else None,
         "host_avatar_url": host.avatar_url if host else None,
         "host_city": host.city if host else None,
+        # Staff list third-party events; they don't run them, so "Listed by" not "Hosted by".
+        "listed_by_staff": bool(host and host.is_admin),
         "community_id": e.community_id,
         "community": (
             {"id": community.id, "name": community.name, "tag": community.tag,
