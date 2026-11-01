@@ -797,16 +797,18 @@ export function CommentThread({ postId, onCountChange }: { postId: string; onCou
     const isOwn = c.is_mine ?? false;
     const isEditing = editingId === c.id;
     const menuOpen = menuId === c.id;
+    // Commenter's avatar + name open their profile, same as post and listing authors.
+    const profileHref = `/profile/${c.handle ?? "unknown"}`;
     return (
       <div style={{ display: "flex", gap: 9 }}>
         {/* v8 :319 avatarFrame — Pioneer/Early Believer commenters get the gold ring */}
-        <span style={{ display: "inline-flex", flexShrink: 0, alignSelf: "flex-start", ...(hasGoldFrame(c.badge) ? goldFrameRing : {}) }}>
+        <Link href={profileHref} aria-label={`${c.name ?? "User"}'s profile`} style={{ display: "inline-flex", flexShrink: 0, alignSelf: "flex-start", ...(hasGoldFrame(c.badge) ? goldFrameRing : {}) }}>
           <Avatar name={c.name ?? "?"} photo={c.avatar_url} color="var(--ink)" size={reply ? 26 : 30} />
-        </span>
+        </Link>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ background: "var(--slate-50)", border: "1px solid var(--slate-200)", borderRadius: 14, padding: "10px 13px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name ?? "Unknown"}</span>
+              <Link href={profileHref} className="hover:underline" style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name ?? "Unknown"}</Link>
               {/* v8 :325 — badge pill between name and the spacer */}
               <FeedBadge badge={c.badge} />
               <div style={{ flex: 1 }} />
