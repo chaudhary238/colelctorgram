@@ -32,7 +32,7 @@ from app.models.community import Community
 from app.models.deal import Vouch
 from app.models.event import Event
 from app.models.gamification import XpEvent
-from app.models.item import Item, ItemPhoto
+from app.models.item import Item
 from app.models.listing import Listing
 from app.models.notification import Notification
 from app.models.post import Comment, Post
@@ -41,7 +41,7 @@ from app.models.thread import Message
 from app.models.trust import Report, UserBlock
 from app.models.user import Follow, User
 from app.services.auth import create_reset_token, hash_password
-from app.services.catalogue import norm_title
+from app.services.catalogue import norm_title, shared_photos
 from app.services.email import send_email, send_password_reset_email
 from app.services.gamification import FIRST_START, _emit_rank_up, reverse_xp, tier_index_of
 from app.services.moderation import (
@@ -265,18 +265,22 @@ async def queue_database(db: AsyncSession = Depends(get_db), _=Depends(require_p
         Catalogue.is_verified.is_(False), Catalogue.status == "live", Catalogue.submitted_by.is_not(None))
         .order_by(Catalogue.created_at))).scalars().all()
     subs = await _users_by_id(db, [c.submitted_by for c in rows])
+    dupes = {c.sku: await catalogue_dupes(db, c) for c in rows}
+    # One query for every entry and candidate, so a reviewer sees both sides of a
+    # possible duplicate without opening a tab for each.
+    photos = await shared_photos(db, {
+        **{d["sku"]: d["thumbnail_url"] for ds in dupes.values() for d in ds},
+        **{c.sku: c.thumbnail_url for c in rows},
+    })
     out = []
     for c in rows:
-        photos = (await db.execute(select(ItemPhoto.url).join(Item, Item.id == ItemPhoto.item_id).where(
-            Item.sku == c.sku, ItemPhoto.is_public.is_(True)).limit(6))).scalars().all()
-        photos = ([c.thumbnail_url] if c.thumbnail_url else []) + [p for p in photos if p != c.thumbnail_url]
         s = subs.get(c.submitted_by)
         out.append({
             "id": c.sku, "title": c.title, "brand": c.brand, "category": c.category, "scale": c.scale,
             "year": c.year, "value": _inr(c.est_retail_price), "desc": c.description or "",
-            "handle": s.handle if s else "?", "by": s.name if s else "?", "photos": photos[:6],
-            "age_h": _age_h(c.created_at), "dupes": await catalogue_dupes(db, c),
-            "flags": catalogue_flags(c, len(photos)),
+            "handle": s.handle if s else "?", "by": s.name if s else "?", "photos": photos[c.sku],
+            "age_h": _age_h(c.created_at), "dupes": [{**d, "photos": photos[d["sku"]]} for d in dupes[c.sku]],
+            "flags": catalogue_flags(c, len(photos[c.sku])),
         })
     return out
 

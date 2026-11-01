@@ -289,3 +289,28 @@ async def test_add_testers_creates_reset_required_accounts(client, db):
     await make_admin(db, "cat2", role="catalog")
     assert (await client.post(f"{C}/testers", headers=cat["headers"], json={
         "emails": ["x@y.com"], "password": "Starter@2026"})).status_code == 403
+
+
+async def test_entry_gallery_shows_shared_photos_only(client, db):
+    owner = await signup_verified(client, "photoowner")
+    boss = await signup_verified(client, "boss9")
+    await make_admin(db, "boss9")
+    first = await _new_db_entry(client, owner, "Zorblax Prime Deluxe Action Figure")
+    second = await client.post("/v1/items", headers=owner["headers"], json={
+        "custom_title": "Zorblax Prime Deluxe Action Figure Ver 2", "category": "kits", "status": "owned",
+        "cover_url": "https://img.test/other.png"})
+    assert second.status_code == 201, second.text
+    for query in ("url=https://img.test/shared.png&is_public=true", "url=https://img.test/private.png"):
+        r = await client.post(f"/v1/items/{first['id']}/photos?{query}", headers=owner["headers"])
+        assert r.status_code in (200, 201), r.text
+    sku = first["sku"]
+
+    entry = (await client.get(f"/v1/catalogue/{sku}", headers=owner["headers"])).json()
+    assert entry["photos"] == ["https://img.test/cover.png", "https://img.test/shared.png"]
+
+    queue = (await client.get(f"{C}/queue/database", headers=boss["headers"])).json()
+    row = next(q for q in queue if q["id"] == sku)
+    assert row["photos"] == entry["photos"]
+    other = next(q for q in queue if q["id"] == second.json()["sku"])
+    dupe = next(d for d in other["dupes"] if d["sku"] == sku)
+    assert dupe["photos"] == entry["photos"]  # both sides comparable inline

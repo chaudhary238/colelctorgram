@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalogue import Catalogue
+from app.models.item import Item, ItemPhoto
 from app.models.user import User
 from app.services.gamification import award_xp
 
@@ -59,6 +60,26 @@ def norm_title(s: Optional[str]) -> str:
     s = "".join(c for c in s if not unicodedata.combining(c))
     s = re.sub(r"[^a-z0-9]+", " ", s.lower())
     return s.strip()
+
+
+async def shared_photos(
+    db: AsyncSession, thumbnails: dict[str, Optional[str]], limit: int = 6
+) -> dict[str, list[str]]:
+    """Gallery per SKU: the reference image first, then photos collectors chose to
+    share to the catalogue. `thumbnails` maps sku → thumbnail_url. Private photos
+    (is_public false, the DV6-13 default) never appear here."""
+    out = {sku: [thumb] if thumb else [] for sku, thumb in thumbnails.items()}
+    if not out:
+        return out
+    rows = (await db.execute(
+        select(Item.sku, ItemPhoto.url).join(Item, Item.id == ItemPhoto.item_id)
+        .where(Item.sku.in_(out), ItemPhoto.is_public.is_(True))
+        .order_by(ItemPhoto.uploaded_at)
+    )).all()
+    for sku, url in rows:
+        if url not in out[sku] and len(out[sku]) < limit:
+            out[sku].append(url)
+    return out
 
 
 async def best_match(

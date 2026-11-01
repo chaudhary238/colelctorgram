@@ -31,6 +31,7 @@ interface DbEntry {
   description: string | null;
   est_retail_price: number;
   thumbnail_url: string | null;
+  photos?: string[];  // absent while an older API is still live during a deploy
   pending: boolean;
   is_verified: boolean;
   tone: string;
@@ -160,7 +161,7 @@ export default function DbEntryPage() {
         </div>
 
         <ItemPageBody
-          images={entry.thumbnail_url ? [entry.thumbnail_url] : []}
+          images={entry.photos ?? (entry.thumbnail_url ? [entry.thumbnail_url] : [])}
           tone={entry.tone || "ink"}
           /* QA #20 — no "catalogue reference" stamp over real photos; the
              placeholder path keeps its default label when there's no image. */

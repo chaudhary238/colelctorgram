@@ -12,7 +12,7 @@ from app.models.catalogue import Catalogue, CatalogueComment, CatalogueCommentLi
 from app.models.item import Item
 from app.models.trust import Report
 from app.models.user import Follow, User
-from app.services.catalogue import norm_title, norm_scale, MATCH_MEDIUM
+from app.services.catalogue import norm_title, norm_scale, shared_photos, MATCH_MEDIUM
 from app.services.gamification import award_xp, feed_badge
 
 router = APIRouter(prefix="/catalogue", tags=["catalogue"])
@@ -345,9 +345,11 @@ async def get_catalogue_entry(
             CatalogueRating.sku == sku, CatalogueRating.user_id == current_user.id
         )
     )).scalar_one_or_none()
+    photos = await shared_photos(db, {sku: entry.thumbnail_url})
 
     return {
         **_hit(entry),
+        "photos": photos[sku],
         "tone": entry.tone,
         "collectors_count": collectors,
         "wishlists_count": wishlists,

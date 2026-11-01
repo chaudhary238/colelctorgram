@@ -174,10 +174,10 @@ def event_flags(e, host: User | None) -> list[str]:
 
 async def catalogue_dupes(db: AsyncSession, entry: Catalogue, limit: int = 3) -> list[dict]:
     rows = (await db.execute(text(
-        "SELECT sku, title, similarity(norm_title, :t) AS s FROM catalogue "
+        "SELECT sku, title, thumbnail_url, similarity(norm_title, :t) AS s FROM catalogue "
         "WHERE sku <> :sku AND status = 'live' AND similarity(norm_title, :t) > 0.45 "
         "ORDER BY s DESC LIMIT :lim"), {"t": entry.norm_title or "", "sku": entry.sku, "lim": limit})).all()
-    return [{"sku": r.sku, "title": r.title, "match": round(r.s * 100)} for r in rows]
+    return [{"sku": r.sku, "title": r.title, "thumbnail_url": r.thumbnail_url, "match": round(r.s * 100)} for r in rows]
 
 
 def catalogue_flags(entry: Catalogue, photo_count: int) -> list[str]:

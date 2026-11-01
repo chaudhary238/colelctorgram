@@ -67,6 +67,7 @@
 .adm .duprow{display:flex;justify-content:space-between;gap:10px;font-size:13px}.adm .duprow small{color:var(--ink3);font-family:var(--mono)}.adm .duprow b{color:var(--goldt);font:600 12px var(--mono)}
 .adm .photos{display:flex;gap:8px;flex-wrap:wrap}
 .adm .ph{width:88px;height:88px;border-radius:10px;background:repeating-linear-gradient(45deg,#EFEDE8 0 8px,#F7F6F2 8px 16px);display:grid;place-items:center;font:600 10px var(--mono);color:var(--ink3);border:1px solid var(--line);object-fit:cover}
+.adm .ph.sm{width:64px;height:64px;margin-top:6px}
 .adm .rhead{display:flex;gap:6px;flex-wrap:wrap}
 .adm .pr{font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px}
 .adm .pr-High{background:var(--redsoft);color:var(--redt)}.adm .pr-Medium{background:var(--goldsoft);color:var(--goldt)}.adm .pr-Low{background:var(--sunk);color:var(--ink2);border:1px solid var(--line)}
