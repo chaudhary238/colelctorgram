@@ -159,6 +159,7 @@ async def create_thread(
         await _bump_unread(db, thread, current_user.id)
         thread.last_message_at = datetime.now(timezone.utc)
         await db.flush()
+        await db.commit()  # commit BEFORE the nudge — the recipient refetches /threads on it
         await manager.publish(str(body.other_user_id), "message.new", _msg_dict(msg))
 
     return _thread_dict(thread, current_user.id)
@@ -276,6 +277,10 @@ async def send_message(
     thread.last_message_at = datetime.now(timezone.utc)
     await db.flush()
     payload = _msg_dict(msg)
+    # Commit before the nudge: the recipient's badge/inbox refetch /threads the moment
+    # it lands, and get_db only commits after the handler returns — publishing first
+    # lets that refetch read the pre-message unread count.
+    await db.commit()
     # Realtime nudge (message.new) so the recipient's open chat/inbox/badge
     # update without a refresh. Delivery is best-effort — the row is the truth.
     await manager.publish(str(other_id), "message.new", payload)

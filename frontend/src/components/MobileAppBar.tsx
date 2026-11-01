@@ -68,11 +68,13 @@ function IconBtn({
   label,
   icon: Icon,
   badge,
+  dot,
 }: {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
   badge?: number;
+  dot?: boolean;
 }) {
   // v8 IconButton.jsx — 40px square, radius 13, 1px --border outline, red
   // focus-visible ring; badge sits at -3/-3 with a 1.5px paper ring.
@@ -91,6 +93,12 @@ function IconBtn({
         >
           {badge}
         </span>
+      ) : dot ? (
+        <span
+          aria-label="Unread messages"
+          className="absolute w-[10px] h-[10px] rounded-full bg-[var(--stamp-red)] border-[1.5px] border-[var(--paper)]"
+          style={{ top: -2, right: -2 }}
+        />
       ) : null}
     </Link>
   );
@@ -103,8 +111,10 @@ export function MobileAppBar() {
   const title = TAB_TITLES[pathname];
   const isHome = !title;
   const create = CREATE_ACTIONS[pathname];
-  // Notifications only — DMs are badged on My Space (v7, 2026-08-09). Hidden at zero.
+  // The number counts notifications only — DMs are counted on My Space (v7, 2026-08-09).
+  // Unread DMs show as a plain dot instead (founder 2026-11-01). Hidden at zero.
   const activityBadge = unread.notifs;
+  const activityDot = unread.msgs > 0;
 
   return (
     <header
@@ -145,7 +155,7 @@ export function MobileAppBar() {
         {/* Events + Activity — top right. Events lives here on mobile only (v7 gave its
             bottom-nav slot to the Database); desktop keeps it in the Sidebar. */}
         <IconBtn href="/events" label="Events" icon={Calendar} />
-        <IconBtn href="/notifications" label="Activity" icon={Bell} badge={activityBadge || undefined} />
+        <IconBtn href="/notifications" label="Activity" icon={Bell} badge={activityBadge || undefined} dot={activityDot} />
       </div>
     </header>
   );

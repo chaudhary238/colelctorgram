@@ -60,12 +60,14 @@ function NavItem({
   icon: Icon,
   active,
   badge,
+  dot,
 }: {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
   active?: boolean;
   badge?: number;
+  dot?: boolean;
 }) {
   return (
     <Link
@@ -82,6 +84,8 @@ function NavItem({
           <span className="absolute -top-1 -right-1.5 min-w-[17px] h-[17px] px-1 rounded-full bg-[var(--stamp-red)] text-white text-[10px] font-bold font-mono flex items-center justify-center border-[1.5px] border-[var(--paper)]">
             {badge}
           </span>
+        ) : dot ? (
+          <span aria-label="Unread messages" className="absolute -top-0.5 -right-0.5 w-[10px] h-[10px] rounded-full bg-[var(--stamp-red)] border-[1.5px] border-[var(--paper)]" />
         ) : null}
       </span>
       <span className="ch-nav-label text-base leading-none whitespace-nowrap">
@@ -106,9 +110,12 @@ export function Sidebar() {
           : [item],
       )
     : NAV;
-  // Activity badges notifications only — DMs are badged on My Space (v7, 2026-08-09).
+  // Activity's NUMBER counts notifications only — DMs are counted on My Space (v7,
+  // 2026-08-09). Unread DMs add a plain dot instead (founder 2026-11-01), so a new
+  // message is visible from any page without double-counting the same unread.
   const badgeFor = (key: NavDef["badgeKey"]) =>
     (key === "activity" ? unread.notifs : key ? unread[key] : 0) || undefined;
+  const dotFor = (key: NavDef["badgeKey"]) => key === "activity" && unread.msgs > 0;
 
   return (
     <nav
@@ -139,6 +146,7 @@ export function Sidebar() {
               label={label}
               icon={icon}
               badge={badgeFor(badgeKey)}
+              dot={dotFor(badgeKey)}
               active={pathname === path || (path !== "/" && pathname.startsWith(path))}
             />
           );
