@@ -23,9 +23,9 @@ import { track } from "@/lib/analytics";
 import { ApiCommunity, refTone } from "@/components/cards";
 import { useUser } from "@/lib/auth-context";
 import { Avatar, Button, CategoryChip, ProductPhoto, Segmented, SectionLabel } from "@/components/ui";
-import { fireToast, fireXpToast } from "@/components/gamification";
+import { fireToast } from "@/components/gamification";
 import { ADD_CATEGORIES } from "@/lib/catalog";
-import { invalidateFeedSnapshot } from "@/lib/feedSnapshot";
+import { invalidateFeedSnapshot, markJustPosted } from "@/lib/feedSnapshot";
 
 type ComposeType = "post" | "iso" | "poll" | "review";
 
@@ -426,13 +426,23 @@ function ComposePage() {
       // send the author back to a list their own post isn't in until the 5-min TTL
       // lapsed (founder QA 2026-08-05). Drop it so /feed fetches fresh.
       invalidateFeedSnapshot();
-      // DV6-04 — surface the XP earned (review +15; showcase/poll/ISO +25).
-      fireXpToast(type === "review" ? 15 : 25);
-      // Held for mod review and not on the feed → land the author in the community.
-      if (res?.status === "pending" && targetCommunities[0]) {
-        router.push(`/community/${targetCommunities[0]}`);
+      // DV6-04 — surface the XP earned (review +15; showcase/poll/ISO +25). One toast
+      // with the confirmation: toasts share a screen position, so two would overlap.
+      const xpLine = `+${type === "review" ? 15 : 25} XP earned`;
+      const community = targetCommunities[0];
+      // Held for mod review → land the author in the community.
+      if (res?.status === "pending" && community) {
+        fireToast("Sent for review", xpLine);
+        router.push(`/community/${community}`);
       } else {
-        router.push("/feed");
+        fireToast("Posted", xpLine, { label: "View post", onClick: () => router.push(`/post/${res.id}`) });
+        // A community-only post never reaches the feed, so landing there would look lost.
+        if (!postTo.includes("feed") && community) {
+          router.push(`/community/${community}`);
+        } else {
+          markJustPosted(res.id);
+          router.push("/feed");
+        }
       }
     } catch (e) {
       console.error(e);

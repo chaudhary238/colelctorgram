@@ -19,7 +19,9 @@ import { useUser, AuthUser } from "@/lib/auth-context";
 import { PostCard, SharedListingCard, ListingFeedCard, FeedEventCard, ApiPost, ApiListing, ApiEvent } from "@/components/cards";
 import { cn } from "@/lib/utils";
 import { ADD_CATEGORIES } from "@/lib/catalog";
-import { MAX_SNAPSHOT_POSTS, readFeedSnapshot, writeFeedSnapshot } from "@/lib/feedSnapshot";
+import {
+  MAX_SNAPSHOT_POSTS, clearJustPosted, readFeedSnapshot, readJustPosted, writeFeedSnapshot,
+} from "@/lib/feedSnapshot";
 
 type StreamItem =
   | { t: "post"; key: string; data: ApiPost }
@@ -40,10 +42,11 @@ const CATEGORIES = ADD_CATEGORIES;
 
 const PAGE_SIZE = 20;
 
-function buildFeedQuery(tab: Tab, page: number): string {
+function buildFeedQuery(tab: Tab, page: number, pin?: string | null): string {
   const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
   params.set("sort", tab === "foryou" ? "foryou" : "latest");
   if (tab === "following") params.set("following_only", "true");
+  if (pin) params.set("pin", pin);
   return `/feed?${params.toString()}`;
 }
 
@@ -87,11 +90,10 @@ function CustomizePopover({
   onSaved: (u: AuthUser) => void;
   onClose: () => void;
 }) {
+  // Mirror what the server filters on: no saved selection means every category.
   const initialCats = user?.feed_prefs?.categories?.length
     ? user.feed_prefs.categories
-    : user?.interests?.length
-      ? user.interests
-      : CATEGORIES.map((c) => c.id);
+    : CATEGORIES.map((c) => c.id);
   const [draftCats, setDraftCats] = useState<string[]>(initialCats);
   // "Remove Listing posts" — checked by default (DF-08)
   const [draftHide, setDraftHide] = useState(user?.feed_prefs?.hide_listings ?? true);
@@ -179,7 +181,8 @@ function CustomizePopover({
           </button>
           <button
             onClick={save}
-            disabled={saving}
+            // An empty selection would save as "no filter" and show everything.
+            disabled={saving || draftCats.length === 0}
             className="flex-[1.4] py-[11px] rounded-[11px] bg-[var(--stamp-red)] text-white text-sm font-bold hover:bg-[var(--stamp-red-deep)] transition-colors disabled:opacity-60 cursor-pointer"
           >
             {saving ? "Saving…" : "Save"}
@@ -325,12 +328,14 @@ export default function FeedPage() {
     setPosts([]);
     setPage(1);
     setHasMore(true);
-    api.get<{ items: ApiPost[] }>(buildFeedQuery(tab, 1))
+    api.get<{ items: ApiPost[] }>(buildFeedQuery(tab, 1, readJustPosted()))
       .then((d) => {
         if (cancelled) return;
+        clearJustPosted();
         const items = d?.items ?? [];
         setPosts(items);
-        setHasMore(items.length === PAGE_SIZE);
+        // >= because a pinned post makes page 1 one longer than PAGE_SIZE.
+        setHasMore(items.length >= PAGE_SIZE);
       })
       .catch((e) => { if (!cancelled) console.error(e); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -347,7 +352,11 @@ export default function FeedPage() {
     try {
       const d = await api.get<{ items: ApiPost[] }>(buildFeedQuery(tab, next));
       const items = d?.items ?? [];
-      setPosts((prev) => [...prev, ...items]);
+      // A pinned post can recur at its normal rank on a later page.
+      setPosts((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        return [...prev, ...items.filter((p) => !seen.has(p.id))];
+      });
       setPage(next);
       setHasMore(items.length === PAGE_SIZE);
     } catch (e) {

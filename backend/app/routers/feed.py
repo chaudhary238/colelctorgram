@@ -1,6 +1,6 @@
 import math
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -11,7 +11,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.deal import Vouch
 from app.models.user import User, Follow
-from app.models.post import Post, PostLike, PostSave, PostCommunity, PollVote
+from app.models.post import Comment, Post, PostLike, PostSave, PostCommunity, PollVote
 from app.models.community import Community
 from app.models.listing import Listing
 from app.models.item import Item, ItemPhoto
@@ -37,23 +37,61 @@ async def get_popular_tags(current_user: User = Depends(get_current_user)):
     return {"tags": CURATED_TAGS}
 
 
-def _recency_decay(created_at: datetime) -> float:
-    hours = (datetime.now(timezone.utc) - created_at).total_seconds() / 3600
-    return math.exp(-hours / 24)
+# For You ranking (founder 2026-11-01, DECISIONS.md): a post's score is its publish
+# time in hours; signals only add a bounded number of hours, so nothing can gain more
+# than 30h and a post older than that never beats a brand-new one.
+FOLLOW_BONUS_HOURS = 12.0
+INTEREST_BONUS_HOURS = 6.0
+ENGAGEMENT_MAX_BONUS_HOURS = 12.0
+ENGAGEMENT_WINDOW_HOURS = 48
 
 
-def _score(post: Post, interests: set[str], followed_ids: set[str], viewer_id: str = "") -> float:
-    interest_w = 1.0 if post.category in interests else 0.0
-    follow_w = 1.0 if str(post.user_id) in followed_ids else 0.0
-    recency = _recency_decay(post.created_at)
-    engage = (post.likes_count + post.comments_count * 2 + post.saves_count * 3) / 1000
-    base = interest_w * 0.4 + follow_w * 0.3 + recency * 0.2 + min(engage, 1.0) * 0.1
-    # Your own freshly-posted content floats to the top of your feed (Instagram-style)
-    # then decays with recency — otherwise a new post with no interest/follow/engagement
-    # score sinks to the bottom and feels "lost".
-    if viewer_id and str(post.user_id) == viewer_id:
-        base += recency * 0.6
-    return base
+def _engagement_bonus(engagement: int) -> float:
+    # Log scale: the first reactions matter most, and the cap keeps old hits buried.
+    return min(6.0 * math.log10(1 + engagement), ENGAGEMENT_MAX_BONUS_HOURS)
+
+
+def _score(
+    post: Post, interests: set[str], followed_ids: set[str], viewer_id: str = "", engagement: int = 0,
+) -> float:
+    # Absolute hours rather than age, so the order stays stable between page requests.
+    score = post.created_at.timestamp() / 3600
+    author_id = str(post.user_id)
+    # Your own post ranks like a followed author's; POST-publish visibility is the
+    # one-time `pin` on GET /feed, not a permanent lift.
+    if author_id == viewer_id or author_id in followed_ids:
+        score += FOLLOW_BONUS_HOURS
+    if post.category in interests:
+        score += INTEREST_BONUS_HOURS
+    return score + _engagement_bonus(engagement)
+
+
+async def _recent_engagement(db: AsyncSession) -> dict[uuid.UUID, int]:
+    """likes + 2×people who commented + 3×saves per post, last 48h only, excluding the
+    author. Recent-only so age and seeded totals don't count; people rather than
+    comments so a two-person argument can't climb. Shared across viewers (feed_cache)."""
+    totals = feed_cache.get_engagement()
+    if totals is not None:
+        return totals
+    since = datetime.now(timezone.utc) - timedelta(hours=ENGAGEMENT_WINDOW_HOURS)
+    likes = select(PostLike.post_id, func.count()).join(Post, Post.id == PostLike.post_id).where(
+        PostLike.created_at >= since, PostLike.user_id != Post.user_id,
+    ).group_by(PostLike.post_id)
+    commenters = select(Comment.post_id, func.count(func.distinct(Comment.user_id))).join(
+        Post, Post.id == Comment.post_id,
+    ).where(
+        Comment.created_at >= since, Comment.user_id != Post.user_id,
+        Comment.is_removed.is_(False),
+    ).group_by(Comment.post_id)
+    saves = select(PostSave.post_id, func.count()).join(Post, Post.id == PostSave.post_id).where(
+        PostSave.created_at >= since, PostSave.user_id != Post.user_id,
+    ).group_by(PostSave.post_id)
+    totals = {}
+    for stmt, weight in ((likes, 1), (commenters, 2), (saves, 3)):
+        for post_id, count in (await db.execute(stmt)).all():
+            totals[post_id] = totals.get(post_id, 0) + count * weight
+    feed_cache.put_engagement(totals)
+    return totals
 
 
 @router.get("")
@@ -65,6 +103,7 @@ async def get_feed(
     tag: Optional[str] = None,
     sort: str = Query("foryou", pattern="^(foryou|latest|top)$"),
     following_only: bool = False,
+    pin: Optional[uuid.UUID] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -95,7 +134,7 @@ async def get_feed(
     if posts is None:
         # No age cutoff: candidates are simply the newest 500 posts. A fixed 30-day
         # window emptied the feed on a small network (closed beta: seeded posts aged
-        # out, Home showed 3 of 28); _score's recency decay still ranks fresh first.
+        # out, Home showed 3 of 28); _score still ranks fresh first.
         # DF-27 — pending (awaiting-mod-review) community posts never appear in the feed.
         # DF-30h — to_feed gates posts the author chose to keep community-only.
         stmt = select(Post).where(Post.status == "published", Post.to_feed.is_(True))
@@ -114,6 +153,11 @@ async def get_feed(
             db.expunge(p)
         feed_cache.put(cache_key, posts)
 
+    # The author's just-published post leads page 1 once, whatever the filters below do.
+    pinned = None
+    if pin and page == 1:
+        pinned = next((p for p in posts if p.id == pin and p.user_id == current_user.id), None)
+
     if following_only:
         # only posts authored by users the viewer follows
         followed_uuids = {uuid.UUID(fid) for fid in followed_ids}
@@ -125,9 +169,13 @@ async def get_feed(
         posts = [p for p in posts if p.user_id not in blocked]
 
     # For You honours Customize-feed categories: category-tagged posts outside the
-    # selection drop; untagged posts (and a no-op full selection) pass through (DF-11)
+    # selection drop; untagged posts (and a no-op full selection) pass through (DF-11).
+    # Followed authors bypass it — following someone outranks a topic filter (2026-11-01).
     if sort == "foryou" and pref_cats:
-        posts = [p for p in posts if not p.category or p.category in pref_cats]
+        posts = [
+            p for p in posts
+            if not p.category or p.category in pref_cats or str(p.user_id) in followed_ids
+        ]
 
     if sort == "latest":
         scored = sorted(posts, key=lambda p: p.created_at, reverse=True)
@@ -139,9 +187,18 @@ async def get_feed(
         )
     else:
         viewer_id = str(current_user.id) if current_user else ""
-        scored = sorted(posts, key=lambda p: _score(p, interests, followed_ids, viewer_id), reverse=True)
+        engagement = await _recent_engagement(db)
+        scored = sorted(
+            posts,
+            key=lambda p: _score(p, interests, followed_ids, viewer_id, engagement.get(p.id, 0)),
+            reverse=True,
+        )
     start = (page - 1) * limit
     page_posts = scored[start: start + limit]
+    if pinned:
+        # Prepended, not swapped in, so no ranked post is lost from page 1; the page can
+        # run to limit + 1. Clients dedupe it if it recurs on a later page.
+        page_posts = [pinned, *(p for p in page_posts if p.id != pinned.id)]
 
     if not page_posts:
         return {"page": page, "limit": limit, "items": []}

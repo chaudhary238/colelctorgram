@@ -163,22 +163,44 @@ export function fireXpToast(xp: number, label = "XP earned") {
   expireToast(el, 2400);
 }
 
-/* ── fireToast — v8 flashToast(text, sub): optional smaller second line. ───── */
-export function fireToast(message: string, sub?: string) {
+/* ── fireToast — v8 flashToast(text, sub): optional smaller second line.
+   `action` adds a tappable button and holds the toast long enough to reach it. ── */
+export function fireToast(
+  message: string,
+  sub?: string,
+  action?: { label: string; onClick: () => void },
+) {
   if (typeof document === "undefined" || !message) return;
   const el = spawnToast(!!sub);
+  const text = action ? document.createElement("div") : el;
   const title = document.createElement("div");
   title.style.cssText = `font-weight:${sub ? 600 : 500}`;
   title.textContent = message;
-  el.appendChild(title);
+  text.appendChild(title);
   if (sub) {
     const s = document.createElement("div");
     s.style.cssText = "font-size:11.5px;font-weight:500;opacity:0.72;margin-top:2px";
     s.textContent = sub;
-    el.appendChild(s);
+    text.appendChild(s);
+  }
+  if (action) {
+    el.style.display = "flex";
+    el.style.alignItems = "center";
+    el.style.gap = "16px";
+    el.style.pointerEvents = "auto";
+    el.appendChild(text);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = action.label;
+    button.style.cssText = "flex-shrink:0;background:none;border:none;padding:4px 0;color:inherit;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer";
+    button.addEventListener("click", () => {
+      el.remove();
+      action.onClick();
+    });
+    el.appendChild(button);
   }
   document.body.appendChild(el);
-  expireToast(el, sub ? 3200 : 2400);
+  expireToast(el, action ? 6000 : sub ? 3200 : 2400);
 }
 
 /* ── TierBadge — coloured rank tile (rounded square) ────────────────────── */

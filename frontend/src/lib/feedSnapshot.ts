@@ -68,6 +68,37 @@ export function invalidateFeedSnapshot(): void {
 }
 
 /**
+ * The post the author just published. Normal ranking may place it a few rows down, so
+ * the next feed fetch asks the server to lead with it (`pin` on GET /feed), once. Read
+ * and cleared separately: StrictMode's double effect and a failed fetch mustn't lose it.
+ */
+const JUST_POSTED_KEY = "feed:just-posted";
+
+export function markJustPosted(postId: string): void {
+  try {
+    sessionStorage.setItem(JUST_POSTED_KEY, postId);
+  } catch {
+    /* the post just ranks normally */
+  }
+}
+
+export function readJustPosted(): string | null {
+  try {
+    return sessionStorage.getItem(JUST_POSTED_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearJustPosted(): void {
+  try {
+    sessionStorage.removeItem(JUST_POSTED_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
  * Update ONE post inside the stored snapshot, in place.
  *
  * QA 2026-08-05 §3 — the snapshot freezes engagement counts at the moment you left the
