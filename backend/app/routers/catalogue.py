@@ -14,6 +14,7 @@ from app.models.trust import Report
 from app.models.user import Follow, User
 from app.services.catalogue import norm_title, norm_scale, shared_photos, MATCH_MEDIUM
 from app.services.gamification import award_xp, feed_badge
+from app.services.notifications import notify_comment
 
 router = APIRouter(prefix="/catalogue", tags=["catalogue"])
 
@@ -646,16 +647,25 @@ async def add_catalogue_comment(
     )).scalar_one_or_none()
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
+    # Same threading as post comments: answering a reply files under its top-level
+    # comment, and the reply's author is the one notified.
+    parent_id = reply_to_id = None
     if body.parent_id:
-        parent = (await db.execute(
-            select(CatalogueComment.id).where(
+        target = (await db.execute(
+            select(CatalogueComment).where(
                 CatalogueComment.id == body.parent_id, CatalogueComment.sku == sku
             )
         )).scalar_one_or_none()
-        if not parent:
+        if not target:
             raise HTTPException(status_code=404, detail="Parent comment not found")
-    comment = CatalogueComment(sku=sku, user_id=current_user.id, parent_id=body.parent_id, body=text)
+        parent_id = target.parent_id or target.id
+        reply_to_id = target.user_id
+    comment = CatalogueComment(sku=sku, user_id=current_user.id, parent_id=parent_id, body=text)
     db.add(comment)
+    await notify_comment(
+        db, actor_id=current_user.id, text=text, ref_type="catalogue", ref_id=sku,
+        reply_to_id=reply_to_id,
+    )
     await db.flush()
     # Same earn action as post comments (+10, per-day cap; deduped per comment).
     await award_xp(db, current_user, "comment", ref_id=str(comment.id), ref_type="catalogue_comment")

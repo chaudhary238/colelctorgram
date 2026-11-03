@@ -651,7 +651,10 @@ export function CatalogueComments({ sku }: { sku: string }) {
   const [comments, setComments] = useState<CatComment[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState("");
+  // `replyTo` is the thread whose composer is open; `replyTarget` the comment being
+  // answered — its head or one of its replies (same model as post CommentThread).
   const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [replyTarget, setReplyTarget] = useState<CatComment | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
   // v8 Cards.jsx :304-309 — own-comment ··· menu with in-place Edit / Delete.
   const [menuId, setMenuId] = useState<string | null>(null);
@@ -712,15 +715,27 @@ export function CatalogueComments({ sku }: { sku: string }) {
   const parents = comments.filter((c) => !c.parent_id);
   const repliesOf = (id: string) => comments.filter((c) => c.parent_id === id);
 
-  async function send(parentId?: string) {
-    const isReply = !!parentId;
+  // Answering a reply starts the draft with its author's @handle; tapping the same
+  // Reply again closes the composer.
+  function startReply(threadId: string, target: CatComment) {
+    const closing = replyTo === threadId && replyTarget?.id === target.id;
+    setReplyTo(closing ? null : threadId);
+    setReplyTarget(closing ? null : target);
+    setReplyDraft(!closing && target.id !== threadId && target.handle ? `@${target.handle} ` : "");
+  }
+
+  // `threadId` (the open composer's thread) places the optimistic row; the comment
+  // answered is `replyTarget`, which the server files under that same thread.
+  async function send(threadId?: string) {
+    const isReply = !!threadId;
+    const parentId = isReply ? (replyTarget?.id ?? threadId) : undefined;
     const text = (isReply ? replyDraft : draft).trim();
     if (!text) return;
     // Optimistic append — the 201 payload replaces the placeholder, a failure
     // removes it and restores the draft for retry.
     const temp: CatComment = {
       id: `tmp-${Date.now()}`,
-      parent_id: parentId ?? null,
+      parent_id: threadId ?? null,
       body: text,
       handle: user?.handle ?? null,
       name: user?.name ?? "You",
@@ -738,13 +753,13 @@ export function CatalogueComments({ sku }: { sku: string }) {
       setComments((cs) => cs.map((c) => (c.id === temp.id ? created : c)));
     } catch {
       setComments((cs) => cs.filter((c) => c.id !== temp.id));
-      if (isReply) { setReplyDraft(text); setReplyTo(parentId ?? null); } else setDraft(text);
+      if (isReply) { setReplyDraft(text); setReplyTo(threadId ?? null); } else setDraft(text);
     }
   }
 
   // v8 Cards.jsx :311-365 — the same Row post comments use: slate bubble card
   // (name · badge pill · time · own-··· menu, then the body), heart+Reply BELOW it.
-  function Row({ c, reply }: { c: CatComment; reply?: boolean }) {
+  function Row({ c, reply, threadId }: { c: CatComment; reply?: boolean; threadId: string }) {
     const who = c.name ?? (c.handle ? `@${c.handle}` : "Collector");
     const isOwn = c.is_mine ?? false;
     const isEditing = editingId === c.id;
@@ -810,10 +825,11 @@ export function CatalogueComments({ sku }: { sku: string }) {
             <button type="button" onClick={() => like(c)} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", padding: 0, cursor: "pointer", color: c.is_liked ? "var(--stamp-red)" : "var(--ink-faint)", fontWeight: 600 }}>
               <Heart size={14} fill={c.is_liked ? "var(--stamp-red)" : "none"} />{(c.likes_count ?? 0) > 0 ? c.likes_count : "Like"}
             </button>
-            {!reply && (
+            {/* Optimistic rows have no server id to answer yet. */}
+            {!c.id.startsWith("tmp-") && (
               <button
                 type="button"
-                onClick={() => { setReplyTo(replyTo === c.id ? null : c.id); setReplyDraft(""); }}
+                onClick={() => startReply(threadId, c)}
                 style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 12, color: "var(--ink-faint)" }}
               >
                 Reply
@@ -839,10 +855,10 @@ export function CatalogueComments({ sku }: { sku: string }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {parents.map((c) => (
           <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <Row c={c} />
+            <Row c={c} threadId={c.id} />
             {repliesOf(c.id).length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingLeft: 30 }}>
-                {repliesOf(c.id).map((r) => <Row key={r.id} c={r} reply />)}
+                {repliesOf(c.id).map((r) => <Row key={r.id} c={r} reply threadId={c.id} />)}
               </div>
             )}
             {replyTo === c.id && (
@@ -854,7 +870,7 @@ export function CatalogueComments({ sku }: { sku: string }) {
                   value={replyDraft}
                   onChange={setReplyDraft}
                   onSubmit={() => send(c.id)}
-                  placeholder={`Reply to ${c.handle ? `@${c.handle}` : c.name ?? "collector"}…`}
+                  placeholder={`Reply to ${(replyTarget ?? c).handle ? `@${(replyTarget ?? c).handle}` : (replyTarget ?? c).name ?? "collector"}…`}
                 />
                 <IconButton icon={<Send size={15} />} active={!!replyDraft.trim()} onClick={() => send(c.id)} />
               </div>

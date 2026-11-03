@@ -68,7 +68,7 @@ function categoryOf(kind: string): CategoryId {
   if (kind === "follow") return "follows";
   // v8 (Overlays.jsx:556-561) buckets community activity under Replies —
   // community notifications are conversation, not "other".
-  if (kind === "comment" || kind === "community") return "replies";
+  if (kind === "comment" || kind === "reply" || kind === "mention" || kind === "community") return "replies";
   if (kind === "vouch") return "vouch";
   return "other"; // deal, wishlist*, event, preorder*, …
 }

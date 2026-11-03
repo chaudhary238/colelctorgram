@@ -8,6 +8,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { invalidateFeedSnapshot } from "@/lib/feedSnapshot";
 import { EntryFields, PostFields, entryDraft, entryPayload, postDraft, postPayload, type EntryDraft, type PostDraft } from "./EditFields";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -384,6 +385,8 @@ export function Queue({ kind, title, sub, row, detail, loadDetail, actions, filt
           onClose={() => setDeciding(null)}
           onDone={(result) => {
             setDeciding(null);
+            // Publishing must clear the feed's restore snapshot, or going back shows the old list.
+            if (kind === "posts") invalidateFeedSnapshot();
             // Drop the row now and open the next one; the reload below only reconciles,
             // and restores it if the decision left it pending (a first ban request).
             const i = shown.indexOf(cur);

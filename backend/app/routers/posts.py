@@ -17,7 +17,7 @@ from app.models.listing import Listing
 from app.models.community import Community, CommunityMember
 from app.models.deal import Vouch
 from app.services import feed_cache
-from app.services.notifications import notify
+from app.services.notifications import notify, notify_comment
 from app.services.gamification import award_xp, feed_badge
 from app.services.blocks import blocked_user_ids
 from app.services.social import likers_preview
@@ -585,10 +585,23 @@ async def add_comment(
             if not is_member:
                 raise HTTPException(status_code=403, detail="Join this community (and get approved) to comment.")
 
+    # `parent_id` is the comment being answered, which may itself be a reply. Threads
+    # stay one level deep, so a reply to a reply files under the same top-level comment
+    # while its author still gets the "replied to you" notification.
+    parent_id = reply_to_id = None
+    if body.parent_id:
+        target = (await db.execute(
+            select(Comment).where(Comment.id == body.parent_id, Comment.post_id == post_id)
+        )).scalar_one_or_none()
+        if not target:
+            raise HTTPException(status_code=404, detail="Comment not found")
+        parent_id = target.parent_id or target.id
+        reply_to_id = target.user_id
+
     comment = Comment(
         post_id=post_id,
         user_id=current_user.id,
-        parent_id=body.parent_id,
+        parent_id=parent_id,
         body=body.body,
     )
     db.add(comment)
@@ -596,18 +609,10 @@ async def add_comment(
     await db.execute(
         update(Post).where(Post.id == post_id).values(comments_count=Post.comments_count + 1)
     )
-    if post.user_id != current_user.id:
-        snippet = body.body if len(body.body) <= 80 else body.body[:80] + "…"
-        await notify(
-            db,
-            user_id=post.user_id,
-            actor_id=current_user.id,
-            kind="comment",
-            title="New comment",
-            body=f"commented: {snippet}",
-            ref_type="post",
-            ref_id=str(post.id),
-        )
+    await notify_comment(
+        db, actor_id=current_user.id, text=body.body, ref_type="post", ref_id=str(post.id),
+        reply_to_id=reply_to_id, owner_id=post.user_id,
+    )
     await db.flush()
     # XP: +5 per comment, dedup'd on comment id; not for self-comments (GM-05).
     if post.user_id != current_user.id:

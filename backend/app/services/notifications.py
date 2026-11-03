@@ -3,6 +3,7 @@
 Notifications are added to the caller's existing session and committed with the
 request (see app.database.get_db). Keep these calls cheap — a single INSERT.
 """
+import re
 import uuid
 from typing import Optional
 
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification
 from app.models.user import User
+from app.services.blocks import blocked_user_ids
 from app.ws.manager import manager
 
 # Map a notification `kind` to the notif_prefs toggle that gates it (DF-23). Kinds
@@ -73,3 +75,44 @@ async def notify(
     # Realtime nudge (notification.push) for live badge/Activity refresh. The
     # row commits with the request a beat later; clients refetch, not render this.
     await manager.publish(str(user_id), "notification.push", {"kind": kind, "title": title})
+
+
+# @handles in comment text — the HANDLE_RE charset (routers/users.py); handles are
+# stored lowercase.
+MENTION_RE = re.compile(r"@([A-Za-z0-9_]{3,20})\b")
+# Mentions notified per comment, so one comment can't ping a crowd.
+MAX_MENTIONS = 10
+
+
+async def notify_comment(
+    db: AsyncSession,
+    *,
+    actor_id: uuid.UUID,
+    text: str,
+    ref_type: str,
+    ref_id: str,
+    reply_to_id: Optional[uuid.UUID] = None,
+    owner_id: Optional[uuid.UUID] = None,
+) -> None:
+    """Notify everyone a new comment concerns, once each, most specific reason first:
+    the commenter it replies to ("reply"), anyone it @mentions ("mention"), then the
+    owner of what was commented on ("comment"). Never the actor, and no one in a block
+    relationship with them."""
+    handles = list({h.lower() for h in MENTION_RE.findall(text)})[:MAX_MENTIONS]
+    mentioned = (await db.execute(
+        select(User.id).where(User.handle.in_(handles))
+    )).scalars().all() if handles else []
+    snippet = text if len(text) <= 80 else text[:80] + "…"
+    skip = {actor_id, *(await blocked_user_ids(db, actor_id))}
+    for user_id, kind, title, body in (
+        (reply_to_id, "reply", "New reply", f"replied to your comment: {snippet}"),
+        *((m, "mention", "New mention", f"mentioned you: {snippet}") for m in mentioned),
+        (owner_id, "comment", "New comment", f"commented: {snippet}"),
+    ):
+        if user_id is None or user_id in skip:
+            continue
+        skip.add(user_id)
+        await notify(
+            db, user_id=user_id, actor_id=actor_id, kind=kind, title=title, body=body,
+            ref_type=ref_type, ref_id=ref_id,
+        )

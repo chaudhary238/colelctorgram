@@ -745,7 +745,10 @@ export function CommentThread({ postId, onCountChange }: { postId: string; onCou
   const [comments, setComments] = useState<ApiComment[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState("");
+  // `replyTo` is the thread (top-level comment) whose composer is open; `replyTarget`
+  // is the comment being answered — that thread's head or one of its replies.
   const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [replyTarget, setReplyTarget] = useState<ApiComment | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
   const [menuId, setMenuId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null); // QA #27
@@ -773,14 +776,26 @@ export function CommentThread({ postId, onCountChange }: { postId: string; onCou
   const parents = comments.filter((c) => !c.parent_id);
   const repliesOf = (id: string) => comments.filter((c) => c.parent_id === id);
 
+  // Replies open the composer under their thread; answering a reply starts the draft
+  // with its author's @handle so the thread reads as a conversation. Tapping the same
+  // Reply again closes it.
+  function startReply(threadId: string, target: ApiComment) {
+    const closing = replyTo === threadId && replyTarget?.id === target.id;
+    setReplyTo(closing ? null : threadId);
+    setReplyTarget(closing ? null : target);
+    setReplyDraft(!closing && target.id !== threadId && target.handle ? `@${target.handle} ` : "");
+  }
+
   async function add(parentId?: string) {
     const isReply = !!parentId;
     const text = (isReply ? replyDraft : draft).trim();
     if (!text) return;
     try {
+      // The server files a reply-to-a-reply under its thread, so `created.parent_id`
+      // is always the top-level comment.
       const created = await api.post<ApiComment>(`/posts/${postId}/comments`, { body: text, parent_id: parentId });
       setComments((cs) => [...cs, created]);
-      if (isReply) { setReplyDraft(""); setReplyTo(null); } else setDraft("");
+      if (isReply) { setReplyDraft(""); setReplyTo(null); setReplyTarget(null); } else setDraft("");
       setEmojiFor(null);
     } catch { /* leave draft for retry */ }
   }
@@ -816,7 +831,7 @@ export function CommentThread({ postId, onCountChange }: { postId: string; onCou
     catch { setComments(prev); }
   }
 
-  function Row({ c, reply }: { c: ApiComment; reply?: boolean }) {
+  function Row({ c, reply, threadId }: { c: ApiComment; reply?: boolean; threadId: string }) {
     const isOwn = c.is_mine ?? false;
     const isEditing = editingId === c.id;
     const menuOpen = menuId === c.id;
@@ -884,9 +899,7 @@ export function CommentThread({ postId, onCountChange }: { postId: string; onCou
             <button onClick={() => like(c)} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", padding: 0, cursor: "pointer", color: c.is_liked ? "var(--stamp-red)" : "var(--ink-faint)", fontWeight: 600 }}>
               <Heart size={14} fill={c.is_liked ? "var(--stamp-red)" : "none"} />{(c.likes_count ?? 0) > 0 ? c.likes_count : "Like"}
             </button>
-            {!reply && (
-              <button onClick={() => { setReplyTo(replyTo === c.id ? null : c.id); setReplyDraft(""); }} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--ink-faint)", fontWeight: 600 }}>Reply</button>
-            )}
+            <button onClick={() => startReply(threadId, c)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--ink-faint)", fontWeight: 600 }}>Reply</button>
           </div>
         </div>
       </div>
@@ -898,18 +911,18 @@ export function CommentThread({ postId, onCountChange }: { postId: string; onCou
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {parents.map((c) => (
           <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <Row c={c} />
+            <Row c={c} threadId={c.id} />
             {repliesOf(c.id).length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingLeft: 30 }}>
-                {repliesOf(c.id).map((r) => <Row key={r.id} c={r} reply />)}
+                {repliesOf(c.id).map((r) => <Row key={r.id} c={r} reply threadId={c.id} />)}
               </div>
             )}
             {replyTo === c.id && (
               <div style={{ display: "flex", gap: 8, alignItems: "center", paddingLeft: 30 }}>
                 <Avatar name="You" color="var(--ink)" size={26} />
-                <MentionInput size="sm" autoFocus value={replyDraft} onChange={setReplyDraft} onSubmit={() => add(c.id)} placeholder={`Reply to @${c.handle ?? c.name ?? "user"}…`} />
+                <MentionInput size="sm" autoFocus value={replyDraft} onChange={setReplyDraft} onSubmit={() => add((replyTarget ?? c).id)} placeholder={`Reply to @${(replyTarget ?? c).handle ?? (replyTarget ?? c).name ?? "user"}…`} />
                 <EmojiToggle active={emojiFor === c.id} onClick={() => setEmojiFor(emojiFor === c.id ? null : c.id)} />
-                <IconButton icon={<Send size={15} />} active={!!replyDraft.trim()} onClick={() => add(c.id)} />
+                <IconButton icon={<Send size={15} />} active={!!replyDraft.trim()} onClick={() => add((replyTarget ?? c).id)} />
               </div>
             )}
             {replyTo === c.id && emojiFor === c.id && (
