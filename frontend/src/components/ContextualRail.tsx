@@ -11,6 +11,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { announceFollow, onFollowChange } from "@/lib/followSync";
 import { useUser } from "@/lib/auth-context";
+import { useMediaQuery, useSecondaryReady } from "@/lib/loadOrder";
 import { Avatar, Money, ProductPhoto, toneVar } from "@/components/ui";
 import { ApiCommunity, ApiEvent, ApiListing } from "@/components/cards";
 import {
@@ -42,8 +43,13 @@ const fmt = (n: number) => n.toLocaleString("en-IN");
 export function ContextualRail() {
   const pathname = usePathname();
   const { user } = useUser();
+  // Mounted only where it's actually shown (the layout hides it below 1280px with CSS,
+  // which used to still run every widget's fetch on phones), and its widgets wait for
+  // the feed's first page (lib/loadOrder).
+  const wide = useMediaQuery("(min-width: 1280px)");
+  const ready = useSecondaryReady();
 
-  if (HIDDEN_PREFIXES.some((p) => pathname.startsWith(p))) return null;
+  if (!wide || HIDDEN_PREFIXES.some((p) => pathname.startsWith(p))) return null;
 
   const widgets =
     ROUTE_WIDGETS.find(([prefix]) => pathname.startsWith(prefix))?.[1] ?? DEFAULT_WIDGETS;
@@ -65,11 +71,11 @@ export function ContextualRail() {
       </Link>
       {/* Staff sit OUTSIDE rewards (QA 2026-08-04 §4) — no rank card, no XP, no
           "ways to earn" for admin accounts; the widgets below skip it too. */}
-      {user?.handle && !user.is_admin && <RewardCard handle={user.handle} isMe />}
+      {ready && user?.handle && !user.is_admin && <RewardCard handle={user.handle} isMe />}
 
       {/* slots 2–3 — page-aware */}
       <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 18 }}>
-        {widgets
+        {ready && widgets
           .filter((id) => !(user?.is_admin && id === "ways_to_earn"))
           .map((id) => {
             const W = WIDGET_MAP[id];

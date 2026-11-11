@@ -23,6 +23,7 @@ import {
   MAX_SNAPSHOT_POSTS, clearJustPosted, readFeedSnapshot, readJustPosted, writeFeedSnapshot,
 } from "@/lib/feedSnapshot";
 import { onFollowChange } from "@/lib/followSync";
+import { markPrimaryReady, useSecondaryReady } from "@/lib/loadOrder";
 
 type StreamItem =
   | { t: "post"; key: string; data: ApiPost }
@@ -309,8 +310,11 @@ export default function FeedPage() {
     };
   }, []);
 
-  // Side cards (listings + events) load once — they're interspersed, not paginated.
+  // Side cards (listings + events) load once — they're interspersed, not paginated —
+  // and only after the first page of posts, so they never compete with it.
+  const secondaryReady = useSecondaryReady();
   useEffect(() => {
+    if (!secondaryReady) return;
     Promise.all([
       api.get<{ items: ApiListing[] }>("/listings?limit=4"),
       api.get<ApiEvent[]>("/events?limit=2"),
@@ -320,7 +324,7 @@ export default function FeedPage() {
         setEvents(e ?? []);
       })
       .catch(console.error);
-  }, []);
+  }, [secondaryReady]);
 
   // Posts reload whenever tab/prefs change (server-side). Skip the fetch for
   // the exact combo we rehydrated from a snapshot (the posts are already there);
@@ -328,7 +332,7 @@ export default function FeedPage() {
   useEffect(() => {
     if (!restoreChecked) return;                  // snapshot hasn't been consulted yet
     const key = `${tab}|${prefsVersion}`;
-    if (restoredKeyRef.current === key) return;   // restored — keep those posts
+    if (restoredKeyRef.current === key) { markPrimaryReady(); return; }   // restored — keep those posts
     restoredKeyRef.current = null;                // consumed; future changes refetch
     let cancelled = false;
     setLoading(true);
@@ -345,7 +349,10 @@ export default function FeedPage() {
         setHasMore(items.length >= PAGE_SIZE);
       })
       .catch((e) => { if (!cancelled) console.error(e); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .finally(() => {
+        markPrimaryReady(); // the rail, badges and mixed-in cards may load now (lib/loadOrder)
+        if (!cancelled) setLoading(false);
+      });
     return () => { cancelled = true; };
   }, [restoreChecked, tab, prefsVersion]);
 
@@ -410,6 +417,7 @@ export default function FeedPage() {
     }
     return base;
   }, [posts, listings, events, tab, hideListings]);
+  let postIdx = 0; // counts posts while rendering the stream (first two get photo priority)
 
   return (
     <div className="w-full max-w-[680px] min-h-screen border-r border-[var(--slate-200)] bg-[var(--canvas)]">
@@ -479,11 +487,14 @@ export default function FeedPage() {
               </div>
             : stream.map((x) => {
                 if (x.t === "post") {
+                  // The first two posts' photos are what the screen opens on — fetch them
+                  // ahead of everything else; the rest stay lazy.
+                  const priority = postIdx++ < 2;
                   // Share-to-Feed "showcase" posts carry ref_listing → the v8
                   // listing-share card; everything else stays a PostCard.
                   return x.data.ref_listing
                     ? <SharedListingCard key={x.key} post={x.data} showFollow />
-                    : <PostCard key={x.key} post={x.data} showFollow />;
+                    : <PostCard key={x.key} post={x.data} showFollow priority={priority} />;
                 }
                 if (x.t === "listing") return <ListingFeedCard key={x.key} listing={x.data} />;
                 if (x.t === "event") return <FeedEventCard key={x.key} event={x.data} />;

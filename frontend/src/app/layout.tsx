@@ -10,6 +10,10 @@ import "./globals.css";
 // Montserrat in admin 2026-11-01, JetBrains Mono here 2026-11-11). The --font-geist-sans /
 // --font-geist-mono / --font-jetbrains variables globals.css binds to are set on :root there.
 const FONTS = "https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&family=JetBrains+Mono:wght@400;500;600&display=swap";
+// Open the image CDN and API connections while the page boots, not when the first photo
+// or request needs them — each new TLS connection costs several round trips (≈0.6s to
+// media.scorred.com from India, founder 2026-11-11 timing).
+const API_ORIGIN = (() => { try { return new URL(process.env.NEXT_PUBLIC_API_URL ?? "").origin; } catch { return null; } })();
 
 export const metadata: Metadata = {
   title: "Scorred",
@@ -38,6 +42,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="stylesheet" href={FONTS} />
+        <link rel="preconnect" href="https://media.scorred.com" />
+        {API_ORIGIN && <link rel="preconnect" href={API_ORIGIN} crossOrigin="anonymous" />}
       </head>
       {/* suppressHydrationWarning: extensions (Grammarly et al.) inject attributes
           onto <body> before hydration — suppresses the attribute-mismatch noise on

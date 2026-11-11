@@ -1022,7 +1022,7 @@ export function PollBlock({
    clamp to 560px and letterbox on bone so one 9:16 shot can't own the feed.
    Until the photo arrives it holds a fixed square with a shimmer, then takes its
    real shape (founder 2026-11-11: no stored photo sizes for now). */
-function PostImg({ src, style }: { src: string; style?: React.CSSProperties }) {
+function PostImg({ src, style, priority = false }: { src: string; style?: React.CSSProperties; priority?: boolean }) {
   const [doneSrc, setDoneSrc] = useState<string | undefined>(undefined);
   const done = doneSrc === src;
   const finish = () => setDoneSrc(src);
@@ -1030,7 +1030,8 @@ function PostImg({ src, style }: { src: string; style?: React.CSSProperties }) {
     <div className={done ? undefined : "img-skeleton"} style={{ position: "relative", width: "100%", ...(done ? null : { aspectRatio: "1 / 1", maxHeight: 560 }) }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={cdnImg(src, 960)} srcSet={cdnSrcSet(src)} sizes={SIZES.feed} alt="" loading="lazy" decoding="async"
+        src={cdnImg(src, 960)} srcSet={cdnSrcSet(src)} sizes={SIZES.feed} alt=""
+        loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : undefined} decoding="async"
         // Already-cached photos can finish before React attaches onLoad.
         ref={(el) => { if (el?.complete && el.naturalWidth && !done) finish(); }}
         onLoad={finish} onError={finish}
@@ -1043,23 +1044,25 @@ function PostImg({ src, style }: { src: string; style?: React.CSSProperties }) {
     </div>
   );
 }
-export function PostImages({ images }: { images: string[] }) {
+/** `priority`: an above-the-fold post (feed's first two) — its first photo is fetched
+    eagerly at high priority instead of lazily. */
+export function PostImages({ images, priority = false }: { images: string[]; priority?: boolean }) {
   const n = images.length;
   if (n === 1) {
     return (
       <div style={{ borderRadius: 12, overflow: "hidden" }}>
-        <PostImg src={images[0]} />
+        <PostImg src={images[0]} priority={priority} />
       </div>
     );
   }
   // QA 5.1 — multi-photo posts swipe as a carousel instead of stacking/gridding.
-  return <PostCarousel images={images} />;
+  return <PostCarousel images={images} priority={priority} />;
 }
 
 // Swipeable, scroll-snapped photo carousel with dot + "n/total" indicators.
 // Indicators are pointer-events:none so the surrounding <Link> (tap → post
 // detail) still works while a horizontal drag pages between photos.
-function PostCarousel({ images }: { images: string[] }) {
+function PostCarousel({ images, priority = false }: { images: string[]; priority?: boolean }) {
   const n = images.length;
   const [active, setActive] = useState(0);
   const scrollerRef = React.useRef<HTMLDivElement>(null);
@@ -1083,7 +1086,7 @@ function PostCarousel({ images }: { images: string[] }) {
           // Mixed-ratio slides: the scroller is as tall as the tallest photo;
           // shorter ones centre on bone instead of cropping to a shared ratio.
           <div key={i} style={{ flex: "0 0 100%", scrollSnapAlign: "center", display: "flex", alignItems: "center", background: "var(--bone)" }}>
-            <PostImg src={src} />
+            <PostImg src={src} priority={priority && i === 0} />
           </div>
         ))}
       </div>
@@ -1102,9 +1105,11 @@ function PostCarousel({ images }: { images: string[] }) {
 }
 
 /* ── Post card ───────────────────────────────────────────────────── */
-export function PostCard({ post, showFollow = false, authorRole = null, canModerate = false, onRemove }: {
+export function PostCard({ post, showFollow = false, authorRole = null, canModerate = false, onRemove, priority = false }: {
   post: ApiPost;
   showFollow?: boolean;
+  /** Feed's first posts: their photos load eagerly at high priority (lib/loadOrder note). */
+  priority?: boolean;
   /** Author's role in the community this card renders in (DV8-14) — ADMIN/MOD chip
       in the author row. Null (default) renders no chip. */
   authorRole?: AuthorRole;
@@ -1313,7 +1318,7 @@ export function PostCard({ post, showFollow = false, authorRole = null, canModer
 
       {post.images.length > 0 && (
         <Link href={`/post/${post.id}`} style={{ display: "block", padding: "12px 18px 0", position: "relative" }}>
-          <PostImages images={post.images} />
+          <PostImages images={post.images} priority={priority} />
         </Link>
       )}
 
