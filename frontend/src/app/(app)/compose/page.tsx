@@ -15,10 +15,12 @@
 // suggestions from /feed/tags + /search/trending while typing, and an ISO City
 // input (iso_city, prefilled from the profile city).
 
+import { cdnImg } from "@/lib/cdn";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { X, ArrowLeft, Check, Camera, PlusCircle, Star, ChevronDown, ChevronRight, Tag, Search, Pencil } from "lucide-react";
 import { api } from "@/lib/api";
+import { uploadImage } from "@/lib/image";
 import { track } from "@/lib/analytics";
 import { ApiCommunity, refTone } from "@/components/cards";
 import { useUser } from "@/lib/auth-context";
@@ -58,7 +60,6 @@ const CHIP_LABELS: Record<string, string> = {
   tcg: "Trading Cards (TCG)",
 };
 
-interface UploadUrlResponse { upload_url: string; key: string; public_url: string; }
 
 // design_v8 — "Tag item": link a post to a catalogue entry. Same /catalogue/search
 // endpoint (and hit shape) the add-item SearchStep uses.
@@ -330,14 +331,8 @@ function ComposePage() {
     setUploading(true);
     setUploadError(null);
     try {
-      const meta = await api.post<UploadUrlResponse>(
-        `/media/upload-url?prefix=posts&content_type=${encodeURIComponent(file.type)}`
-      );
-      // fetch only rejects on a NETWORK error, not on a 4xx/5xx — so an R2 403 (bad CORS,
-      // signature or creds) would otherwise be swallowed and the photo silently dropped.
-      const res = await fetch(meta.upload_url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      if (!res.ok) throw new Error(`Storage rejected the upload (HTTP ${res.status})`);
-      setImages((prev) => (prev.length < 6 ? [...prev, meta.public_url] : prev));
+      const url = await uploadImage(file, "posts");
+      setImages((prev) => (prev.length < 6 ? [...prev, url] : prev));
     } catch (e) {
       // A CORS-blocked PUT throws a generic "Failed to fetch" — call that out explicitly.
       const msg = e instanceof Error ? e.message : "Upload failed";
@@ -803,7 +798,7 @@ function ComposePage() {
             {images.map((url, i) => (
               <div key={i} style={{ position: "relative", width: 60, height: 60, flexShrink: 0, borderRadius: 10, overflow: "visible" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt="" style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 10, display: "block" }} />
+                <img src={cdnImg(url, 180)} alt="" style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 10, display: "block" }} />
                 <button onClick={() => setImages((p) => p.filter((_, j) => j !== i))} aria-label="Remove" style={{ position: "absolute", top: -5, right: -5, width: 18, height: 18, borderRadius: "50%", cursor: "pointer", background: "var(--ink)", color: "var(--paper)", border: "2px solid var(--paper)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <X size={9} strokeWidth={3} />
                 </button>

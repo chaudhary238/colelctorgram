@@ -1,10 +1,12 @@
 "use client";
 
+import { cdnImg, cdnSrcSet, SIZES } from "@/lib/cdn";
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Ban, Check, ChevronRight, Flag, Link2, Plus, Send, Shield, Camera, MoreHorizontal } from "lucide-react";
 import { api } from "@/lib/api";
+import { uploadImage } from "@/lib/image";
 import { useRealtime } from "@/lib/realtime";
 import { timeAgo } from "@/lib/utils";
 import { conditionLabel } from "@/lib/catalog";
@@ -200,16 +202,12 @@ function ChatThread() {
     if (!file.type.startsWith("image/") || photoBusy) return;
     setPhotoBusy(true);
     try {
-      const meta = await api.post<{ upload_url: string; public_url: string }>(
-        `/media/upload-url?prefix=uploads&content_type=${encodeURIComponent(file.type)}`
-      );
-      const res = await fetch(meta.upload_url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      if (!res.ok) throw new Error(`Storage rejected the upload (HTTP ${res.status})`);
+      const imageUrl = await uploadImage(file, "uploads");
       // A held draft context rides on the FIRST send even when that send is a photo.
       const ref = pendingRef;
       const msg = await api.post<Message>(
         `/threads/${threadId}/messages`,
-        ref ? { image_url: meta.public_url, ref_sku: ref.sku } : { image_url: meta.public_url },
+        ref ? { image_url: imageUrl, ref_sku: ref.sku } : { image_url: imageUrl },
       );
       setLocalMessages((prev) => [...prev, msg]);
       if (ref) consumeRef(ref);
@@ -369,7 +367,7 @@ function ChatThread() {
               <div style={{ padding: m.image_url ? 4 : "9px 13px", borderRadius: 16, fontSize: 14.5, lineHeight: 1.45, background: isMe(m) ? "var(--stamp-red)" : "var(--paper)", color: isMe(m) ? "var(--paper)" : "var(--ink)", border: isMe(m) ? "none" : "1px solid var(--border)", borderBottomRightRadius: isMe(m) ? 5 : 16, borderBottomLeftRadius: isMe(m) ? 16 : 5, overflow: "hidden" }}>
                 {m.image_url && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={m.image_url} alt="" style={{ display: "block", maxWidth: "100%", borderRadius: 12 }} />
+                  <img src={cdnImg(m.image_url, 960)} srcSet={cdnSrcSet(m.image_url)} sizes={SIZES.chat} alt="" loading="lazy" style={{ display: "block", maxWidth: "100%", borderRadius: 12 }} />
                 )}
                 {m.body && <div style={m.image_url ? { padding: "5px 9px 4px" } : undefined}>{m.body}</div>}
               </div>

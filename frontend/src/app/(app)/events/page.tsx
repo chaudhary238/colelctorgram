@@ -1,5 +1,6 @@
 "use client";
 
+import { cdnImg, cdnSrcSet, SIZES } from "@/lib/cdn";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Calendar, Filter, Plus, MapPin, Search, Star, X } from "lucide-react";
@@ -217,7 +218,7 @@ export default function EventsPage() {
               <Link href={`/events/${featured.id}`} style={{ display: "block", textDecoration: "none", marginTop: 10, borderRadius: 16, overflow: "hidden", background: "var(--ink)", position: "relative" }}>
                 {featured.cover_image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={featured.cover_image_url} alt="" style={{ display: "block", width: "100%", aspectRatio: "2/1", objectFit: "cover" }} />
+                  <img src={cdnImg(featured.cover_image_url, 960)} srcSet={cdnSrcSet(featured.cover_image_url)} sizes={SIZES.hero} alt="" style={{ display: "block", width: "100%", aspectRatio: "2/1", objectFit: "cover" }} />
                 ) : (
                   <ProductPhoto tone={featured.community?.tone ?? "plum"} ratio="2/1" rounded={0} />
                 )}

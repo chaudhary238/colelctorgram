@@ -1,5 +1,6 @@
 "use client";
 
+import { cdnImg } from "@/lib/cdn";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
@@ -106,7 +107,7 @@ export function AccountDrawer({
         <div className="flex items-center gap-[11px] px-[18px] pt-4 pb-4 border-b border-[var(--border)]">
           {user?.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={user.avatar_url} alt={user.name} className="rounded-full object-cover shrink-0" style={{ width: 42, height: 42 }} />
+            <img src={cdnImg(user.avatar_url, 126)} alt={user.name} className="rounded-full object-cover shrink-0" style={{ width: 42, height: 42 }} />
           ) : (
             <Avatar name={user?.name ?? "?"} size={42} />
           )}

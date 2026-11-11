@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Camera, Check, Clock, Image as ImageIcon, Pencil, X, Shield } from "lucide-react";
 import { api } from "@/lib/api";
+import { AVATAR_EDGE, PHOTO_EDGE, uploadImage } from "@/lib/image";
 import { DetailHeader } from "@/components/DetailHeader";
 import { PostImages, type ApiCommunity } from "@/components/cards";
 import { Avatar, Button, Segmented, SectionLabel, EmptyNote, PostTypeTag } from "@/components/ui";
@@ -802,8 +803,6 @@ function SheetShell({ title, trailing, onClose, children }: {
   );
 }
 
-/* R2 presign response — same contract EditProfileSheet / ImageUploader use. */
-interface UploadUrlResponse { upload_url: string; public_url: string }
 
 /* v8 EditCommunitySheet (:397-446) — rename / photos / description / rules.
    Draft state lives on the page (so the dup-name 409 highlights the field);
@@ -832,7 +831,7 @@ function EditCommunitySheet({
   const banner = community.banner_url;
   const photo = community.avatar_url;
 
-  // Same presign → PUT → PATCH flow as EditProfileSheet (grep /media/upload-url);
+  // Same compress → presign → PUT → PATCH flow as EditProfileSheet (lib/image uploadImage);
   // the photo persists immediately via the page's savePhoto, exactly as before.
   const pickImg = async (e: React.ChangeEvent<HTMLInputElement>, field: "banner_url" | "avatar_url") => {
     const file = e.target.files?.[0];
@@ -840,12 +839,8 @@ function EditCommunitySheet({
     if (!file || !file.type.startsWith("image/") || uploading) return;
     setUploading(field);
     try {
-      const meta = await api.post<UploadUrlResponse>(
-        `/media/upload-url?prefix=uploads&content_type=${encodeURIComponent(file.type)}`
-      );
-      const res = await fetch(meta.upload_url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      if (!res.ok) throw new Error(`Storage rejected the upload (HTTP ${res.status})`);
-      await onPhotoUploaded(field, meta.public_url);
+      const url = await uploadImage(file, "uploads", field === "avatar_url" ? AVATAR_EDGE : PHOTO_EDGE);
+      await onPhotoUploaded(field, url);
     } catch (err) {
       fireToast(err instanceof Error && err.message ? err.message : "Upload failed — try again");
     } finally {

@@ -1,18 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
 import { Analytics } from "@/components/Analytics";
 import { PHProvider } from "@/components/PHProvider";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import "./globals.css";
 
-const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains",
-  weight: ["400", "500", "600"],
-});
+// Plain Google Fonts stylesheet, NOT next/font/google: Turbopack's font loader keeps
+// failing Vercel builds ("Can't resolve '@vercel/turbopack-next/internal/font/google/font'",
+// Montserrat in admin 2026-11-01, JetBrains Mono here 2026-11-11). The --font-geist-sans /
+// --font-geist-mono / --font-jetbrains variables globals.css binds to are set on :root there.
+const FONTS = "https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&family=JetBrains+Mono:wght@400;500;600&display=swap";
 
 export const metadata: Metadata = {
   title: "Scorred",
@@ -35,8 +32,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${jetbrains.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="stylesheet" href={FONTS} />
+      </head>
       {/* suppressHydrationWarning: extensions (Grammarly et al.) inject attributes
           onto <body> before hydration — suppresses the attribute-mismatch noise on
           this element only, one level deep. It does NOT hide real mismatches in the tree. */}

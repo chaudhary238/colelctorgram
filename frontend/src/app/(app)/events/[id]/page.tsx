@@ -1,5 +1,6 @@
 "use client";
 
+import { cdnImg, cdnSrcSet, SIZES } from "@/lib/cdn";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -228,7 +229,7 @@ export default function EventDetailPage() {
         </div>
         {event.cover_image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={event.cover_image_url} alt="" style={{ display: "block", width: "100%", aspectRatio: "3/2", objectFit: "cover" }} />
+          <img src={cdnImg(event.cover_image_url, 960)} srcSet={cdnSrcSet(event.cover_image_url)} sizes={SIZES.hero} alt="" style={{ display: "block", width: "100%", aspectRatio: "3/2", objectFit: "cover" }} />
         ) : (
           <ProductPhoto tone={event.community?.tone ?? "plum"} ratio="3/2" rounded={0} />
         )}

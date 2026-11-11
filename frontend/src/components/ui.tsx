@@ -6,6 +6,7 @@
    app matches the design's sizes, colors, and type exactly.
    ───────────────────────────────────────────────────────────── */
 
+import { cdnImg, cdnSrcSet, SIZES } from "@/lib/cdn";
 import React from "react";
 
 /* ── Scorred icon mark (brand/icon-crop.png) ─────────────────── */
@@ -101,7 +102,7 @@ export function Avatar({
         position: "relative",
         flexShrink: 0,
         letterSpacing: "-0.02em",
-        backgroundImage: photo ? `url(${photo})` : "none",
+        backgroundImage: photo ? `url(${cdnImg(photo, size * 3)})` : "none",
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}
@@ -423,7 +424,7 @@ export function ProductPhoto({
     >
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={label || ""} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: fit }} />
+        <img src={cdnImg(src, fit === "contain" ? 960 : 480)} srcSet={cdnSrcSet(src)} sizes={fit === "contain" ? SIZES.hero : SIZES.tile} alt={label || ""} loading="lazy" decoding="async" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: fit }} />
       ) : (
         <>
           <div

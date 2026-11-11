@@ -1,5 +1,6 @@
 "use client";
 
+import { cdnImg, cdnSrcSet, SIZES } from "@/lib/cdn";
 import { Fragment, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -391,7 +392,7 @@ export function UserProfile({ handle, isOwn }: UserProfileProps) {
 
   const avatarEl = profile.avatar_url ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={profile.avatar_url} alt={profile.name} className="rounded-full object-cover" style={{ width: 76, height: 76 }} />
+    <img src={cdnImg(profile.avatar_url, 228)} alt={profile.name} className="rounded-full object-cover" style={{ width: 76, height: 76 }} />
   ) : (
     // v8 EditAvatarView — the chosen avatar tone wins over the name-hash colour.
     <Avatar name={profile.name} color={profile.avatar_tone ? toneVar(profile.avatar_tone) : undefined} size={76} />
@@ -1027,7 +1028,7 @@ function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
         {item.image_url ? (
           <div style={{ aspectRatio: "1/1", overflow: "hidden" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={item.image_url} alt={titleForItem(item)} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            <img src={cdnImg(item.image_url, 480)} srcSet={cdnSrcSet(item.image_url, [256, 480, 960])} sizes={SIZES.tile} alt={titleForItem(item)} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </div>
         ) : (
           /* v8 :450 — bare placeholder, no brand caption on collection tiles. */

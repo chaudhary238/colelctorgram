@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Check, Shield, Info, Camera, ChevronLeft } from "lucide-react";
 import { api } from "@/lib/api";
+import { AVATAR_EDGE, uploadImage } from "@/lib/image";
 import { AuthUser } from "@/lib/auth-context";
 import { Avatar, Button, toneVar } from "@/components/ui";
 import { CityField } from "@/components/CityField";
@@ -32,8 +33,6 @@ const PROFILE_COLORS: { id: string; css: string }[] = [
   { id: "mute", css: "var(--ink-mute)" },
 ];
 
-/* R2 presign response (same contract ImageUploader's AvatarUploader uses). */
-interface UploadUrlResponse { upload_url: string; public_url: string }
 
 const CURRENT_YEAR = new Date().getFullYear();
 const ageFromBirthYear = (by?: number | null) =>
@@ -72,15 +71,10 @@ export function EditProfileSheet({ user, onClose, onSaved, initialStage }: EditP
     setAvatarBusy(true);
     setAvatarError("");
     try {
-      // Same presign flow as ImageUploader's AvatarUploader (kept out of that
-      // file — another surface owns it): presign → PUT to R2 → PATCH the URL.
-      const meta = await api.post<UploadUrlResponse>(
-        `/media/upload-url?prefix=avatars&content_type=${encodeURIComponent(f.type)}`
-      );
-      const res = await fetch(meta.upload_url, { method: "PUT", body: f, headers: { "Content-Type": f.type } });
-      if (!res.ok) throw new Error(`Storage rejected the upload (HTTP ${res.status})`);
-      const updated = await api.patch<AuthUser>("/users/me", { avatar_url: meta.public_url });
-      setAvatarUrl(meta.public_url);
+      // Compress + presign + PUT (lib/image), then PATCH the URL.
+      const url = await uploadImage(f, "avatars", AVATAR_EDGE);
+      const updated = await api.patch<AuthUser>("/users/me", { avatar_url: url });
+      setAvatarUrl(url);
       onSaved(updated);
       fireToast("Profile photo updated"); // v8 :172
     } catch (err) {

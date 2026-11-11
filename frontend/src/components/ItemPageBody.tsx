@@ -10,6 +10,7 @@
  * each page supplies itself.
  */
 
+import { cdnImg, cdnSrcSet, SIZES } from "@/lib/cdn";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -59,7 +60,7 @@ export function ItemPhotoCarousel({ images, tone, label, countInLabel = false }:
         {/* contain, not cover — the frame stays 1:1 for layout but the photo
             must never crop; off-ratio uploads letterbox on the dark ground. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={images[idx]} alt={label ?? "Item photo"} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+        <img src={cdnImg(images[idx], 960)} srcSet={cdnSrcSet(images[idx])} sizes={SIZES.hero} alt={label ?? "Item photo"} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
         {/* QA 2026-09-14 — explicit prev/next arrows (the dots alone weren't
             discoverable); same glass chrome as the market photo overlays. */}
         {images.length > 1 && (

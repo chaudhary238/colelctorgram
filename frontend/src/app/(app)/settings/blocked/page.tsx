@@ -1,5 +1,6 @@
 "use client";
 
+import { cdnImg } from "@/lib/cdn";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Ban } from "lucide-react";
@@ -84,7 +85,7 @@ export default function BlockedUsersPage() {
             <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: "1px solid var(--border)" }}>
               {u.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={u.avatar_url} alt={u.name} className="w-11 h-11 rounded-full object-cover shrink-0" />
+                <img src={cdnImg(u.avatar_url, 132)} alt={u.name} className="w-11 h-11 rounded-full object-cover shrink-0" />
               ) : (
                 <Avatar name={u.name} size={44} />
               )}

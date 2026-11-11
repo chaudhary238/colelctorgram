@@ -1,8 +1,9 @@
 "use client";
 
+import { cdnImg } from "@/lib/cdn";
 import { useCallback, useRef, useState } from "react";
 import { Camera, Upload, X, ImageIcon } from "lucide-react";
-import { api } from "@/lib/api";
+import { AVATAR_EDGE, uploadImage } from "@/lib/image";
 
 interface ImageUploaderProps {
   onUpload: (url: string) => void;
@@ -25,39 +26,6 @@ interface ImageUploaderProps {
   bad?: boolean;
 }
 
-interface UploadUrlResponse {
-  upload_url: string;
-  key: string;
-  public_url: string;
-}
-
-// DV6-13 — downscale + re-encode client-side before upload. A 12MP phone photo (~4–6MB)
-// becomes ~200–350KB: ~15× less storage/bandwidth and a much faster upload on mobile.
-// Falls back to the original file if the canvas path fails or doesn't help.
-const MAX_EDGE = 1600;
-const JPEG_QUALITY = 0.82;
-
-async function compressImage(file: File): Promise<Blob> {
-  // Only recompress raster photos; leave GIF/SVG untouched (animation/vector).
-  if (file.type === "image/gif" || file.type === "image/svg+xml") return file;
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
-    const w = Math.round(bitmap.width * scale);
-    const h = Math.round(bitmap.height * scale);
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return file;
-    ctx.drawImage(bitmap, 0, 0, w, h);
-    bitmap.close();
-    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", JPEG_QUALITY));
-    return blob && blob.size < file.size ? blob : file;
-  } catch {
-    return file;
-  }
-}
 
 export function ImageUploader({ onUpload, label = "Upload image", accept = "image/*", previewUrl, multiple = false, maxFiles, height, compact = false, tile = false, bad = false }: ImageUploaderProps) {
   const [dragging, setDragging] = useState(false);
@@ -71,17 +39,9 @@ export function ImageUploader({ onUpload, label = "Upload image", accept = "imag
   const uploadOne = useCallback(async (file: File, silent: boolean) => {
     if (!file.type.startsWith("image/")) { setError("Please select an image file."); return; }
     try {
-      const blob = await compressImage(file);
-      const contentType = blob.type || file.type;
-      const meta = await api.post<UploadUrlResponse>(
-        `/media/upload-url?prefix=uploads&content_type=${encodeURIComponent(contentType)}`
-      );
-      // fetch resolves on a 4xx/5xx — an R2 403 (CORS/signature/creds) must be caught
-      // explicitly, else we'd hand back a public_url for an object that was never stored.
-      const res = await fetch(meta.upload_url, { method: "PUT", body: blob, headers: { "Content-Type": contentType } });
-      if (!res.ok) throw new Error(`Storage rejected the upload (HTTP ${res.status})`);
-      if (!silent) setPreview(meta.public_url);
-      onUpload(meta.public_url);
+      const url = await uploadImage(file, "uploads");
+      if (!silent) setPreview(url);
+      onUpload(url);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Upload failed";
       setError(/failed to fetch/i.test(msg) ? "Upload blocked — check the image server (R2/CORS) setup." : msg);
@@ -146,7 +106,7 @@ export function ImageUploader({ onUpload, label = "Upload image", accept = "imag
         {preview ? (
           <>
             <img
-              src={preview}
+              src={cdnImg(preview, 480)}
               alt="Upload preview"
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
             />
@@ -221,17 +181,9 @@ export function AvatarUploader({ onUpload, previewUrl }: { onUpload: (url: strin
     if (!file.type.startsWith("image/")) return;
     setUploading(true);
     try {
-      const meta = await api.post<UploadUrlResponse>(
-        `/media/upload-url?prefix=avatars&content_type=${encodeURIComponent(file.type)}`
-      );
-      const res = await fetch(meta.upload_url, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
-      if (!res.ok) throw new Error(`Storage rejected the upload (HTTP ${res.status})`);
-      setPreview(meta.public_url);
-      onUpload(meta.public_url);
+      const url = await uploadImage(file, "avatars", AVATAR_EDGE);
+      setPreview(url);
+      onUpload(url);
     } catch (e) {
       // Surface the failure in the console instead of failing dead-silently.
       console.error("Avatar upload failed:", e);
@@ -255,7 +207,7 @@ export function AvatarUploader({ onUpload, previewUrl }: { onUpload: (url: strin
       }}
     >
       {preview ? (
-        <img src={preview} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        <img src={cdnImg(preview, 256)} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       ) : (
         <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <ImageIcon size={22} style={{ color: "var(--ink-faint)" }} />

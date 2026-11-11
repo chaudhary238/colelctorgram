@@ -3,8 +3,8 @@
 /* ── Scorred design tokens (v3 "New frontend" — RED / Xiaohongshu) ──────
    Source of truth: design_v3/colors_and_type.css (claude_design 90a2c099…).
    Token NAMES are reused across the app, so re-valuing them re-themes every
-   page at once (DF-28). The next/font wiring in layout.tsx is preserved — the
-   --font-* var() refs below bind to it. */
+   page at once (DF-28). Fonts load from the Google Fonts link in layout.tsx;
+   the --font-* var() refs below bind to the names set on :root. */
 :root {
   /* Palette: Paper & Ink (clean white + neutral greys) */
   --paper:             #FFFFFF;
@@ -62,9 +62,13 @@
   --danger:            var(--stamp-red);
   --info:              var(--verified-teal);
 
-  /* Type — bound to the next/font variables wired in layout.tsx.
+  /* Type — families come from the Google Fonts stylesheet linked in layout.tsx (no longer
+     next/font, which kept failing Vercel builds); these three names keep the old variables.
      v4: Geist is the sole loaded display+body font (colors_and_type.css:625);
      "Bricolage Grotesque" kept only as a string fallback to match v4's chain — no longer loaded. */
+  --font-geist-sans: "Geist";
+  --font-geist-mono: "Geist Mono";
+  --font-jetbrains:  "JetBrains Mono";
   --font-display: var(--font-geist-sans), "Geist", "Bricolage Grotesque", system-ui, sans-serif;
   --font-body:    var(--font-geist-sans), "Geist", system-ui, sans-serif;
   --font-mono:    var(--font-jetbrains), "JetBrains Mono", ui-monospace, monospace;
