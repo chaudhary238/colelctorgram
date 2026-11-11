@@ -13,7 +13,8 @@ const OURS = /^https:\/\/(?:media\.scorred\.com|pub-[a-z0-9]+\.r2\.dev)\/(.+)$/;
 // App uploads only. catalogue/ (Explore ingestion) is already ~50 KB a file — resizing
 // 15k of them would burn the free quota for nothing, so they only get the host swap.
 const RESIZABLE = /^(?:posts|uploads|avatars)\/[^?]+\.(?:jpe?g|png|webp|heic|avif)$/i;
-const LADDER = [128, 256, 480, 960, 1600] as const;
+// 1200 = a 390px phone at 3× (1170px) — without it phones jumped to 1600 (~⅓ more bytes).
+const LADDER = [128, 256, 480, 960, 1200, 1600] as const;
 
 /** `sizes` hints for srcset, matching our layouts (max content column 680px). */
 export const SIZES = {
@@ -41,7 +42,7 @@ export function cdnImg(url: string | null | undefined, width: number) {
 }
 
 /** srcset for fluid images (pair with a SIZES entry); undefined when not resizable. */
-export function cdnSrcSet(url: string | null | undefined, widths: readonly number[] = [480, 960, 1600]) {
+export function cdnSrcSet(url: string | null | undefined, widths: readonly number[] = [480, 960, 1200, 1600]) {
   const m = url ? OURS.exec(url) : null;
   if (!m || !RESIZABLE.test(m[1])) return undefined;
   return widths.map((w) => `${resized(m[1], w)} ${w}w`).join(", ");

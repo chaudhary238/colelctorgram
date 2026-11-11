@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { FeedBadge, goldFrameRing, hasGoldFrame, type FeedBadgeT } from "@/components/gamification";
-import { Avatar, ClampText, ConfirmDialog, Disclosure, IconButton, ProductPhoto, SealMark, Tag, statusLabel } from "@/components/ui";
+import { Avatar, ClampText, ConfirmDialog, Disclosure, IconButton, ProductPhoto, SealMark, ShimmerImg, Tag, statusLabel } from "@/components/ui";
 import { MentionInput, renderCommentBody } from "@/components/cards";
 import { conditionLabel, formatMoney } from "@/lib/catalog";
 import { timeAgo } from "@/lib/utils";
@@ -59,8 +59,7 @@ export function ItemPhotoCarousel({ images, tone, label, countInLabel = false }:
       <div style={{ position: "relative", aspectRatio: "1/1", overflow: "hidden", background: "var(--ink)" }}>
         {/* contain, not cover — the frame stays 1:1 for layout but the photo
             must never crop; off-ratio uploads letterbox on the dark ground. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={cdnImg(images[idx], 960)} srcSet={cdnSrcSet(images[idx])} sizes={SIZES.hero} alt={label ?? "Item photo"} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+        <ShimmerImg src={cdnImg(images[idx], 960)} srcSet={cdnSrcSet(images[idx])} sizes={SIZES.hero} alt={label ?? "Item photo"} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
         {/* QA 2026-09-14 — explicit prev/next arrows (the dots alone weren't
             discoverable); same glass chrome as the market photo overlays. */}
         {images.length > 1 && (

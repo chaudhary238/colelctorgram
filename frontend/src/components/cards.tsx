@@ -1019,11 +1019,28 @@ export function PollBlock({
 }
 
 /* ── Post image gallery — natural aspect ratio, never cropped. Tall images
-   clamp to 560px and letterbox on bone so one 9:16 shot can't own the feed. */
+   clamp to 560px and letterbox on bone so one 9:16 shot can't own the feed.
+   Until the photo arrives it holds a fixed square with a shimmer, then takes its
+   real shape (founder 2026-11-11: no stored photo sizes for now). */
 function PostImg({ src, style }: { src: string; style?: React.CSSProperties }) {
+  const [doneSrc, setDoneSrc] = useState<string | undefined>(undefined);
+  const done = doneSrc === src;
+  const finish = () => setDoneSrc(src);
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={cdnImg(src, 960)} srcSet={cdnSrcSet(src)} sizes={SIZES.feed} alt="" loading="lazy" decoding="async" style={{ display: "block", width: "100%", height: "auto", maxHeight: 560, objectFit: "contain", background: "var(--bone)", ...style }} />
+    <div className={done ? undefined : "img-skeleton"} style={{ position: "relative", width: "100%", ...(done ? null : { aspectRatio: "1 / 1", maxHeight: 560 }) }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={cdnImg(src, 960)} srcSet={cdnSrcSet(src)} sizes={SIZES.feed} alt="" loading="lazy" decoding="async"
+        // Already-cached photos can finish before React attaches onLoad.
+        ref={(el) => { if (el?.complete && el.naturalWidth && !done) finish(); }}
+        onLoad={finish} onError={finish}
+        style={{
+          display: "block", width: "100%", height: done ? "auto" : "100%", maxHeight: 560, objectFit: "contain",
+          background: "var(--bone)", opacity: done ? 1 : 0, transition: "opacity 250ms ease",
+          ...(done ? null : { position: "absolute", inset: 0 }), ...style,
+        }}
+      />
+    </div>
   );
 }
 export function PostImages({ images }: { images: string[] }) {

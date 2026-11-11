@@ -60,6 +60,30 @@ export function ScorredWordmark({ fontSize = 22 }: { fontSize?: number }) {
   );
 }
 
+/* ── Image with a loading shimmer (founder 2026-11-11) — the parent must be
+   position:relative (the shimmer covers it). The photo fades in once it arrives;
+   a failed load just drops the shimmer. Resets when `src` changes. */
+export function ShimmerImg({ style, onLoad, onError, alt = "", ...props }: React.ImgHTMLAttributes<HTMLImageElement>) {
+  const [doneSrc, setDoneSrc] = React.useState<unknown>(undefined);
+  const done = doneSrc !== undefined && doneSrc === props.src;
+  const finish = () => setDoneSrc(props.src);
+  return (
+    <>
+      {!done && <span aria-hidden className="img-skeleton" style={{ position: "absolute", inset: 0 }} />}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        {...props}
+        alt={alt}
+        // Already-cached photos can finish before React attaches onLoad.
+        ref={(el) => { if (el?.complete && el.naturalWidth && !done) finish(); }}
+        onLoad={(e) => { finish(); onLoad?.(e); }}
+        onError={(e) => { finish(); onError?.(e); }}
+        style={{ ...style, opacity: done ? 1 : 0, transition: "opacity 250ms ease" }}
+      />
+    </>
+  );
+}
+
 /* ── Avatar (initial bubble, optional verified tick) ─────────── */
 const AVATAR_PALETTE = [
   "var(--stamp-red)",
@@ -423,8 +447,7 @@ export function ProductPhoto({
       }}
     >
       {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={cdnImg(src, fit === "contain" ? 960 : 480)} srcSet={cdnSrcSet(src)} sizes={fit === "contain" ? SIZES.hero : SIZES.tile} alt={label || ""} loading="lazy" decoding="async" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: fit }} />
+        <ShimmerImg src={cdnImg(src, fit === "contain" ? 960 : 480)} srcSet={cdnSrcSet(src)} sizes={fit === "contain" ? SIZES.hero : SIZES.tile} alt={label || ""} loading="lazy" decoding="async" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: fit }} />
       ) : (
         <>
           <div

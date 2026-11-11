@@ -13,10 +13,7 @@ import { api } from "@/lib/api";
 import { announceFollow } from "@/lib/followSync";
 import { placeLabel } from "@/lib/utils";
 import { AuthUser, useUser } from "@/lib/auth-context";
-import {
-  Avatar, Money, Segmented, ProductPhoto,
-  Tag, EmptyNote, Button, IconButton, compactNum, toneVar,
-} from "@/components/ui";
+import { Avatar, Money, Segmented, ProductPhoto, Tag, EmptyNote, Button, IconButton, compactNum, toneVar, ShimmerImg } from "@/components/ui";
 import { PostCard, SharedListingCard, type ApiPost, type ApiRefListing } from "@/components/cards";
 import { EditProfileSheet, type EditProfileStage } from "@/components/EditProfileSheet";
 import { FollowListModal } from "@/components/FollowListModal";
@@ -1026,9 +1023,8 @@ function ItemTile({ item, isOwn }: { item: CollectionItem; isOwn: boolean }) {
           grayscale(1) at 62% opacity, so even the Sold tag reads as a record. */}
       <div style={{ position: "relative", filter: sold ? "grayscale(1)" : "none", opacity: sold ? 0.62 : 1 }}>
         {item.image_url ? (
-          <div style={{ aspectRatio: "1/1", overflow: "hidden" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={cdnImg(item.image_url, 480)} srcSet={cdnSrcSet(item.image_url, [256, 480, 960])} sizes={SIZES.tile} alt={titleForItem(item)} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          <div style={{ position: "relative", aspectRatio: "1/1", overflow: "hidden" }}>
+            <ShimmerImg src={cdnImg(item.image_url, 480)} srcSet={cdnSrcSet(item.image_url, [256, 480, 960])} sizes={SIZES.tile} alt={titleForItem(item)} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </div>
         ) : (
           /* v8 :450 — bare placeholder, no brand caption on collection tiles. */
